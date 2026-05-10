@@ -224,6 +224,16 @@ def logout():
 
 
 @app.route('/')
+def index():
+    """
+    Root route - redirect to login if not authenticated, otherwise to report form
+    """
+    if 'user' in session:
+        return redirect(url_for('report_form'))
+    return redirect(url_for('login'))
+
+
+@app.route('/reporte')
 @login_required
 def report_form():
     """
