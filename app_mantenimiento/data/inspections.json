@@ -1,0 +1,148 @@
+{
+  "version": "1.0",
+  "last_modified": "2026-05-10T12:07:28.632073",
+  "submissions": [
+    {
+      "id": "insp_1778360324470_5942",
+      "username": "john",
+      "community": "Community A",
+      "submitted_at": "2026-05-09T14:58:44.470953",
+      "responses": [
+        {
+          "question_id": "q_123_456",
+          "question_text": "Is the area clean?",
+          "condition": "Good",
+          "description": "Everything looks good",
+          "photo_path": null,
+          "answered_at": "2026-05-09T14:58:44.470940"
+        },
+        {
+          "question_id": "q_789_012",
+          "question_text": "Are lights working?",
+          "condition": "Needs Attention",
+          "description": "One bulb is out",
+          "photo_path": null,
+          "answered_at": "2026-05-09T14:58:44.470946"
+        }
+      ]
+    },
+    {
+      "id": "insp_1778360324473_8646",
+      "username": "john",
+      "community": "Community A",
+      "submitted_at": "2026-05-09T14:58:44.473611",
+      "responses": []
+    },
+    {
+      "id": "insp_1778360324476_4834",
+      "username": "john",
+      "community": "Community A",
+      "submitted_at": "2026-05-09T14:58:44.476783",
+      "responses": [
+        {
+          "question_id": "q_photo_test",
+          "question_text": "Photo test question",
+          "condition": "Good",
+          "description": "Testing photo upload",
+          "photo_path": "Community_A/john_Community A_1778360324.jpg",
+          "answered_at": "2026-05-09T14:58:44.476772"
+        }
+      ]
+    },
+    {
+      "id": "insp_1778364706799_7560",
+      "username": "john",
+      "community": "Community A",
+      "submitted_at": "2026-05-09T16:11:46.799643",
+      "responses": [
+        {
+          "question_id": "q_1705316000000_9876",
+          "question_text": "Is the kitchen area sanitized?",
+          "condition": "Good",
+          "description": "Everything is clean",
+          "photo_path": null,
+          "answered_at": "2026-05-09T16:11:46.799624"
+        }
+      ]
+    },
+    {
+      "id": "insp_1778436221192_6216",
+      "username": "test_user",
+      "community": "Community A",
+      "submitted_at": "2026-05-10T12:03:41.192577",
+      "responses": [
+        {
+          "question_id": "test_q_id",
+          "question_text": "Test question",
+          "condition": "Good",
+          "description": "Test description",
+          "photo_path": null,
+          "answered_at": "2024-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "insp_1778436253142_7063",
+      "username": "test_user",
+      "community": "Community A",
+      "submitted_at": "2026-05-10T12:04:13.142946",
+      "responses": [
+        {
+          "question_id": "test_q_id",
+          "question_text": "Test question",
+          "condition": "Good",
+          "description": "Test description",
+          "photo_path": null,
+          "answered_at": "2024-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "insp_1778436448627_8356",
+      "username": "john",
+      "community": "Community A",
+      "submitted_at": "2026-05-10T12:07:28.627418",
+      "responses": [
+        {
+          "question_id": "q_123_456",
+          "question_text": "Is the area clean?",
+          "condition": "Good",
+          "description": "Everything looks good",
+          "photo_path": null,
+          "answered_at": "2026-05-10T12:07:28.627407"
+        },
+        {
+          "question_id": "q_789_012",
+          "question_text": "Are lights working?",
+          "condition": "Needs Attention",
+          "description": "One bulb is out",
+          "photo_path": null,
+          "answered_at": "2026-05-10T12:07:28.627412"
+        }
+      ]
+    },
+    {
+      "id": "insp_1778436448630_9311",
+      "username": "john",
+      "community": "Community A",
+      "submitted_at": "2026-05-10T12:07:28.630239",
+      "responses": [
+        {
+          "question_id": "q_123_456",
+          "question_text": "Is the area clean?",
+          "condition": "Good",
+          "description": "Everything looks good",
+          "photo_path": "Community_A/john_Community A_1778436448.jpg",
+          "answered_at": "2026-05-10T12:07:28.630234"
+        }
+      ]
+    },
+    {
+      "id": "insp_1778436448632_8350",
+      "username": "john",
+      "community": "Community A",
+      "submitted_at": "2026-05-10T12:07:28.632065",
+      "responses": []
+    }
+  ]
+}

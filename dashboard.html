@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Maintenance Reports</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            padding: 20px;
+            color: #333;
+            margin: 0;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            background-color: #2c3e50;
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        /* Contenedor de los botones de filtro */
+        .filter-controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .filter-btn {
+            padding: 10px 20px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #ddd;
+            transition: background-color 0.3s;
+        }
+        /* Colores para los botones al pasar el mouse o estar activos */
+        .filter-btn:hover { background-color: #bbb; }
+        .filter-btn.active-all { background-color: #2980b9; color: white; }
+        .filter-btn.active-good { background-color: #27ae60; color: white; }
+        .filter-btn.active-bad { background-color: #e74c3c; color: white; }
+
+        /* Contenedor principal de la Galería */
+        .gallery-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            padding: 10px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: scale(1.02); }
+        .card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-bottom: 3px solid #ddd;
+        }
+        .card-content { padding: 15px; }
+        .card-title {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #2980b9;
+        }
+        .location {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .badge.good { background-color: #e9f7ef; color: #27ae60; border: 1px solid #27ae60; }
+        .badge.bad { background-color: #fdedec; color: #e74c3c; border: 1px solid #e74c3c; }
+        .description { font-size: 14px; color: #666; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Maintenance Reports Gallery</h1>
+        <p>Live view of 38 Assisted Living Communities</p>
+    </div>
+
+    <div class="filter-controls">
+        <button class="filter-btn active-all" onclick="renderGallery('All')">All Reports</button>
+        <button class="filter-btn" onclick="renderGallery('Good')">👍 Good Condition</button>
+        <button class="filter-btn" onclick="renderGallery('Bad')">👎 Needs Attention</button>
+    </div>
+
+    <div class="gallery-container" id="gallery">
+        </div>
+
+    <script>
+        const reportsData = [
+            {
+                community: "Community 1", location: "Hallway 3", condition: "Needs Attention",
+                icon: "👎", statusClass: "bad", description: "There is a large coffee stain on the carpet near the main elevator.",
+                imageUrl: "https://images.unsplash.com/photo-1558882224-dda166733046?auto=format&fit=crop&w=400&q=80"
+            },
+            {
+                community: "Community 12", location: "Dining Room", condition: "Good",
+                icon: "👍", statusClass: "good", description: "Deep cleaning finished. All tables and floors are in perfect condition.",
+                imageUrl: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=400&q=80"
+            },
+            {
+                community: "Community 5", location: "Room 102", condition: "Needs Attention",
+                icon: "👎", statusClass: "bad", description: "Chipped paint on the wall right next to the bathroom door.",
+                imageUrl: "https://images.unsplash.com/photo-1562259929-b7e181d8d007?auto=format&fit=crop&w=400&q=80"
+            }
+        ];
+
+        // Función modificada para aceptar un filtro
+        function renderGallery(filterType = 'All') {
+            const galleryElement = document.getElementById('gallery');
+            galleryElement.innerHTML = ''; 
+
+            // Filtramos los datos antes de dibujarlos
+            const filteredData = reportsData.filter(report => {
+                if (filterType === 'All') return true;
+                if (filterType === 'Good' && report.statusClass === 'good') return true;
+                if (filterType === 'Bad' && report.statusClass === 'bad') return true;
+                return false;
+            });
+
+            // Dibujamos solo los datos filtrados
+            filteredData.forEach(report => {
+                const cardHTML = `
+                    <div class="card">
+                        <img src="${report.imageUrl}" alt="Report Photo">
+                        <div class="card-content">
+                            <h3 class="card-title">${report.community}</h3>
+                            <div class="location">📍 ${report.location}</div>
+                            <div class="badge ${report.statusClass}">
+                                ${report.icon} ${report.condition}
+                            </div>
+                            <div class="description">${report.description}</div>
+                        </div>
+                    </div>
+                `;
+                galleryElement.innerHTML += cardHTML;
+            });
+            
+            updateButtonStyles(filterType);
+        }
+
+        // Función extra para cambiar el color de los botones al hacer clic
+        function updateButtonStyles(activeFilter) {
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active-all', 'active-good', 'active-bad');
+            });
+            
+            if(activeFilter === 'All') buttons[0].classList.add('active-all');
+            if(activeFilter === 'Good') buttons[1].classList.add('active-good');
+            if(activeFilter === 'Bad') buttons[2].classList.add('active-bad');
+        }
+
+        // Ejecutamos la función al inicio mostrando "Todos"
+        renderGallery('All');
+    </script>
+
+</body>
+</html>

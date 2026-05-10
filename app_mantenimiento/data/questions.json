@@ -1,0 +1,75 @@
+{
+    "version": "1.0",
+    "last_modified": "2026-05-10T12:07:28.641497",
+    "questions": [
+        {
+            "id": "q_1705315800000_5678",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Community A",
+                "Community B",
+                "Community C"
+            ],
+            "created_at": "2024-01-15T10:30:00Z",
+            "updated_at": "2024-01-15T10:30:00Z",
+            "is_active": true
+        },
+        {
+            "id": "q_1705315900000_1234",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": false,
+            "communities": [
+                "Community A"
+            ],
+            "created_at": "2024-01-15T10:31:00Z",
+            "updated_at": "2024-01-15T10:31:00Z",
+            "is_active": true
+        },
+        {
+            "id": "q_1705316000000_9876",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Community A",
+                "Community B"
+            ],
+            "created_at": "2024-01-15T10:32:00Z",
+            "updated_at": "2024-01-15T10:32:00Z",
+            "is_active": true
+        },
+        {
+            "id": "q_1778436221192_8491",
+            "text": "Test integration question",
+            "photo_required": true,
+            "communities": [
+                "Community A"
+            ],
+            "created_at": "2026-05-10T12:03:41.192181",
+            "updated_at": "2026-05-10T12:03:41.192472",
+            "is_active": false
+        },
+        {
+            "id": "q_1778436253142_1649",
+            "text": "Test integration question",
+            "photo_required": true,
+            "communities": [
+                "Community A"
+            ],
+            "created_at": "2026-05-10T12:04:13.142498",
+            "updated_at": "2026-05-10T12:04:13.142691",
+            "is_active": false
+        },
+        {
+            "id": "q_1778436448641_6045",
+            "text": "&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;Is this clean?",
+            "photo_required": false,
+            "communities": [
+                "Community A"
+            ],
+            "created_at": "2026-05-10T12:07:28.641495",
+            "updated_at": "2026-05-10T12:07:28.641495",
+            "is_active": true
+        }
+    ]
+}

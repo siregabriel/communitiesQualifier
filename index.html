@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        label.main-label {
+            font-weight: bold;
+            display: block;
+            margin-top: 15px;
+        }
+        input[type="text"], select, textarea, input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        
+        /* Estilos para los Thumbs Up / Down */
+        .rating-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .rating-container input[type="radio"] {
+            display: none; /* Ocultamos el circulito por defecto */
+        }
+        .thumb-btn {
+            flex: 1;
+            text-align: center;
+            font-size: 35px;
+            padding: 15px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #fff;
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+        }
+        /* Color cuando se selecciona Thumbs Up */
+        #thumbUp:checked + .thumb-btn {
+            border-color: #27ae60;
+            background-color: #e9f7ef;
+            transform: scale(1.05);
+        }
+        /* Color cuando se selecciona Thumbs Down */
+        #thumbDown:checked + .thumb-btn {
+            border-color: #e74c3c;
+            background-color: #fdedec;
+            transform: scale(1.05);
+        }
+
+        button.submit-btn {
+            width: 100%;
+            padding: 15px;
+            background-color: #2980b9;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-top: 25px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button.submit-btn:hover {
+            background-color: #2471a3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Maintenance Report</h2>
+        <form id="reportForm">
+            
+            <label for="community" class="main-label">Community:</label>
+            <select id="community" required>
+                <option value="">Select a community...</option>
+                <option value="Community 1">Community 1</option>
+                <option value="Community 2">Community 2</option>
+                </select>
+
+            <label for="location" class="main-label">Specific Location (e.g., Hallway 3, Room 12):</label>
+            <input type="text" id="location" required placeholder="Where is the issue?">
+
+            <label class="main-label">Condition Rating:</label>
+            <div class="rating-container">
+                <input type="radio" id="thumbUp" name="condition" value="Good" required>
+                <label for="thumbUp" class="thumb-btn">👍</label>
+                
+                <input type="radio" id="thumbDown" name="condition" value="Needs Attention">
+                <label for="thumbDown" class="thumb-btn">👎</label>
+            </div>
+
+            <label for="description" class="main-label">Issue Description:</label>
+            <textarea id="description" rows="4" required placeholder="e.g., Stained carpet, chipped wall paint..."></textarea>
+
+            <label for="photo" class="main-label">Take Photo / Upload Image:</label>
+            <input type="file" id="photo" accept="image/*" capture="environment" required>
+
+            <button type="submit" class="submit-btn">Submit Report</button>
+        </form>
+    </div>
+
+    <script>
+        // Interceptamos el formulario para mostrar los datos en inglés
+        document.getElementById('reportForm').addEventListener('submit', function(event) {
+            event.preventDefault(); 
+
+            const community = document.getElementById('community').value;
+            const location = document.getElementById('location').value;
+            const description = document.getElementById('description').value;
+            // Obtenemos el valor del pulgar seleccionado
+            const condition = document.querySelector('input[name="condition"]:checked').value;
+            const photo = document.getElementById('photo').files[0];
+
+            let photoName = photo ? photo.name : "No photo attached";
+
+            // Mostramos una alerta en inglés con los resultados
+            alert("Report ready to be sent!\n\n" +
+                  "Community: " + community + "\n" +
+                  "Location: " + location + "\n" +
+                  "Condition: " + condition + "\n" +
+                  "Description: " + description + "\n" +
+                  "Photo file: " + photoName);
+        });
+    </script>
+
+</body>
+</html>

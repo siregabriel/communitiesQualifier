@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #f0f4f8 100%);
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .header-left h1 {
+            color: #0f172a;
+            font-size: 28px;
+            margin-bottom: 4px;
+            font-weight: 800;
+            font-family: 'Poppins', sans-serif;
+            letter-spacing: -1px;
+        }
+
+        .header-left p {
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .user-info {
+            font-size: 11px;
+            color: #3b82f6;
+            font-weight: 700;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 10px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 11px;
+            color: #dc2626;
+            transition: all 0.3s;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            color: #1e293b;
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .required {
+            color: #dc2626;
+        }
+
+        select, input[type="text"], textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            font-family: inherit;
+            background: rgba(248, 250, 252, 0.5);
+            color: #0f172a;
+        }
+
+        select:hover, input[type="text"]:hover, textarea:hover {
+            border-color: #cbd5e1;
+        }
+
+        select:focus, input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+        }
+
+        select:disabled {
+            background: #f1f5f9;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .condition-rating {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .radio-button input[type="radio"] {
+            display: none;
+        }
+
+        .radio-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 100px;
+            min-height: 100px;
+            width: 100px;
+            height: 100px;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            background: rgba(248, 250, 252, 0.5);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            font-size: 40px;
+        }
+
+        .radio-label span {
+            font-size: 11px;
+            margin-top: 6px;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .radio-button input[type="radio"]:checked + .radio-label.good {
+            background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+            border-color: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+        }
+
+        .radio-button input[type="radio"]:checked + .radio-label.good span {
+            color: #16a34a;
+        }
+
+        .radio-label.good:hover {
+            border-color: #22c55e;
+            background: #f0fdf4;
+        }
+
+        .radio-button input[type="radio"]:checked + .radio-label.attention {
+            background: linear-gradient(135deg, #fee2e2, #fef2f2);
+            border-color: #ef4444;
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+        }
+
+        .radio-button input[type="radio"]:checked + .radio-label.attention span {
+            color: #dc2626;
+        }
+
+        .radio-label.attention:hover {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .file-upload-wrapper {
+            position: relative;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            display: block;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-upload-label::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .file-upload-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+        }
+
+        .file-upload-label:hover::before {
+            left: 100%;
+        }
+
+        .file-name {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .image-preview {
+            margin-top: 12px;
+            border-radius: 12px;
+            overflow: hidden;
+            max-height: 200px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .image-preview img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            margin-top: 28px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button[type="submit"]::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        button[type="submit"]:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(59, 130, 246, 0.4);
+        }
+
+        button[type="submit"]:hover:not(:disabled)::before {
+            left: 100%;
+        }
+
+        button[type="submit"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .error-message {
+            color: #dc2626;
+            font-size: 11px;
+            margin-top: 6px;
+            display: none;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: shake 0.4s cubic-bezier(0.36, 0, 0.66, -0.56);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .success-message {
+            background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+            color: #166534;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .loading-message {
+            background: linear-gradient(135deg, #dbeafe, #eff6ff);
+            color: #1e40af;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .question-section {
+            background: rgba(248, 250, 252, 0.5);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .question-section:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .question-text {
+            color: #0f172a;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .question-number {
+            display: inline-block;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-right: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .header-left h1 {
+                font-size: 24px;
+            }
+
+            .logout-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>📋 Inspection</h1>
+                <p>Complete inspection questionnaire</p>
+                <div class="user-info" id="userInfo">Loading...</div>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+
+        <div class="success-message" id="successMessage">
+            ✅ Inspection submitted successfully!
+        </div>
+
+        <div class="loading-message" id="loadingMessage">
+            Loading questions...
+        </div>
+
+        <form id="reportForm" style="display: none;">
+            <div id="questionsContainer">
+                <!-- Questions will be dynamically loaded here -->
+            </div>
+
+            <button type="submit">Submit Inspection</button>
+        </form>
+    </div>
+
+    <script>
+        let currentUser = null, userCommunity = null, isAdmin = false;
+        let questions = [];
+        let photoFiles = {}; // Store photo files by question ID
+
+        window.addEventListener('load', loadUserInfo);
+
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/api/user-info');
+                if (!response.ok) { window.location.href = '/login'; return; }
+                const data = await response.json();
+                currentUser = data.username;
+                userCommunity = data.community;
+                isAdmin = data.is_admin;
+                document.getElementById('userInfo').textContent = `👤 ${currentUser} | ${userCommunity || 'Admin'}`;
+                
+                // Load questions for user's community
+                await loadQuestions();
+            } catch (error) { 
+                console.error('Error loading user info:', error);
+                window.location.href = '/login'; 
+            }
+        }
+
+        async function loadQuestions() {
+            try {
+                // Fetch questions filtered by user's community
+                const response = await fetch('/api/questions');
+                if (!response.ok) {
+                    throw new Error('Failed to load questions');
+                }
+                
+                const data = await response.json();
+                questions = data.questions || [];
+                
+                // Hide loading message
+                document.getElementById('loadingMessage').style.display = 'none';
+                
+                if (questions.length === 0) {
+                    document.getElementById('questionsContainer').innerHTML = 
+                        '<div class="loading-message">No questions available for your community.</div>';
+                    return;
+                }
+                
+                // Render questions
+                renderQuestions();
+                
+                // Show form
+                document.getElementById('reportForm').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading questions:', error);
+                document.getElementById('loadingMessage').textContent = 'Error loading questions. Please refresh the page.';
+                document.getElementById('loadingMessage').style.background = 'linear-gradient(135deg, #fee2e2, #fef2f2)';
+                document.getElementById('loadingMessage').style.color = '#dc2626';
+            }
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            
+            questions.forEach((question, index) => {
+                const questionSection = createQuestionSection(question, index);
+                container.appendChild(questionSection);
+            });
+        }
+
+        function createQuestionSection(question, index) {
+            const section = document.createElement('div');
+            section.className = 'question-section';
+            section.dataset.questionId = question.id;
+            
+            // Question text
+            const questionText = document.createElement('div');
+            questionText.className = 'question-text';
+            questionText.innerHTML = `<span class="question-number">Q${index + 1}</span>${escapeHtml(question.text)}`;
+            section.appendChild(questionText);
+            
+            // Condition rating
+            const conditionGroup = document.createElement('div');
+            conditionGroup.className = 'form-group';
+            conditionGroup.innerHTML = `
+                <label>Condition</label>
+                <div class="condition-rating">
+                    <div class="radio-button">
+                        <input type="radio" id="condition_${question.id}_good" name="condition_${question.id}" value="Good">
+                        <label for="condition_${question.id}_good" class="radio-label good">👍<span>Good</span></label>
+                    </div>
+                    <div class="radio-button">
+                        <input type="radio" id="condition_${question.id}_attention" name="condition_${question.id}" value="Needs Attention">
+                        <label for="condition_${question.id}_attention" class="radio-label attention">👎<span>Needs Attention</span></label>
+                    </div>
+                </div>
+            `;
+            section.appendChild(conditionGroup);
+            
+            // Description textarea
+            const descriptionGroup = document.createElement('div');
+            descriptionGroup.className = 'form-group';
+            descriptionGroup.innerHTML = `
+                <label for="description_${question.id}">Description</label>
+                <textarea id="description_${question.id}" name="description_${question.id}" placeholder="Add details (optional)..."></textarea>
+            `;
+            section.appendChild(descriptionGroup);
+            
+            // Photo upload (only if required)
+            if (question.photo_required) {
+                const photoGroup = document.createElement('div');
+                photoGroup.className = 'form-group';
+                photoGroup.innerHTML = `
+                    <label for="photo_${question.id}">Photo</label>
+                    <div class="file-upload-wrapper">
+                        <input type="file" id="photo_${question.id}" name="photo_${question.id}" accept="image/*" capture="environment">
+                        <label for="photo_${question.id}" class="file-upload-label">📷 Upload Photo</label>
+                        <div class="file-name" id="fileName_${question.id}"></div>
+                        <div class="image-preview" id="imagePreview_${question.id}"></div>
+                    </div>
+                `;
+                section.appendChild(photoGroup);
+                
+                // Add photo change handler
+                setTimeout(() => {
+                    const photoInput = document.getElementById(`photo_${question.id}`);
+                    if (photoInput) {
+                        photoInput.addEventListener('change', (e) => handlePhotoChange(e, question.id));
+                    }
+                }, 0);
+            }
+            
+            return section;
+        }
+
+        function handlePhotoChange(event, questionId) {
+            const file = event.target.files[0];
+            if (file) {
+                // Validate file size (16MB max)
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('File too large. Maximum size is 16MB.');
+                    event.target.value = '';
+                    return;
+                }
+                
+                // Store file reference
+                photoFiles[questionId] = file;
+                
+                // Update file name display
+                const fileNameEl = document.getElementById(`fileName_${questionId}`);
+                if (fileNameEl) {
+                    fileNameEl.textContent = `📁 ${file.name}`;
+                }
+                
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const previewEl = document.getElementById(`imagePreview_${questionId}`);
+                    if (previewEl) {
+                        previewEl.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.getElementById('reportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Collect responses from all questions
+            const responses = [];
+            let responseIndex = 0;
+            
+            for (const question of questions) {
+                // Get condition rating
+                const conditionInput = document.querySelector(`input[name="condition_${question.id}"]:checked`);
+                
+                // Skip unanswered questions (partial submission allowed)
+                if (!conditionInput) {
+                    continue;
+                }
+                
+                const condition = conditionInput.value;
+                const description = document.getElementById(`description_${question.id}`)?.value || '';
+                
+                // Create response object
+                const response = {
+                    question_id: question.id,
+                    question_text: question.text,
+                    condition: condition,
+                    description: description
+                };
+                
+                responses.push(response);
+                responseIndex++;
+            }
+            
+            // Validate at least one question was answered
+            if (responses.length === 0) {
+                alert('Please answer at least one question before submitting.');
+                return;
+            }
+            
+            // Create FormData for multipart/form-data submission
+            const formData = new FormData();
+            formData.append('responses', JSON.stringify(responses));
+            
+            // Attach photo files
+            let photoIndex = 0;
+            for (const question of questions) {
+                if (photoFiles[question.id]) {
+                    formData.append(`photo_${photoIndex}`, photoFiles[question.id]);
+                    photoIndex++;
+                }
+            }
+            
+            try {
+                const submitBtn = document.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+                
+                const response = await fetch('/api/inspections', { 
+                    method: 'POST', 
+                    body: formData 
+                });
+                
+                if (response.ok) {
+                    // Show success message
+                    document.getElementById('successMessage').classList.add('show');
+                    
+                    // Reset form
+                    document.getElementById('reportForm').reset();
+                    
+                    // Clear photo files and previews
+                    photoFiles = {};
+                    questions.forEach(question => {
+                        const fileNameEl = document.getElementById(`fileName_${question.id}`);
+                        const previewEl = document.getElementById(`imagePreview_${question.id}`);
+                        if (fileNameEl) fileNameEl.textContent = '';
+                        if (previewEl) previewEl.innerHTML = '';
+                    });
+                    
+                    // Hide success message after 3 seconds
+                    setTimeout(() => { 
+                        document.getElementById('successMessage').classList.remove('show'); 
+                    }, 3000);
+                    
+                    // Scroll to top
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    const errorData = await response.json();
+                    alert('Error submitting inspection: ' + (errorData.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error submitting inspection:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                const submitBtn = document.querySelector('button[type="submit"]');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Inspection';
+            }
+        });
+
+        function logout() {
+            if (confirm('Logout?')) window.location.href = '/logout';
+        }
+    </script>
+</body>
+</html>

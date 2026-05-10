@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #f0f4f8 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header-section {
+            background: white;
+            border-radius: 20px;
+            padding: 36px;
+            margin-bottom: 36px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .header-left h1 {
+            color: #0f172a;
+            font-size: 36px;
+            margin-bottom: 8px;
+            font-weight: 800;
+            font-family: 'Poppins', sans-serif;
+            letter-spacing: -1px;
+        }
+
+        .header-left p {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .user-info {
+            font-size: 11px;
+            color: #3b82f6;
+            font-weight: 700;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 11px 20px;
+            border-radius: 12px;
+            border: none;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .filter-section {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 36px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            background: rgba(248, 250, 252, 0.7);
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #475569;
+        }
+
+        .filter-btn:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background: white;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: fadeIn 0.5s ease-out;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #f5f7fa, #f0f4f8);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #cbd5e1;
+            font-size: 48px;
+            position: relative;
+        }
+
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover .card-image img {
+            transform: scale(1.05);
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .card-title {
+            color: #0f172a;
+            font-size: 16px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .card-location {
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .card-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .badge-good {
+            background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+            color: #166534;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .badge-attention {
+            background: linear-gradient(135deg, #fee2e2, #fef2f2);
+            color: #991b1b;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .card-description {
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .card-timestamp {
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 80px 20px;
+            color: #cbd5e1;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .header-section {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+
+            .header-left h1 {
+                font-size: 28px;
+            }
+
+            .header-actions {
+                width: 100%;
+            }
+
+            .btn {
+                flex: 1;
+            }
+
+            .gallery {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-section {
+                flex-direction: column;
+            }
+
+            .filter-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header-section">
+            <div class="header-left">
+                <h1>📊 Dashboard</h1>
+                <p>Maintenance Reports & Inspection Submissions</p>
+                <div class="user-info" id="userInfo">Loading...</div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="questionManagerBtn" onclick="location.href='/questions/manage'" style="display: none;"><i class="fas fa-clipboard-list"></i> Question Manager</button>
+                <button class="btn btn-primary" onclick="location.href='/'"><i class="fas fa-plus"></i> New Report</button>
+                <button class="btn btn-secondary" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+
+        <div class="filter-section">
+            <button class="filter-btn active" data-type="all" onclick="filterByType('all')">📋 All</button>
+            <button class="filter-btn" data-type="maintenance" onclick="filterByType('maintenance')">🔧 Maintenance Reports</button>
+            <button class="filter-btn" data-type="inspection" onclick="filterByType('inspection')">📝 Inspections</button>
+            <span style="margin: 0 12px; color: #cbd5e1;">|</span>
+            <button class="filter-btn" data-condition="all" onclick="filterByCondition('all')">📊 All Conditions</button>
+            <button class="filter-btn" data-condition="good" onclick="filterByCondition('good')">👍 Good</button>
+            <button class="filter-btn" data-condition="attention" onclick="filterByCondition('attention')">👎 Needs Attention</button>
+        </div>
+
+        <div class="gallery" id="gallery">
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No reports yet</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allReports = [];
+        let allInspections = [];
+        let currentTypeFilter = 'all';
+        let currentConditionFilter = 'all';
+        let isAdmin = false;
+
+        window.addEventListener('load', () => loadUserInfo());
+
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/api/user-info');
+                if (!response.ok) { window.location.href = '/login'; return; }
+                const data = await response.json();
+                document.getElementById('userInfo').textContent = `👤 ${data.username}`;
+                isAdmin = data.is_admin;
+                
+                // Show Question Manager button only for admin users
+                if (isAdmin) {
+                    document.getElementById('questionManagerBtn').style.display = 'inline-block';
+                }
+                
+                // Load both maintenance reports and inspection submissions
+                loadReports();
+                loadInspections();
+            } catch (error) { window.location.href = '/login'; }
+        }
+
+        function loadReports() {
+            // Sample maintenance reports (existing data)
+            allReports = [
+                {
+                    id: 1,
+                    type: 'maintenance',
+                    community: 'Community A',
+                    location: 'Hallway 3',
+                    condition: 'Good',
+                    description: 'Floor cleaned and polished thoroughly',
+                    timestamp: '2024-05-08 10:30',
+                    image: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&h=300&fit=crop'
+                },
+                {
+                    id: 2,
+                    type: 'maintenance',
+                    community: 'Community B',
+                    location: 'Room 12',
+                    condition: 'Needs Attention',
+                    description: 'Door handle broken, needs replacement',
+                    timestamp: '2024-05-08 11:15',
+                    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop'
+                },
+                {
+                    id: 3,
+                    type: 'maintenance',
+                    community: 'Community C',
+                    location: 'Kitchen Area',
+                    condition: 'Good',
+                    description: 'All appliances working properly',
+                    timestamp: '2024-05-08 09:45',
+                    image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop'
+                },
+                {
+                    id: 4,
+                    type: 'maintenance',
+                    community: 'Community A',
+                    location: 'Bathroom 2',
+                    condition: 'Needs Attention',
+                    description: 'Faucet leaking, water damage detected',
+                    timestamp: '2024-05-08 08:20',
+                    image: 'https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=400&h=300&fit=crop'
+                }
+            ];
+            renderCards();
+        }
+
+        async function loadInspections() {
+            try {
+                const response = await fetch('/api/inspections');
+                if (!response.ok) {
+                    console.error('Failed to load inspections');
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.submissions) {
+                    // Transform inspection submissions into individual response cards
+                    allInspections = [];
+                    
+                    data.submissions.forEach(submission => {
+                        submission.responses.forEach(response => {
+                            allInspections.push({
+                                type: 'inspection',
+                                questionText: response.question_text,
+                                condition: response.condition,
+                                description: response.description,
+                                photoPath: response.photo_path,
+                                username: submission.username,
+                                community: submission.community,
+                                timestamp: formatTimestamp(response.answered_at),
+                                submittedAt: submission.submitted_at
+                            });
+                        });
+                    });
+                    
+                    renderCards();
+                }
+            } catch (error) {
+                console.error('Error loading inspections:', error);
+            }
+        }
+
+        function formatTimestamp(isoString) {
+            try {
+                const date = new Date(isoString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day} ${hours}:${minutes}`;
+            } catch (e) {
+                return isoString;
+            }
+        }
+
+        function renderCards() {
+            const gallery = document.getElementById('gallery');
+            
+            // Combine all items
+            let allItems = [...allReports, ...allInspections];
+            
+            // Apply type filter
+            if (currentTypeFilter === 'maintenance') {
+                allItems = allItems.filter(item => item.type === 'maintenance');
+            } else if (currentTypeFilter === 'inspection') {
+                allItems = allItems.filter(item => item.type === 'inspection');
+            }
+            
+            // Apply condition filter
+            if (currentConditionFilter === 'good') {
+                allItems = allItems.filter(item => item.condition === 'Good');
+            } else if (currentConditionFilter === 'attention') {
+                allItems = allItems.filter(item => item.condition === 'Needs Attention');
+            }
+
+            if (allItems.length === 0) {
+                gallery.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i><p>No items match this filter</p></div>';
+                return;
+            }
+
+            gallery.innerHTML = allItems.map(item => {
+                if (item.type === 'maintenance') {
+                    // Render maintenance report card
+                    return `
+                        <div class="card" data-type="maintenance" data-condition="${item.condition.toLowerCase().replace(' ', '-')}">
+                            <div class="card-image">
+                                <img src="${item.image}" alt="${item.community}">
+                            </div>
+                            <div class="card-content">
+                                <div class="card-title">${item.community}</div>
+                                <div class="card-location">📍 ${item.location}</div>
+                                <div class="card-badge ${item.condition === 'Good' ? 'badge-good' : 'badge-attention'}">
+                                    ${item.condition === 'Good' ? '✓ Good' : '⚠ Needs Attention'}
+                                </div>
+                                <div class="card-description">${item.description}</div>
+                                <div class="card-timestamp">🕐 ${item.timestamp}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Render inspection response card
+                    const photoHtml = item.photoPath 
+                        ? `<img src="/${item.photoPath}" alt="Inspection photo">`
+                        : '<i class="fas fa-clipboard-check"></i>';
+                    
+                    return `
+                        <div class="card" data-type="inspection" data-condition="${item.condition.toLowerCase().replace(' ', '-')}">
+                            <div class="card-image">
+                                ${photoHtml}
+                            </div>
+                            <div class="card-content">
+                                <div class="card-title">❓ ${item.questionText}</div>
+                                <div class="card-badge ${item.condition === 'Good' ? 'badge-good' : 'badge-attention'}">
+                                    ${item.condition === 'Good' ? '✓ Good' : '⚠ Needs Attention'}
+                                </div>
+                                <div class="card-description">${item.description || 'No description provided'}</div>
+                                <div class="card-location">👤 ${item.username} | 🏘️ ${item.community}</div>
+                                <div class="card-timestamp">🕐 ${item.timestamp}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        function filterByType(type) {
+            currentTypeFilter = type;
+            
+            // Update active state for type filter buttons
+            document.querySelectorAll('.filter-btn[data-type]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.filter-btn[data-type="${type}"]`).classList.add('active');
+            
+            renderCards();
+        }
+
+        function filterByCondition(condition) {
+            currentConditionFilter = condition;
+            
+            // Update active state for condition filter buttons
+            document.querySelectorAll('.filter-btn[data-condition]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.filter-btn[data-condition="${condition}"]`).classList.add('active');
+            
+            renderCards();
+        }
+
+        function logout() {
+            if (confirm('Logout?')) window.location.href = '/logout';
+        }
+    </script>
+</body>
+</html>
