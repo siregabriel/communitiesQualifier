@@ -302,3 +302,108 @@ Si necesitas agregar:
 - [ ] Autenticación con Google/Microsoft
 
 ¡Déjame saber si necesitas alguno de estos cambios!
+
+
+---
+
+## 🎨 Sistema de Calificación Actualizado (4 Opciones)
+
+**Fecha:** Mayo 2025  
+**Estado:** ✅ Completado
+
+### Cambio Realizado
+Se actualizó el sistema de calificación de 2 opciones a 4 opciones para coincidir con el diseño de referencia del usuario.
+
+#### Antes (2 opciones):
+- Good (Bueno) - Con highlight verde
+- Needs Attention (Necesita Atención) - Con highlight rojo
+
+#### Ahora (4 opciones):
+1. **Excellence** - Sin highlight especial, texto gris neutral
+2. **Pass** - Highlight dorado/naranja cuando se selecciona, con ícono de checkmark (✓)
+3. **Opportunity** - Sin highlight especial, texto gris neutral
+4. **Fail** - Sin highlight especial, texto gris neutral
+
+### Archivos Modificados
+
+1. **Frontend:**
+   - `templates/reporte.html` - Actualizado HTML y CSS para 4 botones de radio
+
+2. **Backend:**
+   - `app.py` - Validación actualizada en endpoint `/api/inspections`
+   - `services/inspection_service.py` - Validación de respuestas actualizada
+   - `services/input_sanitizer.py` - Sanitización de condiciones actualizada
+
+3. **Tests:**
+   - `test_inspection_endpoint.py` - Todos los tests actualizados y pasando (12/12 ✅)
+
+### Diseño Visual
+- Botones horizontales rectangulares (140px × 50px)
+- Borde gris claro por defecto (#e2e8f0)
+- Hover: Borde más oscuro (#cbd5e1) y fondo gris claro (#f8fafc)
+- **Pass seleccionado:** Fondo dorado (#fef3e2), borde naranja (#f59e0b), texto naranja (#d97706)
+- **Otros seleccionados:** Sin cambio visual (mantienen apariencia por defecto)
+
+### Testing
+```bash
+✅ 12/12 tests pasando
+- test_submit_inspection_requires_authentication ✅
+- test_submit_inspection_admin_cannot_submit ✅
+- test_submit_inspection_no_responses ✅
+- test_submit_inspection_invalid_json ✅
+- test_submit_inspection_responses_not_array ✅
+- test_submit_inspection_missing_question_id ✅
+- test_submit_inspection_missing_condition ✅
+- test_submit_inspection_invalid_condition ✅
+- test_submit_inspection_success_without_photos ✅
+- test_submit_inspection_with_photo ✅
+- test_submit_inspection_invalid_file_type ✅
+- test_submit_inspection_empty_responses_array ✅
+```
+
+### Documentación Adicional
+Ver `RATING_SYSTEM_UPDATE.md` para detalles completos de la implementación.
+
+### Próximos Pasos
+- [ ] Desplegar a Render.com
+- [ ] Probar en producción
+- [ ] Actualizar dashboard para mostrar nuevas opciones de calificación ✅ **COMPLETADO**
+- [ ] Considerar migración de datos históricos (opcional)
+
+---
+
+## 📊 Dashboard Actualizado para Nuevo Sistema de Calificación
+
+**Fecha:** Mayo 2025  
+**Estado:** ✅ Completado
+
+### Cambios Realizados
+
+El dashboard ahora soporta el nuevo sistema de calificación de 4 opciones mientras mantiene compatibilidad con datos antiguos.
+
+#### Nuevos Badges de Calificación:
+1. **⭐ Excellence** - Gradiente azul
+2. **✓ Pass** - Gradiente dorado/naranja
+3. **💡 Opportunity** - Gradiente amarillo
+4. **❌ Fail** - Gradiente rojo
+
+#### Badges Antiguos (Legacy):
+5. **✓ Good** - Gradiente verde (datos antiguos)
+6. **⚠ Needs Attention** - Gradiente rojo (datos antiguos)
+
+### Características
+
+- ✅ Filtros para todas las opciones de calificación (4 nuevas + 2 antiguas)
+- ✅ Badges con colores distintivos para cada calificación
+- ✅ Íconos emoji para identificación rápida
+- ✅ Compatibilidad total con datos antiguos
+- ✅ Renderizado dinámico basado en el tipo de calificación
+- ✅ Funciona con reportes de mantenimiento e inspecciones
+
+### Archivos Modificados
+- `templates/dashboard.html` - CSS, HTML y JavaScript actualizados
+
+### Documentación
+Ver `DASHBOARD_UPDATE.md` para detalles completos de la implementación.
+
+### Próximos Pasos

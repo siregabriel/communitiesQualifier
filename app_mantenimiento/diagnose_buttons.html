@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico de Botones</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 10px;
+        }
+        .btn {
+            padding: 12px 24px;
+            margin: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            border-radius: 4px;
+        }
+        .success {
+            background: #f0fdf4;
+            border-left-color: #10b981;
+        }
+        .error {
+            background: #fef2f2;
+            border-left-color: #ef4444;
+        }
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnóstico de Botones del Dashboard</h1>
+    
+    <div class="test-section">
+        <h2>1. Prueba de Navegación Básica</h2>
+        <p>Estos botones usan <code>onclick="location.href='...'"</code> como en el dashboard:</p>
+        
+        <button class="btn btn-primary" onclick="location.href='/questions/manage'">
+            📋 QUESTION MANAGER
+        </button>
+        
+        <button class="btn btn-primary" onclick="location.href='/'">
+            ➕ NEW REPORT
+        </button>
+        
+        <button class="btn btn-primary" onclick="location.href='/select-survey-type'">
+            🚀 START NEW VISIT
+        </button>
+        
+        <div id="result1" class="result" style="display:none;"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Prueba con window.location</h2>
+        <p>Alternativa usando <code>window.location.href</code>:</p>
+        
+        <button class="btn btn-primary" onclick="window.location.href='/questions/manage'">
+            📋 QUESTION MANAGER (window)
+        </button>
+        
+        <button class="btn btn-primary" onclick="window.location.href='/'">
+            ➕ NEW REPORT (window)
+        </button>
+        
+        <div id="result2" class="result" style="display:none;"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Prueba con Función JavaScript</h2>
+        <p>Usando funciones JavaScript separadas:</p>
+        
+        <button class="btn btn-primary" onclick="goToQuestionManager()">
+            📋 QUESTION MANAGER (función)
+        </button>
+        
+        <button class="btn btn-primary" onclick="goToNewReport()">
+            ➕ NEW REPORT (función)
+        </button>
+        
+        <div id="result3" class="result" style="display:none;"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Verificación de Rutas</h2>
+        <p>Verifica si las rutas existen:</p>
+        
+        <button class="btn btn-primary" onclick="checkRoute('/questions/manage')">
+            Verificar /questions/manage
+        </button>
+        
+        <button class="btn btn-primary" onclick="checkRoute('/')">
+            Verificar /
+        </button>
+        
+        <button class="btn btn-primary" onclick="checkRoute('/select-survey-type')">
+            Verificar /select-survey-type
+        </button>
+        
+        <div id="result4" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. Información del Usuario</h2>
+        <p>Verifica tu rol de usuario:</p>
+        
+        <button class="btn btn-primary" onclick="checkUserInfo()">
+            Verificar Usuario
+        </button>
+        
+        <div id="result5" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>6. Consola del Navegador</h2>
+        <p>Abre la consola del navegador (F12) y ejecuta:</p>
+        <code>location.href = '/questions/manage'</code>
+        <p>Si esto funciona, el problema está en el evento onclick del botón.</p>
+    </div>
+
+    <script>
+        // Funciones de navegación
+        function goToQuestionManager() {
+            console.log('Navegando a Question Manager...');
+            window.location.href = '/questions/manage';
+        }
+        
+        function goToNewReport() {
+            console.log('Navegando a New Report...');
+            window.location.href = '/';
+        }
+        
+        // Verificar rutas
+        async function checkRoute(route) {
+            const resultDiv = document.getElementById('result4');
+            resultDiv.innerHTML = `<p>Verificando ruta: <code>${route}</code>...</p>`;
+            
+            try {
+                const response = await fetch(route, { method: 'HEAD' });
+                if (response.ok || response.status === 302) {
+                    resultDiv.innerHTML = `<p class="success">✅ Ruta <code>${route}</code> existe (Status: ${response.status})</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Ruta <code>${route}</code> retorna status ${response.status}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error al verificar <code>${route}</code>: ${error.message}</p>`;
+            }
+        }
+        
+        // Verificar información del usuario
+        async function checkUserInfo() {
+            const resultDiv = document.getElementById('result5');
+            resultDiv.innerHTML = '<p>Cargando información del usuario...</p>';
+            
+            try {
+                const response = await fetch('/api/user-info');
+                if (!response.ok) {
+                    resultDiv.innerHTML = '<p class="error">❌ No se pudo obtener información del usuario. ¿Estás logueado?</p>';
+                    return;
+                }
+                
+                const data = await response.json();
+                const isAdmin = data.is_admin;
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Usuario: <strong>${data.username}</strong></p>
+                    <p>Rol: <strong>${isAdmin ? 'Admin' : 'Staff'}</strong></p>
+                    <p>Comunidad: <strong>${data.community || 'N/A'}</strong></p>
+                    <p>¿Es Admin?: <strong>${isAdmin ? 'SÍ' : 'NO'}</strong></p>
+                    ${!isAdmin ? '<p class="error">⚠️ El botón "QUESTION MANAGER" solo es visible para usuarios Admin</p>' : '<p class="success">✅ Deberías ver el botón "QUESTION MANAGER"</p>'}
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Log de eventos
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Página de diagnóstico cargada');
+            console.log('Ubicación actual:', window.location.href);
+        });
+    </script>
+</body>
+</html>

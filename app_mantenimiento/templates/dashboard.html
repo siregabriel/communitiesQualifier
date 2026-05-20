@@ -222,6 +222,11 @@
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             text-transform: uppercase;
             letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
         }
 
         .btn-primary {
@@ -1011,8 +1016,8 @@
                     <div class="user-info" id="userInfo">Loading...</div>
                 </div>
                 <div class="header-actions">
-                    <button class="btn btn-primary" id="questionManagerBtn" onclick="location.href='/questions/manage'" style="display: none;"><i class="fas fa-clipboard-list"></i> Question Manager</button>
-                    <button class="btn btn-primary" onclick="location.href='/'"><i class="fas fa-plus"></i> New Report</button>
+                    <a href="/questions/manage" class="btn btn-primary" id="questionManagerBtn" style="display: none; text-decoration: none;"><i class="fas fa-clipboard-list"></i> Question Manager</a>
+                    <a href="/" class="btn btn-primary" style="text-decoration: none;"><i class="fas fa-plus"></i> New Report</a>
                     <button class="btn btn-secondary" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
                 </div>
             </div>
@@ -1045,7 +1050,7 @@
         </div>
 
         <!-- Start New Visit Button -->
-        <button class="start-visit-btn" onclick="location.href='/select-survey-type'" title="Start New Visit" aria-label="Start a new inspection visit">
+        <button class="start-visit-btn" onclick="navigateToStartNewVisit()" title="Start New Visit" aria-label="Start a new inspection visit">
             <i class="fas fa-plus" aria-hidden="true"></i>
             <span>Start New Visit</span>
         </button>
@@ -1083,6 +1088,55 @@
         let currentUserCommunity = '';
 
         window.addEventListener('load', () => loadUserInfo());
+
+        // Navigation Functions with Error Handling
+        function navigateToQuestionManager() {
+            try {
+                console.log('🔵 QUESTION MANAGER button clicked');
+                console.log('Navigating to /questions/manage...');
+                window.location.href = '/questions/manage';
+            } catch (error) {
+                console.error('❌ Error navigating to Question Manager:', error);
+                alert('Error al navegar a Question Manager. Por favor, intenta de nuevo.');
+            }
+        }
+
+        function navigateToNewReport() {
+            try {
+                console.log('🔵 NEW REPORT button clicked');
+                console.log('Navigating to /...');
+                window.location.href = '/';
+            } catch (error) {
+                console.error('❌ Error navigating to New Report:', error);
+                alert('Error al navegar a New Report. Por favor, intenta de nuevo.');
+            }
+        }
+
+        function navigateToStartNewVisit() {
+            try {
+                console.log('🟢 START NEW VISIT button clicked');
+                console.log('Navigating to /select-survey-type...');
+                window.location.href = '/select-survey-type';
+            } catch (error) {
+                console.error('❌ Error navigating to Start New Visit:', error);
+                alert('Error al navegar a Start New Visit. Por favor, intenta de nuevo.');
+            }
+        }
+
+        // Test function to verify buttons work
+        function testButtons() {
+            console.log('🧪 Testing button functions...');
+            console.log('navigateToQuestionManager:', typeof navigateToQuestionManager);
+            console.log('navigateToNewReport:', typeof navigateToNewReport);
+            console.log('navigateToStartNewVisit:', typeof navigateToStartNewVisit);
+            console.log('✅ All functions are defined');
+        }
+
+        // Run test on load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Dashboard loaded');
+            testButtons();
+        });
 
         // Score Calculation Function
         function calculateCommunityScore(responses) {
@@ -1491,8 +1545,26 @@
                 
                 // Show Question Manager button only for admin users
                 if (isAdmin) {
-                    document.getElementById('questionManagerBtn').style.display = 'inline-block';
+                    const qmBtn = document.getElementById('questionManagerBtn');
+                    qmBtn.style.display = 'inline-block';
+                    
+                    // Add event listener as backup
+                    qmBtn.addEventListener('click', function(e) {
+                        console.log('🔵 Question Manager button clicked (event listener)');
+                        e.preventDefault();
+                        navigateToQuestionManager();
+                    });
+                    
+                    console.log('✅ Question Manager button visible and event listener added');
                 }
+                
+                // Add event listeners to all navigation buttons as backup
+                const buttons = document.querySelectorAll('.header-actions .btn');
+                console.log(`📋 Found ${buttons.length} buttons in header`);
+                
+                buttons.forEach((btn, index) => {
+                    console.log(`Button ${index}:`, btn.textContent.trim(), 'onclick:', btn.onclick);
+                });
                 
                 // Load all data (including survey types)
                 await Promise.all([
