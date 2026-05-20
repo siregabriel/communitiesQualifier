@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>filterByCommunity Integration Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        .fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            margin-top: 30px;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 filterByCommunity Integration Test</h1>
+    <p>Testing the filterByCommunity function in a browser context similar to dashboard.html</p>
+    
+    <div id="results"></div>
+    
+    <script>
+        // Copy the function implementation from dashboard.html
+        function filterByCommunity(inspections, communityName) {
+            // Handle edge cases
+            if (!inspections || !Array.isArray(inspections)) {
+                return [];
+            }
+            
+            if (!communityName || typeof communityName !== 'string' || communityName.trim() === '') {
+                return [];
+            }
+            
+            // Filter inspections that match the specified community name
+            return inspections.filter(inspection => {
+                // Handle null/undefined inspection or community field
+                if (!inspection || !inspection.community) {
+                    return false;
+                }
+                
+                // Case-sensitive exact match
+                return inspection.community === communityName;
+            });
+        }
+        
+        // Simulate API response data structure
+        const mockApiResponse = {
+            status: 'success',
+            submissions: [
+                {
+                    id: 1,
+                    community: 'Kelley Place, Enterprise',
+                    submitted_at: '2024-01-15T10:30:00Z',
+                    responses: [
+                        { questionText: 'Cleanliness', condition: 'Excellence', description: 'Very clean' },
+                        { questionText: 'Safety', condition: 'Pass', description: 'Safe environment' }
+                    ]
+                },
+                {
+                    id: 2,
+                    community: 'Madison Heights Enterprise, Enterprise',
+                    submitted_at: '2024-01-16T14:20:00Z',
+                    responses: [
+                        { questionText: 'Maintenance', condition: 'Fail', description: 'Needs repair' }
+                    ]
+                },
+                {
+                    id: 3,
+                    community: 'Kelley Place, Enterprise',
+                    submitted_at: '2024-01-17T09:15:00Z',
+                    responses: [
+                        { questionText: 'Staff', condition: 'Pass', description: 'Friendly staff' }
+                    ]
+                },
+                {
+                    id: 4,
+                    community: 'Monark Grove Madison',
+                    submitted_at: '2024-01-18T11:45:00Z',
+                    responses: [
+                        { questionText: 'Amenities', condition: 'Opportunity', description: 'Could improve' }
+                    ]
+                }
+            ]
+        };
+        
+        // Test runner
+        const results = [];
+        
+        function runTest(name, testFn) {
+            try {
+                const result = testFn();
+                results.push({ name, pass: result.pass, message: result.message });
+            } catch (error) {
+                results.push({ name, pass: false, message: `Error: ${error.message}` });
+            }
+        }
+        
+        // Test 1: Filter submissions by community
+        runTest('Filter submissions by community', () => {
+            const filtered = filterByCommunity(mockApiResponse.submissions, 'Kelley Place, Enterprise');
+            const pass = filtered.length === 2 && filtered.every(s => s.community === 'Kelley Place, Enterprise');
+            return { pass, message: `Expected 2 submissions, got ${filtered.length}` };
+        });
+        
+        // Test 2: No matches
+        runTest('No matches for non-existent community', () => {
+            const filtered = filterByCommunity(mockApiResponse.submissions, 'Nonexistent Community');
+            const pass = filtered.length === 0;
+            return { pass, message: `Expected 0 submissions, got ${filtered.length}` };
+        });
+        
+        // Test 3: Empty array
+        runTest('Empty array input', () => {
+            const filtered = filterByCommunity([], 'Kelley Place, Enterprise');
+            const pass = filtered.length === 0;
+            return { pass, message: `Expected 0 submissions, got ${filtered.length}` };
+        });
+        
+        // Test 4: Null input
+        runTest('Null inspections array', () => {
+            const filtered = filterByCommunity(null, 'Kelley Place, Enterprise');
+            const pass = Array.isArray(filtered) && filtered.length === 0;
+            return { pass, message: `Expected empty array, got ${filtered}` };
+        });
+        
+        // Test 5: Invalid community name
+        runTest('Empty community name', () => {
+            const filtered = filterByCommunity(mockApiResponse.submissions, '');
+            const pass = filtered.length === 0;
+            return { pass, message: `Expected 0 submissions, got ${filtered.length}` };
+        });
+        
+        // Test 6: Case sensitivity
+        runTest('Case-sensitive matching', () => {
+            const filtered = filterByCommunity(mockApiResponse.submissions, 'kelley place, enterprise');
+            const pass = filtered.length === 0;
+            return { pass, message: `Expected 0 submissions (case mismatch), got ${filtered.length}` };
+        });
+        
+        // Test 7: Single match
+        runTest('Single match community', () => {
+            const filtered = filterByCommunity(mockApiResponse.submissions, 'Madison Heights Enterprise, Enterprise');
+            const pass = filtered.length === 1 && filtered[0].id === 2;
+            return { pass, message: `Expected 1 submission with id=2, got ${filtered.length} submissions` };
+        });
+        
+        // Test 8: Data integrity
+        runTest('Filtered data maintains structure', () => {
+            const filtered = filterByCommunity(mockApiResponse.submissions, 'Kelley Place, Enterprise');
+            const pass = filtered.every(s => 
+                s.hasOwnProperty('id') && 
+                s.hasOwnProperty('community') && 
+                s.hasOwnProperty('submitted_at') && 
+                s.hasOwnProperty('responses')
+            );
+            return { pass, message: pass ? 'All properties preserved' : 'Some properties missing' };
+        });
+        
+        // Test 9: Whitespace handling
+        runTest('Whitespace-only community name', () => {
+            const filtered = filterByCommunity(mockApiResponse.submissions, '   ');
+            const pass = filtered.length === 0;
+            return { pass, message: `Expected 0 submissions, got ${filtered.length}` };
+        });
+        
+        // Test 10: Integration with typical dashboard workflow
+        runTest('Integration with dashboard workflow', () => {
+            // Simulate the workflow from openSlidePanel
+            const communityName = 'Kelley Place, Enterprise';
+            const allInspections = mockApiResponse.submissions;
+            const communityInspections = filterByCommunity(allInspections, communityName);
+            
+            const pass = communityInspections.length > 0 && 
+                        communityInspections.every(i => i.community === communityName);
+            return { pass, message: `Workflow simulation ${pass ? 'successful' : 'failed'}` };
+        });
+        
+        // Display results
+        const resultsDiv = document.getElementById('results');
+        let passCount = 0;
+        let failCount = 0;
+        
+        results.forEach(result => {
+            const div = document.createElement('div');
+            div.className = `test-result ${result.pass ? 'pass' : 'fail'}`;
+            div.innerHTML = `
+                <strong>${result.pass ? '✓' : '✗'} ${result.name}</strong><br>
+                ${result.message}
+            `;
+            resultsDiv.appendChild(div);
+            
+            if (result.pass) passCount++;
+            else failCount++;
+        });
+        
+        // Summary
+        const summary = document.createElement('div');
+        summary.className = 'summary';
+        summary.innerHTML = `
+            <h2>Test Summary</h2>
+            <p><strong>Total Tests:</strong> ${results.length}</p>
+            <p><strong>Passed:</strong> ${passCount}</p>
+            <p><strong>Failed:</strong> ${failCount}</p>
+            <p><strong>Success Rate:</strong> ${Math.round((passCount / results.length) * 100)}%</p>
+            ${failCount === 0 ? '<p style="color: green; font-weight: bold;">✓ All tests passed!</p>' : '<p style="color: red; font-weight: bold;">✗ Some tests failed</p>'}
+        `;
+        resultsDiv.appendChild(summary);
+        
+        // Console output
+        console.log('=== filterByCommunity Integration Test Results ===');
+        results.forEach(result => {
+            console.log(`${result.pass ? '✓' : '✗'} ${result.name}: ${result.message}`);
+        });
+        console.log(`\nTotal: ${results.length} | Passed: ${passCount} | Failed: ${failCount}`);
+    </script>
+</body>
+</html>

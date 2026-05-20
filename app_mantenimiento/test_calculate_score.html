@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>calculateScore Function Test</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        h1 {
+            color: #0f172a;
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .pass {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #22c55e;
+        }
+        .fail {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 calculateScore Function Test</h1>
+    <p>Testing the calculateScore function implementation</p>
+    
+    <div id="results"></div>
+    <div class="summary" id="summary"></div>
+
+    <script>
+        // Copy the function implementation from dashboard.html
+        function calculateScore(inspections) {
+            // Handle edge cases
+            if (!inspections || !Array.isArray(inspections)) {
+                return null;
+            }
+            
+            if (inspections.length === 0) {
+                return null;
+            }
+            
+            // Map condition types to numeric scores
+            function getConditionScore(condition) {
+                const scoreMap = {
+                    'Excellence': 100,
+                    'Pass': 75,
+                    'Good': 75,
+                    'Opportunity': 50,
+                    'Needs Attention': 25,
+                    'Fail': 0
+                };
+                
+                return scoreMap[condition] !== undefined ? scoreMap[condition] : null;
+            }
+            
+            let totalScore = 0;
+            let scoredCount = 0;
+            
+            // Calculate total score from all inspections with valid conditions
+            for (const inspection of inspections) {
+                if (!inspection || !inspection.condition) {
+                    continue;
+                }
+                
+                const conditionScore = getConditionScore(inspection.condition);
+                
+                if (conditionScore !== null) {
+                    totalScore += conditionScore;
+                    scoredCount++;
+                }
+            }
+            
+            // Return null if no scoreable inspections exist
+            if (scoredCount === 0) {
+                return null;
+            }
+            
+            // Calculate average and round to nearest integer
+            const averageScore = totalScore / scoredCount;
+            return Math.round(averageScore);
+        }
+
+        // Test runner
+        const results = [];
+        
+        function runTest(name, testFn) {
+            try {
+                const result = testFn();
+                results.push({ name, ...result });
+                
+                const div = document.createElement('div');
+                div.className = `test-result ${result.pass ? 'pass' : 'fail'}`;
+                div.textContent = `${result.pass ? '✓' : '✗'} ${name}: ${result.message}`;
+                document.getElementById('results').appendChild(div);
+            } catch (error) {
+                results.push({ name, pass: false, message: error.message });
+                
+                const div = document.createElement('div');
+                div.className = 'test-result fail';
+                div.textContent = `✗ ${name}: ERROR - ${error.message}`;
+                document.getElementById('results').appendChild(div);
+            }
+        }
+
+        // Test 1: All Excellence conditions
+        runTest('All Excellence conditions (should return 100)', () => {
+            const inspections = [
+                { condition: 'Excellence' },
+                { condition: 'Excellence' },
+                { condition: 'Excellence' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 100;
+            return { pass, message: `Expected 100, got ${score}` };
+        });
+
+        // Test 2: All Fail conditions
+        runTest('All Fail conditions (should return 0)', () => {
+            const inspections = [
+                { condition: 'Fail' },
+                { condition: 'Fail' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 0;
+            return { pass, message: `Expected 0, got ${score}` };
+        });
+
+        // Test 3: Mixed conditions - average calculation
+        runTest('Mixed conditions (Excellence=100, Fail=0, should return 50)', () => {
+            const inspections = [
+                { condition: 'Excellence' },
+                { condition: 'Fail' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 50;
+            return { pass, message: `Expected 50, got ${score}` };
+        });
+
+        // Test 4: Pass and Good conditions (both 75)
+        runTest('Pass and Good conditions (should return 75)', () => {
+            const inspections = [
+                { condition: 'Pass' },
+                { condition: 'Good' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 75;
+            return { pass, message: `Expected 75, got ${score}` };
+        });
+
+        // Test 5: Opportunity condition (50)
+        runTest('Opportunity condition (should return 50)', () => {
+            const inspections = [
+                { condition: 'Opportunity' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 50;
+            return { pass, message: `Expected 50, got ${score}` };
+        });
+
+        // Test 6: Needs Attention condition (25)
+        runTest('Needs Attention condition (should return 25)', () => {
+            const inspections = [
+                { condition: 'Needs Attention' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 25;
+            return { pass, message: `Expected 25, got ${score}` };
+        });
+
+        // Test 7: Empty array
+        runTest('Empty array (should return null)', () => {
+            const inspections = [];
+            const score = calculateScore(inspections);
+            const pass = score === null;
+            return { pass, message: `Expected null, got ${score}` };
+        });
+
+        // Test 8: Null input
+        runTest('Null input (should return null)', () => {
+            const score = calculateScore(null);
+            const pass = score === null;
+            return { pass, message: `Expected null, got ${score}` };
+        });
+
+        // Test 9: Undefined input
+        runTest('Undefined input (should return null)', () => {
+            const score = calculateScore(undefined);
+            const pass = score === null;
+            return { pass, message: `Expected null, got ${score}` };
+        });
+
+        // Test 10: Invalid condition types (should be ignored)
+        runTest('Invalid condition types (should return null)', () => {
+            const inspections = [
+                { condition: 'InvalidCondition' },
+                { condition: 'AnotherInvalid' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === null;
+            return { pass, message: `Expected null, got ${score}` };
+        });
+
+        // Test 11: Mixed valid and invalid conditions
+        runTest('Mixed valid and invalid conditions (should ignore invalid)', () => {
+            const inspections = [
+                { condition: 'Excellence' },
+                { condition: 'InvalidCondition' },
+                { condition: 'Fail' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 50; // (100 + 0) / 2 = 50
+            return { pass, message: `Expected 50 (ignoring invalid), got ${score}` };
+        });
+
+        // Test 12: Missing condition field
+        runTest('Missing condition field (should be ignored)', () => {
+            const inspections = [
+                { condition: 'Excellence' },
+                { noCondition: 'test' },
+                { condition: 'Pass' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 88; // (100 + 75) / 2 = 87.5, rounded to 88
+            return { pass, message: `Expected 88, got ${score}` };
+        });
+
+        // Test 13: Null inspection objects
+        runTest('Null inspection objects (should be ignored)', () => {
+            const inspections = [
+                { condition: 'Excellence' },
+                null,
+                { condition: 'Fail' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score === 50;
+            return { pass, message: `Expected 50, got ${score}` };
+        });
+
+        // Test 14: Rounding test (should round to nearest integer)
+        runTest('Rounding test (87.5 should round to 88)', () => {
+            const inspections = [
+                { condition: 'Excellence' }, // 100
+                { condition: 'Pass' },       // 75
+                { condition: 'Pass' }        // 75
+            ];
+            // (100 + 75 + 75) / 3 = 83.33... should round to 83
+            const score = calculateScore(inspections);
+            const pass = score === 83;
+            return { pass, message: `Expected 83, got ${score}` };
+        });
+
+        // Test 15: Score range validation (0-100)
+        runTest('Score range validation (should be between 0-100)', () => {
+            const inspections = [
+                { condition: 'Excellence' },
+                { condition: 'Good' },
+                { condition: 'Opportunity' },
+                { condition: 'Needs Attention' },
+                { condition: 'Fail' }
+            ];
+            const score = calculateScore(inspections);
+            const pass = score !== null && score >= 0 && score <= 100;
+            return { pass, message: `Expected 0-100, got ${score}` };
+        });
+
+        // Test 16: Real-world scenario
+        runTest('Real-world scenario (mixed conditions)', () => {
+            const inspections = [
+                { condition: 'Excellence', community: 'Test Community' },
+                { condition: 'Pass', community: 'Test Community' },
+                { condition: 'Good', community: 'Test Community' },
+                { condition: 'Opportunity', community: 'Test Community' },
+                { condition: 'Fail', community: 'Test Community' }
+            ];
+            // (100 + 75 + 75 + 50 + 0) / 5 = 60
+            const score = calculateScore(inspections);
+            const pass = score === 60;
+            return { pass, message: `Expected 60, got ${score}` };
+        });
+
+        // Display summary
+        const passCount = results.filter(r => r.pass).length;
+        const failCount = results.filter(r => !r.pass).length;
+        const totalCount = results.length;
+        
+        document.getElementById('summary').innerHTML = `
+            <h2>Test Summary</h2>
+            <p><strong>Total Tests:</strong> ${totalCount}</p>
+            <p><strong>Passed:</strong> ${passCount}</p>
+            <p><strong>Failed:</strong> ${failCount}</p>
+            <p><strong>Success Rate:</strong> ${((passCount / totalCount) * 100).toFixed(1)}%</p>
+        `;
+
+        // Console output
+        console.log('=== calculateScore Function Test Results ===');
+        results.forEach(result => {
+            console.log(`${result.pass ? '✓' : '✗'} ${result.name}: ${result.message}`);
+        });
+        console.log(`\nSummary: ${passCount}/${totalCount} tests passed (${((passCount / totalCount) * 100).toFixed(1)}%)`);
+    </script>
+</body>
+</html>

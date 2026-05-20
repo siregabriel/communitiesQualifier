@@ -361,6 +361,15 @@
             }
         }
 
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         .card:hover {
             transform: translateY(-8px);
             box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
@@ -920,6 +929,183 @@
             font-size: 14px;
         }
 
+        /* Slide-in Panel Styles */
+        .slide-panel-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 3000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .slide-panel-overlay.show {
+            display: block;
+        }
+
+        .slide-panel {
+            position: fixed;
+            top: 0;
+            right: -600px;
+            width: 600px;
+            height: 100vh;
+            background: white;
+            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+            z-index: 3001;
+            overflow-y: auto;
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .slide-panel.show {
+            right: 0;
+        }
+
+        .slide-panel-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 32px;
+            border-bottom: 2px solid #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+        }
+
+        .slide-panel-title {
+            flex: 1;
+        }
+
+        .slide-panel-title h2 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f172a;
+            font-family: 'Poppins', sans-serif;
+            margin: 0 0 8px 0;
+        }
+
+        .slide-panel-subtitle {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .slide-panel-close {
+            background: #f1f5f9;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 20px;
+            color: #64748b;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        .slide-panel-close:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+            transform: rotate(90deg);
+        }
+
+        .slide-panel-body {
+            padding: 32px;
+        }
+
+        .panel-section {
+            margin-bottom: 32px;
+        }
+
+        .panel-section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 16px;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-section-title i {
+            color: #3b82f6;
+            font-size: 18px;
+        }
+
+        .panel-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .panel-stat-card {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .panel-stat-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .panel-stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            color: #0f172a;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .panel-stat-value.success {
+            color: #10b981;
+        }
+
+        .panel-stat-value.warning {
+            color: #f59e0b;
+        }
+
+        .panel-stat-value.danger {
+            color: #ef4444;
+        }
+
+        /* Mobile responsive for slide panel */
+        @media (max-width: 768px) {
+            .slide-panel {
+                width: 100%;
+                right: -100%;
+            }
+
+            .slide-panel-header {
+                padding: 20px;
+            }
+
+            .slide-panel-title h2 {
+                font-size: 22px;
+            }
+
+            .slide-panel-body {
+                padding: 20px;
+            }
+
+            .panel-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
@@ -1146,6 +1332,23 @@
         </div>
     </div>
 
+    <!-- Community Details Slide Panel -->
+    <div class="slide-panel-overlay" id="slidePanelOverlay" aria-hidden="true"></div>
+    <aside class="slide-panel" id="slidePanel" role="dialog" aria-modal="true" aria-labelledby="slidePanelTitle">
+        <div class="slide-panel-header">
+            <div class="slide-panel-title">
+                <h2 id="slidePanelTitle">Community Details</h2>
+                <p class="slide-panel-subtitle" id="slidePanelSubtitle">Last visit: N/A</p>
+            </div>
+            <button class="slide-panel-close" id="slidePanelClose" aria-label="Close panel">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="slide-panel-body" id="slidePanelBody">
+            <!-- Content will be dynamically loaded here -->
+        </div>
+    </aside>
+
     <script>
         let allReports = [];
         let allInspections = [];
@@ -1334,6 +1537,447 @@
             return responses.filter(response => 
                 actionConditions.includes(response.condition)
             ).length;
+        }
+
+        // Filter Inspections by Community Name
+        function filterByCommunity(inspections, communityName) {
+            // Handle edge cases
+            if (!inspections || !Array.isArray(inspections)) {
+                return [];
+            }
+            
+            if (!communityName || typeof communityName !== 'string' || communityName.trim() === '') {
+                return [];
+            }
+            
+            // Filter inspections that match the specified community name
+            return inspections.filter(inspection => {
+                // Handle null/undefined inspection or community field
+                if (!inspection || !inspection.community) {
+                    return false;
+                }
+                
+                // Case-sensitive exact match
+                return inspection.community === communityName;
+            });
+        }
+
+        // Calculate Average Score from Inspections
+        function calculateScore(inspections) {
+            // Handle edge cases
+            if (!inspections || !Array.isArray(inspections)) {
+                return null;
+            }
+            
+            if (inspections.length === 0) {
+                return null;
+            }
+            
+            // Map condition types to numeric scores
+            function getConditionScore(condition) {
+                const scoreMap = {
+                    'Excellence': 100,
+                    'Pass': 75,
+                    'Good': 75,
+                    'Opportunity': 50,
+                    'Needs Attention': 25,
+                    'Fail': 0
+                };
+                
+                return scoreMap[condition] !== undefined ? scoreMap[condition] : null;
+            }
+            
+            let totalScore = 0;
+            let scoredCount = 0;
+            
+            // Calculate total score from all inspections with valid conditions
+            for (const inspection of inspections) {
+                if (!inspection || !inspection.condition) {
+                    continue;
+                }
+                
+                const conditionScore = getConditionScore(inspection.condition);
+                
+                if (conditionScore !== null) {
+                    totalScore += conditionScore;
+                    scoredCount++;
+                }
+            }
+            
+            // Return null if no scoreable inspections exist
+            if (scoredCount === 0) {
+                return null;
+            }
+            
+            // Calculate average and round to nearest integer
+            const averageScore = totalScore / scoredCount;
+            return Math.round(averageScore);
+        }
+
+        // Count Action Items from Inspections
+        function countActionItems(inspections) {
+            // Handle edge cases
+            if (!inspections || !Array.isArray(inspections)) {
+                return 0;
+            }
+            
+            // Define action-requiring conditions
+            const actionConditions = ['Fail', 'Opportunity', 'Needs Attention'];
+            
+            let count = 0;
+            
+            // Count inspections with action-requiring conditions
+            for (const inspection of inspections) {
+                if (!inspection || !inspection.condition) {
+                    continue;
+                }
+                
+                if (actionConditions.includes(inspection.condition)) {
+                    count++;
+                }
+            }
+            
+            return count;
+        }
+
+        // Group Responses by Condition
+        function groupResponsesByCondition(inspections) {
+            if (!inspections || !Array.isArray(inspections)) {
+                return [];
+            }
+            
+            // Define severity order for sorting
+            const severityOrder = {
+                'Fail': 1,
+                'Needs Attention': 2,
+                'Opportunity': 3,
+                'Pass': 4,
+                'Good': 5,
+                'Excellence': 6
+            };
+            
+            // Map inspections to ResponseGroup format
+            const responses = inspections
+                .filter(inspection => inspection && inspection.condition)
+                .map(inspection => ({
+                    condition: inspection.condition,
+                    conditionClass: getBadgeClass(inspection.condition),
+                    conditionIcon: getBadgeIcon(inspection.condition),
+                    questionText: inspection.question_text || inspection.questionText || 'N/A',
+                    description: inspection.description || '',
+                    photoPath: inspection.photo_path || inspection.photoPath || null,
+                    timestamp: inspection.submitted_at || inspection.timestamp || ''
+                }));
+            
+            // Sort by severity (Fail first, Excellence last)
+            responses.sort((a, b) => {
+                const orderA = severityOrder[a.condition] || 999;
+                const orderB = severityOrder[b.condition] || 999;
+                return orderA - orderB;
+            });
+            
+            return responses;
+        }
+
+        // Extract Photos from Inspections
+        function extractPhotos(inspections) {
+            if (!inspections || !Array.isArray(inspections)) {
+                return [];
+            }
+            
+            const photoMap = new Map();
+            
+            for (const inspection of inspections) {
+                if (!inspection) continue;
+                
+                const photoPath = inspection.photo_path || inspection.photoPath;
+                
+                if (photoPath && photoPath.trim() !== '') {
+                    // Deduplicate by path
+                    if (!photoMap.has(photoPath)) {
+                        photoMap.set(photoPath, {
+                            path: photoPath,
+                            alt: inspection.question_text || inspection.questionText || 'Inspection photo',
+                            timestamp: inspection.submitted_at || inspection.timestamp || ''
+                        });
+                    }
+                }
+            }
+            
+            return Array.from(photoMap.values());
+        }
+
+        // Open Slide Panel
+        async function openSlidePanel(communityName) {
+            // Input validation
+            if (!communityName || typeof communityName !== 'string' || communityName.trim() === '') {
+                console.warn('Invalid community name provided to openSlidePanel');
+                return;
+            }
+            
+            try {
+                // Fetch inspection data
+                const response = await fetch('/api/inspections');
+                
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Check if API returned success
+                if (data.status !== 'success' || !data.submissions) {
+                    throw new Error('Invalid API response format');
+                }
+                
+                // Filter submissions by community
+                const communitySubmissions = data.submissions.filter(
+                    submission => submission.community === communityName
+                );
+                
+                // Check if data exists
+                if (communitySubmissions.length === 0) {
+                    renderEmptyState('No visit data available for this community');
+                    showPanel();
+                    showOverlay();
+                    return;
+                }
+                
+                // Get the most recent submission
+                const latestSubmission = communitySubmissions.sort((a, b) => 
+                    new Date(b.submitted_at) - new Date(a.submitted_at)
+                )[0];
+                
+                // Flatten all responses from all submissions for this community
+                const allResponses = communitySubmissions.flatMap(sub => sub.responses || []);
+                
+                // Calculate metrics
+                const score = calculateScore(allResponses);
+                const actionItems = countActionItems(allResponses);
+                
+                // Get latest timestamp
+                const lastVisitDate = latestSubmission.submitted_at 
+                    ? new Date(latestSubmission.submitted_at).toLocaleDateString()
+                    : 'N/A';
+                
+                // Process responses and photos
+                const responses = groupResponsesByCondition(allResponses);
+                const photos = extractPhotos(allResponses);
+                
+                // Debug logging
+                console.log('Community:', communityName);
+                console.log('All responses:', allResponses);
+                console.log('Grouped responses:', responses);
+                console.log('Photos:', photos);
+                console.log('Score:', score);
+                console.log('Action items:', actionItems);
+                
+                // Build data object
+                const detailData = {
+                    communityName: communityName,
+                    lastVisitDate: lastVisitDate,
+                    score: score,
+                    actionItems: actionItems,
+                    responses: responses,
+                    photos: photos,
+                    totalResponses: allResponses.length
+                };
+                
+                // Render and display
+                renderPanelContent(detailData);
+                showPanel();
+                showOverlay();
+                
+            } catch (error) {
+                console.error('Error opening slide panel:', error);
+                alert('Failed to load community details. Please try again.');
+            }
+        }
+
+        // Close Slide Panel
+        function closeSlidePanel() {
+            const panel = document.getElementById('slidePanel');
+            const overlay = document.getElementById('slidePanelOverlay');
+            
+            if (panel) {
+                panel.classList.remove('show');
+            }
+            
+            if (overlay) {
+                overlay.classList.remove('show');
+            }
+            
+            // Re-enable body scroll
+            document.body.style.overflow = 'auto';
+        }
+
+        // Show Panel
+        function showPanel() {
+            const panel = document.getElementById('slidePanel');
+            if (panel) {
+                panel.classList.add('show');
+            }
+        }
+
+        // Show Overlay
+        function showOverlay() {
+            const overlay = document.getElementById('slidePanelOverlay');
+            if (overlay) {
+                overlay.classList.add('show');
+            }
+        }
+
+        // Render Panel Content
+        function renderPanelContent(data) {
+            const panelBody = document.getElementById('slidePanelBody');
+            const panelTitle = document.getElementById('slidePanelTitle');
+            const panelSubtitle = document.getElementById('slidePanelSubtitle');
+            
+            if (!panelBody) {
+                console.error('Panel body element not found');
+                return;
+            }
+            
+            // Update header
+            if (panelTitle) {
+                panelTitle.textContent = data.communityName;
+            }
+            if (panelSubtitle) {
+                panelSubtitle.textContent = `Last visit: ${data.lastVisitDate}`;
+            }
+            
+            // Build panel content
+            let html = '';
+            
+            // Stats section
+            html += renderStats(data.score, data.actionItems);
+            
+            // Responses section
+            html += renderResponses(data.responses);
+            
+            // Photos section
+            html += renderPhotos(data.photos);
+            
+            panelBody.innerHTML = html;
+        }
+
+        // Render Stats Section
+        function renderStats(score, actionItems) {
+            const scoreClass = score === null ? 'na' : 
+                              score >= 80 ? 'success' : 
+                              score >= 50 ? 'warning' : 'danger';
+            
+            const scoreDisplay = score === null ? 'N/A' : `${score}%`;
+            
+            return `
+                <div class="panel-section">
+                    <h3 class="panel-section-title">
+                        <i class="fas fa-chart-line"></i>
+                        Performance Metrics
+                    </h3>
+                    <div class="panel-stats">
+                        <div class="panel-stat-card">
+                            <div class="panel-stat-label">Overall Score</div>
+                            <div class="panel-stat-value ${scoreClass}">${scoreDisplay}</div>
+                        </div>
+                        <div class="panel-stat-card">
+                            <div class="panel-stat-label">Action Items</div>
+                            <div class="panel-stat-value ${actionItems > 0 ? 'danger' : 'success'}">${actionItems}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render Responses Section
+        function renderResponses(responses) {
+            if (!responses || responses.length === 0) {
+                return `
+                    <div class="panel-section">
+                        <h3 class="panel-section-title">
+                            <i class="fas fa-clipboard-list"></i>
+                            Inspection Responses
+                        </h3>
+                        <div class="no-data">No responses available</div>
+                    </div>
+                `;
+            }
+            
+            let html = `
+                <div class="panel-section">
+                    <h3 class="panel-section-title">
+                        <i class="fas fa-clipboard-list"></i>
+                        Inspection Responses (${responses.length})
+                    </h3>
+            `;
+            
+            for (const response of responses) {
+                html += `
+                    <div class="response-card">
+                        <div class="response-question">${escapeHtml(response.questionText)}</div>
+                        <span class="response-condition ${response.conditionClass}">
+                            <i class="${response.conditionIcon}"></i> ${response.condition}
+                        </span>
+                        ${response.description ? `<div class="response-description">${escapeHtml(response.description)}</div>` : ''}
+                        ${response.photoPath ? `<div class="response-photo"><img src="${response.photoPath}" alt="Response photo" onerror="this.style.display='none'"></div>` : ''}
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        // Render Photos Section
+        function renderPhotos(photos) {
+            if (!photos || photos.length === 0) {
+                return '';
+            }
+            
+            let html = `
+                <div class="panel-section photos-section">
+                    <h3 class="panel-section-title">
+                        <i class="fas fa-images"></i>
+                        Photos (${photos.length})
+                    </h3>
+                    <div class="photos-grid">
+            `;
+            
+            for (const photo of photos) {
+                html += `
+                    <div class="photo-item">
+                        <img src="${photo.path}" alt="${escapeHtml(photo.alt)}" onerror="this.style.display='none'">
+                    </div>
+                `;
+            }
+            
+            html += '</div></div>';
+            return html;
+        }
+
+        // Render Empty State
+        function renderEmptyState(message) {
+            const panelBody = document.getElementById('slidePanelBody');
+            const panelTitle = document.getElementById('slidePanelTitle');
+            const panelSubtitle = document.getElementById('slidePanelSubtitle');
+            
+            if (panelTitle) {
+                panelTitle.textContent = 'No Data Available';
+            }
+            if (panelSubtitle) {
+                panelSubtitle.textContent = '';
+            }
+            if (panelBody) {
+                panelBody.innerHTML = `<div class="no-data"><i class="fas fa-inbox"></i><p>${escapeHtml(message)}</p></div>`;
+            }
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         // Community Data Loader
@@ -1581,7 +2225,7 @@
                             </div>
                             
                             <button class="view-details-btn" 
-                                    onclick="viewCommunityDetails('${community.name.replace(/'/g, "\\'")}')" 
+                                    onclick="openSlidePanel('${community.name.replace(/'/g, "\\'")}')" 
                                     ${!hasData ? 'disabled' : ''}>
                                 <i class="fas fa-eye"></i>
                                 <span>${hasData ? 'View Details' : 'No Data Available'}</span>
@@ -1655,9 +2299,27 @@
             }
         }
 
-        // View Switching Function
+        // Show Loading Indicator
+        function showLoadingIndicator() {
+            const gallery = document.getElementById('gallery');
+            if (gallery) {
+                gallery.innerHTML = `
+                    <div class="empty-state" style="padding: 120px 20px;">
+                        <div style="display: inline-block; width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                        <p style="margin-top: 20px; color: #64748b; font-weight: 600;">Loading...</p>
+                    </div>
+                `;
+            }
+        }
+
+        // View Switching Function with Loading Indicator
         function showView(view) {
+            console.log(`📍 showView called with view: ${view}`);
             currentView = view;
+            
+            // Show loading indicator immediately
+            showLoadingIndicator();
+            console.log('⏳ Loading indicator displayed');
             
             // Reset filters when changing views
             currentConditionFilter = 'all';
@@ -1686,45 +2348,51 @@
             const headerTitle = document.querySelector('.header-left h1');
             const headerDesc = document.querySelector('.header-left p');
             
-            switch(view) {
-                case 'dashboard':
-                    headerTitle.textContent = '📊 Dashboard';
-                    headerDesc.textContent = 'Community Performance Overview';
-                    renderCommunityCards();
-                    break;
-                case 'reports':
-                    headerTitle.textContent = '📊 Reports & Analytics';
-                    headerDesc.textContent = 'Performance Insights and Data Analysis';
-                    renderReports();
-                    break;
-                case 'my-visits':
-                    headerTitle.textContent = '📝 My Visits';
-                    headerDesc.textContent = 'Your Inspection Submissions';
-                    renderMyVisits();
-                    break;
-                case 'communities':
-                    headerTitle.textContent = '🏘️ Communities';
-                    headerDesc.textContent = 'All Communities Overview';
-                    renderCommunityCards();
-                    break;
-                case 'action-items':
-                    headerTitle.textContent = '⚠️ Action Items';
-                    headerDesc.textContent = 'Items Requiring Attention';
-                    renderActionItems();
-                    break;
-                case 'resources':
-                    headerTitle.textContent = '📚 Resources';
-                    headerDesc.textContent = 'Documentation and Guides';
-                    renderResources();
-                    break;
-                case 'settings':
-                    headerTitle.textContent = '⚙️ Settings';
-                    headerDesc.textContent = 'User Preferences';
-                    renderSettings();
-                    break;
-                default:
-                    renderCommunityCards();
-            }
+            // Use requestAnimationFrame to ensure smooth UI update
+            requestAnimationFrame(() => {
+                // Small delay to ensure loading indicator is visible
+                setTimeout(() => {
+                    switch(view) {
+                        case 'dashboard':
+                            headerTitle.textContent = '📊 Dashboard';
+                            headerDesc.textContent = 'Community Performance Overview';
+                            renderCommunityCards();
+                            break;
+                        case 'reports':
+                            headerTitle.textContent = '📊 Reports & Analytics';
+                            headerDesc.textContent = 'Performance Insights and Data Analysis';
+                            renderReports();
+                            break;
+                        case 'my-visits':
+                            headerTitle.textContent = '📝 My Visits';
+                            headerDesc.textContent = 'Your Inspection Submissions';
+                            renderMyVisits();
+                            break;
+                        case 'communities':
+                            headerTitle.textContent = '🏘️ Communities';
+                            headerDesc.textContent = 'All Communities Overview';
+                            renderCommunityCards();
+                            break;
+                        case 'action-items':
+                            headerTitle.textContent = '⚠️ Action Items';
+                            headerDesc.textContent = 'Items Requiring Attention';
+                            renderActionItems();
+                            break;
+                        case 'resources':
+                            headerTitle.textContent = '📚 Resources';
+                            headerDesc.textContent = 'Documentation and Guides';
+                            renderResources();
+                            break;
+                        case 'settings':
+                            headerTitle.textContent = '⚙️ Settings';
+                            headerDesc.textContent = 'User Preferences';
+                            renderSettings();
+                            break;
+                        default:
+                            renderCommunityCards();
+                    }
+                }, 50); // 50ms delay to ensure loading indicator is visible
+            });
         }
 
         function renderMyVisits() {
@@ -2385,10 +3053,17 @@
         });
 
         // Navigation menu click handlers
-        document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+        console.log('🔧 Setting up navigation event listeners...');
+        const navItems = document.querySelectorAll('.nav-item[data-view]');
+        console.log(`📋 Found ${navItems.length} navigation items with data-view attribute`);
+        
+        navItems.forEach((item, index) => {
+            const view = item.dataset.view;
+            console.log(`  ${index + 1}. Setting up listener for: ${view}`);
+            
             item.addEventListener('click', (e) => {
                 e.preventDefault();
-                const view = item.dataset.view;
+                console.log(`🖱️ Navigation clicked: ${view}`);
                 showView(view);
                 
                 // Close mobile menu if open
@@ -2397,6 +3072,8 @@
                 }
             });
         });
+        
+        console.log('✅ Navigation event listeners setup complete');
 
         // Inspection Details Modal Functions
         async function viewCommunityDetails(communityName) {
@@ -2584,8 +3261,70 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeInspectionModal();
+                // Also close slide panel if open
+                const panel = document.getElementById('slidePanel');
+                if (panel && panel.classList.contains('show')) {
+                    closeSlidePanel();
+                }
             }
         });
+
+        // Slide Panel Event Listeners
+        // Close button click
+        const slidePanelCloseBtn = document.getElementById('slidePanelClose');
+        if (slidePanelCloseBtn) {
+            slidePanelCloseBtn.addEventListener('click', closeSlidePanel);
+        }
+
+        // Overlay click
+        const slidePanelOverlay = document.getElementById('slidePanelOverlay');
+        if (slidePanelOverlay) {
+            slidePanelOverlay.addEventListener('click', closeSlidePanel);
+        }
+
+        // Community card clicks - debounced
+        let cardClickTimeout = null;
+        function handleCommunityCardClick(event) {
+            // Clear any pending click
+            if (cardClickTimeout) {
+                clearTimeout(cardClickTimeout);
+            }
+            
+            // Debounce for 300ms
+            cardClickTimeout = setTimeout(() => {
+                const card = event.currentTarget;
+                const titleElement = card.querySelector('.card-title');
+                
+                if (titleElement) {
+                    const communityName = titleElement.textContent.trim();
+                    if (communityName) {
+                        openSlidePanel(communityName);
+                    }
+                }
+            }, 300);
+        }
+
+        // Attach click handlers to all community cards
+        function attachCommunityCardListeners() {
+            const communityCards = document.querySelectorAll('.community-card');
+            communityCards.forEach(card => {
+                card.style.cursor = 'pointer';
+                card.addEventListener('click', handleCommunityCardClick);
+            });
+        }
+
+        // Call this after community cards are rendered
+        // We'll use a MutationObserver to detect when cards are added
+        const galleryObserver = new MutationObserver((mutations) => {
+            attachCommunityCardListeners();
+        });
+
+        const gallery = document.getElementById('gallery');
+        if (gallery) {
+            galleryObserver.observe(gallery, { childList: true, subtree: true });
+            // Also attach to any existing cards
+            attachCommunityCardListeners();
+        }
     </script>
 </body>
 </html>
