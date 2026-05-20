@@ -35,7 +35,7 @@
 
         .container {
             background: white;
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
             padding: 40px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
@@ -73,6 +73,25 @@
             margin-top: 8px;
             text-transform: uppercase;
             letter-spacing: 1px;
+        }
+
+        /* Survey Type Badge */
+        .survey-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .survey-type-badge i {
+            font-size: 14px;
         }
 
         .logout-btn {
@@ -148,8 +167,15 @@
 
         .condition-rating {
             display: flex;
-            gap: 12px;
-            justify-content: center;
+            gap: 8px;
+            justify-content: flex-start;
+            flex-wrap: nowrap;
+        }
+
+        .radio-button {
+            display: inline-block;
+            cursor: pointer;
+            flex: 1;
         }
 
         .radio-button input[type="radio"] {
@@ -157,100 +183,89 @@
         }
 
         .radio-label {
-            display: flex;
-            flex-direction: column;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 140px;
-            min-height: 140px;
-            width: 140px;
-            height: 140px;
-            border: 2px solid #e2e8f0;
-            border-radius: 20px;
-            background: rgba(248, 250, 252, 0.5);
+            gap: 6px;
+            padding: 10px 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            text-align: center;
-            position: relative;
-            overflow: visible;
-        }
-
-        .radio-label span:not(.emoji-hand) {
-            font-size: 12px;
-            margin-top: 6px;
-            color: #64748b;
-            font-weight: 700;
+            transition: all 0.2s ease;
+            font-size: 13px;
+            font-weight: 500;
+            color: #6b7280;
+            width: 100%;
+            height: 44px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
-        .radio-button input[type="radio"]:checked + .radio-label.good {
-            background: linear-gradient(135deg, #dcfce7, #f0fdf4);
-            border-color: #22c55e;
-            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
-        }
-
-        .radio-button input[type="radio"]:checked + .radio-label.good span {
-            color: #16a34a;
-        }
-
-        /* Smooth transition for emoji */
-        .emoji-hand {
-            display: inline-block;
-            font-size: 66px !important;
-            line-height: 1;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .radio-label.good::before,
-        .radio-label.attention::before {
+        .rating-icon {
+            font-size: 16px;
             display: none;
         }
 
-        /* Hide default emoji in label */
-        .radio-button input[type="radio"]:checked + .radio-label.good::after,
-        .radio-button input[type="radio"]:checked + .radio-label.attention::after {
-            content: '';
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            width: 20px;
-            height: 20px;
-            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
-            border-radius: 50%;
-            opacity: 0;
-            animation: ripple 0.6s ease-out;
+        /* Hover state - all buttons */
+        .radio-button:hover .radio-label {
+            border-color: #9ca3af;
         }
 
-        @keyframes ripple {
-            0% {
-                transform: scale(0);
-                opacity: 1;
-            }
-            100% {
-                transform: scale(4);
-                opacity: 0;
-            }
+        /* Excellence - Blue background when selected */
+        .radio-button input[type="radio"]:checked + .radio-label.excellence {
+            background: #dbeafe;
+            border-color: #3b82f6;
+            color: #1e40af;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
         }
 
-        .radio-label.good:hover {
-            border-color: #22c55e;
-            background: #f0fdf4;
+        .radio-button input[type="radio"]:checked + .radio-label.excellence .rating-icon {
+            display: inline-block;
+            color: #1e40af;
         }
 
-        .radio-button input[type="radio"]:checked + .radio-label.attention {
-            background: linear-gradient(135deg, #fee2e2, #fef2f2);
+        /* Pass - Gold/beige background with checkmark when selected */
+        .radio-button input[type="radio"]:checked + .radio-label.pass {
+            background: #f5e6d3;
+            border-color: #d4a574;
+            color: #92400e;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(212, 165, 116, 0.3);
+        }
+
+        .radio-button input[type="radio"]:checked + .radio-label.pass .rating-icon {
+            display: inline-block;
+            color: #92400e;
+        }
+
+        /* Opportunity - Yellow background when selected */
+        .radio-button input[type="radio"]:checked + .radio-label.opportunity {
+            background: #fef3c7;
+            border-color: #f59e0b;
+            color: #92400e;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+
+        .radio-button input[type="radio"]:checked + .radio-label.opportunity .rating-icon {
+            display: inline-block;
+            color: #92400e;
+        }
+
+        /* Fail - Red background when selected */
+        .radio-button input[type="radio"]:checked + .radio-label.fail {
+            background: #fee2e2;
             border-color: #ef4444;
-            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+            color: #991b1b;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
         }
 
-        .radio-button input[type="radio"]:checked + .radio-label.attention span {
-            color: #dc2626;
-        }
-
-        .radio-label.attention:hover {
-            border-color: #ef4444;
-            background: #fef2f2;
+        .radio-button input[type="radio"]:checked + .radio-label.fail .rating-icon {
+            display: inline-block;
+            color: #991b1b;
         }
 
         .file-upload-wrapper {
@@ -425,38 +440,171 @@
         }
 
         .question-section {
-            background: rgba(248, 250, 252, 0.5);
-            border: 1.5px solid #e2e8f0;
-            border-radius: 16px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
             padding: 24px;
             margin-bottom: 24px;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .question-section:hover {
-            border-color: #cbd5e1;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        .question-title {
+            color: #111827;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            line-height: 1.4;
         }
 
-        .question-text {
-            color: #0f172a;
+        .question-description {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .interpretive-guideline {
+            background: #f9fafb;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .guideline-title {
+            color: #111827;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .guideline-content {
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .evidence-dropdown {
+            color: #d97706;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+        }
+
+        .evidence-dropdown:hover {
+            color: #b45309;
+        }
+
+        .evidence-dropdown-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .evidence-dropdown.open .evidence-dropdown-icon {
+            transform: rotate(180deg);
+        }
+
+        .evidence-content {
+            display: none;
+            margin-top: 12px;
+            padding: 12px;
+            background: #fef3e2;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #92400e;
+            line-height: 1.6;
+        }
+
+        .evidence-content.show {
+            display: block;
+        }
+
+        .response-label {
+            color: #111827;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .comments-label {
+            color: #111827;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            margin-top: 20px;
+            display: block;
+        }
+
+        .evidence-label {
+            color: #111827;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            margin-top: 20px;
+            display: block;
+        }
+
+        .progress-bar-container {
+            background: white;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .progress-bar-container.show {
+            display: block;
+        }
+
+        .progress-title {
+            color: #111827;
             font-size: 16px;
             font-weight: 700;
-            margin-bottom: 20px;
-            line-height: 1.5;
+            margin-bottom: 12px;
         }
 
-        .question-number {
-            display: inline-block;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e5e7eb;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #059669);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: white;
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 11px;
             font-weight: 700;
-            margin-right: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-size: 14px;
+        }
+
+        .progress-message {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .progress-message.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .progress-message.warning {
+            background: #fef3c7;
+            color: #92400e;
         }
 
         @media (max-width: 480px) {
@@ -486,6 +634,12 @@
                 <h1>📋 Inspection</h1>
                 <p>Complete inspection questionnaire</p>
                 <div class="user-info" id="userInfo">Loading...</div>
+                {% if survey_type %}
+                <div class="survey-type-badge" style="background: linear-gradient(135deg, {{ survey_type.color }}15, {{ survey_type.color }}08); color: {{ survey_type.color }}; border: 1px solid {{ survey_type.color }}30;">
+                    <i class="fas {{ survey_type.icon }}"></i>
+                    <span>{{ survey_type.name }}</span>
+                </div>
+                {% endif %}
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -499,6 +653,15 @@
         </div>
 
         <form id="reportForm" style="display: none;">
+            <!-- Progress Bar -->
+            <div class="progress-bar-container" id="progressContainer">
+                <div class="progress-title">Inspection Progress</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%;">0%</div>
+                </div>
+                <div class="progress-message" id="progressMessage"></div>
+            </div>
+
             <div id="questionsContainer">
                 <!-- Questions will be dynamically loaded here -->
             </div>
@@ -534,8 +697,12 @@
 
         async function loadQuestions() {
             try {
-                // Fetch questions filtered by user's community
-                const response = await fetch('/api/questions');
+                // Get survey type from template context
+                const surveyTypeId = '{{ survey_type_id }}';
+                
+                // Fetch questions filtered by user's community and survey type
+                const url = surveyTypeId ? `/api/questions?survey_type=${surveyTypeId}` : '/api/questions';
+                const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error('Failed to load questions');
                 }
@@ -547,8 +714,13 @@
                 document.getElementById('loadingMessage').style.display = 'none';
                 
                 if (questions.length === 0) {
+                    // No questions available for this survey type
                     document.getElementById('questionsContainer').innerHTML = 
-                        '<div class="loading-message">No questions available for your community.</div>';
+                        `<div class="loading-message" style="background: #fef3c7; border-color: #fbbf24; color: #92400e;">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            No questions available for this survey type. Please contact your administrator.
+                        </div>`;
+                    document.querySelector('button[type="submit"]').style.display = 'none';
                     return;
                 }
                 
@@ -581,151 +753,193 @@
             section.className = 'question-section';
             section.dataset.questionId = question.id;
             
-            // Question text
-            const questionText = document.createElement('div');
-            questionText.className = 'question-text';
-            questionText.innerHTML = `<span class="question-number">Q${index + 1}</span>${escapeHtml(question.text)}`;
-            section.appendChild(questionText);
+            // Question title
+            const questionTitle = document.createElement('div');
+            questionTitle.className = 'question-title';
+            questionTitle.textContent = question.text;
+            section.appendChild(questionTitle);
             
-            // Condition rating
-            const conditionGroup = document.createElement('div');
-            conditionGroup.className = 'form-group';
-            conditionGroup.innerHTML = `
-                <label>Condition</label>
-                <div class="condition-rating">
-                    <div class="radio-button">
-                        <input type="radio" id="condition_${question.id}_good" name="condition_${question.id}" value="Good">
-                        <label for="condition_${question.id}_good" class="radio-label good">
-                            <span class="emoji-hand">👍</span>
-                            <span>Good</span>
-                        </label>
-                    </div>
-                    <div class="radio-button">
-                        <input type="radio" id="condition_${question.id}_attention" name="condition_${question.id}" value="Needs Attention">
-                        <label for="condition_${question.id}_attention" class="radio-label attention">
-                            <span class="emoji-hand">👎</span>
-                            <span>Needs Attention</span>
-                        </label>
-                    </div>
+            // Question description (if available)
+            if (question.description) {
+                const questionDesc = document.createElement('div');
+                questionDesc.className = 'question-description';
+                questionDesc.textContent = question.description;
+                section.appendChild(questionDesc);
+            }
+            
+            // Interpretive Guideline (expandible section)
+            const guidelineDiv = document.createElement('div');
+            guidelineDiv.className = 'interpretive-guideline';
+            guidelineDiv.innerHTML = `
+                <div class="guideline-title">Interpretive Guideline</div>
+                <div class="guideline-content">
+                    ${question.guideline || 'Follow standard inspection procedures and document any observations that deviate from expected standards.'}
+                </div>
+                <div class="evidence-dropdown" onclick="toggleEvidence('${question.id}')">
+                    <span>Show Evidence to Observe</span>
+                    <span class="evidence-dropdown-icon">▼</span>
+                </div>
+                <div class="evidence-content" id="evidence_${question.id}">
+                    ${question.evidence || 'Document visual evidence, take photos of relevant areas, and note any specific conditions that support your assessment.'}
                 </div>
             `;
-            section.appendChild(conditionGroup);
+            section.appendChild(guidelineDiv);
             
-            // Description textarea
-            const descriptionGroup = document.createElement('div');
-            descriptionGroup.className = 'form-group';
-            descriptionGroup.innerHTML = `
-                <label for="description_${question.id}">Description</label>
-                <textarea id="description_${question.id}" name="description_${question.id}" placeholder="Add details (optional)..."></textarea>
+            // Response label
+            const responseLabel = document.createElement('div');
+            responseLabel.className = 'response-label';
+            responseLabel.textContent = 'Response';
+            section.appendChild(responseLabel);
+            
+            // Condition rating - FIXED: proper label structure
+            const conditionRating = document.createElement('div');
+            conditionRating.className = 'condition-rating';
+            
+            // Excellence button
+            const excellenceDiv = document.createElement('label');
+            excellenceDiv.className = 'radio-button';
+            excellenceDiv.innerHTML = `
+                <input type="radio" name="condition_${question.id}" value="Excellence" onchange="updateProgress()">
+                <span class="radio-label excellence">
+                    <span class="rating-icon">⭐</span>
+                    Excellence
+                </span>
             `;
-            section.appendChild(descriptionGroup);
+            conditionRating.appendChild(excellenceDiv);
             
-            // Photo upload (only if required)
-            if (question.photo_required) {
-                const photoGroup = document.createElement('div');
-                photoGroup.className = 'form-group';
-                photoGroup.innerHTML = `
-                    <label for="photo_${question.id}">Photo</label>
-                    <div class="file-upload-wrapper">
-                        <input type="file" id="photo_${question.id}" name="photo_${question.id}" accept="image/*" capture="environment">
-                        <label for="photo_${question.id}" class="file-upload-label">📷 Upload Photo</label>
-                        <div class="file-name" id="fileName_${question.id}"></div>
-                        <div class="image-preview" id="imagePreview_${question.id}"></div>
-                    </div>
-                `;
-                section.appendChild(photoGroup);
-                
-                // Add photo change handler
-                setTimeout(() => {
-                    const photoInput = document.getElementById(`photo_${question.id}`);
-                    if (photoInput) {
-                        photoInput.addEventListener('change', (e) => handlePhotoChange(e, question.id));
-                    }
-                    
-                    // Add premium animation to radio buttons
-                    const goodRadio = document.getElementById(`condition_${question.id}_good`);
-                    const attentionRadio = document.getElementById(`condition_${question.id}_attention`);
-                    
-                    if (goodRadio) {
-                        goodRadio.addEventListener('change', function() {
-                            if (this.checked) {
-                                const emojiHand = this.nextElementSibling.querySelector('.emoji-hand');
-                                animateThumbsUp(emojiHand);
-                            }
-                        });
-                    }
-                    
-                    if (attentionRadio) {
-                        attentionRadio.addEventListener('change', function() {
-                            if (this.checked) {
-                                const emojiHand = this.nextElementSibling.querySelector('.emoji-hand');
-                                animateThumbsDown(emojiHand);
-                            }
-                        });
-                    }
-                }, 0);
-            }
+            // Pass button
+            const passDiv = document.createElement('label');
+            passDiv.className = 'radio-button';
+            passDiv.innerHTML = `
+                <input type="radio" name="condition_${question.id}" value="Pass" onchange="updateProgress()">
+                <span class="radio-label pass">
+                    <span class="rating-icon">✓</span>
+                    Pass
+                </span>
+            `;
+            conditionRating.appendChild(passDiv);
+            
+            // Opportunity button
+            const opportunityDiv = document.createElement('label');
+            opportunityDiv.className = 'radio-button';
+            opportunityDiv.innerHTML = `
+                <input type="radio" name="condition_${question.id}" value="Opportunity" onchange="updateProgress()">
+                <span class="radio-label opportunity">
+                    <span class="rating-icon">💡</span>
+                    Opportunity
+                </span>
+            `;
+            conditionRating.appendChild(opportunityDiv);
+            
+            // Fail button
+            const failDiv = document.createElement('label');
+            failDiv.className = 'radio-button';
+            failDiv.innerHTML = `
+                <input type="radio" name="condition_${question.id}" value="Fail" onchange="updateProgress()">
+                <span class="radio-label fail">
+                    <span class="rating-icon">❌</span>
+                    Fail
+                </span>
+            `;
+            conditionRating.appendChild(failDiv);
+            
+            section.appendChild(conditionRating);
+            
+            // Comments label
+            const commentsLabel = document.createElement('div');
+            commentsLabel.className = 'comments-label';
+            commentsLabel.textContent = 'Comments';
+            section.appendChild(commentsLabel);
+            
+            // Comments textarea
+            const commentsTextarea = document.createElement('textarea');
+            commentsTextarea.id = `description_${question.id}`;
+            commentsTextarea.name = `description_${question.id}`;
+            commentsTextarea.placeholder = 'Add your comments here...';
+            commentsTextarea.style.width = '100%';
+            commentsTextarea.style.minHeight = '80px';
+            commentsTextarea.style.padding = '12px';
+            commentsTextarea.style.border = '1.5px solid #e5e7eb';
+            commentsTextarea.style.borderRadius = '8px';
+            commentsTextarea.style.fontSize = '14px';
+            commentsTextarea.style.fontFamily = 'inherit';
+            commentsTextarea.style.resize = 'vertical';
+            section.appendChild(commentsTextarea);
+            
+            // Photo upload
+            const evidenceLabel = document.createElement('div');
+            evidenceLabel.className = 'evidence-label';
+            evidenceLabel.textContent = 'Evidence';
+            section.appendChild(evidenceLabel);
+            
+            const photoGroup = document.createElement('div');
+            photoGroup.className = 'file-upload-wrapper';
+            photoGroup.innerHTML = `
+                <input type="file" id="photo_${question.id}" name="photo_${question.id}" accept="image/*" capture="environment" multiple>
+                <label for="photo_${question.id}" class="file-upload-label">📷 Upload Photo</label>
+                <div class="file-name" id="fileName_${question.id}"></div>
+                <div class="image-preview" id="imagePreview_${question.id}"></div>
+            `;
+            section.appendChild(photoGroup);
+            
+            // Add photo change handler
+            setTimeout(() => {
+                const photoInput = document.getElementById(`photo_${question.id}`);
+                if (photoInput) {
+                    photoInput.addEventListener('change', (e) => handlePhotoChange(e, question.id));
+                }
+            }, 0);
             
             return section;
         }
 
-        // Premium animation functions using Anime.js
-        function animateThumbsUp(element) {
-            if (!element) return;
+        function toggleEvidence(questionId) {
+            const evidenceContent = document.getElementById(`evidence_${questionId}`);
+            const dropdown = event.target.closest('.evidence-dropdown');
             
-            // Dramatic celebration bounce with rotation
-            anime({
-                targets: element,
-                translateY: [
-                    { value: -35, duration: 300, easing: 'easeOutCubic' },
-                    { value: 5, duration: 200, easing: 'easeInCubic' },
-                    { value: 0, duration: 400, easing: 'easeOutElastic(1, .5)' }
-                ],
-                scale: [
-                    { value: 1.6, duration: 300, easing: 'easeOutCubic' },
-                    { value: 0.9, duration: 200, easing: 'easeInCubic' },
-                    { value: 1, duration: 400, easing: 'easeOutElastic(1, .5)' }
-                ],
-                rotate: [
-                    { value: -25, duration: 200, easing: 'easeOutCubic' },
-                    { value: 25, duration: 200, easing: 'easeInOutCubic' },
-                    { value: -15, duration: 200, easing: 'easeInOutCubic' },
-                    { value: 0, duration: 300, easing: 'easeOutElastic(1, .6)' }
-                ],
-                duration: 900
-            });
+            if (evidenceContent.classList.contains('show')) {
+                evidenceContent.classList.remove('show');
+                dropdown.classList.remove('open');
+            } else {
+                evidenceContent.classList.add('show');
+                dropdown.classList.add('open');
+            }
         }
 
-        function animateThumbsDown(element) {
-            if (!element) return;
+        function updateProgress() {
+            const totalQuestions = questions.length;
+            let answeredQuestions = 0;
+            let positiveAnswers = 0;
             
-            // Dramatic shake with bounce
-            anime({
-                targets: element,
-                translateX: [
-                    { value: -15, duration: 100, easing: 'easeInOutSine' },
-                    { value: 15, duration: 100, easing: 'easeInOutSine' },
-                    { value: -12, duration: 100, easing: 'easeInOutSine' },
-                    { value: 12, duration: 100, easing: 'easeInOutSine' },
-                    { value: -8, duration: 100, easing: 'easeInOutSine' },
-                    { value: 8, duration: 100, easing: 'easeInOutSine' },
-                    { value: 0, duration: 200, easing: 'easeOutElastic(1, .6)' }
-                ],
-                translateY: [
-                    { value: -10, duration: 300, easing: 'easeOutCubic' },
-                    { value: 0, duration: 500, easing: 'easeOutElastic(1, .5)' }
-                ],
-                scale: [
-                    { value: 1.5, duration: 300, easing: 'easeOutCubic' },
-                    { value: 1, duration: 500, easing: 'easeOutElastic(1, .5)' }
-                ],
-                rotate: [
-                    { value: 10, duration: 200, easing: 'easeInOutSine' },
-                    { value: -10, duration: 200, easing: 'easeInOutSine' },
-                    { value: 0, duration: 400, easing: 'easeOutElastic(1, .6)' }
-                ],
-                duration: 800
+            questions.forEach(question => {
+                const selectedInput = document.querySelector(`input[name="condition_${question.id}"]:checked`);
+                if (selectedInput) {
+                    answeredQuestions++;
+                    const value = selectedInput.value;
+                    if (value === 'Excellence' || value === 'Pass') {
+                        positiveAnswers++;
+                    }
+                }
             });
+            
+            if (answeredQuestions > 0) {
+                const percentage = Math.round((positiveAnswers / totalQuestions) * 100);
+                const progressContainer = document.getElementById('progressContainer');
+                const progressFill = document.getElementById('progressFill');
+                const progressMessage = document.getElementById('progressMessage');
+                
+                progressContainer.classList.add('show');
+                progressFill.style.width = percentage + '%';
+                progressFill.textContent = percentage + '%';
+                
+                if (percentage >= 90) {
+                    progressMessage.className = 'progress-message success';
+                    progressMessage.textContent = '✓ Excellent! This inspection meets the 90% positive standard.';
+                } else {
+                    progressMessage.className = 'progress-message warning';
+                    progressMessage.textContent = `${percentage}% positive. Need ${90 - percentage}% more to reach the 90% standard.`;
+                }
+            }
         }
 
         function handlePhotoChange(event, questionId) {

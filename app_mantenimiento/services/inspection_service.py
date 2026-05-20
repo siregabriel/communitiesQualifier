@@ -51,7 +51,7 @@ class InspectionService:
         self.load_from_file()
     
     def create_submission(self, username: str, community: str, 
-                         responses: List[Dict]) -> Dict:
+                         responses: List[Dict], survey_type_id: Optional[str] = None) -> Dict:
         """
         Create new inspection submission.
         
@@ -59,6 +59,7 @@ class InspectionService:
             username: Staff member username
             community: Community name
             responses: List of response dictionaries
+            survey_type_id: Survey type ID (optional for backward compatibility)
             
         Returns:
             InspectionSubmission dictionary
@@ -97,6 +98,10 @@ class InspectionService:
             'responses': validated_responses
         }
         
+        # Add survey_type_id if provided (backward compatibility)
+        if survey_type_id:
+            submission['survey_type_id'] = survey_type_id
+        
         # Add to submissions list
         self.submissions.append(submission)
         
@@ -123,7 +128,7 @@ class InspectionService:
             return False
         
         # Validate condition value
-        valid_conditions = ['Good', 'Needs Attention']
+        valid_conditions = ['Excellence', 'Pass', 'Opportunity', 'Fail']
         if response['condition'] not in valid_conditions:
             return False
         

@@ -57,33 +57,147 @@ inspection_service = InspectionService(INSPECTIONS_FILE, UPLOAD_FOLDER)
 from services.file_upload_handler import FileUploadHandler
 file_upload_handler = FileUploadHandler(UPLOAD_FOLDER)
 
+# Initialize SurveyTypeService
+SURVEY_TYPES_FILE = os.path.join(DATA_FOLDER, 'survey_types.json')
+from services.survey_type_service import SurveyTypeService
+survey_type_service = SurveyTypeService(SURVEY_TYPES_FILE)
+
+# Initialize QuestionFilterService
+from services.question_filter import QuestionFilterService
+question_filter_service = QuestionFilterService(question_manager, survey_type_service)
+
+
 
 # ==================== DATABASE & USER MANAGEMENT ====================
 
 # Sample user database - In production, use a real database
 # Format: {username: {'password_hash': hash, 'community': 'Community Name'}}
 USERS_DB = {
-    'john': {
-        'password': 'pass123',
-        'community': 'Community A'
-    },
-    'maria': {
-        'password': 'pass123',
-        'community': 'Community B'
-    },
-    'carlos': {
-        'password': 'pass123',
-        'community': 'Community C'
-    },
+    # Admin user
     'admin': {
         'password': 'admin123',
         'community': None  # Admin can see all communities
-    }
+    },
+    
+    # Test users - one per community (38 total)
+    # Georgia
+    'user1': {'password': 'test123', 'community': 'Kelley Place, Enterprise'},
+    'user2': {'password': 'test123', 'community': 'Madison Heights Enterprise, Enterprise'},
+    'user3': {'password': 'test123', 'community': 'Monark Grove Madison'},
+    'user4': {'password': 'test123', 'community': 'Monark Grove Greystone'},
+    'user5': {'password': 'test123', 'community': 'Legacy Ridge Trussville, Trussville'},
+    'user6': {'password': 'test123', 'community': 'Madison at The Range, Madison'},
+    'user7': {'password': 'test123', 'community': 'The Goldton at Athens'},
+    'user8': {'password': 'test123', 'community': 'The Goldton at Jones Farm'},
+    
+    # Florida
+    'user9': {'password': 'test123', 'community': 'Madison at Clermont, Clermont'},
+    'user10': {'password': 'test123', 'community': 'Madison at Ocoee, Ocoee'},
+    'user11': {'password': 'test123', 'community': 'Madison at Oviedo, Oviedo'},
+    'user12': {'password': 'test123', 'community': 'The Goldton at Venice, Venice'},
+    'user13': {'password': 'test123', 'community': 'The Goldton at St. Petersburg, St. Petersburg'},
+    'user14': {'password': 'test123', 'community': 'Lake Howard Heights, Winter Haven'},
+    'user15': {'password': 'test123', 'community': 'The Canopy At Beacon Woods'},
+    'user16': {'password': 'test123', 'community': 'The Goldton At Lake Nona'},
+    
+    # North Carolina
+    'user17': {'password': 'test123', 'community': 'Madison Heights Evans, Evans'},
+    'user18': {'password': 'test123', 'community': 'Legacy at Savannah Quarters, Pooler'},
+    'user19': {'password': 'test123', 'community': 'Legacy Reserve at Old Town, Columbus'},
+    'user20': {'password': 'test123', 'community': 'Legacy Ridge at Alpharetta, Alpharetta'},
+    'user21': {'password': 'test123', 'community': 'Legacy Ridge at Buckhead, Atlanta'},
+    'user22': {'password': 'test123', 'community': 'Legacy Ridge at Marietta, Marietta'},
+    'user23': {'password': 'test123', 'community': 'The Canopy at Westridge, McDonough'},
+    'user24': {'password': 'test123', 'community': 'The Overlook at Suwanee, Suwanee'},
+    
+    # Ohio
+    'user25': {'password': 'test123', 'community': 'Legacy Reserve at Fritz Farm, Lexington'},
+    
+    # Mississippi
+    'user26': {'password': 'test123', 'community': 'The Goldton at Southaven, Southaven'},
+    'user27': {'password': 'test123', 'community': 'The Goldton at Adelaide, Starkville'},
+    
+    # South Carolina
+    'user28': {'password': 'test123', 'community': 'Oakview Park, Greenville'},
+    'user29': {'password': 'test123', 'community': 'Spring Park, Travelers Rest'},
+    'user30': {'password': 'test123', 'community': 'Legacy Reserve Fairview Park, Simpsonville'},
+    'user31': {'password': 'test123', 'community': 'Wildcat Senior Living, Summerville'},
+    
+    # Tennessee
+    'user32': {'password': 'test123', 'community': 'The Goldton at Spring Hill, Spring Hill'},
+    
+    # Texas
+    'user33': {'password': 'test123', 'community': 'The Oscar at Georgetown'},
+    'user34': {'password': 'test123', 'community': 'The Oscar at Veramendi (June 2026)'},
+    
+    # Maryland
+    'user35': {'password': 'test123', 'community': 'Tribute at Black Hill'},
+    'user36': {'password': 'test123', 'community': 'Tribute at Melford'},
+    
+    # Virginia
+    'user37': {'password': 'test123', 'community': 'Tribute at One Loudoun'},
+    'user38': {'password': 'test123', 'community': 'Tribute at The Glen'}
 }
 
 # List of all available communities
 ALL_COMMUNITIES = [
-    f'Community {chr(65 + i)}' for i in range(38)  # Community A through Community AL (38 total)
+    # Georgia
+    "Kelley Place, Enterprise",
+    "Madison Heights Enterprise, Enterprise",
+    "Monark Grove Madison",
+    "Monark Grove Greystone",
+    "Legacy Ridge Trussville, Trussville",
+    "Madison at The Range, Madison",
+    "The Goldton at Athens",
+    "The Goldton at Jones Farm",
+    
+    # Florida
+    "Madison at Clermont, Clermont",
+    "Madison at Ocoee, Ocoee",
+    "Madison at Oviedo, Oviedo",
+    "The Goldton at Venice, Venice",
+    "The Goldton at St. Petersburg, St. Petersburg",
+    "Lake Howard Heights, Winter Haven",
+    "The Canopy At Beacon Woods",
+    "The Goldton At Lake Nona",
+    
+    # North Carolina
+    "Madison Heights Evans, Evans",
+    "Legacy at Savannah Quarters, Pooler",
+    "Legacy Reserve at Old Town, Columbus",
+    "Legacy Ridge at Alpharetta, Alpharetta",
+    "Legacy Ridge at Buckhead, Atlanta",
+    "Legacy Ridge at Marietta, Marietta",
+    "The Canopy at Westridge, McDonough",
+    "The Overlook at Suwanee, Suwanee",
+    
+    # Ohio
+    "Legacy Reserve at Fritz Farm, Lexington",
+    
+    # Mississippi
+    "The Goldton at Southaven, Southaven",
+    "The Goldton at Adelaide, Starkville",
+    
+    # South Carolina
+    "Oakview Park, Greenville",
+    "Spring Park, Travelers Rest",
+    "Legacy Reserve Fairview Park, Simpsonville",
+    "Wildcat Senior Living, Summerville",
+    
+    # Tennessee
+    "The Goldton at Spring Hill, Spring Hill",
+    
+    # Texas
+    "The Oscar at Georgetown",
+    "The Oscar at Veramendi (June 2026)",
+    
+    # Maryland
+    "Tribute at Black Hill",
+    "Tribute at Melford",
+    
+    # Virginia
+    "Tribute at One Loudoun",
+    "Tribute at The Glen"
 ]
 
 
@@ -226,11 +340,23 @@ def logout():
 @app.route('/')
 def index():
     """
-    Root route - redirect to login if not authenticated, otherwise to report form
+    Root route - redirect based on authentication and user type
+    
+    Behavior:
+    - Not authenticated: Redirect to login
+    - Admin user: Redirect to dashboard
+    - Staff user: Redirect to survey type selection (start new visit)
     """
-    if 'user' in session:
-        return redirect(url_for('report_form'))
-    return redirect(url_for('login'))
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if session.get('community') is None:
+        # Admin user - redirect to dashboard
+        return redirect(url_for('dashboard'))
+    else:
+        # Staff user - redirect to survey type selection to start new visit
+        return redirect(url_for('select_survey_type'))
 
 
 @app.route('/reporte')
@@ -240,11 +366,57 @@ def report_form():
     Render the mobile report form (reporte.html)
     This page is designed for maintenance/cleaning staff using mobile devices
     User must be logged in and their community is automatically detected
+    
+    Survey Type Requirement:
+    - User must have selected a survey type before accessing this page
+    - If no survey type in session, redirect to survey type selection
+    - Admin users are redirected to dashboard (cannot submit inspections)
     """
+    # Check if user is admin (community is None)
+    if session.get('community') is None:
+        # Admin users cannot submit inspections, redirect to dashboard
+        return redirect(url_for('dashboard'))
+    
+    # Check if survey type is selected
+    survey_type_id = session.get('survey_type_id')
+    if not survey_type_id:
+        # No survey type selected, redirect to selection screen
+        return redirect(url_for('select_survey_type'))
+    
+    # Validate survey type is still valid
+    if not survey_type_service.validate_survey_type(survey_type_id):
+        # Invalid survey type in session, clear and redirect
+        session.pop('survey_type_id', None)
+        session.pop('survey_type_name', None)
+        return redirect(url_for('select_survey_type'))
+    
+    # Get survey type details for display
+    survey_type = survey_type_service.get_survey_type_by_id(survey_type_id)
+    
     communities = [session.get('community')] if session.get('community') else ALL_COMMUNITIES
     return render_template('reporte.html', 
                          community=session.get('community'),
                          communities=communities,
+                         username=session.get('user'),
+                         survey_type=survey_type,
+                         survey_type_id=survey_type_id)
+
+
+@app.route('/select-survey-type')
+@login_required
+def select_survey_type():
+    """
+    Render the survey type selection screen
+    User must select a survey type before starting an inspection
+    Requires login - admin users are redirected to dashboard
+    """
+    # Check if user is admin (community is None)
+    if session.get('community') is None:
+        # Admin users cannot submit inspections, redirect to dashboard
+        return redirect(url_for('dashboard'))
+    
+    return render_template('select_survey_type.html',
+                         community=session.get('community'),
                          username=session.get('user'))
 
 
@@ -363,6 +535,113 @@ def get_user_info():
     }), 200
 
 
+# ==================== SURVEY TYPE API ====================
+
+@app.route('/api/survey-types', methods=['GET'])
+@login_required
+def get_survey_types():
+    """
+    Get all active survey types
+    
+    Returns:
+        200: JSON with status and survey_types array
+        500: Internal server error
+        
+    Requirements: Task 4.1
+    """
+    try:
+        survey_types = survey_type_service.get_all_survey_types()
+        
+        return jsonify({
+            'status': 'success',
+            'survey_types': survey_types
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f'Error retrieving survey types: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Internal server error while retrieving survey types'
+        }), 500
+
+
+@app.route('/api/select-survey-type', methods=['POST'])
+@login_required
+def api_select_survey_type():
+    """
+    Store selected survey type in session
+    
+    Expects JSON with survey_type_id
+    
+    Returns:
+        200: Success with survey type info
+        400: Invalid survey type ID or missing field
+        500: Internal server error
+        
+    Requirements: Task 4.2
+    """
+    try:
+        # Handle JSON parsing errors
+        data = request.get_json(silent=True)
+        
+        if data is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid JSON format or Content-Type must be application/json'
+            }), 400
+        
+        # Validate JSON structure
+        if not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({
+                'status': 'error',
+                'message': 'Request body must be a JSON object'
+            }), 400
+        
+        # Get and sanitize survey_type_id
+        survey_type_id = data.get('survey_type_id', '')
+        survey_type_id = InputSanitizer.sanitize_string(survey_type_id, max_length=50)
+        
+        if not survey_type_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'survey_type_id is required'
+            }), 400
+        
+        # Validate survey type exists
+        if not survey_type_service.validate_survey_type(survey_type_id):
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid survey type: {survey_type_id}'
+            }), 400
+        
+        # Get survey type details
+        survey_type = survey_type_service.get_survey_type_by_id(survey_type_id)
+        
+        if not survey_type:
+            return jsonify({
+                'status': 'error',
+                'message': f'Survey type not found: {survey_type_id}'
+            }), 400
+        
+        # Store in session
+        session['survey_type_id'] = survey_type_id
+        session['survey_type_name'] = survey_type['name']
+        session.modified = True
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Survey type selected successfully',
+            'survey_type': survey_type
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f'Error selecting survey type: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Internal server error while selecting survey type'
+        }), 500
+
+
 @app.route('/questions/manage')
 @require_admin
 def question_manager_ui():
@@ -382,17 +661,20 @@ def question_manager_ui():
 @login_required
 def get_questions():
     """
-    Get active questions with community filtering
+    Get active questions with community and survey type filtering
     
     Query Parameters:
         community (optional): Filter questions by community name
+        survey_type (optional): Filter questions by survey type ID
         
     Behavior:
         - For staff users: Automatically filters by their assigned community
         - For admin users: Returns all active questions, or filters by community parameter if provided
+        - If survey_type is provided, filters questions by that survey type
         
     Returns:
         200: JSON with status and questions array
+        400: Invalid survey type
         500: Internal server error
     """
     try:
@@ -400,6 +682,17 @@ def get_questions():
         community_filter = request.args.get('community')
         if community_filter:
             community_filter = InputSanitizer.sanitize_community_name(community_filter)
+        
+        # Get survey type filter from query parameter
+        survey_type_filter = request.args.get('survey_type')
+        if survey_type_filter:
+            survey_type_filter = InputSanitizer.sanitize_string(survey_type_filter, max_length=50)
+            # Validate survey type
+            if not survey_type_service.validate_survey_type(survey_type_filter):
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Invalid survey type: {survey_type_filter}'
+                }), 400
         
         # Check if user is admin
         user_community = session.get('community')
@@ -417,6 +710,10 @@ def get_questions():
         else:
             # Staff user - always filter by their assigned community
             questions = question_manager.get_questions_for_community(user_community)
+        
+        # Apply survey type filter if provided
+        if survey_type_filter:
+            questions = question_filter_service.filter_by_survey_type(questions, survey_type_filter)
         
         return jsonify({
             'status': 'success',
@@ -470,6 +767,7 @@ def create_question():
         text = sanitized_data.get('text', '')
         photo_required = sanitized_data.get('photo_required', False)
         communities = sanitized_data.get('communities', [])
+        survey_types = sanitized_data.get('survey_types', [])
         
         # Validate text is non-empty
         if not text or not text.strip():
@@ -486,7 +784,7 @@ def create_question():
             }), 400
         
         # Create question using QuestionManager
-        question = question_manager.create_question(text, photo_required, communities)
+        question = question_manager.create_question(text, photo_required, communities, survey_types)
         
         return jsonify({
             'status': 'success',
@@ -555,6 +853,7 @@ def update_question(question_id):
         text = sanitized_data.get('text', '')
         photo_required = sanitized_data.get('photo_required', False)
         communities = sanitized_data.get('communities', [])
+        survey_types = sanitized_data.get('survey_types', [])
         
         # Validate text is non-empty
         if not text or not text.strip():
@@ -571,7 +870,7 @@ def update_question(question_id):
             }), 400
         
         # Update question using QuestionManager
-        question = question_manager.update_question(question_id, text, photo_required, communities)
+        question = question_manager.update_question(question_id, text, photo_required, communities, survey_types)
         
         # Check if question was found
         if question is None:
@@ -680,6 +979,7 @@ def submit_inspection():
         # Get user info from session
         username = session.get('user')
         community = session.get('community')
+        survey_type_id = session.get('survey_type_id')
         
         # Sanitize user info
         username = InputSanitizer.sanitize_username(username)
@@ -691,6 +991,20 @@ def submit_inspection():
             return jsonify({
                 'status': 'error',
                 'message': 'Admin users cannot submit inspections'
+            }), 400
+        
+        # Validate survey type is selected
+        if not survey_type_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Survey type must be selected before submitting inspection'
+            }), 400
+        
+        # Validate survey type is valid
+        if not survey_type_service.validate_survey_type(survey_type_id):
+            return jsonify({
+                'status': 'error',
+                'message': f'Invalid survey type in session: {survey_type_id}'
             }), 400
         
         # Parse responses from form data
@@ -750,10 +1064,10 @@ def submit_inspection():
                 }), 400
             
             # Validate condition value
-            if condition not in ['Good', 'Needs Attention']:
+            if condition not in ['Excellence', 'Pass', 'Opportunity', 'Fail']:
                 return jsonify({
                     'status': 'error',
-                    'message': f'Response {idx}: condition must be "Good" or "Needs Attention"'
+                    'message': f'Response {idx}: condition must be "Excellence", "Pass", "Opportunity", or "Fail"'
                 }), 400
             
             # Get optional fields
@@ -811,8 +1125,15 @@ def submit_inspection():
             submission = inspection_service.create_submission(
                 username=username,
                 community=community,
-                responses=processed_responses
+                responses=processed_responses,
+                survey_type_id=survey_type_id
             )
+            
+            # Clear survey type from session after successful submission
+            session.pop('survey_type_id', None)
+            session.pop('survey_type_name', None)
+            session.modified = True
+            
         except ValueError as e:
             return jsonify({
                 'status': 'error',
@@ -844,26 +1165,40 @@ def submit_inspection():
 @login_required
 def get_inspections():
     """
-    Get inspection submissions with community filtering
+    Get inspection submissions with community and survey type filtering
     
     Query Parameters:
         community (optional): Filter submissions by community name (admin only)
+        survey_type (optional): Filter submissions by survey type ID
         
     Behavior:
         - For staff users: Automatically filters by their assigned community
         - For admin users: Returns all submissions, or filters by community parameter if provided
+        - If survey_type is provided, filters submissions by that survey type
         
     Returns:
         200: JSON with status and submissions array
+        400: Invalid survey type
         500: Internal server error
         
-    Requirements: 9.1
+    Requirements: 9.1, Task 4.5
     """
     try:
         # Sanitize community filter from query parameter
         community_filter = request.args.get('community')
         if community_filter:
             community_filter = InputSanitizer.sanitize_community_name(community_filter)
+        
+        # Get survey type filter from query parameter
+        survey_type_filter = request.args.get('survey_type')
+        if survey_type_filter:
+            survey_type_filter = InputSanitizer.sanitize_string(survey_type_filter, max_length=50)
+            # Validate survey type
+            if not survey_type_service.validate_survey_type(survey_type_filter):
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Invalid survey type: {survey_type_filter}'
+                }), 400
         
         # Check if user is admin
         user_community = session.get('community')
@@ -881,6 +1216,13 @@ def get_inspections():
         else:
             # Staff user - always filter by their assigned community
             submissions = inspection_service.get_submissions_by_community(user_community)
+        
+        # Apply survey type filter if provided
+        if survey_type_filter:
+            submissions = [
+                sub for sub in submissions 
+                if sub.get('survey_type_id') == survey_type_filter
+            ]
         
         return jsonify({
             'status': 'success',

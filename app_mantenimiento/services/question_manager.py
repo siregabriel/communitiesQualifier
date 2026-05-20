@@ -33,7 +33,8 @@ class QuestionManager:
         if os.path.exists(storage_path):
             self.load_from_file()
 
-    def create_question(self, text: str, photo_required: bool, communities: List[str]) -> Dict:
+    def create_question(self, text: str, photo_required: bool, communities: List[str],
+                       survey_types: Optional[List[str]] = None) -> Dict:
         """
         Create new question with validation
         
@@ -41,6 +42,7 @@ class QuestionManager:
             text: Question text (required, non-empty after stripping)
             photo_required: Whether photo upload is required
             communities: Array of community names (required, non-empty)
+            survey_types: Array of survey type IDs (optional, empty means all types)
             
         Returns:
             Dict containing the created question
@@ -56,6 +58,10 @@ class QuestionManager:
         if not communities or len(communities) == 0:
             raise ValueError("At least one community must be selected")
         
+        # Handle survey_types: None or empty list means all types (backward compatibility)
+        if survey_types is None:
+            survey_types = []
+        
         # Generate unique ID using timestamp and random number
         question_id = f"q_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
         
@@ -68,6 +74,7 @@ class QuestionManager:
             "text": text.strip(),
             "photo_required": photo_required,
             "communities": communities,
+            "survey_types": survey_types,  # Empty array means all types
             "created_at": now,
             "updated_at": now,
             "is_active": True
@@ -132,7 +139,7 @@ class QuestionManager:
         return community_questions
 
     def update_question(self, question_id: str, text: str, photo_required: bool, 
-                       communities: List[str]) -> Optional[Dict]:
+                       communities: List[str], survey_types: Optional[List[str]] = None) -> Optional[Dict]:
         """
         Update existing question, preserving ID and created_at timestamp
         
@@ -141,6 +148,7 @@ class QuestionManager:
             text: Updated question text (required, non-empty after stripping)
             photo_required: Updated photo requirement flag
             communities: Updated array of community names (required, non-empty)
+            survey_types: Updated array of survey type IDs (optional, empty means all types)
             
         Returns:
             Updated question dict if found, None otherwise
@@ -156,6 +164,10 @@ class QuestionManager:
         if not communities or len(communities) == 0:
             raise ValueError("At least one community must be selected")
         
+        # Handle survey_types: None or empty list means all types (backward compatibility)
+        if survey_types is None:
+            survey_types = []
+        
         # Find question
         question = self.get_question(question_id)
         if not question:
@@ -165,6 +177,7 @@ class QuestionManager:
         question["text"] = text.strip()
         question["photo_required"] = photo_required
         question["communities"] = communities
+        question["survey_types"] = survey_types  # Empty array means all types
         question["updated_at"] = datetime.now().isoformat()
         
         # Save to file

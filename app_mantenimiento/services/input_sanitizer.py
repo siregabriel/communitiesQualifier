@@ -125,6 +125,20 @@ class InputSanitizer:
             else:
                 sanitized['communities'] = []
         
+        # Sanitize survey_types array (optional, empty means all types)
+        if 'survey_types' in data:
+            if isinstance(data['survey_types'], list):
+                sanitized['survey_types'] = [
+                    InputSanitizer.sanitize_string(st, max_length=50)
+                    for st in data['survey_types']
+                    if isinstance(st, str)
+                ]
+            else:
+                sanitized['survey_types'] = []
+        else:
+            # If not provided, default to empty array (all types)
+            sanitized['survey_types'] = []
+        
         return sanitized
     
     @staticmethod
@@ -155,7 +169,7 @@ class InputSanitizer:
         # Sanitize condition (must be exact match)
         if 'condition' in response:
             condition = str(response['condition']).strip()
-            if condition in ['Good', 'Needs Attention']:
+            if condition in ['Excellence', 'Pass', 'Opportunity', 'Fail']:
                 sanitized['condition'] = condition
             else:
                 sanitized['condition'] = ''

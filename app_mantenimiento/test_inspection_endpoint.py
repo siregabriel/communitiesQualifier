@@ -165,7 +165,8 @@ def test_submit_inspection_invalid_condition(authenticated_client):
     assert response.status_code == 400
     json_data = response.get_json()
     assert json_data['status'] == 'error'
-    assert 'condition must be "Good" or "Needs Attention"' in json_data['message']
+    # InputSanitizer filters out invalid conditions, so it appears as "required"
+    assert 'condition' in json_data['message'].lower()
 
 
 def test_submit_inspection_success_without_photos(authenticated_client):
@@ -174,13 +175,13 @@ def test_submit_inspection_success_without_photos(authenticated_client):
         {
             'question_id': 'q_123_456',
             'question_text': 'Is the area clean?',
-            'condition': 'Good',
+            'condition': 'Pass',
             'description': 'Everything looks good'
         },
         {
             'question_id': 'q_789_012',
             'question_text': 'Are lights working?',
-            'condition': 'Needs Attention',
+            'condition': 'Opportunity',
             'description': 'One bulb is out'
         }
     ]
@@ -201,9 +202,9 @@ def test_submit_inspection_success_without_photos(authenticated_client):
     assert submission['community'] == 'Community A'
     assert len(submission['responses']) == 2
     assert submission['responses'][0]['question_id'] == 'q_123_456'
-    assert submission['responses'][0]['condition'] == 'Good'
+    assert submission['responses'][0]['condition'] == 'Pass'
     assert submission['responses'][1]['question_id'] == 'q_789_012'
-    assert submission['responses'][1]['condition'] == 'Needs Attention'
+    assert submission['responses'][1]['condition'] == 'Opportunity'
 
 
 def test_submit_inspection_with_photo(authenticated_client):
@@ -212,7 +213,7 @@ def test_submit_inspection_with_photo(authenticated_client):
         {
             'question_id': 'q_123_456',
             'question_text': 'Is the area clean?',
-            'condition': 'Good',
+            'condition': 'Excellence',
             'description': 'Everything looks good'
         }
     ]
@@ -249,7 +250,7 @@ def test_submit_inspection_invalid_file_type(authenticated_client):
         {
             'question_id': 'q_123_456',
             'question_text': 'Is the area clean?',
-            'condition': 'Good',
+            'condition': 'Fail',
             'description': 'Everything looks good'
         }
     ]

@@ -1,75 +1,1830 @@
 {
     "version": "1.0",
-    "last_modified": "2026-05-10T12:41:46.838628",
+    "last_modified": "2026-05-18T23:28:05.925123",
     "questions": [
         {
-            "id": "q_1705315800000_5678",
+            "id": "q_1779146885732_8106",
             "text": "Is the common area clean and well-maintained?",
             "photo_required": true,
             "communities": [
-                "Community A",
-                "Community B",
-                "Community C"
+                "Kelley Place, Enterprise"
             ],
-            "created_at": "2024-01-15T10:30:00Z",
-            "updated_at": "2024-01-15T10:30:00Z",
-            "is_active": true
+            "created_at": "2026-05-18T23:28:05.732914Z",
+            "updated_at": "2026-05-18T23:28:05.733122Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
         },
         {
-            "id": "q_1705315900000_1234",
+            "id": "q_1779146885734_59",
             "text": "Are all safety equipment properly stored?",
             "photo_required": true,
             "communities": [
-                "Community A"
+                "Kelley Place, Enterprise"
             ],
-            "created_at": "2024-01-15T10:31:00Z",
-            "updated_at": "2026-05-10T12:41:46.838618",
-            "is_active": true
+            "created_at": "2026-05-18T23:28:05.734393Z",
+            "updated_at": "2026-05-18T23:28:05.734397Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
         },
         {
-            "id": "q_1705316000000_9876",
+            "id": "q_1779146885735_8266",
             "text": "Is the kitchen area sanitized?",
             "photo_required": true,
             "communities": [
-                "Community A",
-                "Community B"
+                "Kelley Place, Enterprise"
             ],
-            "created_at": "2024-01-15T10:32:00Z",
-            "updated_at": "2024-01-15T10:32:00Z",
-            "is_active": true
+            "created_at": "2026-05-18T23:28:05.735664Z",
+            "updated_at": "2026-05-18T23:28:05.735667Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
         },
         {
-            "id": "q_1778436221192_8491",
-            "text": "Test integration question",
-            "photo_required": true,
-            "communities": [
-                "Community A"
-            ],
-            "created_at": "2026-05-10T12:03:41.192181",
-            "updated_at": "2026-05-10T12:03:41.192472",
-            "is_active": false
-        },
-        {
-            "id": "q_1778436253142_1649",
-            "text": "Test integration question",
-            "photo_required": true,
-            "communities": [
-                "Community A"
-            ],
-            "created_at": "2026-05-10T12:04:13.142498",
-            "updated_at": "2026-05-10T12:04:13.142691",
-            "is_active": false
-        },
-        {
-            "id": "q_1778436448641_6045",
+            "id": "q_1779146885736_8662",
             "text": "Is the entrance carpet clean ?",
             "photo_required": true,
             "communities": [
-                "Community A"
+                "Kelley Place, Enterprise"
             ],
-            "created_at": "2026-05-10T12:07:28.641495",
-            "updated_at": "2026-05-10T12:41:38.948389",
-            "is_active": true
+            "created_at": "2026-05-18T23:28:05.736934Z",
+            "updated_at": "2026-05-18T23:28:05.736937Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885738_2317",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Madison Heights Enterprise, Enterprise"
+            ],
+            "created_at": "2026-05-18T23:28:05.738151Z",
+            "updated_at": "2026-05-18T23:28:05.738153Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885739_5130",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Madison Heights Enterprise, Enterprise"
+            ],
+            "created_at": "2026-05-18T23:28:05.739424Z",
+            "updated_at": "2026-05-18T23:28:05.739427Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885740_3860",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Madison Heights Enterprise, Enterprise"
+            ],
+            "created_at": "2026-05-18T23:28:05.740698Z",
+            "updated_at": "2026-05-18T23:28:05.740702Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885741_9357",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Madison Heights Enterprise, Enterprise"
+            ],
+            "created_at": "2026-05-18T23:28:05.741976Z",
+            "updated_at": "2026-05-18T23:28:05.741980Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885743_5307",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Monark Grove Madison"
+            ],
+            "created_at": "2026-05-18T23:28:05.743276Z",
+            "updated_at": "2026-05-18T23:28:05.743280Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885744_124",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Monark Grove Madison"
+            ],
+            "created_at": "2026-05-18T23:28:05.744549Z",
+            "updated_at": "2026-05-18T23:28:05.744551Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885745_6659",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Monark Grove Madison"
+            ],
+            "created_at": "2026-05-18T23:28:05.745833Z",
+            "updated_at": "2026-05-18T23:28:05.745835Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885747_4276",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Monark Grove Madison"
+            ],
+            "created_at": "2026-05-18T23:28:05.747108Z",
+            "updated_at": "2026-05-18T23:28:05.747112Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885748_9968",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Monark Grove Greystone"
+            ],
+            "created_at": "2026-05-18T23:28:05.748381Z",
+            "updated_at": "2026-05-18T23:28:05.748383Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885749_5267",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Monark Grove Greystone"
+            ],
+            "created_at": "2026-05-18T23:28:05.749641Z",
+            "updated_at": "2026-05-18T23:28:05.749641Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885750_2522",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Monark Grove Greystone"
+            ],
+            "created_at": "2026-05-18T23:28:05.750907Z",
+            "updated_at": "2026-05-18T23:28:05.750909Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885752_8864",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Monark Grove Greystone"
+            ],
+            "created_at": "2026-05-18T23:28:05.752174Z",
+            "updated_at": "2026-05-18T23:28:05.752177Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885753_3534",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge Trussville, Trussville"
+            ],
+            "created_at": "2026-05-18T23:28:05.753457Z",
+            "updated_at": "2026-05-18T23:28:05.753461Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885754_6689",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge Trussville, Trussville"
+            ],
+            "created_at": "2026-05-18T23:28:05.754671Z",
+            "updated_at": "2026-05-18T23:28:05.754672Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885755_980",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge Trussville, Trussville"
+            ],
+            "created_at": "2026-05-18T23:28:05.755936Z",
+            "updated_at": "2026-05-18T23:28:05.755938Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885757_9479",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge Trussville, Trussville"
+            ],
+            "created_at": "2026-05-18T23:28:05.757218Z",
+            "updated_at": "2026-05-18T23:28:05.757222Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885758_5681",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Madison at The Range, Madison"
+            ],
+            "created_at": "2026-05-18T23:28:05.758513Z",
+            "updated_at": "2026-05-18T23:28:05.758517Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885759_2953",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Madison at The Range, Madison"
+            ],
+            "created_at": "2026-05-18T23:28:05.759792Z",
+            "updated_at": "2026-05-18T23:28:05.759794Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885761_9730",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Madison at The Range, Madison"
+            ],
+            "created_at": "2026-05-18T23:28:05.761062Z",
+            "updated_at": "2026-05-18T23:28:05.761065Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885762_1131",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Madison at The Range, Madison"
+            ],
+            "created_at": "2026-05-18T23:28:05.762333Z",
+            "updated_at": "2026-05-18T23:28:05.762336Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885763_8246",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Athens"
+            ],
+            "created_at": "2026-05-18T23:28:05.763627Z",
+            "updated_at": "2026-05-18T23:28:05.763630Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885764_8169",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Athens"
+            ],
+            "created_at": "2026-05-18T23:28:05.764895Z",
+            "updated_at": "2026-05-18T23:28:05.764897Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885766_459",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Athens"
+            ],
+            "created_at": "2026-05-18T23:28:05.766165Z",
+            "updated_at": "2026-05-18T23:28:05.766168Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885767_1201",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Athens"
+            ],
+            "created_at": "2026-05-18T23:28:05.767434Z",
+            "updated_at": "2026-05-18T23:28:05.767436Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885768_9762",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Jones Farm"
+            ],
+            "created_at": "2026-05-18T23:28:05.768708Z",
+            "updated_at": "2026-05-18T23:28:05.768710Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885769_9780",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Jones Farm"
+            ],
+            "created_at": "2026-05-18T23:28:05.769982Z",
+            "updated_at": "2026-05-18T23:28:05.769985Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885771_4567",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Jones Farm"
+            ],
+            "created_at": "2026-05-18T23:28:05.771255Z",
+            "updated_at": "2026-05-18T23:28:05.771257Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885772_7198",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Jones Farm"
+            ],
+            "created_at": "2026-05-18T23:28:05.772293Z",
+            "updated_at": "2026-05-18T23:28:05.772296Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885773_6356",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Clermont, Clermont"
+            ],
+            "created_at": "2026-05-18T23:28:05.773573Z",
+            "updated_at": "2026-05-18T23:28:05.773575Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885774_7710",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Clermont, Clermont"
+            ],
+            "created_at": "2026-05-18T23:28:05.774831Z",
+            "updated_at": "2026-05-18T23:28:05.774832Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885775_2408",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Clermont, Clermont"
+            ],
+            "created_at": "2026-05-18T23:28:05.775998Z",
+            "updated_at": "2026-05-18T23:28:05.776000Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885777_8167",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Clermont, Clermont"
+            ],
+            "created_at": "2026-05-18T23:28:05.777268Z",
+            "updated_at": "2026-05-18T23:28:05.777271Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885778_195",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Ocoee, Ocoee"
+            ],
+            "created_at": "2026-05-18T23:28:05.778557Z",
+            "updated_at": "2026-05-18T23:28:05.778560Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885779_9809",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Ocoee, Ocoee"
+            ],
+            "created_at": "2026-05-18T23:28:05.779683Z",
+            "updated_at": "2026-05-18T23:28:05.779685Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885780_8400",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Ocoee, Ocoee"
+            ],
+            "created_at": "2026-05-18T23:28:05.780951Z",
+            "updated_at": "2026-05-18T23:28:05.780954Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885782_463",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Ocoee, Ocoee"
+            ],
+            "created_at": "2026-05-18T23:28:05.782227Z",
+            "updated_at": "2026-05-18T23:28:05.782231Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885783_2882",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Oviedo, Oviedo"
+            ],
+            "created_at": "2026-05-18T23:28:05.783525Z",
+            "updated_at": "2026-05-18T23:28:05.783530Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885784_5892",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Oviedo, Oviedo"
+            ],
+            "created_at": "2026-05-18T23:28:05.784790Z",
+            "updated_at": "2026-05-18T23:28:05.784791Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885786_4912",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Oviedo, Oviedo"
+            ],
+            "created_at": "2026-05-18T23:28:05.786057Z",
+            "updated_at": "2026-05-18T23:28:05.786060Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885787_1154",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Madison at Oviedo, Oviedo"
+            ],
+            "created_at": "2026-05-18T23:28:05.787317Z",
+            "updated_at": "2026-05-18T23:28:05.787319Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885788_9654",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Venice, Venice"
+            ],
+            "created_at": "2026-05-18T23:28:05.788585Z",
+            "updated_at": "2026-05-18T23:28:05.788586Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885789_6962",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Venice, Venice"
+            ],
+            "created_at": "2026-05-18T23:28:05.789860Z",
+            "updated_at": "2026-05-18T23:28:05.789865Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885791_3173",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Venice, Venice"
+            ],
+            "created_at": "2026-05-18T23:28:05.791135Z",
+            "updated_at": "2026-05-18T23:28:05.791138Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885792_6496",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Venice, Venice"
+            ],
+            "created_at": "2026-05-18T23:28:05.792407Z",
+            "updated_at": "2026-05-18T23:28:05.792410Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885793_7470",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at St. Petersburg, St. Petersburg"
+            ],
+            "created_at": "2026-05-18T23:28:05.793688Z",
+            "updated_at": "2026-05-18T23:28:05.793691Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885794_6466",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at St. Petersburg, St. Petersburg"
+            ],
+            "created_at": "2026-05-18T23:28:05.794950Z",
+            "updated_at": "2026-05-18T23:28:05.794951Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885796_8930",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at St. Petersburg, St. Petersburg"
+            ],
+            "created_at": "2026-05-18T23:28:05.796214Z",
+            "updated_at": "2026-05-18T23:28:05.796217Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885797_892",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at St. Petersburg, St. Petersburg"
+            ],
+            "created_at": "2026-05-18T23:28:05.797478Z",
+            "updated_at": "2026-05-18T23:28:05.797480Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885798_6567",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Lake Howard Heights, Winter Haven"
+            ],
+            "created_at": "2026-05-18T23:28:05.798750Z",
+            "updated_at": "2026-05-18T23:28:05.798752Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885800_8964",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Lake Howard Heights, Winter Haven"
+            ],
+            "created_at": "2026-05-18T23:28:05.800021Z",
+            "updated_at": "2026-05-18T23:28:05.800024Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885801_6367",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Lake Howard Heights, Winter Haven"
+            ],
+            "created_at": "2026-05-18T23:28:05.801291Z",
+            "updated_at": "2026-05-18T23:28:05.801293Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885802_5922",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Lake Howard Heights, Winter Haven"
+            ],
+            "created_at": "2026-05-18T23:28:05.802560Z",
+            "updated_at": "2026-05-18T23:28:05.802563Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885803_2253",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Canopy At Beacon Woods"
+            ],
+            "created_at": "2026-05-18T23:28:05.803838Z",
+            "updated_at": "2026-05-18T23:28:05.803840Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885805_4969",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Canopy At Beacon Woods"
+            ],
+            "created_at": "2026-05-18T23:28:05.805102Z",
+            "updated_at": "2026-05-18T23:28:05.805103Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885806_8908",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Canopy At Beacon Woods"
+            ],
+            "created_at": "2026-05-18T23:28:05.806363Z",
+            "updated_at": "2026-05-18T23:28:05.806365Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885807_1098",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Canopy At Beacon Woods"
+            ],
+            "created_at": "2026-05-18T23:28:05.807629Z",
+            "updated_at": "2026-05-18T23:28:05.807631Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885808_4881",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton At Lake Nona"
+            ],
+            "created_at": "2026-05-18T23:28:05.808895Z",
+            "updated_at": "2026-05-18T23:28:05.808896Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885810_9047",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton At Lake Nona"
+            ],
+            "created_at": "2026-05-18T23:28:05.810161Z",
+            "updated_at": "2026-05-18T23:28:05.810164Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885811_7369",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton At Lake Nona"
+            ],
+            "created_at": "2026-05-18T23:28:05.811438Z",
+            "updated_at": "2026-05-18T23:28:05.811441Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885812_5403",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton At Lake Nona"
+            ],
+            "created_at": "2026-05-18T23:28:05.812710Z",
+            "updated_at": "2026-05-18T23:28:05.812712Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885813_4927",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Madison Heights Evans, Evans"
+            ],
+            "created_at": "2026-05-18T23:28:05.813991Z",
+            "updated_at": "2026-05-18T23:28:05.813994Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885815_416",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Madison Heights Evans, Evans"
+            ],
+            "created_at": "2026-05-18T23:28:05.815181Z",
+            "updated_at": "2026-05-18T23:28:05.815182Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885816_2982",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Madison Heights Evans, Evans"
+            ],
+            "created_at": "2026-05-18T23:28:05.816451Z",
+            "updated_at": "2026-05-18T23:28:05.816453Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885817_7707",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Madison Heights Evans, Evans"
+            ],
+            "created_at": "2026-05-18T23:28:05.817665Z",
+            "updated_at": "2026-05-18T23:28:05.817668Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885818_9824",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Legacy at Savannah Quarters, Pooler"
+            ],
+            "created_at": "2026-05-18T23:28:05.818948Z",
+            "updated_at": "2026-05-18T23:28:05.818951Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885820_7729",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Legacy at Savannah Quarters, Pooler"
+            ],
+            "created_at": "2026-05-18T23:28:05.820221Z",
+            "updated_at": "2026-05-18T23:28:05.820224Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885821_4481",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Legacy at Savannah Quarters, Pooler"
+            ],
+            "created_at": "2026-05-18T23:28:05.821351Z",
+            "updated_at": "2026-05-18T23:28:05.821354Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885822_9390",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Legacy at Savannah Quarters, Pooler"
+            ],
+            "created_at": "2026-05-18T23:28:05.822652Z",
+            "updated_at": "2026-05-18T23:28:05.822653Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885823_5151",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve at Old Town, Columbus"
+            ],
+            "created_at": "2026-05-18T23:28:05.823935Z",
+            "updated_at": "2026-05-18T23:28:05.823938Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885825_1185",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve at Old Town, Columbus"
+            ],
+            "created_at": "2026-05-18T23:28:05.825198Z",
+            "updated_at": "2026-05-18T23:28:05.825199Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885826_9002",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve at Old Town, Columbus"
+            ],
+            "created_at": "2026-05-18T23:28:05.826457Z",
+            "updated_at": "2026-05-18T23:28:05.826459Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885827_8402",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve at Old Town, Columbus"
+            ],
+            "created_at": "2026-05-18T23:28:05.827725Z",
+            "updated_at": "2026-05-18T23:28:05.827727Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885828_447",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Alpharetta, Alpharetta"
+            ],
+            "created_at": "2026-05-18T23:28:05.829000Z",
+            "updated_at": "2026-05-18T23:28:05.829002Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885830_203",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Alpharetta, Alpharetta"
+            ],
+            "created_at": "2026-05-18T23:28:05.830283Z",
+            "updated_at": "2026-05-18T23:28:05.830287Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885831_889",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Alpharetta, Alpharetta"
+            ],
+            "created_at": "2026-05-18T23:28:05.831549Z",
+            "updated_at": "2026-05-18T23:28:05.831551Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885832_9759",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Alpharetta, Alpharetta"
+            ],
+            "created_at": "2026-05-18T23:28:05.832816Z",
+            "updated_at": "2026-05-18T23:28:05.832817Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885833_8703",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Buckhead, Atlanta"
+            ],
+            "created_at": "2026-05-18T23:28:05.833861Z",
+            "updated_at": "2026-05-18T23:28:05.833864Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885835_4440",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Buckhead, Atlanta"
+            ],
+            "created_at": "2026-05-18T23:28:05.835126Z",
+            "updated_at": "2026-05-18T23:28:05.835128Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885836_567",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Buckhead, Atlanta"
+            ],
+            "created_at": "2026-05-18T23:28:05.836400Z",
+            "updated_at": "2026-05-18T23:28:05.836403Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885837_3799",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Buckhead, Atlanta"
+            ],
+            "created_at": "2026-05-18T23:28:05.837675Z",
+            "updated_at": "2026-05-18T23:28:05.837677Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885838_1193",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Marietta, Marietta"
+            ],
+            "created_at": "2026-05-18T23:28:05.838968Z",
+            "updated_at": "2026-05-18T23:28:05.838970Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885840_2183",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Marietta, Marietta"
+            ],
+            "created_at": "2026-05-18T23:28:05.840129Z",
+            "updated_at": "2026-05-18T23:28:05.840131Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885841_9613",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Marietta, Marietta"
+            ],
+            "created_at": "2026-05-18T23:28:05.841400Z",
+            "updated_at": "2026-05-18T23:28:05.841403Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885842_5313",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Ridge at Marietta, Marietta"
+            ],
+            "created_at": "2026-05-18T23:28:05.842665Z",
+            "updated_at": "2026-05-18T23:28:05.842668Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885843_450",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Canopy at Westridge, McDonough"
+            ],
+            "created_at": "2026-05-18T23:28:05.843955Z",
+            "updated_at": "2026-05-18T23:28:05.843958Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885845_5114",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Canopy at Westridge, McDonough"
+            ],
+            "created_at": "2026-05-18T23:28:05.845218Z",
+            "updated_at": "2026-05-18T23:28:05.845220Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885846_2643",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Canopy at Westridge, McDonough"
+            ],
+            "created_at": "2026-05-18T23:28:05.846355Z",
+            "updated_at": "2026-05-18T23:28:05.846358Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885847_2467",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Canopy at Westridge, McDonough"
+            ],
+            "created_at": "2026-05-18T23:28:05.847619Z",
+            "updated_at": "2026-05-18T23:28:05.847621Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885848_8620",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Overlook at Suwanee, Suwanee"
+            ],
+            "created_at": "2026-05-18T23:28:05.848910Z",
+            "updated_at": "2026-05-18T23:28:05.848913Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885850_4700",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Overlook at Suwanee, Suwanee"
+            ],
+            "created_at": "2026-05-18T23:28:05.850179Z",
+            "updated_at": "2026-05-18T23:28:05.850180Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885851_6924",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Overlook at Suwanee, Suwanee"
+            ],
+            "created_at": "2026-05-18T23:28:05.851446Z",
+            "updated_at": "2026-05-18T23:28:05.851448Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885852_4126",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Overlook at Suwanee, Suwanee"
+            ],
+            "created_at": "2026-05-18T23:28:05.852715Z",
+            "updated_at": "2026-05-18T23:28:05.852718Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885853_5755",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve at Fritz Farm, Lexington"
+            ],
+            "created_at": "2026-05-18T23:28:05.853995Z",
+            "updated_at": "2026-05-18T23:28:05.853998Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885855_9012",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve at Fritz Farm, Lexington"
+            ],
+            "created_at": "2026-05-18T23:28:05.855275Z",
+            "updated_at": "2026-05-18T23:28:05.855277Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885856_2462",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve at Fritz Farm, Lexington"
+            ],
+            "created_at": "2026-05-18T23:28:05.856537Z",
+            "updated_at": "2026-05-18T23:28:05.856539Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885857_7609",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve at Fritz Farm, Lexington"
+            ],
+            "created_at": "2026-05-18T23:28:05.857807Z",
+            "updated_at": "2026-05-18T23:28:05.857809Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885859_3798",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Southaven, Southaven"
+            ],
+            "created_at": "2026-05-18T23:28:05.859090Z",
+            "updated_at": "2026-05-18T23:28:05.859092Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885860_637",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Southaven, Southaven"
+            ],
+            "created_at": "2026-05-18T23:28:05.860359Z",
+            "updated_at": "2026-05-18T23:28:05.860362Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885861_721",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Southaven, Southaven"
+            ],
+            "created_at": "2026-05-18T23:28:05.861629Z",
+            "updated_at": "2026-05-18T23:28:05.861631Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885862_3409",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Southaven, Southaven"
+            ],
+            "created_at": "2026-05-18T23:28:05.862899Z",
+            "updated_at": "2026-05-18T23:28:05.862901Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885864_1907",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Adelaide, Starkville"
+            ],
+            "created_at": "2026-05-18T23:28:05.864184Z",
+            "updated_at": "2026-05-18T23:28:05.864187Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885865_6168",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Adelaide, Starkville"
+            ],
+            "created_at": "2026-05-18T23:28:05.865450Z",
+            "updated_at": "2026-05-18T23:28:05.865452Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885866_1232",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Adelaide, Starkville"
+            ],
+            "created_at": "2026-05-18T23:28:05.866725Z",
+            "updated_at": "2026-05-18T23:28:05.866728Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885867_448",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Adelaide, Starkville"
+            ],
+            "created_at": "2026-05-18T23:28:05.867993Z",
+            "updated_at": "2026-05-18T23:28:05.867995Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885869_2112",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Oakview Park, Greenville"
+            ],
+            "created_at": "2026-05-18T23:28:05.869277Z",
+            "updated_at": "2026-05-18T23:28:05.869280Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885870_4986",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Oakview Park, Greenville"
+            ],
+            "created_at": "2026-05-18T23:28:05.870548Z",
+            "updated_at": "2026-05-18T23:28:05.870550Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885871_9976",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Oakview Park, Greenville"
+            ],
+            "created_at": "2026-05-18T23:28:05.871821Z",
+            "updated_at": "2026-05-18T23:28:05.871834Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885873_3673",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Oakview Park, Greenville"
+            ],
+            "created_at": "2026-05-18T23:28:05.873098Z",
+            "updated_at": "2026-05-18T23:28:05.873100Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885874_202",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Spring Park, Travelers Rest"
+            ],
+            "created_at": "2026-05-18T23:28:05.874381Z",
+            "updated_at": "2026-05-18T23:28:05.874383Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885875_1999",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Spring Park, Travelers Rest"
+            ],
+            "created_at": "2026-05-18T23:28:05.875646Z",
+            "updated_at": "2026-05-18T23:28:05.875648Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885876_17",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Spring Park, Travelers Rest"
+            ],
+            "created_at": "2026-05-18T23:28:05.876915Z",
+            "updated_at": "2026-05-18T23:28:05.876917Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885878_3962",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Spring Park, Travelers Rest"
+            ],
+            "created_at": "2026-05-18T23:28:05.878180Z",
+            "updated_at": "2026-05-18T23:28:05.878182Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885879_7330",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve Fairview Park, Simpsonville"
+            ],
+            "created_at": "2026-05-18T23:28:05.879458Z",
+            "updated_at": "2026-05-18T23:28:05.879460Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885880_1803",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve Fairview Park, Simpsonville"
+            ],
+            "created_at": "2026-05-18T23:28:05.880723Z",
+            "updated_at": "2026-05-18T23:28:05.880725Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885881_9350",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve Fairview Park, Simpsonville"
+            ],
+            "created_at": "2026-05-18T23:28:05.881865Z",
+            "updated_at": "2026-05-18T23:28:05.881866Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885883_154",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Legacy Reserve Fairview Park, Simpsonville"
+            ],
+            "created_at": "2026-05-18T23:28:05.883134Z",
+            "updated_at": "2026-05-18T23:28:05.883137Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885884_7602",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Wildcat Senior Living, Summerville"
+            ],
+            "created_at": "2026-05-18T23:28:05.884417Z",
+            "updated_at": "2026-05-18T23:28:05.884420Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885885_4684",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Wildcat Senior Living, Summerville"
+            ],
+            "created_at": "2026-05-18T23:28:05.885681Z",
+            "updated_at": "2026-05-18T23:28:05.885683Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885886_9844",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Wildcat Senior Living, Summerville"
+            ],
+            "created_at": "2026-05-18T23:28:05.886948Z",
+            "updated_at": "2026-05-18T23:28:05.886950Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885888_4981",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Wildcat Senior Living, Summerville"
+            ],
+            "created_at": "2026-05-18T23:28:05.888218Z",
+            "updated_at": "2026-05-18T23:28:05.888221Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885889_6190",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Spring Hill, Spring Hill"
+            ],
+            "created_at": "2026-05-18T23:28:05.889504Z",
+            "updated_at": "2026-05-18T23:28:05.889508Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885890_5039",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Spring Hill, Spring Hill"
+            ],
+            "created_at": "2026-05-18T23:28:05.890777Z",
+            "updated_at": "2026-05-18T23:28:05.890779Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885892_1145",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Spring Hill, Spring Hill"
+            ],
+            "created_at": "2026-05-18T23:28:05.892048Z",
+            "updated_at": "2026-05-18T23:28:05.892051Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885893_7029",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Goldton at Spring Hill, Spring Hill"
+            ],
+            "created_at": "2026-05-18T23:28:05.893314Z",
+            "updated_at": "2026-05-18T23:28:05.893316Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885894_8735",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Oscar at Georgetown"
+            ],
+            "created_at": "2026-05-18T23:28:05.894589Z",
+            "updated_at": "2026-05-18T23:28:05.894591Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885895_7130",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Oscar at Georgetown"
+            ],
+            "created_at": "2026-05-18T23:28:05.895855Z",
+            "updated_at": "2026-05-18T23:28:05.895856Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885897_7208",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Oscar at Georgetown"
+            ],
+            "created_at": "2026-05-18T23:28:05.897123Z",
+            "updated_at": "2026-05-18T23:28:05.897125Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885898_7222",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Oscar at Georgetown"
+            ],
+            "created_at": "2026-05-18T23:28:05.898388Z",
+            "updated_at": "2026-05-18T23:28:05.898390Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885899_3658",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "The Oscar at Veramendi (June 2026)"
+            ],
+            "created_at": "2026-05-18T23:28:05.899668Z",
+            "updated_at": "2026-05-18T23:28:05.899670Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885900_2242",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "The Oscar at Veramendi (June 2026)"
+            ],
+            "created_at": "2026-05-18T23:28:05.900940Z",
+            "updated_at": "2026-05-18T23:28:05.900943Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885902_8193",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "The Oscar at Veramendi (June 2026)"
+            ],
+            "created_at": "2026-05-18T23:28:05.902212Z",
+            "updated_at": "2026-05-18T23:28:05.902214Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885903_9703",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "The Oscar at Veramendi (June 2026)"
+            ],
+            "created_at": "2026-05-18T23:28:05.903477Z",
+            "updated_at": "2026-05-18T23:28:05.903479Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885904_9328",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at Black Hill"
+            ],
+            "created_at": "2026-05-18T23:28:05.904764Z",
+            "updated_at": "2026-05-18T23:28:05.904767Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885906_7427",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at Black Hill"
+            ],
+            "created_at": "2026-05-18T23:28:05.906030Z",
+            "updated_at": "2026-05-18T23:28:05.906033Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885907_8537",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at Black Hill"
+            ],
+            "created_at": "2026-05-18T23:28:05.907295Z",
+            "updated_at": "2026-05-18T23:28:05.907297Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885908_2313",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at Black Hill"
+            ],
+            "created_at": "2026-05-18T23:28:05.908564Z",
+            "updated_at": "2026-05-18T23:28:05.908566Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885909_6166",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at Melford"
+            ],
+            "created_at": "2026-05-18T23:28:05.909852Z",
+            "updated_at": "2026-05-18T23:28:05.909854Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885911_3589",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at Melford"
+            ],
+            "created_at": "2026-05-18T23:28:05.911123Z",
+            "updated_at": "2026-05-18T23:28:05.911125Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885912_8127",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at Melford"
+            ],
+            "created_at": "2026-05-18T23:28:05.912392Z",
+            "updated_at": "2026-05-18T23:28:05.912394Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885913_937",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at Melford"
+            ],
+            "created_at": "2026-05-18T23:28:05.913664Z",
+            "updated_at": "2026-05-18T23:28:05.913667Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885914_7321",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at One Loudoun"
+            ],
+            "created_at": "2026-05-18T23:28:05.914969Z",
+            "updated_at": "2026-05-18T23:28:05.914972Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885916_2464",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at One Loudoun"
+            ],
+            "created_at": "2026-05-18T23:28:05.916234Z",
+            "updated_at": "2026-05-18T23:28:05.916236Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885917_3612",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at One Loudoun"
+            ],
+            "created_at": "2026-05-18T23:28:05.917503Z",
+            "updated_at": "2026-05-18T23:28:05.917505Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885918_2820",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at One Loudoun"
+            ],
+            "created_at": "2026-05-18T23:28:05.918769Z",
+            "updated_at": "2026-05-18T23:28:05.918772Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
+        },
+        {
+            "id": "q_1779146885920_5853",
+            "text": "Is the common area clean and well-maintained?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at The Glen"
+            ],
+            "created_at": "2026-05-18T23:28:05.920047Z",
+            "updated_at": "2026-05-18T23:28:05.920048Z",
+            "is_active": true,
+            "template_id": "q_1705315800000_5678"
+        },
+        {
+            "id": "q_1779146885921_6168",
+            "text": "Are all safety equipment properly stored?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at The Glen"
+            ],
+            "created_at": "2026-05-18T23:28:05.921312Z",
+            "updated_at": "2026-05-18T23:28:05.921314Z",
+            "is_active": true,
+            "template_id": "q_1705315900000_1234"
+        },
+        {
+            "id": "q_1779146885922_230",
+            "text": "Is the kitchen area sanitized?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at The Glen"
+            ],
+            "created_at": "2026-05-18T23:28:05.922583Z",
+            "updated_at": "2026-05-18T23:28:05.922585Z",
+            "is_active": true,
+            "template_id": "q_1705316000000_9876"
+        },
+        {
+            "id": "q_1779146885923_6462",
+            "text": "Is the entrance carpet clean ?",
+            "photo_required": true,
+            "communities": [
+                "Tribute at The Glen"
+            ],
+            "created_at": "2026-05-18T23:28:05.923854Z",
+            "updated_at": "2026-05-18T23:28:05.923857Z",
+            "is_active": true,
+            "template_id": "q_1778436448641_6045"
         }
     ]
 }
