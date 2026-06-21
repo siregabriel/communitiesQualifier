@@ -14,7 +14,7 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/atlas-globe-1.png">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -63,7 +63,7 @@
         .sidebar-logo span {
             font-size: 20px;
             font-weight: 700;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
             letter-spacing: -0.5px;
         }
 
@@ -405,7 +405,7 @@
             font-size: 16px;
             font-weight: 800;
             margin-bottom: 4px;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
 
         .card-location {
@@ -748,7 +748,7 @@
             font-size: 28px;
             font-weight: 800;
             color: #0f172a;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
             margin: 0;
         }
 
@@ -836,7 +836,7 @@
             font-weight: 700;
             color: #0f172a;
             margin-bottom: 20px;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
 
         .response-card {
@@ -1029,7 +1029,7 @@
             font-weight: 700;
             color: #0f172a;
             margin-bottom: 16px;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1067,7 +1067,7 @@
             font-size: 32px;
             font-weight: 800;
             color: #0f172a;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
 
         .panel-stat-value.success {
@@ -1251,7 +1251,7 @@
         <div class="dashboard-container">
             <div class="header-section">
                 <div class="header-left">
-                    <h1><i class="fas fa-gauge-high"></i> Dashboard</h1>
+                    <h1>📊 Dashboard</h1>
                     <p>Maintenance Reports & Inspection Submissions</p>
                     <div class="user-info" id="userInfo">Loading...</div>
                 </div>
@@ -1269,9 +1269,9 @@
                     <span>Report Type</span>
                 </div>
                 <div class="filter-buttons">
-                    <button class="filter-btn active" data-type="all" onclick="filterByType('all')"><i class="fas fa-layer-group"></i> All</button>
-                    <button class="filter-btn" data-type="maintenance" onclick="filterByType('maintenance')"><i class="fas fa-screwdriver-wrench"></i> Maintenance Reports</button>
-                    <button class="filter-btn" data-type="inspection" onclick="filterByType('inspection')"><i class="fas fa-clipboard-list"></i> Inspections</button>
+                    <button class="filter-btn active" data-type="all" onclick="filterByType('all')">📋 All</button>
+                    <button class="filter-btn" data-type="maintenance" onclick="filterByType('maintenance')">🔧 Maintenance Reports</button>
+                    <button class="filter-btn" data-type="inspection" onclick="filterByType('inspection')">📝 Inspections</button>
                 </div>
             </div>
 
@@ -1282,9 +1282,9 @@
                     <span>Condition Rating</span>
                 </div>
                 <div class="filter-buttons">
-                    <button class="filter-btn" data-condition="all" onclick="filterByCondition('all')"><i class="fas fa-sliders"></i> All Conditions</button>
-                    <button class="filter-btn" data-condition="pass" onclick="filterByCondition('pass')"><i class="fas fa-circle-check"></i> Pass</button>
-                    <button class="filter-btn" data-condition="fail" onclick="filterByCondition('fail')"><i class="fas fa-circle-xmark"></i> Fail</button>
+                    <button class="filter-btn" data-condition="all" onclick="filterByCondition('all')">📊 All Conditions</button>
+                    <button class="filter-btn" data-condition="pass" onclick="filterByCondition('pass')">✓ Pass</button>
+                    <button class="filter-btn" data-condition="fail" onclick="filterByCondition('fail')">❌ Fail</button>
                 </div>
             </div>
 
@@ -1295,7 +1295,7 @@
                     <span>Survey Type</span>
                 </div>
                 <div class="filter-buttons">
-                    <button class="filter-btn" data-survey-type="all" onclick="filterBySurveyType('all')"><i class="fas fa-layer-group"></i> All Survey Types</button>
+                    <button class="filter-btn" data-survey-type="all" onclick="filterBySurveyType('all')">📋 All Survey Types</button>
                     <div id="surveyTypeFilters" style="display: inline-flex; gap: 8px; flex-wrap: wrap;">
                         <!-- Survey type filter buttons will be added dynamically -->
                     </div>
@@ -1325,7 +1325,7 @@
     <div class="modal-overlay" id="inspectionModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2><i class="fas fa-clipboard-list"></i> Inspection Details</h2>
+                <h2>📋 Inspection Details</h2>
                 <button class="modal-close" onclick="closeInspectionModal()" aria-label="Close modal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -1365,44 +1365,6 @@
         let currentView = 'dashboard'; // dashboard, reports, my-visits, communities, action-items
         let viewRenderTimer = null; // guards the deferred view render so it can't get stuck
         let regions = []; // regional structure (leadership + community assignments)
-        let communitySort = 'attention'; // default sort for the community cards
-
-        // Sort community cards by the selected mode. Never-visited (N/A) sink
-        // to the bottom for score-based sorts so they don't distort the ranking.
-        function sortCommunities(list) {
-            const arr = [...list];
-            const has = c => c.score !== null && c.score !== undefined;
-            const byName = (a, b) => a.name.localeCompare(b.name);
-            switch (communitySort) {
-                case 'score':
-                    return arr.sort((a, b) => {
-                        if (has(a) && has(b)) return b.score - a.score; // best first
-                        if (has(a)) return -1;
-                        if (has(b)) return 1;
-                        return byName(a, b);
-                    });
-                case 'az':
-                    return arr.sort(byName);
-                case 'recent':
-                    return arr.sort((a, b) => (b.lastVisitTs || 0) - (a.lastVisitTs || 0) || byName(a, b));
-                case 'attention':
-                default:
-                    return arr.sort((a, b) => {
-                        // 1) most open action items first
-                        if ((b.actionItems || 0) !== (a.actionItems || 0)) return (b.actionItems || 0) - (a.actionItems || 0);
-                        // 2) worst score first (visited before never-visited)
-                        if (has(a) && has(b)) return a.score - b.score;
-                        if (has(a)) return -1;
-                        if (has(b)) return 1;
-                        return byName(a, b);
-                    });
-            }
-        }
-
-        function setCommunitySort(value) {
-            communitySort = value;
-            renderCommunityCards();
-        }
         let isAdmin = false;
         let currentUsername = '';
         let currentUserCommunity = '';
@@ -2160,7 +2122,6 @@
                         communityData.push({
                             name: communityName,
                             lastVisit: formatDate(latestSubmission.submitted_at),
-                            lastVisitTs: new Date(latestSubmission.submitted_at).getTime() || 0,
                             score: score,
                             actionItems: actionItems,
                             photoUrl: getCommunityPhoto(communityName)
@@ -2170,7 +2131,6 @@
                         communityData.push({
                             name: communityName,
                             lastVisit: 'No visits yet',
-                            lastVisitTs: 0,
                             score: null,
                             actionItems: 0,
                             photoUrl: getCommunityPhoto(communityName)
@@ -2273,28 +2233,8 @@
                 gallery.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i><p>No communities match this filter</p></div>';
                 return;
             }
-
-            // Apply the selected sort
-            filteredCommunities = sortCommunities(filteredCommunities);
-
-            const sortOpts = [
-                { v: 'attention', label: 'Needs attention' },
-                { v: 'score', label: 'Score (high → low)' },
-                { v: 'az', label: 'Name (A–Z)' },
-                { v: 'recent', label: 'Most recent visit' }
-            ];
-            const toolbar = `
-                <div class="cards-toolbar">
-                    <span class="cards-count">${filteredCommunities.length} ${filteredCommunities.length === 1 ? 'community' : 'communities'}</span>
-                    <label class="cards-sort">
-                        <span>Sort by</span>
-                        <select onchange="setCommunitySort(this.value)">
-                            ${sortOpts.map(o => `<option value="${o.v}" ${o.v === communitySort ? 'selected' : ''}>${o.label}</option>`).join('')}
-                        </select>
-                    </label>
-                </div>`;
-
-            gallery.innerHTML = toolbar + filteredCommunities.map(community => {
+            
+            gallery.innerHTML = filteredCommunities.map(community => {
                 // Handle null score - display "N/A" in progress indicator
                 const score = community.score !== null ? community.score : 'N/A';
                 const scoreClass = score === 'N/A' ? 'na' : '';
@@ -2366,7 +2306,7 @@
                 
                 // Update both user info displays (prefer the display name)
                 const displayName = data.display_name || data.username;
-                document.getElementById('userInfo').textContent = `${displayName}`;
+                document.getElementById('userInfo').textContent = `👤 ${displayName}`;
                 document.getElementById('userName').textContent = displayName;
 
                 // Sidebar avatar (photo if uploaded, otherwise initials)
@@ -2460,7 +2400,7 @@
 
         // View Switching Function with Loading Indicator
         function showView(view) {
-            console.log(`<i class="fas fa-location-dot card-emoji"></i> showView called with view: ${view}`);
+            console.log(`📍 showView called with view: ${view}`);
             currentView = view;
             
             // Show loading indicator immediately
@@ -2502,42 +2442,42 @@
               try {
                     switch(view) {
                         case 'dashboard':
-                            headerTitle.innerHTML = '<i class="fas fa-gauge-high"></i> Dashboard';
+                            headerTitle.textContent = '📊 Dashboard';
                             headerDesc.textContent = 'Community Performance Overview';
                             renderCommunityCards();
                             break;
                         case 'reports':
-                            headerTitle.innerHTML = '<i class="fas fa-chart-line"></i> Reports &amp; Analytics';
+                            headerTitle.textContent = '📊 Reports & Analytics';
                             headerDesc.textContent = 'Performance Insights and Data Analysis';
                             renderReports();
                             break;
                         case 'my-visits':
-                            headerTitle.innerHTML = '<i class="fas fa-clipboard-list"></i> My Visits';
+                            headerTitle.textContent = '📝 My Visits';
                             headerDesc.textContent = 'Your Inspection Submissions';
                             renderMyVisits();
                             break;
                         case 'communities':
-                            headerTitle.innerHTML = '<i class="fas fa-building"></i> Communities';
+                            headerTitle.textContent = '🏘️ Communities';
                             headerDesc.textContent = 'All Communities Overview';
                             renderCommunityCards();
                             break;
                         case 'regions':
-                            headerTitle.innerHTML = '<i class="fas fa-sitemap"></i> Regions';
+                            headerTitle.textContent = '🗂️ Regions';
                             headerDesc.textContent = 'Regional Profiles & Leadership';
                             renderRegions();
                             break;
                         case 'action-items':
-                            headerTitle.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Action Items';
+                            headerTitle.textContent = '⚠️ Action Items';
                             headerDesc.textContent = 'Items Requiring Attention';
                             renderActionItems();
                             break;
                         case 'resources':
-                            headerTitle.innerHTML = '<i class="fas fa-book"></i> Resources';
+                            headerTitle.textContent = '📚 Resources';
                             headerDesc.textContent = 'Documentation and Guides';
                             renderResources();
                             break;
                         case 'settings':
-                            headerTitle.innerHTML = '<i class="fas fa-gear"></i> Settings';
+                            headerTitle.textContent = '⚙️ Settings';
                             headerDesc.textContent = 'User Preferences';
                             renderSettings();
                             break;
@@ -2644,11 +2584,11 @@
                         <div class="card-image">${photoHtml}</div>
                         <div class="card-content">
                             <div class="card-badge ${priorityClass}" style="margin-bottom: 8px;">${priorityText}</div>
-                            <div class="card-title"><i class="fas fa-circle-question card-emoji"></i> ${item.questionText}</div>
+                            <div class="card-title">❓ ${item.questionText}</div>
                             <div class="card-badge ${badgeClass}">${badgeIcon} ${item.condition}</div>
                             <div class="card-description">${item.description || 'No description provided'}</div>
-                            <div class="card-location"><i class="fas fa-user card-emoji"></i> ${item.username} | <i class="fas fa-building card-emoji"></i> ${item.community}</div>
-                            <div class="card-timestamp"><i class="fas fa-clock card-emoji"></i> ${item.timestamp}</div>
+                            <div class="card-location">👤 ${item.username} | 🏘️ ${item.community}</div>
+                            <div class="card-timestamp">🕐 ${item.timestamp}</div>
                         </div>
                     </div>
                 `;
@@ -2659,7 +2599,7 @@
             const gallery = document.getElementById('gallery');
             gallery.innerHTML = `
                 <div style="grid-column: 1 / -1; background: white; border-radius: 16px; padding: 36px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
-                    <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 24px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-book"></i> Resources Library</h2>
+                    <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 24px; font-family: 'Poppins', sans-serif;">📚 Resources Library</h2>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px;">
                         <div style="padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
                             <div style="font-size: 32px; margin-bottom: 12px;">📄</div>
@@ -2668,7 +2608,7 @@
                             <button onclick="alert('Document download coming soon')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">Download PDF</button>
                         </div>
                         <div style="padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
-                            <div style="font-size: 32px; margin-bottom: 12px;"><i class="fas fa-clipboard-list"></i></div>
+                            <div style="font-size: 32px; margin-bottom: 12px;">📋</div>
                             <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">Survey Type Guide</h3>
                             <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Detailed information about each survey type</p>
                             <button onclick="alert('Document download coming soon')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">Download PDF</button>
@@ -2680,7 +2620,7 @@
                             <button onclick="alert('Training materials coming soon')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">View Training</button>
                         </div>
                         <div style="padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
-                            <div style="font-size: 32px; margin-bottom: 12px;"><i class="fas fa-circle-question"></i></div>
+                            <div style="font-size: 32px; margin-bottom: 12px;">❓</div>
                             <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">FAQ</h3>
                             <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Frequently asked questions and answers</p>
                             <button onclick="alert('FAQ coming soon')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">View FAQ</button>
@@ -2800,30 +2740,21 @@
                     <button class="region-addleader-btn" onclick="toggleAddLeader('${region.id}')"><i class="fas fa-user-plus"></i> Add leader</button>` : '';
 
                 const commsHtml = comms.length
-                    ? comms.map((name, idx) => {
+                    ? comms.map(name => {
                         const c = byCommunity[name];
                         const sc = (c && c.score !== null && c.score !== undefined) ? c.score + '%' : '—';
                         const safe = name.replace(/'/g, "\\'");
-                        const attr = name.replace(/"/g, '&quot;');
-                        const rowId = `${region.id}_${idx}`;
                         if (isAdmin) {
                             const opts = regions.map(r =>
                                 `<option value="${r.id}" ${r.id === region.id ? 'selected' : ''}>${r.name}</option>`).join('');
-                            return `<li id="comm_${rowId}">
+                            return `<li>
                                 <span class="region-comm-name">${name}</span>
                                 <span class="region-comm-actions">
                                     <select class="region-move-select" title="Move to region"
                                             onchange="moveCommunity('${safe}', this.value)">${opts}</select>
-                                    <button class="region-edit-btn" title="Rename community"
-                                            onclick="editCommunity('${rowId}')"><i class="fas fa-pen"></i></button>
                                     <button class="region-del-btn" title="Remove from regions"
                                             onclick="deleteCommunity('${safe}')"><i class="fas fa-trash"></i></button>
                                 </span>
-                            </li>
-                            <li class="region-comm-editrow" id="commEdit_${rowId}" style="display:none;">
-                                <input type="text" id="commName_${rowId}" value="${attr}">
-                                <button class="btn btn-primary" onclick="saveCommunityRename('${rowId}', '${safe}')">Save</button>
-                                <button class="btn btn-secondary" onclick="renderRegions()">Cancel</button>
                             </li>`;
                         }
                         return `<li><span class="region-comm-name">${name}</span><span class="region-comm-score">${sc}</span></li>`;
@@ -3006,22 +2937,6 @@
             const body = { action: 'move', from_region_id: fromRegion, from_index: fromIndex, to_region_id: toRegion };
             if (typeof toIndex === 'number') body.to_index = toIndex;
             leaderAction(body);
-        }
-
-        // ---- Rename a community (admin) ----
-        function editCommunity(rowId) {
-            const row = document.getElementById('comm_' + rowId);
-            const edit = document.getElementById('commEdit_' + rowId);
-            if (row) row.style.display = 'none';
-            if (edit) edit.style.display = 'flex';
-            const input = document.getElementById('commName_' + rowId);
-            if (input) { input.focus(); input.select(); }
-        }
-        function saveCommunityRename(rowId, oldName) {
-            const input = document.getElementById('commName_' + rowId);
-            const newName = input ? input.value.trim() : '';
-            if (!newName || newName === oldName) { renderRegions(); return; }
-            regionAction('/api/regions/rename-community', { old_name: oldName, new_name: newName });
         }
 
         async function uploadLeaderPhoto(regionId, leaderName, input) {
@@ -3345,21 +3260,21 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
                         <div style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 16px rgba(59,130,246,0.3);">
                             <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Total Inspections</div>
-                            <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${totalInspections}</div>
+                            <div style="font-size: 36px; font-weight: 800; font-family: 'Poppins', sans-serif;">${totalInspections}</div>
                         </div>
                         <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 16px rgba(16,185,129,0.3);">
                             <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Pass</div>
-                            <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${conditionCounts['Pass']}</div>
+                            <div style="font-size: 36px; font-weight: 800; font-family: 'Poppins', sans-serif;">${conditionCounts['Pass']}</div>
                         </div>
                         <div style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 16px rgba(239,68,68,0.3);">
                             <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Fail</div>
-                            <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${conditionCounts['Fail']}</div>
+                            <div style="font-size: 36px; font-weight: 800; font-family: 'Poppins', sans-serif;">${conditionCounts['Fail']}</div>
                         </div>
                     </div>
                     
                     <!-- Survey Type Breakdown -->
                     <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
-                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-chart-pie"></i> Survey Type Breakdown</h3>
+                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Poppins', sans-serif;">📊 Survey Type Breakdown</h3>
                         <div style="display: grid; gap: 12px;">
                             ${Object.values(surveyTypeBreakdown).map(type => {
                                 const percentage = totalInspections > 0 ? Math.round((type.count / totalInspections) * 100) : 0;
@@ -3386,7 +3301,7 @@
                     <!-- Top tables side by side -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 24px;">
                     <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
-                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-trophy"></i> Top Performing Communities</h3>
+                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Poppins', sans-serif;">🏆 Top Performing Communities</h3>
                         <div style="overflow-x: auto;">
                             <table style="width: 100%; border-collapse: collapse;">
                                 <thead>
@@ -3424,7 +3339,7 @@
 
                     <!-- Top Performers -->
                     <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
-                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-medal"></i> Top Performers</h3>
+                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Poppins', sans-serif;">🏅 Top Performers</h3>
                         ${topPerformers.length === 0 ? `
                             <div style="color:#64748b; font-size:14px; padding: 8px 0;">No visits reported yet.</div>
                         ` : `
@@ -3462,7 +3377,7 @@
 
                     <!-- Export Options -->
                     <div style="background: #eff6ff; padding: 24px; border-radius: 16px; border: 2px solid #3b82f6;">
-                        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1e40af;"><i class="fas fa-download"></i> Export Reports</h3>
+                        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1e40af;">📥 Export Reports</h3>
                         <p style="font-size: 14px; color: #1e40af; margin-bottom: 16px;">Download detailed reports for further analysis</p>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                             <button onclick="alert('CSV export coming soon')" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
@@ -3646,12 +3561,12 @@
                             </div>
                             <div class="card-content">
                                 <div class="card-title">${item.community}</div>
-                                <div class="card-location"><i class="fas fa-location-dot card-emoji"></i> ${item.location}</div>
+                                <div class="card-location">📍 ${item.location}</div>
                                 <div class="card-badge ${badgeClass}">
                                     ${badgeIcon} ${item.condition}
                                 </div>
                                 <div class="card-description">${item.description}</div>
-                                <div class="card-timestamp"><i class="fas fa-clock card-emoji"></i> ${item.timestamp}</div>
+                                <div class="card-timestamp">🕐 ${item.timestamp}</div>
                             </div>
                         </div>
                     `;
@@ -3667,13 +3582,13 @@
                                 ${photoHtml}
                             </div>
                             <div class="card-content">
-                                <div class="card-title"><i class="fas fa-circle-question card-emoji"></i> ${item.questionText}</div>
+                                <div class="card-title">❓ ${item.questionText}</div>
                                 <div class="card-badge ${badgeClass}">
                                     ${badgeIcon} ${item.condition}
                                 </div>
                                 <div class="card-description">${item.description || 'No description provided'}</div>
-                                <div class="card-location"><i class="fas fa-user card-emoji"></i> ${item.username} | <i class="fas fa-building card-emoji"></i> ${item.community}</div>
-                                <div class="card-timestamp"><i class="fas fa-clock card-emoji"></i> ${item.timestamp}</div>
+                                <div class="card-location">👤 ${item.username} | 🏘️ ${item.community}</div>
+                                <div class="card-timestamp">🕐 ${item.timestamp}</div>
                             </div>
                         </div>
                     `;
@@ -3848,7 +3763,7 @@
                     </div>
                     <div class="meta-item">
                         <div class="meta-label">Inspector</div>
-                        <div class="meta-value"><i class="fas fa-user card-emoji"></i> ${submission.inspector_name || submission.username}</div>
+                        <div class="meta-value">👤 ${submission.inspector_name || submission.username}</div>
                     </div>
                     <div class="meta-item">
                         <div class="meta-label">Survey Type</div>
@@ -3873,7 +3788,7 @@
                 </div>
                 
                 <div class="responses-section">
-                    <div class="section-title"><i class="fas fa-clipboard-list"></i> Inspection Responses</div>
+                    <div class="section-title">📝 Inspection Responses</div>
             `;
             
             // Add each response
@@ -3886,7 +3801,7 @@
                     
                     modalContent += `
                         <div class="response-card">
-                            <div class="response-question"><i class="fas fa-circle-question card-emoji"></i> ${response.question_text}</div>
+                            <div class="response-question">❓ ${response.question_text}</div>
                             <div class="response-condition ${badgeClass}">
                                 ${badgeIcon} ${response.condition}
                             </div>

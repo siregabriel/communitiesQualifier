@@ -10,17 +10,21 @@ import random
 from datetime import datetime
 from typing import List, Dict, Optional
 
+from services.json_store import JsonFileBacked
 
-class QuestionManager:
+
+class QuestionManager(JsonFileBacked):
     """
     Manages inspection questions with JSON file-based storage.
     Supports CRUD operations, community-based filtering, and soft deletes.
+    Reloads from disk before every read/write so a stale in-memory copy can
+    never clobber changes made by another process or an external edit.
     """
 
     def __init__(self, storage_path: str):
         """
         Initialize QuestionManager with path to questions.json
-        
+
         Args:
             storage_path: Absolute path to the questions.json file
         """
@@ -28,13 +32,14 @@ class QuestionManager:
         self.questions = []
         self.version = "1.0"
         self.last_modified = None
-        
-        # Load existing questions if file exists
-        if os.path.exists(storage_path):
-            self.load_from_file()
+
+        self._init_store()
+        self.load_from_file()
+        self._mark_loaded()
 
     def create_question(self, text: str, photo_required: bool, communities: List[str],
-                       survey_types: Optional[List[str]] = None) -> Dict:
+                       survey_types: Optional[List[str]] = None,
+                       interpretive_guideline: str = "") -> Dict:
         """
         Create new question with validation
         
@@ -72,6 +77,7 @@ class QuestionManager:
         question = {
             "id": question_id,
             "text": text.strip(),
+            "interpretive_guideline": (interpretive_guideline or "").strip(),
             "photo_required": photo_required,
             "communities": communities,
             "survey_types": survey_types,  # Empty array means all types
@@ -80,12 +86,13 @@ class QuestionManager:
             "is_active": True
         }
         
-        # Add to questions list
-        self.questions.append(question)
-        
-        # Save to file
-        self.save_to_file()
-        
+        # Reload latest from disk before appending so we never clobber
+        # changes made by another process or an external edit.
+        with self._lock:
+            self._ensure_fresh()
+            self.questions.append(question)
+            self.save_to_file()
+
         return question
 
     def get_question(self, question_id: str) -> Optional[Dict]:
@@ -98,6 +105,7 @@ class QuestionManager:
         Returns:
             Question dict if found, None otherwise
         """
+        self._ensure_fresh()
         for question in self.questions:
             if question["id"] == question_id:
                 return question
@@ -110,6 +118,7 @@ class QuestionManager:
         Returns:
             List of active question dicts, sorted by created_at descending (newest first)
         """
+        self._ensure_fresh()
         active_questions = [q for q in self.questions if q.get("is_active", True)]
         
         # Sort by created_at descending (newest first)
@@ -128,8 +137,9 @@ class QuestionManager:
             List of active question dicts for the specified community,
             sorted by created_at descending (newest first)
         """
+        self._ensure_fresh()
         community_questions = [
-            q for q in self.questions 
+            q for q in self.questions
             if q.get("is_active", True) and community in q.get("communities", [])
         ]
         
@@ -138,8 +148,9 @@ class QuestionManager:
         
         return community_questions
 
-    def update_question(self, question_id: str, text: str, photo_required: bool, 
-                       communities: List[str], survey_types: Optional[List[str]] = None) -> Optional[Dict]:
+    def update_question(self, question_id: str, text: str, photo_required: bool,
+                       communities: List[str], survey_types: Optional[List[str]] = None,
+                       interpretive_guideline: str = "") -> Optional[Dict]:
         """
         Update existing question, preserving ID and created_at timestamp
         
@@ -175,6 +186,7 @@ class QuestionManager:
         
         # Update fields (preserving id and created_at)
         question["text"] = text.strip()
+        question["interpretive_guideline"] = (interpretive_guideline or "").strip()
         question["photo_required"] = photo_required
         question["communities"] = communities
         question["survey_types"] = survey_types  # Empty array means all types
@@ -208,6 +220,31 @@ class QuestionManager:
         
         return True
 
+    def rename_community(self, old_name: str, new_name: str) -> int:
+        """Rename a community across every question's communities list.
+        Returns the number of questions affected."""
+        old_name = (old_name or '').strip()
+        new_name = (new_name or '').strip()
+        if not old_name or not new_name or old_name == new_name:
+            return 0
+        with self._lock:
+            self._ensure_fresh()
+            count = 0
+            for q in self.questions:
+                comms = q.get('communities', [])
+                if old_name in comms:
+                    q['communities'] = [new_name if c == old_name else c for c in comms]
+                    # de-dup
+                    seen, deduped = set(), []
+                    for c in q['communities']:
+                        if c not in seen:
+                            seen.add(c); deduped.append(c)
+                    q['communities'] = deduped
+                    count += 1
+            if count:
+                self.save_to_file()
+            return count
+
     def save_to_file(self) -> None:
         """
         Persist Question Bank to JSON file
@@ -226,12 +263,8 @@ class QuestionManager:
                 "questions": self.questions
             }
             
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-            
-            # Write to file
-            with open(self.storage_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
+            # Atomic write (temp file + os.replace)
+            self._atomic_write(data, indent=4)
         except (OSError, IOError) as e:
             raise IOError(f"Failed to save questions to file: {str(e)}")
 

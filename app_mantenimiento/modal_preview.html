@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Question — revamped modal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;}
+body{background:linear-gradient(135deg,#0b1f3a,#12407e);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;}
+.modal-content{background:#fff;border-radius:22px;max-width:640px;width:100%;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 70px rgba(2,32,80,.5);}
+.modal-header{padding:22px 28px;background:linear-gradient(135deg,#00285c 0%,#1f6fe5 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;}
+.modal-header-title{display:flex;align-items:center;gap:13px;}
+.modal-header-icon{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;}
+.modal-header h2{color:#fff;font-size:21px;font-weight:800;font-family:'Poppins';letter-spacing:-.3px;}
+.modal-close{width:36px;height:36px;border:none;border-radius:11px;background:rgba(255,255,255,.16);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;}
+.modal-close:hover{background:rgba(255,255,255,.3);transform:rotate(90deg);}
+.body{padding:26px 28px 4px;overflow-y:auto;}
+.form-group{margin-bottom:20px;}
+.form-group label{display:flex;align-items:center;gap:8px;color:#00285c;font-size:12px;font-weight:700;margin-bottom:9px;text-transform:uppercase;letter-spacing:.5px;}
+.form-group label i{color:#1f6fe5;font-size:13px;}
+.form-group textarea,.form-group input[type=text]{width:100%;padding:12px 16px;border:1.5px solid #e4ebf5;border-radius:12px;font-size:14px;font-family:inherit;background:rgba(248,250,252,.5);color:#0f1e36;resize:vertical;}
+.form-group textarea{min-height:96px;}
+.form-group textarea:focus{outline:none;border-color:#1f6fe5;background:#fff;box-shadow:0 0 0 4px rgba(31,111,229,.15);}
+.help-text{color:#64748b;font-size:12.5px;margin-bottom:10px;line-height:1.5;}
+.checkbox-group{display:flex;align-items:center;gap:12px;padding:13px;background:rgba(248,250,252,.6);border-radius:12px;border:1.5px solid #e4ebf5;}
+.checkbox-group input{width:20px;height:20px;}
+.checkbox-group label{font-size:14px;font-weight:600;color:#475569;}
+.selector{border:1.5px solid #e4ebf5;border-radius:12px;padding:14px;background:rgba(248,250,252,.5);max-height:170px;overflow-y:auto;}
+.sel-header{display:flex;align-items:center;gap:12px;padding:0 0 12px;margin-bottom:10px;border-bottom:2px solid #e4ebf5;position:sticky;top:0;background:#f8fafc;}
+.sel-header input{width:20px;height:20px;}
+.sel-header label{font-size:13px;font-weight:700;color:#1f6fe5;text-transform:uppercase;letter-spacing:.5px;}
+.opt{display:flex;align-items:center;gap:12px;padding:9px 8px;border-radius:8px;}
+.opt:hover{background:rgba(31,111,229,.05);}
+.opt input{width:18px;height:18px;}
+.opt .ic{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#2563eb,#0bb8d4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.opt label{font-size:13px;font-weight:500;color:#475569;}
+.pill{display:inline-block;padding:6px 14px;background:linear-gradient(135deg,#00285c,#1f6fe5);color:#fff;border-radius:999px;font-size:11px;font-weight:700;margin-top:12px;}
+.modal-actions{position:sticky;bottom:0;display:flex;gap:12px;justify-content:flex-end;align-items:center;margin:24px -28px 0;padding:16px 28px;background:#fff;border-top:1px solid #e4ebf5;}
+.btn{padding:12px 22px;border:none;border-radius:14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;min-width:130px;transition:.16s;}
+.btn:hover{transform:translateY(-2px);}
+.btn-cancel{background:#fff;color:#5b6b85;border:1.5px solid #e4ebf5;}
+.btn-success{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 10px 24px rgba(16,185,129,.3);}
+</style>
+</head>
+<body>
+<div class="modal-content">
+  <div class="modal-header">
+    <div class="modal-header-title">
+      <span class="modal-header-icon"><i class="fas fa-clipboard-check"></i></span>
+      <h2>Edit Question</h2>
+    </div>
+    <button class="modal-close"><i class="fas fa-times"></i></button>
+  </div>
+  <div class="body">
+    <div class="form-group">
+      <label><i class="fas fa-clipboard-check"></i> Standard</label>
+      <textarea>Call System: Response Time is less than 5 minutes</textarea>
+    </div>
+    <div class="form-group">
+      <label><i class="fas fa-book"></i> Interpretive Guideline</label>
+      <textarea style="min-height:120px;">Timely response to resident call lights is a fundamental expectation and a direct reflection of the community's commitment to resident safety, dignity, and quality of care. The standard is that all call lights are acknowledged AND responded to within five minutes.</textarea>
+    </div>
+    <div class="form-group">
+      <label><i class="fas fa-camera"></i> Photo Requirement</label>
+      <div class="checkbox-group"><input type="checkbox"><label>Photo upload required for this question</label></div>
+    </div>
+    <div class="form-group">
+      <label><i class="fas fa-layer-group"></i> Survey Types</label>
+      <p class="help-text">Select which survey types this question applies to. Leave empty to include in all types.</p>
+      <div class="selector">
+        <div class="sel-header"><input type="checkbox"><label>Select All Types</label></div>
+        <div class="opt"><input type="checkbox"><span class="ic"><i class="fas fa-users"></i></span><label>Full Regional Review</label></div>
+        <div class="opt"><input type="checkbox"><span class="ic"><i class="fas fa-magnifying-glass"></i></span><label>Operational Review</label></div>
+        <div class="opt"><input type="checkbox"><span class="ic"><i class="fas fa-chart-line"></i></span><label>Sales &amp; Marketing</label></div>
+      </div>
+      <span class="pill">0 types selected (All Types)</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel"><i class="fas fa-times"></i> Cancel</button>
+      <button class="btn btn-success"><i class="fas fa-save"></i> Save Question</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

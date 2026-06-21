@@ -14,7 +14,7 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Anime.js for premium animations -->
@@ -56,7 +56,7 @@
             font-size: 28px;
             margin-bottom: 4px;
             font-weight: 800;
-            font-family: helvetica!important;
+            font-family: 'Poppins', sans-serif;
             letter-spacing: -1px;
         }
 
@@ -226,18 +226,18 @@
             color: #1e40af;
         }
 
-        /* Pass - Green background with checkmark when selected */
+        /* Pass - Gold/beige background with checkmark when selected */
         .radio-button input[type="radio"]:checked + .radio-label.pass {
-            background: #ecfdf5;
-            border-color: #10b981;
-            color: #047857;
+            background: #f5e6d3;
+            border-color: #d4a574;
+            color: #92400e;
             font-weight: 700;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 2px 8px rgba(212, 165, 116, 0.3);
         }
 
         .radio-button input[type="radio"]:checked + .radio-label.pass .rating-icon {
             display: inline-block;
-            color: #047857;
+            color: #92400e;
         }
 
         /* Opportunity - Yellow background when selected */
@@ -425,113 +425,6 @@
 
         .success-message.show {
             display: block;
-        }
-
-        /* Full-screen submission confirmation */
-        .success-screen {
-            position: fixed;
-            inset: 0;
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            background:
-                radial-gradient(1200px 600px at 50% -10%, rgba(31, 111, 229, 0.12), transparent 60%),
-                linear-gradient(135deg, #f5f7fa, #eef3fb);
-        }
-
-        .success-screen.show {
-            display: flex;
-            animation: successFade 0.3s ease;
-        }
-
-        @keyframes successFade {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .success-card {
-            background: #fff;
-            border-radius: 24px;
-            box-shadow: 0 30px 70px rgba(2, 32, 80, 0.18);
-            padding: 48px 36px 40px;
-            max-width: 440px;
-            width: 100%;
-            text-align: center;
-            animation: successUp 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes successUp {
-            from { opacity: 0; transform: translateY(24px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .success-check {
-            width: 92px;
-            height: 92px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #10b981, #059669);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px;
-            color: #fff;
-            font-size: 42px;
-            box-shadow: 0 14px 32px rgba(16, 185, 129, 0.4);
-            animation: successPop 0.5s cubic-bezier(0.16, 1.4, 0.3, 1) 0.12s both;
-        }
-
-        @keyframes successPop {
-            from { transform: scale(0); }
-            to { transform: scale(1); }
-        }
-
-        .success-card h2 {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 26px;
-            font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 10px;
-            letter-spacing: -0.5px;
-        }
-
-        .success-card p {
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-            margin-bottom: 28px;
-        }
-
-        .success-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .success-actions button {
-            padding: 14px 20px;
-            border: none;
-            border-radius: 14px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            font-family: inherit;
-            transition: transform 0.16s ease, filter 0.16s ease;
-        }
-
-        .success-actions button:hover { transform: translateY(-2px); }
-
-        .success-btn-primary {
-            background: linear-gradient(135deg, #00285c, #1f6fe5);
-            color: #fff;
-            box-shadow: 0 10px 26px rgba(31, 111, 229, 0.34);
-        }
-
-        .success-btn-secondary {
-            background: #fff;
-            color: #00285c;
-            border: 1.5px solid #e4ebf5;
         }
 
         .loading-message {
@@ -733,75 +626,7 @@
                 width: 100%;
             }
         }
-
-        /* Standard title row + mobile info button for the guideline */
-        .question-title-row { display: flex; align-items: flex-start; gap: 10px; }
-        .question-title-row .question-title { flex: 1; }
-        .guideline-info-btn {
-            display: none;
-            flex-shrink: 0;
-            width: 30px; height: 30px;
-            border: none; border-radius: 8px;
-            background: rgba(31, 111, 229, 0.1);
-            color: #1f6fe5;
-            font-size: 15px; cursor: pointer;
-            align-items: center; justify-content: center;
-            margin-top: 2px;
-        }
-        .guideline-info-btn:active { background: rgba(31, 111, 229, 0.2); }
-
-        /* Bottom sheet for the interpretive guideline (mobile) */
-        .guideline-sheet-overlay {
-            position: fixed; inset: 0;
-            background: rgba(15, 30, 54, 0.5);
-            opacity: 0; visibility: hidden;
-            transition: opacity .25s ease, visibility .25s ease;
-            z-index: 1500;
-        }
-        .guideline-sheet-overlay.show { opacity: 1; visibility: visible; }
-        .guideline-sheet {
-            position: fixed; left: 0; right: 0; bottom: 0;
-            background: #fff;
-            border-radius: 20px 20px 0 0;
-            box-shadow: 0 -12px 40px rgba(2, 32, 80, 0.25);
-            z-index: 1501;
-            max-height: 82vh;
-            display: flex; flex-direction: column;
-            transform: translateY(100%);
-            transition: transform .3s cubic-bezier(.16, 1, .3, 1);
-        }
-        .guideline-sheet.show { transform: translateY(0); }
-        .guideline-sheet-handle {
-            width: 40px; height: 4px; border-radius: 2px;
-            background: #cbd5e1; margin: 10px auto 4px; flex-shrink: 0;
-        }
-        .guideline-sheet-header {
-            display: flex; align-items: flex-start; justify-content: space-between;
-            gap: 12px; padding: 8px 20px 12px;
-            border-bottom: 1px solid #e4ebf5; flex-shrink: 0;
-        }
-        .guideline-sheet-eyebrow {
-            font-size: 11px; font-weight: 800; text-transform: uppercase;
-            letter-spacing: .6px; color: #1f6fe5; margin-bottom: 4px;
-        }
-        .guideline-sheet-title { font-size: 16px; font-weight: 700; color: #0f1e36; line-height: 1.3; }
-        .guideline-sheet-close {
-            width: 34px; height: 34px; border: none; border-radius: 10px;
-            background: #f1f5f9; color: #475569; font-size: 15px; cursor: pointer; flex-shrink: 0;
-        }
-        .guideline-sheet-body {
-            padding: 16px 20px 28px; overflow-y: auto;
-            font-size: 14px; line-height: 1.6; color: #475569;
-            white-space: pre-line; -webkit-overflow-scrolling: touch;
-        }
-
-        @media (max-width: 768px) {
-            .interpretive-guideline { display: none !important; }
-            .guideline-info-btn { display: inline-flex; }
-        }
     </style>
-    <link rel="stylesheet" href="/static/theme.css">
-
 </head>
 <body>
     <div class="container">
@@ -811,20 +636,10 @@
                 <p>Complete inspection questionnaire</p>
                 <div class="user-info" id="userInfo">Loading...</div>
                 {% if survey_type %}
-                <div class="survey-type-badge" id="surveyTypeBadge" data-color="{{ survey_type.color }}">
+                <div class="survey-type-badge" style="background: linear-gradient(135deg, {{ survey_type.color }}15, {{ survey_type.color }}08); color: {{ survey_type.color }}; border: 1px solid {{ survey_type.color }}30;">
                     <i class="fas {{ survey_type.icon }}"></i>
                     <span>{{ survey_type.name }}</span>
                 </div>
-                <script>
-                    (function () {
-                        var b = document.getElementById('surveyTypeBadge');
-                        if (!b) return;
-                        var c = b.dataset.color;
-                        b.style.background = 'linear-gradient(135deg, ' + c + '15, ' + c + '08)';
-                        b.style.color = c;
-                        b.style.border = '1px solid ' + c + '30';
-                    })();
-                </script>
                 {% endif %}
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
@@ -833,37 +648,6 @@
         <div class="success-message" id="successMessage">
             ✅ Inspection submitted successfully!
         </div>
-
-        <div class="success-screen" id="successScreen" role="dialog" aria-modal="true" aria-labelledby="successTitle">
-            <div class="success-card">
-                <div class="success-check"><i class="fas fa-check"></i></div>
-                <h2 id="successTitle">Survey submitted!</h2>
-                <p id="successText">Your inspection has been sent successfully. Thank you for completing it.</p>
-                <div class="success-actions">
-                    <button class="success-btn-primary" onclick="window.location.href='/select-survey-type'">
-                        <i class="fas fa-plus"></i> Start a new inspection
-                    </button>
-                    <button class="success-btn-secondary" onclick="window.location.href='/logout'">
-                        <i class="fas fa-sign-out-alt"></i> Log out
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        {% if role == 'regional' %}
-        <div class="form-group" id="communityPickerGroup" style="margin-bottom: 24px;">
-            <label for="communitySelect">Community to inspect <span class="required">*</span></label>
-            <select id="communitySelect" onchange="onCommunityChange()">
-                <option value="">— Select a community in your region —</option>
-                {% for c in communities %}
-                <option value="{{ c }}">{{ c }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="loading-message" id="communityPrompt" style="display:none;">
-            Select a community above to load its inspection.
-        </div>
-        {% endif %}
 
         <div class="loading-message" id="loadingMessage">
             Loading questions...
@@ -887,42 +671,8 @@
         </form>
     </div>
 
-    <!-- Interpretive guideline bottom sheet (mobile) -->
-    <div class="guideline-sheet-overlay" id="guidelineSheetOverlay" onclick="closeGuidelineSheet()"></div>
-    <div class="guideline-sheet" id="guidelineSheet" role="dialog" aria-modal="true" aria-labelledby="guidelineSheetTitle">
-        <div class="guideline-sheet-handle"></div>
-        <div class="guideline-sheet-header">
-            <div>
-                <div class="guideline-sheet-eyebrow">Interpretive Guideline</div>
-                <div class="guideline-sheet-title" id="guidelineSheetTitle"></div>
-            </div>
-            <button class="guideline-sheet-close" onclick="closeGuidelineSheet()" aria-label="Close"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="guideline-sheet-body" id="guidelineSheetBody"></div>
-    </div>
-
-    <script>
-        function openGuidelineSheet(title, text) {
-            document.getElementById('guidelineSheetTitle').textContent = title || '';
-            document.getElementById('guidelineSheetBody').textContent = text || '';
-            document.getElementById('guidelineSheet').classList.add('show');
-            document.getElementById('guidelineSheetOverlay').classList.add('show');
-            document.body.style.overflow = 'hidden';
-        }
-        function closeGuidelineSheet() {
-            document.getElementById('guidelineSheet').classList.remove('show');
-            document.getElementById('guidelineSheetOverlay').classList.remove('show');
-            document.body.style.overflow = '';
-        }
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeGuidelineSheet();
-        });
-    </script>
-
     <script>
         let currentUser = null, userCommunity = null, isAdmin = false;
-        let userRole = 'staff';
-        let selectedCommunity = null;   // the community being inspected
         let questions = [];
         let photoFiles = {}; // Store photo files by question ID
 
@@ -933,55 +683,26 @@
                 const response = await fetch('/api/user-info');
                 if (!response.ok) { window.location.href = '/login'; return; }
                 const data = await response.json();
-                currentUser = data.display_name || data.username;
+                currentUser = data.username;
                 userCommunity = data.community;
-                userRole = data.role || 'staff';
                 isAdmin = data.is_admin;
-
-                if (userRole === 'regional') {
-                    // Regional users pick which community to inspect first
-                    document.getElementById('userInfo').textContent = `👤 ${currentUser} | Regional`;
-                    const prompt = document.getElementById('communityPrompt');
-                    if (prompt) prompt.style.display = 'block';
-                    document.getElementById('loadingMessage').style.display = 'none';
-                } else {
-                    document.getElementById('userInfo').textContent = `👤 ${currentUser} | ${userCommunity || 'Staff'}`;
-                    selectedCommunity = userCommunity;
-                    await loadQuestions();
-                }
-            } catch (error) {
+                document.getElementById('userInfo').textContent = `👤 ${currentUser} | ${userCommunity || 'Admin'}`;
+                
+                // Load questions for user's community
+                await loadQuestions();
+            } catch (error) { 
                 console.error('Error loading user info:', error);
-                window.location.href = '/login';
+                window.location.href = '/login'; 
             }
-        }
-
-        function onCommunityChange() {
-            const sel = document.getElementById('communitySelect');
-            selectedCommunity = sel ? sel.value : null;
-            const prompt = document.getElementById('communityPrompt');
-            const loading = document.getElementById('loadingMessage');
-            const form = document.getElementById('reportForm');
-            if (!selectedCommunity) {
-                if (prompt) prompt.style.display = 'block';
-                if (loading) loading.style.display = 'none';
-                if (form) form.style.display = 'none';
-                return;
-            }
-            if (prompt) prompt.style.display = 'none';
-            loadQuestions();
         }
 
         async function loadQuestions() {
             try {
-                document.getElementById('loadingMessage').style.display = 'block';
                 // Get survey type from template context
                 const surveyTypeId = '{{ survey_type_id }}';
-
-                // Build query: survey type + (community for regional users)
-                const params = new URLSearchParams();
-                if (surveyTypeId) params.set('survey_type', surveyTypeId);
-                if (userRole === 'regional' && selectedCommunity) params.set('community', selectedCommunity);
-                const url = '/api/questions' + (params.toString() ? '?' + params.toString() : '');
+                
+                // Fetch questions filtered by user's community and survey type
+                const url = surveyTypeId ? `/api/questions?survey_type=${surveyTypeId}` : '/api/questions';
                 const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error('Failed to load questions');
@@ -1033,26 +754,12 @@
             section.className = 'question-section';
             section.dataset.questionId = question.id;
             
-            const guidelineText = (question.interpretive_guideline || question.guideline || '').trim();
-
-            // Question title (with a mobile-only info button when a guideline exists)
-            const titleRow = document.createElement('div');
-            titleRow.className = 'question-title-row';
+            // Question title
             const questionTitle = document.createElement('div');
             questionTitle.className = 'question-title';
             questionTitle.textContent = question.text;
-            titleRow.appendChild(questionTitle);
-            if (guidelineText) {
-                const infoBtn = document.createElement('button');
-                infoBtn.type = 'button';
-                infoBtn.className = 'guideline-info-btn';
-                infoBtn.setAttribute('aria-label', 'View interpretive guideline');
-                infoBtn.innerHTML = '<i class="fas fa-circle-info"></i>';
-                infoBtn.addEventListener('click', () => openGuidelineSheet(question.text, guidelineText));
-                titleRow.appendChild(infoBtn);
-            }
-            section.appendChild(titleRow);
-
+            section.appendChild(questionTitle);
+            
             // Question description (if available)
             if (question.description) {
                 const questionDesc = document.createElement('div');
@@ -1060,10 +767,10 @@
                 questionDesc.textContent = question.description;
                 section.appendChild(questionDesc);
             }
-
-            // Interpretive Guideline — inline on desktop; on mobile it's hidden
-            // (CSS) and reachable via the info button -> bottom sheet above.
-            if (guidelineText) {
+            
+            // Interpretive Guideline (only shown when the standard has one)
+            const guidelineText = question.interpretive_guideline || question.guideline || '';
+            if (guidelineText.trim()) {
                 const guidelineDiv = document.createElement('div');
                 guidelineDiv.className = 'interpretive-guideline';
 
@@ -1291,8 +998,6 @@
             // Create FormData for multipart/form-data submission
             const formData = new FormData();
             formData.append('responses', JSON.stringify(responses));
-            // Regional users submit for a chosen community (staff ignore this server-side)
-            formData.append('community', selectedCommunity || userCommunity || '');
             
             // Attach photo files
             let photoIndex = 0;
@@ -1314,17 +1019,28 @@
                 });
                 
                 if (response.ok) {
-                    // Show the full-screen confirmation
-                    const txt = document.getElementById('successText');
-                    if (txt) {
-                        const visited = selectedCommunity || userCommunity;
-                        txt.textContent = visited
-                            ? `Your inspection for ${visited} has been sent successfully. Thank you for completing it.`
-                            : 'Your inspection has been sent successfully. Thank you for completing it.';
-                    }
-                    document.getElementById('successScreen').classList.add('show');
-                    document.body.style.overflow = 'hidden';
-                    window.scrollTo({ top: 0 });
+                    // Show success message
+                    document.getElementById('successMessage').classList.add('show');
+                    
+                    // Reset form
+                    document.getElementById('reportForm').reset();
+                    
+                    // Clear photo files and previews
+                    photoFiles = {};
+                    questions.forEach(question => {
+                        const fileNameEl = document.getElementById(`fileName_${question.id}`);
+                        const previewEl = document.getElementById(`imagePreview_${question.id}`);
+                        if (fileNameEl) fileNameEl.textContent = '';
+                        if (previewEl) previewEl.innerHTML = '';
+                    });
+                    
+                    // Hide success message after 3 seconds
+                    setTimeout(() => { 
+                        document.getElementById('successMessage').classList.remove('show'); 
+                    }, 3000);
+                    
+                    // Scroll to top
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else {
                     const errorData = await response.json();
                     alert('Error submitting inspection: ' + (errorData.message || 'Unknown error'));

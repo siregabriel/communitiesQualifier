@@ -1,0 +1,163 @@
+{
+  "version": "1.0",
+  "last_modified": "2026-06-21T14:00:02.610305",
+  "notes": "Regional structure from the org chart. 'email' fields are placeholders for the post-visit report routing (to be wired up later). Global recipients while perfecting: Greg, Angie, and the product owner.",
+  "regions": [
+    {
+      "id": "coastal",
+      "name": "Coastal",
+      "leadership": [
+        {
+          "name": "Keith Martin",
+          "role": "SRDO",
+          "email": ""
+        },
+        {
+          "name": "Jennifer Oscar",
+          "role": "RDW",
+          "email": ""
+        },
+        {
+          "name": "Katie Beattie",
+          "role": "RSMD",
+          "email": ""
+        }
+      ],
+      "communities": [
+        "Madison at Ocoee, Ocoee",
+        "Madison at Clermont, Clermont",
+        "Madison at Oviedo, Oviedo",
+        "The Goldton at St. Petersburg, St. Petersburg",
+        "The Canopy At Beacon Woods",
+        "The Goldton At Lake Nona",
+        "Lake Howard Heights, Winter Haven"
+      ]
+    },
+    {
+      "id": "magnolia",
+      "name": "Magnolia",
+      "leadership": [
+        {
+          "name": "Zach Jacobsen",
+          "role": "RDO",
+          "email": ""
+        },
+        {
+          "name": "Brittany Poythress",
+          "role": "RDW",
+          "email": ""
+        },
+        {
+          "name": "Shannon Cook",
+          "role": "RSMD",
+          "email": ""
+        }
+      ],
+      "communities": [
+        "The Goldton at Southaven, Southaven",
+        "Monark Grove Greystone",
+        "The Goldton at Spring Hill, Spring Hill",
+        "Madison at The Range, Madison",
+        "Legacy Ridge Trussville, Trussville",
+        "The Goldton at Athens",
+        "Madison Heights Enterprise, Enterprise",
+        "Kelley Place, Enterprise",
+        "Monark Grove Madison",
+        "The Goldton at Jones Farm",
+        "The Goldton at Adelaide, Starkville"
+      ]
+    },
+    {
+      "id": "atlantic",
+      "name": "Atlantic",
+      "leadership": [
+        {
+          "name": "Wayman Parks",
+          "role": "SRDO",
+          "email": ""
+        },
+        {
+          "name": "Marie Young",
+          "role": "RDW",
+          "email": ""
+        }
+      ],
+      "communities": [
+        "Spring Park, Travelers Rest",
+        "Oakview Park, Greenville",
+        "Legacy Ridge at Alpharetta, Alpharetta",
+        "Legacy Ridge at Buckhead, Atlanta",
+        "Legacy at Savannah Quarters, Pooler",
+        "Legacy Reserve Fairview Park, Simpsonville",
+        "Legacy Ridge at Marietta, Marietta",
+        "Wildcat Senior Living, Summerville",
+        "The Canopy at Westridge, McDonough",
+        "The Overlook at Suwanee"
+      ]
+    },
+    {
+      "id": "innovia",
+      "name": "Innovia",
+      "leadership": [
+        {
+          "name": "Angie Surls",
+          "role": "EVPO",
+          "email": ""
+        },
+        {
+          "name": "Open",
+          "role": "RDW",
+          "email": ""
+        },
+        {
+          "name": "Lauren Hamilton",
+          "role": "RSMD",
+          "email": ""
+        }
+      ],
+      "communities": [
+        "Legacy Reserve at Old Town, Columbus",
+        "Legacy Reserve at Fritz Farm, Lexington"
+      ]
+    },
+    {
+      "id": "dmv",
+      "name": "DMV",
+      "leadership": [
+        {
+          "name": "Chloe Burke",
+          "role": "RDO",
+          "email": ""
+        },
+        {
+          "name": "Rhyssa Johnson",
+          "role": "RDW",
+          "email": ""
+        },
+        {
+          "name": "John Zimmerman",
+          "role": "RSMD",
+          "email": ""
+        }
+      ],
+      "communities": [
+        "Tribute at The Glen",
+        "Tribute at Melford",
+        "Tribute at One Loudoun",
+        "Tribute at Black Hill",
+        "The Goldton at Stuart"
+      ]
+    },
+    {
+      "id": "unassigned",
+      "name": "Unassigned",
+      "leadership": [],
+      "communities": [
+        "The Goldton at Venice, Venice",
+        "Madison Heights Evans, Evans",
+        "The Oscar at Georgetown",
+        "The Oscar at Veramendi"
+      ]
+    }
+  ]
+}

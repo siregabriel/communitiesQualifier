@@ -20,7 +20,15 @@ from services.input_sanitizer import InputSanitizer
 app = Flask(__name__)
 
 # Configuration
-app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production-12345'
+# SECRET_KEY must be set via environment in production (used to sign sessions).
+# Falls back to a dev key locally; logs a warning if the prod fallback is used.
+_secret = os.environ.get('SECRET_KEY')
+if not _secret:
+    _secret = 'dev-only-insecure-key-do-not-use-in-production'
+    if os.environ.get('FLASK_DEBUG', '0') != '1':
+        app.logger.warning('SECRET_KEY env var not set — using an insecure development key. '
+                           'Set SECRET_KEY in production.')
+app.config['SECRET_KEY'] = _secret
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
@@ -44,6 +52,20 @@ def allowed_file(filename):
 DATA_FOLDER = os.path.join(os.path.dirname(__file__), 'data')
 os.makedirs(DATA_FOLDER, exist_ok=True)
 
+# Seed the live data files from data/seeds/ on first run (e.g. a fresh server).
+# Live data files are git-ignored so deploys never overwrite them; the seeds
+# ship in git and only populate a file that doesn't exist yet.
+import shutil
+SEED_FOLDER = os.path.join(DATA_FOLDER, 'seeds')
+for _seed_name in ('regions.json', 'questions.json', 'survey_types.json'):
+    _live = os.path.join(DATA_FOLDER, _seed_name)
+    _seed = os.path.join(SEED_FOLDER, _seed_name)
+    if not os.path.exists(_live) and os.path.exists(_seed):
+        try:
+            shutil.copyfile(_seed, _live)
+        except OSError as _e:
+            app.logger.error(f'Could not seed {_seed_name}: {_e}')
+
 # Initialize QuestionManager service
 QUESTIONS_FILE = os.path.join(DATA_FOLDER, 'questions.json')
 question_manager = QuestionManager(QUESTIONS_FILE)
@@ -65,6 +87,25 @@ survey_type_service = SurveyTypeService(SURVEY_TYPES_FILE)
 # Initialize QuestionFilterService
 from services.question_filter import QuestionFilterService
 question_filter_service = QuestionFilterService(question_manager, survey_type_service)
+
+# Initialize RegionService (regional structure: leadership + community assignments)
+REGIONS_FILE = os.path.join(DATA_FOLDER, 'regions.json')
+from services.region_service import RegionService
+region_service = RegionService(REGIONS_FILE)
+
+# Initialize ActivityService (audit log) and ProfileService (per-user photo)
+ACTIVITY_FILE = os.path.join(DATA_FOLDER, 'activity.json')
+from services.activity_service import ActivityService
+activity_service = ActivityService(ACTIVITY_FILE)
+
+PROFILES_FILE = os.path.join(DATA_FOLDER, 'profiles.json')
+from services.profile_service import ProfileService
+profile_service = ProfileService(PROFILES_FILE)
+
+# Avatars folder for uploaded profile photos
+AVATARS_FOLDER = os.path.join(UPLOAD_FOLDER, '..', 'avatars')
+AVATARS_FOLDER = os.path.normpath(AVATARS_FOLDER)
+os.makedirs(AVATARS_FOLDER, exist_ok=True)
 
 
 
@@ -136,7 +177,10 @@ USERS_DB = {
     
     # Virginia
     'user37': {'password': 'test123', 'community': 'Tribute at One Loudoun'},
-    'user38': {'password': 'test123', 'community': 'Tribute at The Glen'}
+    'user38': {'password': 'test123', 'community': 'Tribute at The Glen'},
+
+    # Transitioning in (DMV)
+    'user39': {'password': 'test123', 'community': 'The Goldton at Stuart'}
 }
 
 # List of all available communities
@@ -197,20 +241,124 @@ ALL_COMMUNITIES = [
     
     # Virginia
     "Tribute at One Loudoun",
-    "Tribute at The Glen"
+    "Tribute at The Glen",
+
+    # Transitioning in (DMV)
+    "The Goldton at Stuart"
 ]
+
+
+# Default password for the auto-generated regional (per-person) accounts.
+REGIONAL_DEFAULT_PASSWORD = 'atlas123'
+
+
+def slugify_name(name):
+    """Turn 'Keith Martin' into a stable login slug 'keith.martin'."""
+    import re
+    s = (name or '').strip().lower()
+    s = re.sub(r'[^a-z0-9]+', '.', s)
+    return s.strip('.')
+
+
+def get_regional_accounts():
+    """
+    Build per-person regional login accounts from the region leadership.
+    Each leader becomes an account: username = name slug, covering all the
+    communities in their region. Computed live from regions.json so edits to
+    leadership are reflected immediately.
+    Returns: { username: {'display_name','role','region_id','region_name','communities'} }
+    """
+    accounts = {}
+    for region in region_service.get_all_regions():
+        if region.get('id') == 'unassigned':
+            continue
+        for leader in region.get('leadership', []):
+            name = (leader.get('name') or '').strip()
+            if not name or name.lower() == 'open':
+                continue
+            username = slugify_name(name)
+            if not username:
+                continue
+            accounts[username] = {
+                'display_name': name,
+                'role': 'regional',
+                'region_id': region.get('id'),
+                'region_name': region.get('name'),
+                'communities': list(region.get('communities', []))
+            }
+    return accounts
 
 
 def authenticate_user(username, password):
     """
-    Authenticate user and return their community if successful
-    Returns: (True, community_name) if successful, (False, None) if failed
+    Authenticate a user and return their account info on success.
+    Order: admin/staff (USERS_DB), then per-person regional accounts.
+    A hashed override (from change-password) takes precedence over the seed.
+    Returns: (True, account_dict) on success, (False, None) on failure.
+    account_dict = {role, community, region_id, display_name}
     """
+    # --- Admin / staff (community accounts) ---
     if username in USERS_DB:
         user = USERS_DB[username]
-        if user['password'] == password:  # In production, use password hash verification
-            return (True, user['community'])
+        override = profile_service.get_password_hash(username)
+        ok = check_password_hash(override, password) if override else (user['password'] == password)
+        if not ok:
+            return (False, None)
+        community = user['community']
+        return (True, {
+            'role': 'admin' if community is None else 'staff',
+            'community': community,
+            'region_id': None,
+            'display_name': profile_service.get_display_name(username) or username
+        })
+
+    # --- Regional (per-person) accounts ---
+    regionals = get_regional_accounts()
+    if username in regionals:
+        acct = regionals[username]
+        override = profile_service.get_password_hash(username)
+        ok = check_password_hash(override, password) if override else (password == REGIONAL_DEFAULT_PASSWORD)
+        if not ok:
+            return (False, None)
+        return (True, {
+            'role': 'regional',
+            'community': None,
+            'region_id': acct['region_id'],
+            'display_name': acct['display_name']
+        })
+
     return (False, None)
+
+
+def current_role():
+    """Resolve the current session role, with backward-compatible fallback."""
+    role = session.get('role')
+    if role:
+        return role
+    # Older sessions without an explicit role: infer from community
+    return 'admin' if session.get('community') is None else 'staff'
+
+
+def regional_communities():
+    """Communities the current regional user may inspect (their region)."""
+    region_id = session.get('region_id')
+    if not region_id:
+        return []
+    region = next((r for r in region_service.get_all_regions() if r.get('id') == region_id), None)
+    return list(region.get('communities', [])) if region else []
+
+
+def resolve_display_name(username):
+    """Friendly name for a username (profile override, regional, or username)."""
+    if not username:
+        return ''
+    name = profile_service.get_display_name(username)
+    if name:
+        return name
+    regionals = get_regional_accounts()
+    if username in regionals:
+        return regionals[username]['display_name']
+    return username
 
 
 def login_required(f):
@@ -232,9 +380,8 @@ def require_admin(f):
     @wraps(f)
     @login_required
     def decorated_function(*args, **kwargs):
-        # Check if user is admin (community is None)
-        if session.get('community') is not None:
-            # Non-admin user, redirect to inspection form
+        # Only admins may access admin routes
+        if current_role() != 'admin':
             return redirect(url_for('report_form'))
         return f(*args, **kwargs)
     return decorated_function
@@ -299,19 +446,24 @@ def api_login():
             }), 400
 
         # Authenticate user
-        success, community = authenticate_user(username, password)
+        success, account = authenticate_user(username, password)
 
         if success:
             # Store user in session
             session['user'] = username
-            session['community'] = community
+            session['community'] = account['community']
+            session['role'] = account['role']
+            session['region_id'] = account['region_id']
+            session['display_name'] = account['display_name']
             session.permanent = True
 
             return jsonify({
                 'status': 'success',
                 'message': 'Login successful',
                 'username': username,
-                'community': community
+                'community': account['community'],
+                'role': account['role'],
+                'display_name': account['display_name']
             }), 200
         else:
             return jsonify({
@@ -349,13 +501,12 @@ def index():
     """
     if 'user' not in session:
         return redirect(url_for('login'))
-    
-    # Check if user is admin
-    if session.get('community') is None:
-        # Admin user - redirect to dashboard
+
+    # Route by role
+    if current_role() == 'admin':
         return redirect(url_for('dashboard'))
     else:
-        # Staff user - redirect to survey type selection to start new visit
+        # Staff and regional users start a visit via survey type selection
         return redirect(url_for('select_survey_type'))
 
 
@@ -372,11 +523,10 @@ def report_form():
     - If no survey type in session, redirect to survey type selection
     - Admin users are redirected to dashboard (cannot submit inspections)
     """
-    # Check if user is admin (community is None)
-    if session.get('community') is None:
-        # Admin users cannot submit inspections, redirect to dashboard
+    # Admins cannot submit inspections
+    if current_role() == 'admin':
         return redirect(url_for('dashboard'))
-    
+
     # Check if survey type is selected
     survey_type_id = session.get('survey_type_id')
     if not survey_type_id:
@@ -393,11 +543,18 @@ def report_form():
     # Get survey type details for display
     survey_type = survey_type_service.get_survey_type_by_id(survey_type_id)
     
-    communities = [session.get('community')] if session.get('community') else ALL_COMMUNITIES
-    return render_template('reporte.html', 
+    # Communities the user may report on: regionals pick from their whole
+    # region; staff are locked to their single community.
+    if current_role() == 'regional':
+        communities = regional_communities()
+    else:
+        communities = [session.get('community')] if session.get('community') else []
+
+    return render_template('reporte.html',
                          community=session.get('community'),
                          communities=communities,
-                         username=session.get('user'),
+                         role=current_role(),
+                         username=session.get('display_name') or session.get('user'),
                          survey_type=survey_type,
                          survey_type_id=survey_type_id)
 
@@ -410,9 +567,8 @@ def select_survey_type():
     User must select a survey type before starting an inspection
     Requires login - admin users are redirected to dashboard
     """
-    # Check if user is admin (community is None)
-    if session.get('community') is None:
-        # Admin users cannot submit inspections, redirect to dashboard
+    # Admins cannot submit inspections
+    if current_role() == 'admin':
         return redirect(url_for('dashboard'))
     
     return render_template('select_survey_type.html',
@@ -522,16 +678,203 @@ def submit_report():
         }), 500
 
 
+@app.route('/api/profile', methods=['GET'])
+@login_required
+def get_profile():
+    """
+    Profile data for the current user: identity, photo, activity stats, and
+    recent activity feed.
+    """
+    try:
+        username = session.get('user')
+        community = session.get('community')
+        role = current_role()
+        is_admin = role == 'admin'
+        role_label = {'admin': 'Administrator', 'regional': 'Regional', 'staff': 'Staff'}.get(role, 'Staff')
+
+        # Inspection count from the source of truth (historical-safe)
+        try:
+            all_subs = inspection_service.get_all_submissions()
+            inspections = sum(1 for s in all_subs if s.get('username') == username)
+        except Exception:
+            inspections = 0
+
+        stats = {
+            'inspections': inspections,
+            'questions_created': activity_service.count_for_user(username, 'question_created'),
+            'questions_edited': activity_service.count_for_user(username, 'question_updated'),
+            'total_actions': activity_service.count_for_user(username)
+        }
+
+        # For regionals, surface their region in place of a single community
+        display_community = community
+        if role == 'regional':
+            display_community = session.get('region_id') and \
+                next((r.get('name') for r in region_service.get_all_regions()
+                      if r.get('id') == session.get('region_id')), None)
+            if display_community:
+                display_community = f"{display_community} region"
+
+        return jsonify({
+            'status': 'success',
+            'username': username,
+            'display_name': profile_service.get_display_name(username) or session.get('display_name') or '',
+            'community': display_community,
+            'is_admin': is_admin,
+            'role': role_label,
+            'photo': profile_service.get_photo(username),
+            'last_active': activity_service.last_active(username),
+            'stats': stats,
+            'recent_activity': activity_service.get_for_user(username, limit=15)
+        }), 200
+    except Exception as e:
+        app.logger.error(f'Error retrieving profile: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while retrieving profile'}), 500
+
+
+@app.route('/api/profile/name', methods=['POST'])
+@login_required
+def update_profile_name():
+    """Update the current user's display name."""
+    try:
+        data = request.get_json(silent=True)
+        if data is None or not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({'status': 'error', 'message': 'Request body must be a JSON object'}), 400
+
+        username = session.get('user')
+        display_name = InputSanitizer.sanitize_string(data.get('display_name', ''), max_length=80)
+        profile_service.set_display_name(username, display_name)
+        return jsonify({'status': 'success', 'display_name': display_name}), 200
+    except Exception as e:
+        app.logger.error(f'Error updating display name: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while updating name'}), 500
+
+
+@app.route('/api/profile/password', methods=['POST'])
+@login_required
+def change_password():
+    """
+    Change the current user's password. Verifies the current password, then
+    stores a securely hashed override.
+    """
+    try:
+        data = request.get_json(silent=True)
+        if data is None or not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({'status': 'error', 'message': 'Request body must be a JSON object'}), 400
+
+        username = session.get('user')
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+
+        if not current_password or not new_password:
+            return jsonify({'status': 'error', 'message': 'Current and new password are required'}), 400
+
+        if len(new_password) < 6:
+            return jsonify({'status': 'error', 'message': 'New password must be at least 6 characters'}), 400
+
+        # Verify current password
+        success, _ = authenticate_user(username, current_password)
+        if not success:
+            return jsonify({'status': 'error', 'message': 'Current password is incorrect'}), 400
+
+        profile_service.set_password_hash(username, generate_password_hash(new_password))
+        activity_service.log(username, 'password_changed', 'Changed account password')
+        return jsonify({'status': 'success', 'message': 'Password updated successfully'}), 200
+    except Exception as e:
+        app.logger.error(f'Error changing password: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while changing password'}), 500
+
+
+@app.route('/api/profile/photo', methods=['POST'])
+@login_required
+def upload_profile_photo():
+    """Upload/replace the current user's profile photo."""
+    try:
+        username = InputSanitizer.sanitize_username(session.get('user', ''))
+        if 'photo' not in request.files:
+            return jsonify({'status': 'error', 'message': 'No photo provided'}), 400
+
+        file = request.files['photo']
+        if not file or file.filename == '':
+            return jsonify({'status': 'error', 'message': 'No photo provided'}), 400
+
+        if not allowed_file(file.filename):
+            return jsonify({'status': 'error', 'message': 'Invalid file type. Only images are allowed.'}), 400
+
+        ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        filename = f"{secure_filename(username)}_{timestamp}.{ext}"
+        try:
+            file.save(os.path.join(AVATARS_FOLDER, filename))
+        except IOError as e:
+            app.logger.error(f'Error saving avatar: {str(e)}')
+            return jsonify({'status': 'error', 'message': 'Failed to save photo'}), 500
+
+        relative_path = f"avatars/{filename}"
+        profile_service.set_photo(username, relative_path)
+        return jsonify({'status': 'success', 'photo': relative_path}), 200
+    except Exception as e:
+        app.logger.error(f'Error uploading profile photo: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while uploading photo'}), 500
+
+
+@app.route('/api/communities')
+@login_required
+def get_communities():
+    """
+    Communities the current user is allowed to see on the dashboard:
+      - admin: all communities
+      - regional: only their region's communities
+      - staff: only their assigned community
+    """
+    role = current_role()
+    if role == 'admin':
+        # Derive from the regional structure (union, de-duped) so renames and
+        # additions made in the Regions view are reflected. Every community
+        # lives in a region (including the Unassigned bucket), so this is the
+        # complete list. Fall back to the seed list only if regions are empty.
+        seen, communities = set(), []
+        for r in region_service.get_all_regions():
+            for c in r.get('communities', []):
+                if c not in seen:
+                    seen.add(c); communities.append(c)
+        if not communities:
+            communities = list(ALL_COMMUNITIES)
+    elif role == 'regional':
+        communities = regional_communities()
+    else:
+        communities = [session.get('community')] if session.get('community') else []
+    return jsonify({'status': 'success', 'communities': communities}), 200
+
+
 @app.route('/api/user-info')
 @login_required
 def get_user_info():
     """
     Get current user's information
     """
+    username = session.get('user')
+    role = current_role()
+    region_id = session.get('region_id')
+    region_name = None
+    if role == 'regional':
+        communities = regional_communities()
+        region_name = next((r.get('name') for r in region_service.get_all_regions()
+                            if r.get('id') == region_id), None)
+    elif session.get('community'):
+        communities = [session.get('community')]
+    else:
+        communities = []
     return jsonify({
-        'username': session.get('user'),
+        'username': username,
+        'display_name': profile_service.get_display_name(username) or session.get('display_name') or '',
+        'photo': profile_service.get_photo(username),
         'community': session.get('community'),
-        'is_admin': session.get('community') is None
+        'role': role,
+        'is_admin': role == 'admin',
+        'region_id': region_id,
+        'region_name': region_name,
+        'communities': communities
     }), 200
 
 
@@ -694,22 +1037,23 @@ def get_questions():
                     'message': f'Invalid survey type: {survey_type_filter}'
                 }), 400
         
-        # Check if user is admin
-        user_community = session.get('community')
-        is_admin = user_community is None
-        
-        # Determine which questions to return
-        if is_admin:
-            # Admin user
+        # Determine which questions to return, by role
+        role = current_role()
+        if role == 'admin':
             if community_filter:
-                # Admin requested specific community filter
                 questions = question_manager.get_questions_for_community(community_filter)
             else:
-                # Admin requested all questions
                 questions = question_manager.get_all_active_questions()
+        elif role == 'regional':
+            # Regionals must pick a community within their region
+            allowed = regional_communities()
+            if community_filter and community_filter in allowed:
+                questions = question_manager.get_questions_for_community(community_filter)
+            else:
+                questions = []
         else:
             # Staff user - always filter by their assigned community
-            questions = question_manager.get_questions_for_community(user_community)
+            questions = question_manager.get_questions_for_community(session.get('community'))
         
         # Apply survey type filter if provided
         if survey_type_filter:
@@ -765,27 +1109,30 @@ def create_question():
         
         # Extract fields
         text = sanitized_data.get('text', '')
+        interpretive_guideline = sanitized_data.get('interpretive_guideline', '')
         photo_required = sanitized_data.get('photo_required', False)
         communities = sanitized_data.get('communities', [])
         survey_types = sanitized_data.get('survey_types', [])
-        
+
         # Validate text is non-empty
         if not text or not text.strip():
             return jsonify({
                 'status': 'error',
                 'message': 'Question text cannot be empty'
             }), 400
-        
+
         # Validate communities array is non-empty
         if not communities or len(communities) == 0:
             return jsonify({
                 'status': 'error',
                 'message': 'At least one community must be selected'
             }), 400
-        
+
         # Create question using QuestionManager
-        question = question_manager.create_question(text, photo_required, communities, survey_types)
-        
+        question = question_manager.create_question(text, photo_required, communities, survey_types, interpretive_guideline)
+
+        activity_service.log(session.get('user'), 'question_created', text)
+
         return jsonify({
             'status': 'success',
             'question': question
@@ -851,26 +1198,27 @@ def update_question(question_id):
         
         # Extract fields
         text = sanitized_data.get('text', '')
+        interpretive_guideline = sanitized_data.get('interpretive_guideline', '')
         photo_required = sanitized_data.get('photo_required', False)
         communities = sanitized_data.get('communities', [])
         survey_types = sanitized_data.get('survey_types', [])
-        
+
         # Validate text is non-empty
         if not text or not text.strip():
             return jsonify({
                 'status': 'error',
                 'message': 'Question text cannot be empty'
             }), 400
-        
+
         # Validate communities array is non-empty
         if not communities or len(communities) == 0:
             return jsonify({
                 'status': 'error',
                 'message': 'At least one community must be selected'
             }), 400
-        
+
         # Update question using QuestionManager
-        question = question_manager.update_question(question_id, text, photo_required, communities, survey_types)
+        question = question_manager.update_question(question_id, text, photo_required, communities, survey_types, interpretive_guideline)
         
         # Check if question was found
         if question is None:
@@ -878,7 +1226,9 @@ def update_question(question_id):
                 'status': 'error',
                 'message': 'Question not found'
             }), 404
-        
+
+        activity_service.log(session.get('user'), 'question_updated', text)
+
         return jsonify({
             'status': 'success',
             'question': question
@@ -931,7 +1281,9 @@ def delete_question(question_id):
                 'status': 'error',
                 'message': 'Question not found'
             }), 404
-        
+
+        activity_service.log(session.get('user'), 'question_deleted', f'Question {question_id}')
+
         return jsonify({
             'status': 'success',
             'message': 'Question deleted successfully'
@@ -951,6 +1303,330 @@ def delete_question(question_id):
             'status': 'error',
             'message': 'Internal server error while deleting question'
         }), 500
+
+
+@app.route('/api/questions/bulk-delete', methods=['POST'])
+@require_admin
+def bulk_delete_questions():
+    """
+    API endpoint to soft-delete multiple questions in one request
+    Requires admin authentication
+    Expects JSON: { "question_ids": ["id1", "id2", ...] }
+
+    Error Handling:
+    - 400: Invalid JSON, missing/empty question_ids
+    - 500: Internal server errors
+    """
+    try:
+        data = request.get_json(silent=True)
+
+        if data is None or not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({
+                'status': 'error',
+                'message': 'Request body must be a JSON object'
+            }), 400
+
+        question_ids = data.get('question_ids')
+        if not isinstance(question_ids, list) or len(question_ids) == 0:
+            return jsonify({
+                'status': 'error',
+                'message': 'question_ids must be a non-empty array'
+            }), 400
+
+        deleted = 0
+        not_found = []
+        for raw_id in question_ids:
+            qid = InputSanitizer.sanitize_string(str(raw_id), max_length=100)
+            if not qid:
+                continue
+            if question_manager.delete_question(qid):
+                deleted += 1
+            else:
+                not_found.append(qid)
+
+        if deleted:
+            activity_service.log(session.get('user'), 'question_deleted', f'Deleted {deleted} question(s)')
+
+        return jsonify({
+            'status': 'success',
+            'message': f'Deleted {deleted} question(s)',
+            'deleted': deleted,
+            'not_found': not_found
+        }), 200
+
+    except IOError as e:
+        app.logger.error(f'File system error during bulk delete: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Internal server error: Failed to save changes'
+        }), 500
+    except Exception as e:
+        app.logger.error(f'Unexpected error during bulk delete: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Internal server error while deleting questions'
+        }), 500
+
+
+# ==================== REGIONS API ====================
+
+@app.route('/api/regions', methods=['GET'])
+@login_required
+def get_regions():
+    """
+    Get the regional structure: each region with its leadership roster and
+    assigned communities. Used by the dashboard Regions view.
+    """
+    try:
+        # Enrich a copy of each leader with their uploaded photo (if any),
+        # without mutating the stored region data.
+        enriched = []
+        for region in region_service.get_all_regions():
+            r = dict(region)
+            r['leadership'] = [
+                {**leader, 'photo': profile_service.get_leader_photo(region.get('id', ''), leader.get('name', ''))}
+                for leader in region.get('leadership', [])
+            ]
+            enriched.append(r)
+        return jsonify({
+            'status': 'success',
+            'regions': enriched
+        }), 200
+    except Exception as e:
+        app.logger.error(f'Error retrieving regions: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Internal server error while retrieving regions'
+        }), 500
+
+
+@app.route('/api/regions/assign', methods=['POST'])
+@require_admin
+def assign_region_community():
+    """
+    Assign a community to a region (move existing, add new, or restore from
+    Unassigned). The community ends up belonging only to the target region.
+    Expects JSON: { "community": "...", "region_id": "..." }
+    """
+    try:
+        data = request.get_json(silent=True)
+        if data is None or not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({'status': 'error', 'message': 'Request body must be a JSON object'}), 400
+
+        community = InputSanitizer.sanitize_community_name(data.get('community', ''))
+        region_id = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
+
+        if not community:
+            return jsonify({'status': 'error', 'message': 'community is required'}), 400
+        if not region_id:
+            return jsonify({'status': 'error', 'message': 'region_id is required'}), 400
+
+        if not region_service.assign_community(community, region_id):
+            return jsonify({'status': 'error', 'message': f'Unknown region: {region_id}'}), 400
+
+        activity_service.log(session.get('user'), 'region_assigned', f'Assigned {community} to {region_id}')
+
+        return jsonify({'status': 'success', 'regions': region_service.get_all_regions()}), 200
+    except IOError as e:
+        app.logger.error(f'File system error assigning community: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error: Failed to save changes'}), 500
+    except Exception as e:
+        app.logger.error(f'Unexpected error assigning community: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while assigning community'}), 500
+
+
+@app.route('/api/regions/rename-community', methods=['POST'])
+@require_admin
+def rename_region_community():
+    """
+    Rename a community everywhere it's stored: the regional structure,
+    the inspection questions, and historical submissions.
+    Expects JSON: { "old_name": "...", "new_name": "..." }
+    """
+    try:
+        data = request.get_json(silent=True)
+        if data is None or not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({'status': 'error', 'message': 'Request body must be a JSON object'}), 400
+
+        old_name = InputSanitizer.sanitize_community_name(data.get('old_name', ''))
+        new_name = InputSanitizer.sanitize_community_name(data.get('new_name', ''))
+        if not old_name or not new_name:
+            return jsonify({'status': 'error', 'message': 'old_name and new_name are required'}), 400
+        if old_name == new_name:
+            return jsonify({'status': 'success', 'regions': region_service.get_all_regions()}), 200
+
+        region_service.rename_community(old_name, new_name)
+        try:
+            question_manager.rename_community(old_name, new_name)
+            inspection_service.rename_community(old_name, new_name)
+        except Exception as e:
+            app.logger.error(f'Partial error during community rename: {str(e)}')
+
+        activity_service.log(session.get('user'), 'community_renamed',
+                             f'Renamed "{old_name}" to "{new_name}"')
+
+        return jsonify({'status': 'success', 'regions': region_service.get_all_regions()}), 200
+    except IOError as e:
+        app.logger.error(f'File system error renaming community: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error: Failed to save changes'}), 500
+    except Exception as e:
+        app.logger.error(f'Unexpected error renaming community: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while renaming community'}), 500
+
+
+@app.route('/api/regions/leader-photo', methods=['POST'])
+@require_admin
+def upload_leader_photo():
+    """Upload a photo for a region leadership member (admin only)."""
+    try:
+        region_id = InputSanitizer.sanitize_string(request.form.get('region_id', ''), max_length=50)
+        leader_name = InputSanitizer.sanitize_string(request.form.get('leader_name', ''), max_length=120)
+
+        if not region_id or not leader_name:
+            return jsonify({'status': 'error', 'message': 'region_id and leader_name are required'}), 400
+        if 'photo' not in request.files:
+            return jsonify({'status': 'error', 'message': 'No photo provided'}), 400
+
+        file = request.files['photo']
+        if not file or file.filename == '':
+            return jsonify({'status': 'error', 'message': 'No photo provided'}), 400
+        if not allowed_file(file.filename):
+            return jsonify({'status': 'error', 'message': 'Invalid file type. Only images are allowed.'}), 400
+
+        ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        filename = f"leader_{secure_filename(region_id)}_{secure_filename(leader_name)}_{timestamp}.{ext}"
+        try:
+            file.save(os.path.join(AVATARS_FOLDER, filename))
+        except IOError as e:
+            app.logger.error(f'Error saving leader photo: {str(e)}')
+            return jsonify({'status': 'error', 'message': 'Failed to save photo'}), 500
+
+        relative_path = f"avatars/{filename}"
+        profile_service.set_leader_photo(region_id, leader_name, relative_path)
+        return jsonify({'status': 'success', 'photo': relative_path}), 200
+    except Exception as e:
+        app.logger.error(f'Error uploading leader photo: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while uploading photo'}), 500
+
+
+@app.route('/api/regions/leader', methods=['POST'])
+@require_admin
+def manage_region_leader():
+    """
+    Add, update, or delete a leadership member in a region (admin only).
+    Expects JSON:
+      { "action": "add",    "region_id": "...", "name": "...", "role": "...", "email": "..." }
+      { "action": "update", "region_id": "...", "index": N, "name": "...", "role": "...", "email": "..." }
+      { "action": "delete", "region_id": "...", "index": N }
+    """
+    try:
+        data = request.get_json(silent=True)
+        if data is None or not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({'status': 'error', 'message': 'Request body must be a JSON object'}), 400
+
+        action = InputSanitizer.sanitize_string(data.get('action', ''), max_length=20)
+
+        # Move/reorder uses from_/to_ region ids rather than a single region_id
+        if action == 'move':
+            from_region = InputSanitizer.sanitize_string(data.get('from_region_id', ''), max_length=50)
+            to_region = InputSanitizer.sanitize_string(data.get('to_region_id', ''), max_length=50)
+            from_index = data.get('from_index')
+            to_index = data.get('to_index')
+            if not from_region or not to_region:
+                return jsonify({'status': 'error', 'message': 'from_region_id and to_region_id are required'}), 400
+            if not isinstance(from_index, int):
+                return jsonify({'status': 'error', 'message': 'from_index is required'}), 400
+
+            moved = region_service.move_leader(
+                from_region, from_index, to_region,
+                to_index if isinstance(to_index, int) else None
+            )
+            if not moved:
+                return jsonify({'status': 'error', 'message': 'Could not move leader (bad region or index)'}), 400
+
+            # Carry the leader's photo to the new region key
+            name = moved.get('name', '')
+            if from_region != to_region and name:
+                photo = profile_service.get_leader_photo(from_region, name)
+                if photo:
+                    profile_service.set_leader_photo(to_region, name, photo)
+
+            activity_service.log(session.get('user'), 'leader_moved',
+                                 f'Moved {name} from {from_region} to {to_region}')
+            return jsonify({'status': 'success'}), 200
+
+        region_id = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
+        if not region_id:
+            return jsonify({'status': 'error', 'message': 'region_id is required'}), 400
+
+        if action == 'delete':
+            index = data.get('index')
+            if not isinstance(index, int):
+                return jsonify({'status': 'error', 'message': 'index is required'}), 400
+            if not region_service.remove_leader(region_id, index):
+                return jsonify({'status': 'error', 'message': 'Could not delete leader (bad region or index)'}), 400
+            activity_service.log(session.get('user'), 'leader_removed', f'Removed a leader from {region_id}')
+
+        elif action in ('add', 'update'):
+            name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=120)
+            role = InputSanitizer.sanitize_string(data.get('role', ''), max_length=40)
+            email = InputSanitizer.sanitize_string(data.get('email', ''), max_length=120)
+            if not name:
+                return jsonify({'status': 'error', 'message': 'Leader name is required'}), 400
+
+            if action == 'add':
+                if not region_service.add_leader(region_id, name, role, email):
+                    return jsonify({'status': 'error', 'message': f'Unknown region: {region_id}'}), 400
+                activity_service.log(session.get('user'), 'leader_added', f'Added {name} ({role}) to {region_id}')
+            else:
+                index = data.get('index')
+                if not isinstance(index, int):
+                    return jsonify({'status': 'error', 'message': 'index is required'}), 400
+                if not region_service.update_leader(region_id, index, name, role, email):
+                    return jsonify({'status': 'error', 'message': 'Could not update leader (bad region or index)'}), 400
+                activity_service.log(session.get('user'), 'leader_updated', f'Updated {name} ({role}) in {region_id}')
+        else:
+            return jsonify({'status': 'error', 'message': 'action must be add, update, delete, or move'}), 400
+
+        return jsonify({'status': 'success'}), 200
+    except IOError as e:
+        app.logger.error(f'File system error managing leader: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error: Failed to save changes'}), 500
+    except Exception as e:
+        app.logger.error(f'Unexpected error managing leader: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while managing leadership'}), 500
+
+
+@app.route('/api/regions/remove-community', methods=['POST'])
+@require_admin
+def remove_region_community():
+    """
+    Remove a community from the regional structure entirely.
+    Expects JSON: { "community": "..." }
+    """
+    try:
+        data = request.get_json(silent=True)
+        if data is None or not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({'status': 'error', 'message': 'Request body must be a JSON object'}), 400
+
+        community = InputSanitizer.sanitize_community_name(data.get('community', ''))
+        if not community:
+            return jsonify({'status': 'error', 'message': 'community is required'}), 400
+
+        found = region_service.remove_community(community)
+        if not found:
+            return jsonify({'status': 'error', 'message': 'Community not found in any region'}), 404
+
+        activity_service.log(session.get('user'), 'region_removed', f'Removed {community} from regions')
+
+        return jsonify({'status': 'success', 'regions': region_service.get_all_regions()}), 200
+    except IOError as e:
+        app.logger.error(f'File system error removing community: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error: Failed to save changes'}), 500
+    except Exception as e:
+        app.logger.error(f'Unexpected error removing community: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while removing community'}), 500
 
 
 # ==================== INSPECTION SUBMISSION API ====================
@@ -978,20 +1654,28 @@ def submit_inspection():
     try:
         # Get user info from session
         username = session.get('user')
-        community = session.get('community')
         survey_type_id = session.get('survey_type_id')
-        
+        role = current_role()
+
         # Sanitize user info
         username = InputSanitizer.sanitize_username(username)
-        if community:
-            community = InputSanitizer.sanitize_community_name(community)
-        
-        # Validate user has a community (staff user)
-        if not community:
-            return jsonify({
-                'status': 'error',
-                'message': 'Admin users cannot submit inspections'
-            }), 400
+
+        # Resolve the community being inspected, by role:
+        #  - staff: their fixed community
+        #  - regional: a community they pick (must be within their region)
+        #  - admin: not allowed
+        if role == 'admin':
+            return jsonify({'status': 'error', 'message': 'Admin users cannot submit inspections'}), 400
+        elif role == 'regional':
+            community = InputSanitizer.sanitize_community_name(request.form.get('community', ''))
+            if not community or community not in regional_communities():
+                return jsonify({'status': 'error', 'message': 'Select a valid community in your region'}), 400
+        else:
+            community = session.get('community')
+            if community:
+                community = InputSanitizer.sanitize_community_name(community)
+            if not community:
+                return jsonify({'status': 'error', 'message': 'No community assigned to this account'}), 400
         
         # Validate survey type is selected
         if not survey_type_id:
@@ -1063,11 +1747,11 @@ def submit_inspection():
                     'message': f'Response {idx}: condition is required'
                 }), 400
             
-            # Validate condition value
-            if condition not in ['Excellence', 'Pass', 'Opportunity', 'Fail']:
+            # Validate condition value (Pass/Fail)
+            if condition not in ['Pass', 'Fail']:
                 return jsonify({
                     'status': 'error',
-                    'message': f'Response {idx}: condition must be "Excellence", "Pass", "Opportunity", or "Fail"'
+                    'message': f'Response {idx}: condition must be "Pass" or "Fail"'
                 }), 400
             
             # Get optional fields
@@ -1126,13 +1810,19 @@ def submit_inspection():
                 username=username,
                 community=community,
                 responses=processed_responses,
-                survey_type_id=survey_type_id
+                survey_type_id=survey_type_id,
+                inspector_name=(session.get('display_name') or resolve_display_name(username))
             )
             
             # Clear survey type from session after successful submission
             session.pop('survey_type_id', None)
             session.pop('survey_type_name', None)
             session.modified = True
+
+            # Audit log
+            activity_service.log(username, 'inspection_submitted',
+                                 f'Submitted inspection for {community}',
+                                 meta={'community': community})
             
         except ValueError as e:
             return jsonify({
@@ -1200,33 +1890,43 @@ def get_inspections():
                     'message': f'Invalid survey type: {survey_type_filter}'
                 }), 400
         
-        # Check if user is admin
-        user_community = session.get('community')
-        is_admin = user_community is None
-        
-        # Determine which submissions to return
-        if is_admin:
-            # Admin user
+        # Determine which submissions to return, by role
+        role = current_role()
+        if role == 'admin':
             if community_filter:
-                # Admin requested specific community filter
                 submissions = inspection_service.get_submissions_by_community(community_filter)
             else:
-                # Admin requested all submissions
                 submissions = inspection_service.get_all_submissions()
+        elif role == 'regional':
+            # Regionals see submissions across their region's communities
+            allowed = set(regional_communities())
+            all_subs = inspection_service.get_all_submissions()
+            if community_filter and community_filter in allowed:
+                submissions = [s for s in all_subs if s.get('community') == community_filter]
+            else:
+                submissions = [s for s in all_subs if s.get('community') in allowed]
         else:
             # Staff user - always filter by their assigned community
-            submissions = inspection_service.get_submissions_by_community(user_community)
+            submissions = inspection_service.get_submissions_by_community(session.get('community'))
         
         # Apply survey type filter if provided
         if survey_type_filter:
             submissions = [
-                sub for sub in submissions 
+                sub for sub in submissions
                 if sub.get('survey_type_id') == survey_type_filter
             ]
-        
+
+        # Enrich with a friendly inspector name. Prefer the name stored on the
+        # submission (captured at visit time), else resolve from the username.
+        enriched = []
+        for sub in submissions:
+            uname = sub.get('username', '')
+            name = sub.get('inspector_name') or resolve_display_name(uname)
+            enriched.append({**sub, 'inspector_name': name})
+
         return jsonify({
             'status': 'success',
-            'submissions': submissions
+            'submissions': enriched
         }), 200
         
     except Exception as e:
@@ -1261,8 +1961,8 @@ def unauthorized(error):
 # ==================== MAIN ====================
 
 if __name__ == '__main__':
-    # Run Flask development server
-    # host='0.0.0.0' makes the app accessible from other machines
-    # port=5001 (using 5001 instead of 5000 as 5000 may be in use by AirPlay Receiver)
-    # debug=True enables auto-reloading and better error messages
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # Local development server only. In production the app is served by gunicorn
+    # (see deploy/), which imports `app` directly and ignores this block.
+    port = int(os.environ.get('PORT', 5001))
+    debug = os.environ.get('FLASK_DEBUG', '1') == '1'  # on by default for local
+    app.run(host='0.0.0.0', port=port, debug=debug)

@@ -14,7 +14,7 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Anime.js for premium animations -->
@@ -488,7 +488,7 @@
         }
 
         .success-card h2 {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
             font-size: 26px;
             font-weight: 800;
             color: #0f172a;
@@ -733,72 +733,6 @@
                 width: 100%;
             }
         }
-
-        /* Standard title row + mobile info button for the guideline */
-        .question-title-row { display: flex; align-items: flex-start; gap: 10px; }
-        .question-title-row .question-title { flex: 1; }
-        .guideline-info-btn {
-            display: none;
-            flex-shrink: 0;
-            width: 30px; height: 30px;
-            border: none; border-radius: 8px;
-            background: rgba(31, 111, 229, 0.1);
-            color: #1f6fe5;
-            font-size: 15px; cursor: pointer;
-            align-items: center; justify-content: center;
-            margin-top: 2px;
-        }
-        .guideline-info-btn:active { background: rgba(31, 111, 229, 0.2); }
-
-        /* Bottom sheet for the interpretive guideline (mobile) */
-        .guideline-sheet-overlay {
-            position: fixed; inset: 0;
-            background: rgba(15, 30, 54, 0.5);
-            opacity: 0; visibility: hidden;
-            transition: opacity .25s ease, visibility .25s ease;
-            z-index: 1500;
-        }
-        .guideline-sheet-overlay.show { opacity: 1; visibility: visible; }
-        .guideline-sheet {
-            position: fixed; left: 0; right: 0; bottom: 0;
-            background: #fff;
-            border-radius: 20px 20px 0 0;
-            box-shadow: 0 -12px 40px rgba(2, 32, 80, 0.25);
-            z-index: 1501;
-            max-height: 82vh;
-            display: flex; flex-direction: column;
-            transform: translateY(100%);
-            transition: transform .3s cubic-bezier(.16, 1, .3, 1);
-        }
-        .guideline-sheet.show { transform: translateY(0); }
-        .guideline-sheet-handle {
-            width: 40px; height: 4px; border-radius: 2px;
-            background: #cbd5e1; margin: 10px auto 4px; flex-shrink: 0;
-        }
-        .guideline-sheet-header {
-            display: flex; align-items: flex-start; justify-content: space-between;
-            gap: 12px; padding: 8px 20px 12px;
-            border-bottom: 1px solid #e4ebf5; flex-shrink: 0;
-        }
-        .guideline-sheet-eyebrow {
-            font-size: 11px; font-weight: 800; text-transform: uppercase;
-            letter-spacing: .6px; color: #1f6fe5; margin-bottom: 4px;
-        }
-        .guideline-sheet-title { font-size: 16px; font-weight: 700; color: #0f1e36; line-height: 1.3; }
-        .guideline-sheet-close {
-            width: 34px; height: 34px; border: none; border-radius: 10px;
-            background: #f1f5f9; color: #475569; font-size: 15px; cursor: pointer; flex-shrink: 0;
-        }
-        .guideline-sheet-body {
-            padding: 16px 20px 28px; overflow-y: auto;
-            font-size: 14px; line-height: 1.6; color: #475569;
-            white-space: pre-line; -webkit-overflow-scrolling: touch;
-        }
-
-        @media (max-width: 768px) {
-            .interpretive-guideline { display: none !important; }
-            .guideline-info-btn { display: inline-flex; }
-        }
     </style>
     <link rel="stylesheet" href="/static/theme.css">
 
@@ -886,38 +820,6 @@
             <button type="submit">Submit Inspection</button>
         </form>
     </div>
-
-    <!-- Interpretive guideline bottom sheet (mobile) -->
-    <div class="guideline-sheet-overlay" id="guidelineSheetOverlay" onclick="closeGuidelineSheet()"></div>
-    <div class="guideline-sheet" id="guidelineSheet" role="dialog" aria-modal="true" aria-labelledby="guidelineSheetTitle">
-        <div class="guideline-sheet-handle"></div>
-        <div class="guideline-sheet-header">
-            <div>
-                <div class="guideline-sheet-eyebrow">Interpretive Guideline</div>
-                <div class="guideline-sheet-title" id="guidelineSheetTitle"></div>
-            </div>
-            <button class="guideline-sheet-close" onclick="closeGuidelineSheet()" aria-label="Close"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="guideline-sheet-body" id="guidelineSheetBody"></div>
-    </div>
-
-    <script>
-        function openGuidelineSheet(title, text) {
-            document.getElementById('guidelineSheetTitle').textContent = title || '';
-            document.getElementById('guidelineSheetBody').textContent = text || '';
-            document.getElementById('guidelineSheet').classList.add('show');
-            document.getElementById('guidelineSheetOverlay').classList.add('show');
-            document.body.style.overflow = 'hidden';
-        }
-        function closeGuidelineSheet() {
-            document.getElementById('guidelineSheet').classList.remove('show');
-            document.getElementById('guidelineSheetOverlay').classList.remove('show');
-            document.body.style.overflow = '';
-        }
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeGuidelineSheet();
-        });
-    </script>
 
     <script>
         let currentUser = null, userCommunity = null, isAdmin = false;
@@ -1033,26 +935,12 @@
             section.className = 'question-section';
             section.dataset.questionId = question.id;
             
-            const guidelineText = (question.interpretive_guideline || question.guideline || '').trim();
-
-            // Question title (with a mobile-only info button when a guideline exists)
-            const titleRow = document.createElement('div');
-            titleRow.className = 'question-title-row';
+            // Question title
             const questionTitle = document.createElement('div');
             questionTitle.className = 'question-title';
             questionTitle.textContent = question.text;
-            titleRow.appendChild(questionTitle);
-            if (guidelineText) {
-                const infoBtn = document.createElement('button');
-                infoBtn.type = 'button';
-                infoBtn.className = 'guideline-info-btn';
-                infoBtn.setAttribute('aria-label', 'View interpretive guideline');
-                infoBtn.innerHTML = '<i class="fas fa-circle-info"></i>';
-                infoBtn.addEventListener('click', () => openGuidelineSheet(question.text, guidelineText));
-                titleRow.appendChild(infoBtn);
-            }
-            section.appendChild(titleRow);
-
+            section.appendChild(questionTitle);
+            
             // Question description (if available)
             if (question.description) {
                 const questionDesc = document.createElement('div');
@@ -1060,10 +948,10 @@
                 questionDesc.textContent = question.description;
                 section.appendChild(questionDesc);
             }
-
-            // Interpretive Guideline — inline on desktop; on mobile it's hidden
-            // (CSS) and reachable via the info button -> bottom sheet above.
-            if (guidelineText) {
+            
+            // Interpretive Guideline (only shown when the standard has one)
+            const guidelineText = question.interpretive_guideline || question.guideline || '';
+            if (guidelineText.trim()) {
                 const guidelineDiv = document.createElement('div');
                 guidelineDiv.className = 'interpretive-guideline';
 

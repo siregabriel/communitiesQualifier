@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATLAS — New UI Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root{
+  --navy:#00285c;--navy-700:#013a82;--azure:#1f6fe5;--cyan:#0bb8d4;--gold:#f7b32b;--gold-deep:#f59e0b;
+  --ink:#0f1e36;--muted:#5b6b85;--line:#e4ebf5;--bg:#eef3fb;
+  --grad-brand:linear-gradient(135deg,#00285c 0%,#1f6fe5 100%);
+  --grad-vibrant:linear-gradient(135deg,#2563eb 0%,#0bb8d4 100%);
+  --grad-gold:linear-gradient(135deg,#f7b32b 0%,#f59e0b 100%);
+  --grad-success:linear-gradient(135deg,#10b981,#059669);
+  --grad-danger:linear-gradient(135deg,#f87171,#dc2626);
+  --sh:0 4px 14px rgba(2,32,80,.08),0 2px 6px rgba(2,32,80,.05);
+  --sh-md:0 12px 32px rgba(2,32,80,.12);--sh-lg:0 24px 56px rgba(2,32,80,.18);
+  --sh-brand:0 10px 26px rgba(31,111,229,.34);--sh-gold:0 10px 24px rgba(245,158,11,.32);
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;}
+body{background:radial-gradient(1200px 600px at 100% -10%,rgba(31,111,229,.10),transparent 60%),radial-gradient(900px 500px at -10% 110%,rgba(11,184,212,.10),transparent 55%),var(--bg);color:var(--ink);padding:28px;}
+h2.section{font-family:'Poppins';font-size:13px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin:30px 0 14px;}
+h2.section:first-child{margin-top:0;}
+.poppins{font-family:'Poppins',sans-serif;}
+
+/* App shell */
+.shell{display:flex;border-radius:24px;overflow:hidden;box-shadow:var(--sh-lg);background:#fff;min-height:560px;}
+.sidebar{width:240px;background:var(--grad-brand);color:#eaf1fb;padding:24px 14px;flex-shrink:0;}
+.sidebar .brand{display:flex;align-items:center;gap:10px;font-family:'Poppins';font-weight:800;font-size:20px;color:#fff;padding:6px 10px 22px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:16px;}
+.sidebar .brand i{color:var(--gold);}
+.nav-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;color:rgba(234,241,251,.82);font-weight:600;font-size:14px;margin-bottom:4px;cursor:pointer;transition:.16s;}
+.nav-item:hover{background:rgba(255,255,255,.12);color:#fff;transform:translateX(2px);}
+.nav-item.active{background:rgba(255,255,255,.16);color:#fff;box-shadow:inset 3px 0 0 var(--gold);}
+.main{flex:1;padding:30px;overflow:auto;}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:26px;}
+.topbar h1{font-family:'Poppins';font-size:26px;font-weight:800;letter-spacing:-.5px;}
+.topbar p{color:var(--muted);font-size:13px;}
+
+/* Buttons */
+.btn{border:none;border-radius:14px;font-weight:700;font-size:13px;padding:12px 20px;cursor:pointer;transition:.16s;letter-spacing:.3px;}
+.btn:hover{transform:translateY(-2px);}
+.btn-primary{background:var(--grad-brand);color:#fff;box-shadow:var(--sh-brand);}
+.btn-gold{background:var(--grad-gold);color:var(--navy);box-shadow:var(--sh-gold);}
+.btn-success{background:var(--grad-success);color:#fff;}
+.btn-danger{background:var(--grad-danger);color:#fff;}
+.btn-secondary{background:#fff;color:var(--navy-700);border:1.5px solid var(--line);}
+.btnrow{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+
+/* Filter pills */
+.pill{border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--navy-700);font-weight:700;font-size:12px;padding:8px 16px;cursor:pointer;}
+.pill.active{background:var(--grad-brand);color:#fff;border-color:transparent;box-shadow:var(--sh-brand);}
+
+/* Cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-bottom:8px;}
+.ccard{position:relative;background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 20px 18px;box-shadow:var(--sh);overflow:hidden;transition:.18s;}
+.ccard:hover{transform:translateY(-4px);box-shadow:var(--sh-md);border-color:rgba(31,111,229,.35);}
+.ccard::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--grad-vibrant);}
+.ccard h3{font-family:'Poppins';font-size:15px;margin-bottom:6px;}
+.ccard .loc{color:var(--muted);font-size:12px;margin-bottom:14px;}
+.score{font-family:'Poppins';font-size:34px;font-weight:800;}
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-size:11px;font-weight:800;padding:5px 12px;color:#fff;}
+.badge.pass{background:var(--grad-success);} .badge.fail{background:var(--grad-danger);}
+.badge.count{background:var(--grad-brand);}
+
+/* Table */
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:16px;overflow:hidden;box-shadow:var(--sh);}
+th{background:linear-gradient(180deg,#f3f7fd,#e9f0fa);color:var(--navy-700);text-transform:uppercase;letter-spacing:.6px;font-size:11px;font-weight:800;text-align:left;padding:14px 16px;}
+td{padding:14px 16px;border-top:1px solid var(--line);font-size:13px;}
+tbody tr:hover{background:rgba(31,111,229,.05);}
+
+/* Login + form column */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;}
+.login{position:relative;background:#fff;border-radius:24px;box-shadow:var(--sh-lg);padding:36px 32px;overflow:hidden;text-align:center;}
+.login::before{content:"";position:absolute;inset:0 0 auto 0;height:6px;background:var(--grad-vibrant);}
+.login .logo{width:64px;height:64px;border-radius:18px;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;margin:8px auto 16px;box-shadow:var(--sh-brand);}
+.login h1{font-family:'Poppins';font-weight:800;font-size:26px;background:var(--grad-brand);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;}
+.login p.sub{color:var(--muted);font-size:13px;margin-bottom:22px;}
+.field{text-align:left;margin-bottom:16px;}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ink);margin-bottom:7px;}
+.field input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;background:rgba(248,250,252,.6);}
+.field input:focus{outline:none;border-color:var(--azure);box-shadow:0 0 0 4px rgba(31,111,229,.14);background:#fff;}
+.qcard{background:#fff;border:1px solid var(--line);border-left:5px solid var(--azure);border-radius:18px;padding:22px;box-shadow:var(--sh);}
+.qcard .qtitle{font-family:'Poppins';font-weight:700;font-size:15px;margin-bottom:10px;}
+.guide{background:#f8fafc;border-left:4px solid var(--gold);border-radius:14px;padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;}
+.ratings{display:flex;gap:10px;}
+.rate{flex:1;text-align:center;border:2px solid #d1d5db;border-radius:14px;padding:12px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#fff;}
+.rate.psel{background:#ecfdf5;border-color:#10b981;color:#059669;box-shadow:0 2px 10px rgba(16,185,129,.25);}
+.rate.fsel{background:#fef2f2;border-color:#ef4444;color:#dc2626;}
+</style>
+</head>
+<body>
+
+<h2 class="section">Admin dashboard</h2>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><i class="fas fa-clipboard-check"></i> ATLAS</div>
+    <div class="nav-item active"><i class="fas fa-home"></i> Dashboard</div>
+    <div class="nav-item"><i class="fas fa-building"></i> Communities</div>
+    <div class="nav-item"><i class="fas fa-clipboard-list"></i> Inspections</div>
+    <div class="nav-item"><i class="fas fa-triangle-exclamation"></i> Action Items</div>
+    <div class="nav-item"><i class="fas fa-book"></i> Questions</div>
+    <div class="nav-item"><i class="fas fa-right-from-bracket"></i> Logout</div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <div><h1>Good morning, Admin</h1><p>38 communities · live inspection overview</p></div>
+      <button class="btn btn-gold"><i class="fas fa-plus"></i> Start New Visit</button>
+    </div>
+    <div class="btnrow" style="margin-bottom:22px;">
+      <span class="pill active">📊 All Conditions</span>
+      <span class="pill">✓ Pass</span>
+      <span class="pill">❌ Fail</span>
+    </div>
+    <div class="grid">
+      <div class="ccard"><h3>Kelley Place, Enterprise</h3><div class="loc"><i class="fas fa-location-dot"></i> Enterprise, GA</div><div class="score" style="color:#059669;">92</div><span class="badge pass"><i class="fas fa-check"></i> On standard</span></div>
+      <div class="ccard"><h3>The Goldton at Athens</h3><div class="loc"><i class="fas fa-location-dot"></i> Athens, GA</div><div class="score" style="color:#d97706;">74</div><span class="badge count">2 action items</span></div>
+      <div class="ccard"><h3>Madison at Oviedo</h3><div class="loc"><i class="fas fa-location-dot"></i> Oviedo, FL</div><div class="score" style="color:#dc2626;">48</div><span class="badge fail"><i class="fas fa-xmark"></i> Needs attention</span></div>
+    </div>
+  </div>
+</div>
+
+<h2 class="section">Question manager</h2>
+<table>
+  <thead><tr><th style="width:36px;"></th><th>Standard</th><th>Photo</th><th>Survey Types</th><th>Assigned Communities</th><th>Actions</th></tr></thead>
+  <tbody>
+    <tr><td><input type="checkbox"></td><td>First Impression of the community is within Atlas standard</td><td><span class="badge" style="background:#eef2f7;color:#5b6b85;">No</span></td><td><span class="badge count">All Types</span></td><td><span class="badge count">🏘️ All Communities (38)</span></td><td><i class="fas fa-pen" style="color:var(--azure);margin-right:10px;"></i><i class="fas fa-trash" style="color:#dc2626;"></i></td></tr>
+    <tr><td><input type="checkbox"></td><td>Call System: Response Time is less than 5 minutes</td><td><span class="badge" style="background:#eef2f7;color:#5b6b85;">No</span></td><td><span class="badge count">All Types</span></td><td><span class="badge count">🏘️ All Communities (38)</span></td><td><i class="fas fa-pen" style="color:var(--azure);margin-right:10px;"></i><i class="fas fa-trash" style="color:#dc2626;"></i></td></tr>
+  </tbody>
+</table>
+
+<h2 class="section">Login &amp; inspection form</h2>
+<div class="split">
+  <div class="login">
+    <div class="logo"><i class="fas fa-clipboard-check"></i></div>
+    <h1>ATLAS</h1>
+    <p class="sub">Senior Living · Inspection Portal</p>
+    <div class="field"><label>Username</label><input value="user1"></div>
+    <div class="field"><label>Password</label><input type="password" value="••••••••"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:6px;">Sign In</button>
+  </div>
+  <div class="qcard">
+    <div class="qtitle">First Impression of the community is within Atlas standard</div>
+    <div class="guide"><b style="color:var(--ink);">Interpretive Guideline</b><br>Exterior and interior should be clean, well-lit, odor-free and in excellent repair, reflecting Atlas standards…</div>
+    <div class="ratings">
+      <div class="rate psel"><i class="fas fa-check"></i> Pass</div>
+      <div class="rate"><i class="fas fa-xmark"></i> Fail</div>
+    </div>
+    <div style="margin-top:18px;"><button class="btn btn-primary" style="width:100%;">Submit Inspection</button></div>
+  </div>
+</div>
+
+</body>
+</html>

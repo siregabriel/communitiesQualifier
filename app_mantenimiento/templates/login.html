@@ -3,342 +3,371 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Assisted Living Maintenance</title>
-    
+    <title>Sign in — Atlas Communities Standards</title>
+
     <!-- PWA Meta Tags -->
     <meta name="description" content="Questionnaire-based inspection system for assisted living communities">
-    <meta name="theme-color" content="#4CAF50">
+    <meta name="theme-color" content="#00285c">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Inspections">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/theme.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
+            background: #ffffff !important;
+            color: #0f1e36;
             min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Top bar with centered logo */
+        .lp-top {
             display: flex;
-            justify-content: center;
             align-items: center;
-            padding: 20px;
+            justify-content: center;
+            padding: 26px 24px 8px;
             position: relative;
-            overflow: hidden;
+            z-index: 3;
         }
+        .lp-top img { height: 55px; }
 
-        body::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        body::after {
-            content: '';
-            position: absolute;
-            bottom: -50%;
-            left: -50%;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        .login-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 420px;
-            padding: 48px;
-            animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-            border: 1px solid rgba(255, 255, 255, 0.5);
+        /* Main split */
+        .lp-main {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 40px 28px 80px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            align-items: start;
             position: relative;
-            z-index: 10;
+            z-index: 2;
         }
 
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* Left: pitch + illustration */
+        .lp-left {
+            padding: 24px 48px 24px 8px;
         }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .logo {
-            font-size: 56px;
-            margin-bottom: 20px;
-            display: inline-block;
-            animation: float 3s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .login-header h1 {
-            color: #0f172a;
-            font-size: 32px;
-            margin-bottom: 8px;
-            font-weight: 800;
-            font-family: 'Poppins', sans-serif;
-            letter-spacing: -1px;
-        }
-
-        .login-header p {
-            color: #64748b;
-            font-size: 14px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            color: #1e293b;
-            font-size: 12px;
+        .lp-left h2 {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 26px;
             font-weight: 700;
+            line-height: 1.25;
+            color: #0f1e36;
+            margin-bottom: 16px;
+            letter-spacing: -0.3px;
+        }
+        .lp-left p {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #5b6b85;
             margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        }
+        .lp-illustration {
+            margin-top: 36px;
+            width: 200px;
+            max-width: 70%;
+            opacity: 0.95;
+        }
+        .lp-bullets {
+            list-style: none;
+            margin-top: 24px;
+            display: grid;
+            gap: 12px;
+        }
+        .lp-bullets li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #334866;
+        }
+        .lp-bullets i {
+            color: #1f6fe5;
+            font-size: 13px;
+            width: 18px;
         }
 
+        /* Right: form */
+        .lp-right {
+            padding: 24px 8px 24px 48px;
+            border-left: 1px solid #e4ebf5;
+        }
+        .lp-right h1 {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f1e36;
+            margin-bottom: 24px;
+            letter-spacing: -0.3px;
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f1e36;
+            margin-bottom: 4px;
+        }
+        .form-group .help {
+            font-size: 12.5px;
+            color: #5b6b85;
+            margin-bottom: 8px;
+            line-height: 1.45;
+        }
         input[type="text"],
         input[type="password"] {
             width: 100%;
-            padding: 12px 16px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 14px;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 11px 13px;
+            border: 1px solid #aeb8c7;
+            border-radius: 6px;
+            font-size: 15px;
             font-family: inherit;
-            background: rgba(248, 250, 252, 0.5);
-            color: #0f172a;
+            background: #fff;
+            color: #0f1e36;
+            transition: border-color .15s ease, box-shadow .15s ease;
         }
-
         input[type="text"]::placeholder,
-        input[type="password"]::placeholder {
-            color: #cbd5e1;
-        }
-
+        input[type="password"]::placeholder { color: #c2cbd8; }
         input[type="text"]:focus,
         input[type="password"]:focus {
             outline: none;
-            border-color: #3b82f6;
-            background: white;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), inset 0 0 0 1px rgba(59, 130, 246, 0.1);
+            border-color: #1f6fe5;
+            box-shadow: 0 0 0 3px rgba(31,111,229,.18);
         }
 
         .error-message {
             color: #dc2626;
-            font-size: 12px;
+            font-size: 12.5px;
             margin-top: 6px;
             display: none;
             font-weight: 500;
         }
-
         .error-message.show {
             display: block;
             animation: shake 0.4s cubic-bezier(0.36, 0, 0.66, -0.56);
         }
-
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
         }
 
         .submit-btn {
             width: 100%;
-            padding: 13px;
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: white;
+            padding: 12px;
+            background: linear-gradient(135deg, #00285c 0%, #1f6fe5 100%);
+            color: #fff;
             border: none;
-            border-radius: 12px;
-            font-size: 13px;
+            border-radius: 6px;
+            font-size: 14px;
             font-weight: 700;
+            letter-spacing: .3px;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            margin-top: 28px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            position: relative;
-            overflow: hidden;
+            margin-top: 8px;
+            transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+            box-shadow: 0 8px 20px rgba(31,111,229,.28);
         }
+        .submit-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+        .submit-btn:disabled { opacity: .6; cursor: not-allowed; }
 
-        .submit-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.5s;
+        .lp-or {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 22px 0;
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 700;
         }
-
-        .submit-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 24px rgba(59, 130, 246, 0.4);
-        }
-
-        .submit-btn:hover:not(:disabled)::before {
-            left: 100%;
-        }
-
-        .submit-btn:active:not(:disabled) {
-            transform: translateY(0);
-        }
-
-        .submit-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
+        .lp-or::before, .lp-or::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #e4ebf5;
         }
 
         .demo-credentials {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-left: 3px solid #3b82f6;
-            padding: 16px;
-            border-radius: 12px;
-            margin-top: 28px;
-            font-size: 12px;
+            background: #f6f9fd;
+            border: 1px solid #e4ebf5;
+            border-left: 3px solid #1f6fe5;
+            padding: 14px 16px;
+            border-radius: 8px;
+            font-size: 12.5px;
             color: #475569;
+            line-height: 1.7;
         }
-
-        .demo-credentials p {
-            margin-bottom: 8px;
+        .demo-credentials > p:first-child {
             font-weight: 700;
-            color: #1e293b;
+            color: #0f1e36;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            font-size: 11px;
         }
-
         .demo-credentials code {
-            background: white;
-            padding: 3px 7px;
-            border-radius: 6px;
+            background: #fff;
+            padding: 2px 7px;
+            border-radius: 5px;
             font-family: 'Courier New', monospace;
-            color: #3b82f6;
+            color: #1f6fe5;
             font-weight: 700;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e4ebf5;
         }
 
-        .loading {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
-        }
-
+        .loading { display: none; text-align: center; margin-top: 16px; }
         .spinner {
-            width: 24px;
-            height: 24px;
-            margin: 0 auto;
-            background: linear-gradient(90deg, #3b82f6 25%, rgba(59, 130, 246, 0.1) 25%, rgba(59, 130, 246, 0.1) 50%, #3b82f6 50%, #3b82f6 75%, rgba(59, 130, 246, 0.1) 75%, rgba(59, 130, 246, 0.1));
-            background-size: 24px 24px;
-            animation: spin 1s linear infinite;
-            border-radius: 50%;
+            width: 22px; height: 22px; margin: 0 auto;
+            border: 3px solid #e4ebf5; border-top-color: #1f6fe5;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        /* Animated geometric particle background */
+        #particles-js {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
         }
+        .lp-footer {
+            text-align: center;
+            padding: 18px;
+            font-size: 12.5px;
+            color: #94a3b8;
+            position: relative;
+            z-index: 3;
+        }
+        .lp-footer a { color: #1f6fe5; text-decoration: none; font-weight: 600; }
 
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 36px 24px;
+        @media (max-width: 820px) {
+            .lp-top { padding: 18px 16px 4px; }
+            .lp-top img { height: 32px; }
+
+            .lp-main {
+                grid-template-columns: 1fr;
+                gap: 0;
+                max-width: 460px;
+                padding: 14px 20px 48px;
             }
 
-            .login-header h1 {
-                font-size: 28px;
-                line-height: 1px;
+            /* Form first on mobile — inspectors should land on it immediately */
+            .lp-right {
+                order: -1;
+                border-left: none;
+                padding: 6px 0 0;
+            }
+            .lp-right h1 {
+                font-size: 22px;
+                margin-bottom: 18px;
+                text-align: center;
             }
 
-            .logo {
-                font-size: 48px;
+            /* Pitch condensed below the form */
+            .lp-left {
+                order: 1;
+                margin-top: 28px;
+                padding: 24px 4px 0;
+                border-top: 1px solid #e4ebf5;
+                text-align: center;
             }
+            .lp-left h2 { font-size: 19px; }
+            .lp-left p { font-size: 14px; }
+            .lp-illustration { display: none; }
+            .lp-bullets { justify-items: center; margin-top: 18px; }
+
+            /* 16px inputs prevent iOS auto-zoom on focus */
+            input[type="text"],
+            input[type="password"] { font-size: 16px; }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-header">
-            <div class="logo">
-                <img src="/static/atlas-logo.png" width="200"></div>
-            <h1 class="espaciado">Communities Standards</h1>
-            <p>Atlas Senior Living</p>
-        </div>
+    <header class="lp-top">
+        <img src="/static/atlas-logo.png" alt="Atlas Senior Living">
+    </header>
 
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="username"><i class="fas fa-user"></i> Username</label>
-                <input 
-                    type="text" 
-                    id="username" 
-                    name="username" 
-                    placeholder="john, maria, or admin" 
-                    required 
-                    autocomplete="username"
-                    autofocus
-                >
-                <div class="error-message" id="usernameError"></div>
+    <main class="lp-main">
+        <section class="lp-left">
+            <h2>Standards inspections, made simple.</h2>
+            <p>Run consistent community visits, capture Pass/Fail results in the field, and give every region clear, real-time visibility.</p>
+            <ul class="lp-bullets">
+                <li><i class="fas fa-clipboard-check"></i> Mobile-first inspection forms</li>
+                <li><i class="fas fa-chart-line"></i> Live scores &amp; action items</li>
+                <li><i class="fas fa-sitemap"></i> Organized by region &amp; community</li>
+            </ul>
+            <img src="/static/atlas-globe-1.png" alt="" class="lp-illustration">
+        </section>
+
+        <section class="lp-right">
+            <h1>Sign in to Atlas Standards</h1>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <div class="help">Your account name — admin, a community user, or a regional (firstname.lastname).</div>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="e.g. keith.martin"
+                        required
+                        autocomplete="username"
+                        autofocus
+                    >
+                    <div class="error-message" id="usernameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="••••••••"
+                        required
+                        autocomplete="current-password"
+                    >
+                    <div class="error-message" id="passwordError"></div>
+                </div>
+
+                <div id="generalError" class="error-message"></div>
+
+                <button type="submit" class="submit-btn">
+                    <span>Sign In</span>
+                </button>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                </div>
+            </form>
+
+            <div class="lp-or">OR</div>
+
+            <div class="demo-credentials">
+                <p>Demo Credentials</p>
+                <p>👤 <code>admin</code> / 🔑 <code>admin123</code></p>
+                <p>👤 Community: <code>user1-39</code> / 🔑 <code>test123</code></p>
+                <p>👤 Regional: <code>firstname.lastname</code> / 🔑 <code>atlas123</code></p>
+                <p style="color:#94a3b8; margin-top:8px;">Regional accounts (e.g. <code>keith.martin</code>) pick which community in their region to inspect.</p>
             </div>
+        </section>
+    </main>
 
-            <div class="form-group">
-                <label for="password"><i class="fas fa-lock"></i> Password</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    placeholder="••••••••" 
-                    required 
-                    autocomplete="current-password"
-                >
-                <div class="error-message" id="passwordError"></div>
-            </div>
+    <div id="particles-js" aria-hidden="true"></div>
 
-            <div id="generalError" class="error-message"></div>
-
-            <button type="submit" class="submit-btn">
-                <span>Sign In</span>
-            </button>
-
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-            </div>
-        </form>
-
-        <div class="demo-credentials">
-            <p>Demo Credentials</p>
-            <p>👤 <code>john</code> / 🔑 <code>pass123</code></p>
-            <p>👤 <code>admin</code> / 🔑 <code>admin123</code></p>
-        </div>
+    <div class="lp-footer">
+         2026 Communities Standards · Atlas Senior Living Web Technologies 
     </div>
 
     <script>
@@ -414,7 +443,27 @@
             });
         }
     </script>
-    
+
+    <!-- Animated particle background -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
+    <script>
+        if (window.particlesJS) {
+            particlesJS('particles-js', {
+                particles: {
+                    number: { value: 42, density: { enable: true, value_area: 900 } },
+                    color: { value: ['#1f6fe5', '#0bb8d4', '#9db8e8'] },
+                    shape: { type: 'edge' },          /* squares */
+                    opacity: { value: 0.3, random: true },
+                    size: { value: 9, random: true },
+                    line_linked: { enable: true, distance: 150, color: '#9db8e8', opacity: 0.28, width: 1 },
+                    move: { enable: true, speed: 1.1, direction: 'none', random: true, straight: false, out_mode: 'out' }
+                },
+                interactivity: { detect_on: 'window', events: { onhover: { enable: false }, onclick: { enable: false }, resize: true } },
+                retina_detect: true
+            });
+        }
+    </script>
+
     <!-- PWA Install Prompt -->
     <script src="/static/pwa-install-prompt.js"></script>
 </body>

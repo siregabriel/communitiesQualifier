@@ -109,7 +109,13 @@ class InputSanitizer:
         # Sanitize text field
         if 'text' in data:
             sanitized['text'] = InputSanitizer.sanitize_question_text(data['text'])
-        
+
+        # Sanitize interpretive guideline (long-form standard guidance)
+        if 'interpretive_guideline' in data:
+            sanitized['interpretive_guideline'] = InputSanitizer.sanitize_string(
+                data['interpretive_guideline'], max_length=5000
+            )
+
         # photo_required should be boolean
         if 'photo_required' in data:
             sanitized['photo_required'] = bool(data['photo_required'])
@@ -166,10 +172,10 @@ class InputSanitizer:
                 response['question_text']
             )
         
-        # Sanitize condition (must be exact match)
+        # Sanitize condition (must be exact match: Pass/Fail)
         if 'condition' in response:
             condition = str(response['condition']).strip()
-            if condition in ['Excellence', 'Pass', 'Opportunity', 'Fail']:
+            if condition in ['Pass', 'Fail']:
                 sanitized['condition'] = condition
             else:
                 sanitized['condition'] = ''

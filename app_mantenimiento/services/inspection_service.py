@@ -13,6 +13,8 @@ from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 from werkzeug.utils import secure_filename
 
+from services.json_store import JsonFileBacked
+
 
 # Allowed file extensions for photo uploads
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
@@ -21,7 +23,7 @@ ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
 MAX_FILE_SIZE = 16 * 1024 * 1024
 
 
-class InspectionService:
+class InspectionService(JsonFileBacked):
     """
     Service class for managing inspection submissions.
     
@@ -43,15 +45,18 @@ class InspectionService:
         self.storage_path = storage_path
         self.upload_path = upload_path
         self.submissions = []
-        
+
         # Ensure upload directory exists
         os.makedirs(upload_path, exist_ok=True)
-        
+
         # Load existing submissions if file exists
+        self._init_store()
         self.load_from_file()
+        self._mark_loaded()
     
-    def create_submission(self, username: str, community: str, 
-                         responses: List[Dict], survey_type_id: Optional[str] = None) -> Dict:
+    def create_submission(self, username: str, community: str,
+                         responses: List[Dict], survey_type_id: Optional[str] = None,
+                         inspector_name: Optional[str] = None) -> Dict:
         """
         Create new inspection submission.
         
@@ -93,21 +98,23 @@ class InspectionService:
         submission = {
             'id': submission_id,
             'username': username.strip(),
+            'inspector_name': (inspector_name or username).strip(),
             'community': community.strip(),
             'submitted_at': datetime.now().isoformat(),
             'responses': validated_responses
         }
-        
+
         # Add survey_type_id if provided (backward compatibility)
         if survey_type_id:
             submission['survey_type_id'] = survey_type_id
         
-        # Add to submissions list
-        self.submissions.append(submission)
-        
-        # Persist to file
-        self.save_to_file()
-        
+        # Reload latest from disk, then append, so concurrent submissions
+        # from another process aren't lost.
+        with self._lock:
+            self._ensure_fresh()
+            self.submissions.append(submission)
+            self.save_to_file()
+
         return submission
     
     def validate_response(self, response: Dict) -> bool:
@@ -219,19 +226,39 @@ class InspectionService:
         Returns:
             List of InspectionSubmission dictionaries
         """
+        self._ensure_fresh()
         return [
             submission for submission in self.submissions
             if submission['community'] == community
         ]
-    
+
     def get_all_submissions(self) -> List[Dict]:
         """
         Retrieve all submissions (admin only).
-        
+
         Returns:
             List of all InspectionSubmission dictionaries
         """
+        self._ensure_fresh()
         return self.submissions.copy()
+
+    def rename_community(self, old_name: str, new_name: str) -> int:
+        """Rename a community on every historical submission.
+        Returns the number of submissions updated."""
+        old_name = (old_name or '').strip()
+        new_name = (new_name or '').strip()
+        if not old_name or not new_name or old_name == new_name:
+            return 0
+        with self._lock:
+            self._ensure_fresh()
+            count = 0
+            for s in self.submissions:
+                if s.get('community') == old_name:
+                    s['community'] = new_name
+                    count += 1
+            if count:
+                self.save_to_file()
+            return count
     
     def save_to_file(self) -> None:
         """
@@ -241,20 +268,16 @@ class InspectionService:
             IOError: If file write fails
         """
         try:
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-            
             # Create submissions collection structure
             data = {
                 'version': '1.0',
                 'last_modified': datetime.now().isoformat(),
                 'submissions': self.submissions
             }
-            
-            # Write to file with pretty formatting
-            with open(self.storage_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-                
+
+            # Atomic write (temp file + os.replace)
+            self._atomic_write(data, indent=2)
+
         except Exception as e:
             raise IOError(f"Failed to save submissions to file: {str(e)}")
     
