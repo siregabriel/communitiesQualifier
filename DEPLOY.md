@@ -84,6 +84,13 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl restart nginx
 ```
 
+**Let nginx read the static files.** nginx runs as `www-data` and needs to
+traverse the home directory to serve `/static/`. Without this, pages load but
+images/CSS 404:
+```bash
+chmod o+x /home/ubuntu
+```
+
 Now visit `http://YOUR_INSTANCE_IP/` — the login page should load.
 
 ### 7. Allow the deploy script to restart the service without a password
