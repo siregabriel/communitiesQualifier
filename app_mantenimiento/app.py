@@ -102,6 +102,11 @@ PROFILES_FILE = os.path.join(DATA_FOLDER, 'profiles.json')
 from services.profile_service import ProfileService
 profile_service = ProfileService(PROFILES_FILE)
 
+# Admin-created login accounts (persisted; survives restarts/deploys)
+USERS_FILE = os.path.join(DATA_FOLDER, 'users.json')
+from services.user_service import UserService
+user_service = UserService(USERS_FILE)
+
 # Avatars folder for uploaded profile photos
 AVATARS_FOLDER = os.path.join(UPLOAD_FOLDER, '..', 'avatars')
 AVATARS_FOLDER = os.path.normpath(AVATARS_FOLDER)
@@ -312,6 +317,27 @@ def authenticate_user(username, password):
             'display_name': profile_service.get_display_name(username) or username
         })
 
+    # --- Admin-created accounts (users.json) ---
+    custom = user_service.get(username)
+    if custom:
+        override = profile_service.get_password_hash(username)
+        stored = custom.get('password_hash')
+        if override:
+            ok = check_password_hash(override, password)
+        elif stored:
+            ok = check_password_hash(stored, password)
+        else:
+            ok = False
+        if not ok:
+            return (False, None)
+        return (True, {
+            'role': custom.get('role', 'staff'),
+            'community': custom.get('community'),
+            'region_id': custom.get('region_id'),
+            'display_name': profile_service.get_display_name(username)
+                            or custom.get('display_name') or username
+        })
+
     # --- Regional (per-person) accounts ---
     regionals = get_regional_accounts()
     if username in regionals:
@@ -328,6 +354,35 @@ def authenticate_user(username, password):
         })
 
     return (False, None)
+
+
+def username_taken(candidate):
+    """True if a username already exists in any of the three account sources."""
+    if candidate in USERS_DB:
+        return True
+    if user_service.exists(candidate):
+        return True
+    if candidate in get_regional_accounts():
+        return True
+    return False
+
+
+def generate_unique_username(base):
+    """Slug from a name, with a numeric suffix if it collides."""
+    base = slugify_name(base) or 'user'
+    candidate = base
+    n = 2
+    while username_taken(candidate):
+        candidate = f"{base}{n}"
+        n += 1
+    return candidate
+
+
+def generate_password(length=10):
+    """Readable strong password (avoids ambiguous characters)."""
+    import secrets
+    alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
 def current_role():
@@ -845,6 +900,114 @@ def get_communities():
     else:
         communities = [session.get('community')] if session.get('community') else []
     return jsonify({'status': 'success', 'communities': communities}), 200
+
+
+@app.route('/api/users', methods=['GET'])
+@login_required
+def list_users():
+    """Admin-only: list admin-created login accounts."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    return jsonify({'status': 'success', 'users': user_service.get_all()}), 200
+
+
+@app.route('/api/users', methods=['POST'])
+@login_required
+def create_user():
+    """
+    Admin-only: create a new login account.
+    Body: { display_name, role: admin|staff|regional, community?, region_id? }
+    The username is generated from the name; a strong password is generated and
+    returned ONCE (it is stored only as a hash).
+    """
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+
+    data = request.get_json(silent=True) or {}
+    display_name = (data.get('display_name') or '').strip()
+    role = (data.get('role') or '').strip().lower()
+    community = (data.get('community') or '').strip() or None
+    region_id = (data.get('region_id') or '').strip() or None
+
+    if not display_name:
+        return jsonify({'status': 'error', 'message': 'Name is required'}), 400
+    if role not in ('admin', 'staff', 'regional'):
+        return jsonify({'status': 'error', 'message': 'Invalid role'}), 400
+
+    if role == 'staff':
+        valid = set()
+        for r in region_service.get_all_regions():
+            valid.update(r.get('communities', []))
+        valid.update(ALL_COMMUNITIES)
+        if not community or community not in valid:
+            return jsonify({'status': 'error', 'message': 'A valid community is required for staff'}), 400
+        region_id = None
+    elif role == 'regional':
+        valid_ids = {r.get('id') for r in region_service.get_all_regions() if r.get('id') != 'unassigned'}
+        if not region_id or region_id not in valid_ids:
+            return jsonify({'status': 'error', 'message': 'A valid region is required for a regional account'}), 400
+        community = None
+    else:  # admin
+        community = None
+        region_id = None
+
+    username = generate_unique_username(display_name)
+    password = generate_password()
+    user_service.create(
+        username=username,
+        display_name=display_name,
+        role=role,
+        password_hash=generate_password_hash(password),
+        community=community,
+        region_id=region_id,
+        created_by=session.get('user'),
+    )
+    try:
+        activity_service.log(session.get('user'), 'user_created',
+                             f'Created {role} account for {display_name}',
+                             meta={'username': username})
+    except Exception:
+        pass
+
+    return jsonify({
+        'status': 'success',
+        'message': 'User created',
+        'username': username,
+        'password': password,
+        'display_name': display_name,
+        'role': role,
+    }), 201
+
+
+@app.route('/api/users/<username>/reset-password', methods=['POST'])
+@login_required
+def reset_user_password(username):
+    """Admin-only: generate a new password for a created user (returned once)."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    if not user_service.exists(username):
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+    password = generate_password()
+    user_service.set_password_hash(username, generate_password_hash(password))
+    # Clear any per-user profile override so the new password takes effect.
+    try:
+        profile_service.set_password_hash(username, '')
+    except Exception:
+        pass
+    return jsonify({'status': 'success', 'username': username, 'password': password}), 200
+
+
+@app.route('/api/users/<username>', methods=['DELETE'])
+@login_required
+def delete_user(username):
+    """Admin-only: remove a created user. Cannot remove yourself."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    if username == session.get('user'):
+        return jsonify({'status': 'error', 'message': 'You cannot delete your own account'}), 400
+    if not user_service.delete(username):
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+    return jsonify({'status': 'success', 'message': 'User removed'}), 200
 
 
 @app.route('/api/user-info')

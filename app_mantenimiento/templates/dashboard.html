@@ -1196,7 +1196,7 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="/static/theme.css?v=20260621a">
+    <link rel="stylesheet" href="/static/theme.css?v=20260621c">
 
 </head>
 <body>
@@ -3291,11 +3291,33 @@
                     </div>
 
                     <div class="profile-grid">
+                        ${admin ? `
+                        <div class="profile-section">
+                            <div class="profile-section-title"><i class="fas fa-users-gear"></i> User management</div>
+                            <div class="usermgmt">
+                                <div class="usermgmt-form">
+                                    <input id="newUserName" class="pw-input" placeholder="Full name" maxlength="80">
+                                    <select id="newUserRole" class="pw-input" onchange="onNewUserRoleChange()">
+                                        <option value="staff">Staff — one community</option>
+                                        <option value="admin">Administrator — full access</option>
+                                        <option value="regional">Regional — one region</option>
+                                    </select>
+                                    <select id="newUserCommunity" class="pw-input"></select>
+                                    <select id="newUserRegion" class="pw-input" style="display:none;"></select>
+                                    <button class="btn btn-primary" onclick="createUser()"><i class="fas fa-user-plus"></i> Create user</button>
+                                    <div class="pw-msg" id="createUserMsg"></div>
+                                </div>
+                                <div class="usermgmt-credential" id="createUserResult" style="display:none;"></div>
+                                <div class="usermgmt-list" id="managedUsersList"><div class="activity-empty">Loading…</div></div>
+                            </div>
+                        </div>
+                        ` : `
                         <div class="profile-section">
                             <div class="profile-section-title"><i class="fas fa-palette"></i> Display preferences</div>
                             <div class="profile-pref"><span>Dark mode</span><span class="muted">Coming soon</span></div>
                             <div class="profile-pref"><span>Language</span><span class="muted">English (US)</span></div>
                         </div>
+                        `}
                         <div class="profile-section">
                             <div class="profile-section-title"><i class="fas fa-lock"></i> Change password</div>
                             <div class="pw-form">
@@ -3309,6 +3331,172 @@
                     </div>
                 </div>
             `;
+
+            if (admin) {
+                populateUserFormOptions();
+                onNewUserRoleChange();
+                loadManagedUsers();
+            }
+        }
+
+        // ---- User management (admin only) -------------------------------
+        function onNewUserRoleChange() {
+            const roleEl = document.getElementById('newUserRole');
+            if (!roleEl) return;
+            const role = roleEl.value;
+            const comm = document.getElementById('newUserCommunity');
+            const reg = document.getElementById('newUserRegion');
+            if (comm) comm.style.display = (role === 'staff') ? '' : 'none';
+            if (reg) reg.style.display = (role === 'regional') ? '' : 'none';
+        }
+
+        async function populateUserFormOptions() {
+            const commSel = document.getElementById('newUserCommunity');
+            const regSel = document.getElementById('newUserRegion');
+            if (commSel) {
+                let comms = [];
+                try {
+                    const r = await fetch('/api/communities');
+                    const d = await r.json();
+                    if (d.status === 'success') comms = d.communities || [];
+                } catch (e) {}
+                comms.sort((a, b) => a.localeCompare(b));
+                commSel.innerHTML = '<option value="">Select a community…</option>' +
+                    comms.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            }
+            if (regSel) {
+                let regs = regions || [];
+                if (!regs.length) {
+                    try {
+                        const r = await fetch('/api/regions');
+                        const d = await r.json();
+                        if (d.status === 'success') regs = d.regions || [];
+                    } catch (e) {}
+                }
+                regs = regs.filter(r => r.id !== 'unassigned');
+                regSel.innerHTML = '<option value="">Select a region…</option>' +
+                    regs.map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`).join('');
+            }
+        }
+
+        async function createUser() {
+            const nameEl = document.getElementById('newUserName');
+            const msg = document.getElementById('createUserMsg');
+            const name = (nameEl.value || '').trim();
+            const role = document.getElementById('newUserRole').value;
+            const community = document.getElementById('newUserCommunity').value;
+            const region_id = document.getElementById('newUserRegion').value;
+            msg.className = 'pw-msg';
+            if (!name) { msg.textContent = 'Enter a full name.'; msg.classList.add('error'); return; }
+            if (role === 'staff' && !community) { msg.textContent = 'Pick a community.'; msg.classList.add('error'); return; }
+            if (role === 'regional' && !region_id) { msg.textContent = 'Pick a region.'; msg.classList.add('error'); return; }
+
+            const body = { display_name: name, role: role };
+            if (role === 'staff') body.community = community;
+            if (role === 'regional') body.region_id = region_id;
+
+            try {
+                const r = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    nameEl.value = '';
+                    showCredentialBox(d.display_name, d.username, d.password, 'Account created');
+                    loadManagedUsers();
+                } else {
+                    msg.textContent = d.message || 'Could not create user.';
+                    msg.classList.add('error');
+                }
+            } catch (e) {
+                msg.textContent = 'Network error.';
+                msg.classList.add('error');
+            }
+        }
+
+        function showCredentialBox(displayName, username, password, heading) {
+            const box = document.getElementById('createUserResult');
+            if (!box) return;
+            box.style.display = '';
+            box.innerHTML = `
+                <div class="cred-head"><i class="fas fa-circle-check"></i> ${escapeHtml(heading || 'Credentials')} — ${escapeHtml(displayName)}</div>
+                <div class="cred-note">Copy these now — the password is shown only once.</div>
+                <div class="cred-row"><span class="cred-label">Username</span><code>${escapeHtml(username)}</code><button class="cred-copy" onclick="copyText('${username.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
+                <div class="cred-row"><span class="cred-label">Password</span><code>${escapeHtml(password)}</code><button class="cred-copy" onclick="copyText('${password.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
+                <button class="cred-dismiss" onclick="document.getElementById('createUserResult').style.display='none'">Done</button>
+            `;
+            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function copyText(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                if (btn) {
+                    const old = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => { btn.innerHTML = old; }, 1200);
+                }
+            }).catch(() => {});
+        }
+
+        async function loadManagedUsers() {
+            const list = document.getElementById('managedUsersList');
+            if (!list) return;
+            try {
+                const r = await fetch('/api/users');
+                const d = await r.json();
+                if (r.ok && d.status === 'success') renderManagedUsers(d.users || []);
+                else list.innerHTML = '<div class="activity-empty">Could not load users.</div>';
+            } catch (e) {
+                list.innerHTML = '<div class="activity-empty">Could not load users.</div>';
+            }
+        }
+
+        function renderManagedUsers(users) {
+            const list = document.getElementById('managedUsersList');
+            if (!list) return;
+            if (!users.length) { list.innerHTML = '<div class="activity-empty">No created accounts yet.</div>'; return; }
+            const roleLabel = { admin: 'Administrator', staff: 'Staff', regional: 'Regional' };
+            const regionName = (id) => { const r = (regions || []).find(x => x.id === id); return r ? r.name : id; };
+            list.innerHTML = `<div class="usermgmt-list-title">Created accounts (${users.length})</div>` + users.map(u => {
+                const scope = u.role === 'staff' ? (u.community || '')
+                            : (u.role === 'regional' ? (regionName(u.region_id) + ' region') : 'All communities');
+                const safe = u.username.replace(/'/g, "\\'");
+                const safeName = (u.display_name || '').replace(/'/g, "\\'");
+                return `
+                    <div class="umrow">
+                        <div class="umrow-avatar" style="background:${avatarColor(u.display_name || u.username)};">${profileInitials(u.display_name || u.username)}</div>
+                        <div class="umrow-main">
+                            <div class="umrow-name">${escapeHtml(u.display_name || u.username)}</div>
+                            <div class="umrow-sub">@${escapeHtml(u.username)} &middot; <span class="umrow-role um-${u.role}">${roleLabel[u.role] || u.role}</span> &middot; ${escapeHtml(scope)}</div>
+                        </div>
+                        <div class="umrow-actions">
+                            <button title="Reset password" onclick="resetUserPassword('${safe}','${safeName}')"><i class="fas fa-key"></i></button>
+                            <button title="Delete user" onclick="deleteManagedUser('${safe}','${safeName}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function resetUserPassword(username, displayName) {
+            if (!confirm('Generate a new password for ' + displayName + '? Their current password will stop working.')) return;
+            try {
+                const r = await fetch('/api/users/' + encodeURIComponent(username) + '/reset-password', { method: 'POST' });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') showCredentialBox(displayName, d.username, d.password, 'New password');
+                else alert(d.message || 'Could not reset password.');
+            } catch (e) { alert('Network error.'); }
+        }
+
+        async function deleteManagedUser(username, displayName) {
+            if (!confirm('Delete ' + displayName + '? This cannot be undone.')) return;
+            try {
+                const r = await fetch('/api/users/' + encodeURIComponent(username), { method: 'DELETE' });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') loadManagedUsers();
+                else alert(d.message || 'Could not delete user.');
+            } catch (e) { alert('Network error.'); }
         }
 
         function renderReports() {
