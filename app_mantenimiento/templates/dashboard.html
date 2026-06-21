@@ -993,6 +993,23 @@
             font-weight: 500;
         }
 
+        .subtitle-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: #fff !important;
+            vertical-align: middle;
+            margin: 0 5px 0 2px;
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            flex-shrink: 0;
+        }
+
         .slide-panel-close {
             background: #f1f5f9;
             border: none;
@@ -1962,9 +1979,9 @@
                 panelTitle.textContent = data.communityName;
             }
             if (panelSubtitle) {
-                panelSubtitle.textContent = data.inspectorName
-                    ? `Last visit: ${data.lastVisitDate} · by ${data.inspectorName}`
-                    : `Last visit: ${data.lastVisitDate}`;
+                panelSubtitle.innerHTML = data.inspectorName
+                    ? `Last visit: ${escapeHtml(data.lastVisitDate)} &middot; by ${inspectorAvatarHtml(data.inspectorName)}${escapeHtml(data.inspectorName)}`
+                    : `Last visit: ${escapeHtml(data.lastVisitDate)}`;
             }
             
             // Build panel content
@@ -3066,6 +3083,20 @@
             let h = 0;
             for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) % 100000;
             return palette[Math.abs(h) % palette.length];
+        }
+        // Small avatar for the inspector shown in the slide-panel subtitle.
+        // Uses the leader's uploaded photo when names match, else initials.
+        function inspectorAvatarHtml(name) {
+            if (!name) return '';
+            let photo = null;
+            const key = name.trim().toLowerCase();
+            (regions || []).forEach(r => (r.leadership || []).forEach(l => {
+                if (l.name && l.name.trim().toLowerCase() === key && l.photo) photo = l.photo;
+            }));
+            if (photo) {
+                return `<img src="/static/${photo}" alt="${escapeHtml(name)}" class="subtitle-avatar" onerror="this.style.display='none'">`;
+            }
+            return `<span class="subtitle-avatar subtitle-avatar-initials" style="background:${avatarColor(name)};">${profileInitials(name)}</span>`;
         }
         function timeAgo(iso) {
             if (!iso) return '';

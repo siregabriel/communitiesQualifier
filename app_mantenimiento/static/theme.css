@@ -385,6 +385,12 @@ textarea:focus {
 .slide-panel-header *,
 .modal-header * { color: #fff !important; }
 
+/* Close (X) stays dark on its light button so it reads clearly */
+.slide-panel-header .slide-panel-close,
+.slide-panel-header .slide-panel-close i,
+.modal-header .modal-close,
+.modal-header .modal-close i { color: #0f172a !important; }
+
 /* Stat values */
 .panel-stat-value.success { color: var(--success-deep) !important; }
 .panel-stat-value.danger  { color: var(--danger-deep) !important; }
