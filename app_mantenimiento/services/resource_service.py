@@ -84,6 +84,22 @@ class ResourceService(JsonFileBacked):
             self._save()
             return rec
 
+    def attach(self, resource_id: str, kind: str, url=None, file_path=None,
+               filename=None, content_type=None) -> dict:
+        """Turn a 'pending' resource into a real file/link (or replace one)."""
+        with self._lock:
+            self._ensure_fresh()
+            rec = next((r for r in self.resources if r.get('id') == resource_id), None)
+            if rec is None:
+                return None
+            rec['kind'] = kind
+            rec['url'] = url
+            rec['file_path'] = file_path
+            rec['filename'] = filename
+            rec['content_type'] = content_type
+            self._save()
+            return rec
+
     def delete(self, resource_id: str):
         """Remove a resource; returns the removed record (so callers can also
         delete the underlying file) or None."""

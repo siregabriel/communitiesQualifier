@@ -57,7 +57,7 @@ os.makedirs(DATA_FOLDER, exist_ok=True)
 # ship in git and only populate a file that doesn't exist yet.
 import shutil
 SEED_FOLDER = os.path.join(DATA_FOLDER, 'seeds')
-for _seed_name in ('regions.json', 'questions.json', 'survey_types.json'):
+for _seed_name in ('regions.json', 'questions.json', 'survey_types.json', 'resources.json'):
     _live = os.path.join(DATA_FOLDER, _seed_name)
     _seed = os.path.join(SEED_FOLDER, _seed_name)
     if not os.path.exists(_live) and os.path.exists(_seed):
@@ -1125,6 +1125,46 @@ def delete_resource(resource_id):
         return jsonify({'status': 'error', 'message': 'Resource not found'}), 404
     if rec.get('kind') == 'file' and rec.get('file_path'):
         file_upload_handler.delete_file(rec['file_path'])
+    return jsonify({'status': 'success'}), 200
+
+
+@app.route('/api/resources/<resource_id>/attach', methods=['POST'])
+@login_required
+def attach_resource(resource_id):
+    """Admin-only: attach a file or link to an existing (e.g. pending) resource."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    existing = resource_service.get(resource_id)
+    if not existing:
+        return jsonify({'status': 'error', 'message': 'Resource not found'}), 404
+
+    kind = (request.form.get('kind') or '').strip().lower()
+    if kind == 'link':
+        url = (request.form.get('url') or '').strip()
+        if not (url.startswith('http://') or url.startswith('https://')):
+            return jsonify({'status': 'error', 'message': 'Enter a valid http(s) link'}), 400
+        resource_service.attach(resource_id, 'link', url=url)
+    elif kind == 'file':
+        file = request.files.get('file')
+        if not file or not file.filename:
+            return jsonify({'status': 'error', 'message': 'Choose a file to upload'}), 400
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in RESOURCE_ALLOWED_EXT:
+            return jsonify({'status': 'error', 'message': f'Unsupported file type .{ext}'}), 400
+        try:
+            rel, stored = file_upload_handler.save_resource(file)
+        except Exception as e:
+            app.logger.error(f'Resource attach upload failed: {e}')
+            return jsonify({'status': 'error', 'message': 'Could not save the file'}), 500
+        # remove the previous file if this resource already had one
+        if existing.get('kind') == 'file' and existing.get('file_path'):
+            file_upload_handler.delete_file(existing['file_path'])
+        resource_service.attach(resource_id, 'file', file_path=rel,
+                                filename=secure_filename(file.filename),
+                                content_type=file.mimetype)
+    else:
+        return jsonify({'status': 'error', 'message': 'Invalid resource type'}), 400
+
     return jsonify({'status': 'success'}), 200
 
 

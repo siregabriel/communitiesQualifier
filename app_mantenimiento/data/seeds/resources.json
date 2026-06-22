@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "last_modified": "2026-06-22T00:00:00",
+  "notes": "Default resource cards. 'pending' means no file/link attached yet; an admin attaches one from the Resources page.",
+  "resources": [
+    {
+      "id": "res_seed_guidelines",
+      "title": "Inspection Guidelines",
+      "description": "Standard procedures for conducting inspections.",
+      "kind": "pending",
+      "url": null,
+      "file_path": null,
+      "filename": null,
+      "content_type": null,
+      "created_at": "2026-06-22T00:00:00",
+      "created_by": "system"
+    },
+    {
+      "id": "res_seed_survey_guide",
+      "title": "Survey Type Guide",
+      "description": "Detailed information about each survey type.",
+      "kind": "pending",
+      "url": null,
+      "file_path": null,
+      "filename": null,
+      "content_type": null,
+      "created_at": "2026-06-22T00:00:00",
+      "created_by": "system"
+    },
+    {
+      "id": "res_seed_training",
+      "title": "Training Materials",
+      "description": "Videos and tutorials for new inspectors.",
+      "kind": "pending",
+      "url": null,
+      "file_path": null,
+      "filename": null,
+      "content_type": null,
+      "created_at": "2026-06-22T00:00:00",
+      "created_by": "system"
+    },
+    {
+      "id": "res_seed_faq",
+      "title": "FAQ",
+      "description": "Frequently asked questions and answers.",
+      "kind": "pending",
+      "url": null,
+      "file_path": null,
+      "filename": null,
+      "content_type": null,
+      "created_at": "2026-06-22T00:00:00",
+      "created_by": "system"
+    }
+  ]
+}
