@@ -63,7 +63,21 @@ class FileUploadHandler:
     def s3(self):
         if self._s3 is None:
             import boto3
-            self._s3 = boto3.client('s3', region_name=self.region)
+            from botocore.config import Config
+            # Use the REGIONAL endpoint + SigV4 + virtual-host addressing so the
+            # host in the presigned URL matches what was signed. Without the
+            # regional endpoint, boto3 signs for the region but builds a
+            # region-less host -> SignatureDoesNotMatch in regions like us-east-2.
+            kwargs = dict(
+                region_name=self.region,
+                config=Config(
+                    signature_version='s3v4',
+                    s3={'addressing_style': 'virtual'},
+                ),
+            )
+            if self.region:
+                kwargs['endpoint_url'] = f'https://s3.{self.region}.amazonaws.com'
+            self._s3 = boto3.client('s3', **kwargs)
         return self._s3
 
     def _s3_key(self, relative_path: str) -> str:
