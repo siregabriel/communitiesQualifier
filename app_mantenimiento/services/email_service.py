@@ -120,10 +120,22 @@ class EmailService:
             f"<td style='font-weight:600'>{esc(survey_type_name)}</td></tr>"
         ) if survey_type_name else ""
 
+        # Logo sits on its own white band (the logo is designed for light
+        # backgrounds); the navy band with the community name goes below it.
+        logo_url = f"{self.app_base_url}/static/atlas-logo.png" if self.app_base_url else None
+        logo_band = (
+            f"<div style='background:#fff;border:1px solid #d9dfe8;border-bottom:none;"
+            f"border-radius:10px 10px 0 0;padding:16px 24px;text-align:center'>"
+            f"<img src='{esc(logo_url)}' alt='Atlas Senior Living' "
+            f"style='height:34px;display:inline-block'></div>"
+        ) if logo_url else ""
+        navy_radius = "0" if logo_band else "10px 10px 0 0"
+
         html_body = f"""\
 <div style="font-family:Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f1e36">
-  <div style="background:#00285c;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0">
-    <div style="font-size:13px;letter-spacing:.5px;opacity:.85">ATLAS STANDARDS</div>
+  {logo_band}
+  <div style="background:#00285c;color:#fff;padding:18px 24px;border-radius:{navy_radius}">
+    <div style="font-size:12px;letter-spacing:.5px;opacity:.85">COMMUNITIES STANDARDS</div>
     <div style="font-size:20px;font-weight:800;margin-top:4px">{esc(community)}</div>
   </div>
   <div style="border:1px solid #d9dfe8;border-top:none;border-radius:0 0 10px 10px;padding:22px 24px">
