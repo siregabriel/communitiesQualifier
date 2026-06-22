@@ -117,7 +117,7 @@ textarea:focus-visible {
 
 .btn-primary,
 .submit-btn {
-    background: var(--grad-brand) !important;
+    background: #002f69!important;
     color: #fff !important;
     box-shadow: var(--sh-brand) !important;
 }
