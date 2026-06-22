@@ -1037,3 +1037,110 @@ textarea:focus {
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
 }
+
+/* ==========================================================================
+   AWS-STYLE HYBRID SKIN  (added 2026-06-21)
+   Flattens the vibrant gradients into a clean, console-like surface while
+   keeping the Atlas navy as the single accent. Implemented mostly by
+   retuning the design tokens, so it cascades through every component.
+   NOTE: the login page is intentionally untouched — it uses its own inline
+   styles (loaded after this file) and no shared tokens.
+   ========================================================================== */
+:root {
+    /* Pure white surfaces everywhere; separation comes from borders only */
+    --bg:   #ffffff;
+    --line: #d9dfe8;
+
+    /* Tighter, enterprise radii */
+    --r-sm: 6px;
+    --r:    8px;
+    --r-lg: 10px;
+    --r-xl: 14px;
+
+    /* No card shadows — AWS-style flat white surfaces defined by borders.
+       Only the sliding drawer keeps a faint shadow for separation. */
+    --sh-sm:   none;
+    --sh:      none;
+    --sh-md:   none;
+    --sh-lg:   -2px 0 16px rgba(13,30,54,.10);
+    --sh-brand:none;
+    --sh-gold: none;
+
+    /* Flatten gradients to solid fills (navy stays the accent) */
+    --grad-brand:   #00285c;
+    --grad-vibrant: #1f6fe5;
+    --grad-success: #0f8a5f;
+    --grad-danger:  #d13212;
+    --grad-gold:    #f2b705;
+}
+
+/* Flat page surface (replaces the radial-gradient wash) */
+body {
+    background: var(--bg) !important;
+}
+
+/* Every container: pure white, hairline border, NO shadow (AWS card style) */
+.card,
+.community-card,
+.response-card,
+.panel-stat-card,
+.survey-type-label,
+.visit-row,
+.region-card,
+.profile-header,
+.profile-section,
+.profile-stat,
+.region-stat {
+    background: #fff !important;
+    box-shadow: none !important;
+    border: 1px solid var(--line) !important;
+}
+/* Section wrappers inside the detail panel are transparent groupers, not cards
+   (the stat cards / response cards inside already carry the border) */
+.panel-section {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+}
+/* Hover = a crisp navy border, no lift, no glow */
+.card:hover,
+.community-card:hover,
+.visit-row:hover,
+.region-card:hover,
+.profile-stat-clickable:hover {
+    transform: none !important;
+    box-shadow: none !important;
+    border-color: rgba(0,40,92,.45) !important;
+}
+
+/* Community card top rail: thin solid navy instead of a vivid gradient */
+.community-card::before {
+    background: #00285c !important;
+    opacity: 1;
+    height: 3px;
+}
+
+/* Tables: flat light header like a console data grid */
+table thead th {
+    background: #eef2f7 !important;
+    border-bottom: 1px solid var(--line) !important;
+}
+table tbody tr:hover { background: rgba(0,40,92,.04) !important; }
+
+/* Sidebar: flat navy (no gradient/glow), keep the gold active rail */
+.sidebar { box-shadow: var(--sh-md) !important; }
+
+/* Inputs: focus ring in navy tone to match the accent */
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--navy-700) !important;
+    box-shadow: 0 0 0 3px rgba(1,58,130,.14) !important;
+}
+
+/* Pass/Fail badges read cleaner as solid fills (tokens already flattened) */
+.badge-pass, .badge-yes { background: var(--grad-success) !important; }
+.badge-fail { background: var(--grad-danger) !important; }

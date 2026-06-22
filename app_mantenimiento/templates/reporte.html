@@ -38,8 +38,9 @@
             max-width: 700px;
             margin: 0 auto;
             padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            box-shadow: none;
+            border: 1px solid #d9dfe8;
         }
 
         .header {
@@ -167,9 +168,12 @@
 
         .condition-rating {
             display: flex;
-            gap: 8px;
+            gap: 0;
             justify-content: flex-start;
             flex-wrap: nowrap;
+            border: 1px solid #d9dfe8;
+            border-radius: 8px;
+            overflow: hidden;
         }
 
         .radio-button {
@@ -188,18 +192,23 @@
             justify-content: center;
             gap: 6px;
             padding: 10px 12px;
-            border: 2px solid #d1d5db;
-            border-radius: 8px;
+            border: none;
+            border-radius: 0;
             background: white;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.18s ease;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             color: #6b7280;
             width: 100%;
             height: 44px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+        }
+
+        /* Divider between segments */
+        .radio-button:not(:first-child) .radio-label {
+            border-left: 1px solid #d9dfe8;
         }
 
         .rating-icon {
@@ -209,7 +218,7 @@
 
         /* Hover state - all buttons */
         .radio-button:hover .radio-label {
-            border-color: #9ca3af;
+            background: #f3f5f9;
         }
 
         /* Excellence - Blue background when selected */
@@ -226,18 +235,18 @@
             color: #1e40af;
         }
 
-        /* Pass - Green background with checkmark when selected */
+        /* Pass - solid green fill when selected */
         .radio-button input[type="radio"]:checked + .radio-label.pass {
-            background: #ecfdf5;
-            border-color: #10b981;
-            color: #047857;
+            background: #0f8a5f;
+            color: #fff;
             font-weight: 700;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+            box-shadow: none;
+            border-left-color: #0f8a5f;
         }
 
         .radio-button input[type="radio"]:checked + .radio-label.pass .rating-icon {
             display: inline-block;
-            color: #047857;
+            color: #fff;
         }
 
         /* Opportunity - Yellow background when selected */
@@ -254,18 +263,18 @@
             color: #92400e;
         }
 
-        /* Fail - Red background when selected */
+        /* Fail - solid red fill when selected */
         .radio-button input[type="radio"]:checked + .radio-label.fail {
-            background: #fee2e2;
-            border-color: #ef4444;
-            color: #991b1b;
+            background: #d13212;
+            color: #fff;
             font-weight: 700;
-            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+            box-shadow: none;
+            border-left-color: #d13212;
         }
 
         .radio-button input[type="radio"]:checked + .radio-label.fail .rating-icon {
             display: inline-block;
-            color: #991b1b;
+            color: #fff;
         }
 
         .file-upload-wrapper {
@@ -279,9 +288,9 @@
         .file-upload-label {
             display: block;
             padding: 12px 16px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            background: #00285c;
             color: white;
-            border-radius: 12px;
+            border-radius: 8px;
             text-align: center;
             cursor: pointer;
             font-weight: 700;
@@ -305,8 +314,7 @@
         }
 
         .file-upload-label:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+            filter: brightness(1.12);
         }
 
         .file-upload-label:hover::before {
@@ -800,14 +808,14 @@
             .guideline-info-btn { display: inline-flex; }
         }
     </style>
-    <link rel="stylesheet" href="/static/theme.css?v=20260621c">
+    <link rel="stylesheet" href="/static/theme.css?v=20260621g">
 
 </head>
 <body>
     <div class="container">
         <div class="header">
             <div class="header-left">
-                <h1>📋 Inspection</h1>
+                <h1><i class="fas fa-clipboard-check"></i> Inspection</h1>
                 <p>Complete inspection questionnaire</p>
                 <div class="user-info" id="userInfo">Loading...</div>
                 {% if survey_type %}
@@ -831,7 +839,7 @@
         </div>
 
         <div class="success-message" id="successMessage">
-            ✅ Inspection submitted successfully!
+            <i class="fas fa-circle-check"></i> Inspection submitted successfully!
         </div>
 
         <div class="success-screen" id="successScreen" role="dialog" aria-modal="true" aria-labelledby="successTitle">
@@ -940,12 +948,12 @@
 
                 if (userRole === 'regional') {
                     // Regional users pick which community to inspect first
-                    document.getElementById('userInfo').textContent = `👤 ${currentUser} | Regional`;
+                    document.getElementById('userInfo').innerHTML = `<i class="fas fa-user"></i> ${currentUser} | Regional`;
                     const prompt = document.getElementById('communityPrompt');
                     if (prompt) prompt.style.display = 'block';
                     document.getElementById('loadingMessage').style.display = 'none';
                 } else {
-                    document.getElementById('userInfo').textContent = `👤 ${currentUser} | ${userCommunity || 'Staff'}`;
+                    document.getElementById('userInfo').innerHTML = `<i class="fas fa-user"></i> ${currentUser} | ${userCommunity || 'Staff'}`;
                     selectedCommunity = userCommunity;
                     await loadQuestions();
                 }
@@ -1097,7 +1105,7 @@
             passDiv.innerHTML = `
                 <input type="radio" name="condition_${question.id}" value="Pass" onchange="updateProgress()">
                 <span class="radio-label pass">
-                    <span class="rating-icon">✓</span>
+                    <span class="rating-icon"><i class="fas fa-check"></i></span>
                     Pass
                 </span>
             `;
@@ -1109,7 +1117,7 @@
             failDiv.innerHTML = `
                 <input type="radio" name="condition_${question.id}" value="Fail" onchange="updateProgress()">
                 <span class="radio-label fail">
-                    <span class="rating-icon">❌</span>
+                    <span class="rating-icon"><i class="fas fa-xmark"></i></span>
                     Fail
                 </span>
             `;
@@ -1148,7 +1156,7 @@
             photoGroup.className = 'file-upload-wrapper';
             photoGroup.innerHTML = `
                 <input type="file" id="photo_${question.id}" name="photo_${question.id}" accept="image/*" capture="environment" multiple>
-                <label for="photo_${question.id}" class="file-upload-label">📷 Upload Photo</label>
+                <label for="photo_${question.id}" class="file-upload-label"><i class="fas fa-camera"></i> Upload Photo</label>
                 <div class="file-name" id="fileName_${question.id}"></div>
                 <div class="image-preview" id="imagePreview_${question.id}"></div>
             `;
@@ -1206,7 +1214,7 @@
                 
                 if (percentage >= 90) {
                     progressMessage.className = 'progress-message success';
-                    progressMessage.textContent = '✓ Excellent! This inspection meets the 90% positive standard.';
+                    progressMessage.innerHTML = '<i class="fas fa-check"></i> Excellent! This inspection meets the 90% positive standard.';
                 } else {
                     progressMessage.className = 'progress-message warning';
                     progressMessage.textContent = `${percentage}% positive. Need ${90 - percentage}% more to reach the 90% standard.`;
@@ -1230,7 +1238,8 @@
                 // Update file name display
                 const fileNameEl = document.getElementById(`fileName_${questionId}`);
                 if (fileNameEl) {
-                    fileNameEl.textContent = `📁 ${file.name}`;
+                    fileNameEl.innerHTML = '<i class="fas fa-paperclip"></i> ';
+                    fileNameEl.appendChild(document.createTextNode(file.name));
                 }
                 
                 // Show preview

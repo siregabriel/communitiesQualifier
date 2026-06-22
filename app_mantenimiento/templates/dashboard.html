@@ -782,8 +782,9 @@
             gap: 16px;
             margin-bottom: 32px;
             padding: 20px;
-            background: #f8fafc;
-            border-radius: 12px;
+            background: #fff;
+            border: 1px solid #d9dfe8;
+            border-radius: 10px;
         }
 
         .meta-item {
@@ -1196,7 +1197,7 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="/static/theme.css?v=20260621c">
+    <link rel="stylesheet" href="/static/theme.css?v=20260621g">
 
 </head>
 <body>
@@ -2057,13 +2058,25 @@
                             <i class="${response.conditionIcon}"></i> ${response.condition}
                         </span>
                         ${response.description ? `<div class="response-description">${escapeHtml(response.description)}</div>` : ''}
-                        ${response.photoPath ? `<div class="response-photo"><img src="${response.photoPath}" alt="Response photo" onerror="this.style.display='none'"></div>` : ''}
+                        ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" alt="Response photo" style="cursor:zoom-in" onclick="window.open(this.src,'_blank')" onerror="this.parentElement.style.display='none'"></div>` : ''}
                     </div>
                 `;
             }
             
             html += '</div>';
             return html;
+        }
+
+        // Build a valid URL for an uploaded photo. Stored paths look like
+        // "Community_Folder/user_Community_1234.jpg" (relative to static/uploads),
+        // and filenames can contain spaces/commas — so prefix + encode each segment.
+        function photoUrl(p) {
+            if (!p) return '';
+            if (/^https?:\/\//i.test(p) || p.startsWith('/static/') || p.startsWith('data:')) return p;
+            let rel = p.replace(/^\/+/, '');
+            if (rel.startsWith('uploads/')) rel = rel.slice('uploads/'.length);
+            const enc = rel.split('/').map(encodeURIComponent).join('/');
+            return '/static/uploads/' + enc;
         }
 
         // Render Photos Section
@@ -2084,7 +2097,7 @@
             for (const photo of photos) {
                 html += `
                     <div class="photo-item">
-                        <img src="${photo.path}" alt="${escapeHtml(photo.alt)}" onerror="this.style.display='none'">
+                        <img src="${photoUrl(photo.path)}" alt="${escapeHtml(photo.alt)}" style="cursor:zoom-in" onclick="window.open(this.src,'_blank')" onerror="this.parentElement.style.display='none'">
                     </div>
                 `;
             }
@@ -2675,35 +2688,35 @@
         function renderResources() {
             const gallery = document.getElementById('gallery');
             gallery.innerHTML = `
-                <div style="grid-column: 1 / -1; background: white; border-radius: 16px; padding: 36px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+                <div style="grid-column: 1 / -1; background: white; border-radius: 10px; padding: 36px; border: 1px solid #d9dfe8;">
                     <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 24px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-book"></i> Resources Library</h2>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px;">
-                        <div style="padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                        <div style="padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
                             <div style="font-size: 32px; margin-bottom: 12px;">📄</div>
                             <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">Inspection Guidelines</h3>
                             <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Standard procedures for conducting inspections</p>
-                            <button onclick="alert('Document download coming soon')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">Download PDF</button>
+                            <button onclick="alert('Document download coming soon')" style="padding: 8px 16px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">Download PDF</button>
                         </div>
-                        <div style="padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                        <div style="padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
                             <div style="font-size: 32px; margin-bottom: 12px;"><i class="fas fa-clipboard-list"></i></div>
                             <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">Survey Type Guide</h3>
                             <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Detailed information about each survey type</p>
-                            <button onclick="alert('Document download coming soon')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">Download PDF</button>
+                            <button onclick="alert('Document download coming soon')" style="padding: 8px 16px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">Download PDF</button>
                         </div>
-                        <div style="padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                        <div style="padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
                             <div style="font-size: 32px; margin-bottom: 12px;">🎓</div>
                             <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">Training Materials</h3>
                             <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Videos and tutorials for new inspectors</p>
-                            <button onclick="alert('Training materials coming soon')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">View Training</button>
+                            <button onclick="alert('Training materials coming soon')" style="padding: 8px 16px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">View Training</button>
                         </div>
-                        <div style="padding: 20px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0;">
+                        <div style="padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
                             <div style="font-size: 32px; margin-bottom: 12px;"><i class="fas fa-circle-question"></i></div>
                             <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">FAQ</h3>
                             <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Frequently asked questions and answers</p>
-                            <button onclick="alert('FAQ coming soon')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">View FAQ</button>
+                            <button onclick="alert('FAQ coming soon')" style="padding: 8px 16px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">View FAQ</button>
                         </div>
                     </div>
-                    <div style="margin-top: 24px; padding: 16px; background: #eff6ff; border-radius: 12px; border: 1px solid #3b82f6;">
+                    <div style="margin-top: 24px; padding: 16px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
                         <p style="font-size: 13px; color: #1e40af; margin: 0;"><strong>💡 Tip:</strong> Resources section is ready for document uploads. Contact your administrator to add training materials and guidelines.</p>
                     </div>
                 </div>
@@ -3562,22 +3575,22 @@
                 <div style="grid-column: 1 / -1; display: grid; gap: 24px;">
                     <!-- Summary Cards -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                        <div style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 16px rgba(59,130,246,0.3);">
+                        <div style="background: #00285c; color: white; padding: 24px; border-radius: 10px;">
                             <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Total Inspections</div>
                             <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${totalInspections}</div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 16px rgba(16,185,129,0.3);">
+                        <div style="background: #0f8a5f; color: white; padding: 24px; border-radius: 10px;">
                             <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Pass</div>
                             <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${conditionCounts['Pass']}</div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 16px rgba(239,68,68,0.3);">
+                        <div style="background: #d13212; color: white; padding: 24px; border-radius: 10px;">
                             <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Fail</div>
                             <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${conditionCounts['Fail']}</div>
                         </div>
                     </div>
                     
                     <!-- Survey Type Breakdown -->
-                    <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+                    <div style="background: white; padding: 32px; border-radius: 10px; border: 1px solid #d9dfe8;">
                         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-chart-pie"></i> Survey Type Breakdown</h3>
                         <div style="display: grid; gap: 12px;">
                             ${Object.values(surveyTypeBreakdown).map(type => {
@@ -3604,7 +3617,7 @@
                     
                     <!-- Top tables side by side -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 24px;">
-                    <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+                    <div style="background: white; padding: 32px; border-radius: 10px; border: 1px solid #d9dfe8;">
                         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-trophy"></i> Top Performing Communities</h3>
                         <div style="overflow-x: auto;">
                             <table style="width: 100%; border-collapse: collapse;">
@@ -3642,7 +3655,7 @@
                     </div>
 
                     <!-- Top Performers -->
-                    <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+                    <div style="background: white; padding: 32px; border-radius: 10px; border: 1px solid #d9dfe8;">
                         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-medal"></i> Top Performers</h3>
                         ${topPerformers.length === 0 ? `
                             <div style="color:#64748b; font-size:14px; padding: 8px 0;">No visits reported yet.</div>
@@ -3680,17 +3693,17 @@
                     </div>
 
                     <!-- Export Options -->
-                    <div style="background: #eff6ff; padding: 24px; border-radius: 16px; border: 2px solid #3b82f6;">
+                    <div style="background: #fff; padding: 24px; border-radius: 10px; border: 1px solid #d9dfe8;">
                         <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1e40af;"><i class="fas fa-download"></i> Export Reports</h3>
                         <p style="font-size: 14px; color: #1e40af; margin-bottom: 16px;">Download detailed reports for further analysis</p>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                            <button onclick="alert('CSV export coming soon')" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                            <button onclick="alert('CSV export coming soon')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
                                 <i class="fas fa-file-csv"></i> Export CSV
                             </button>
-                            <button onclick="alert('PDF export coming soon')" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                            <button onclick="alert('PDF export coming soon')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
                                 <i class="fas fa-file-pdf"></i> Export PDF
                             </button>
-                            <button onclick="alert('Excel export coming soon')" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                            <button onclick="alert('Excel export coming soon')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
                                 <i class="fas fa-file-excel"></i> Export Excel
                             </button>
                         </div>
