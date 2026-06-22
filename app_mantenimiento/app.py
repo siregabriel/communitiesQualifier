@@ -4,7 +4,7 @@ Flask application for managing maintenance and cleaning reports
 With user authentication and automatic community detection
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -121,6 +121,11 @@ profile_service = ProfileService(PROFILES_FILE)
 USERS_FILE = os.path.join(DATA_FOLDER, 'users.json')
 from services.user_service import UserService
 user_service = UserService(USERS_FILE)
+
+# Admin-managed resource library (guides, training, FAQ; files or links)
+RESOURCES_FILE = os.path.join(DATA_FOLDER, 'resources.json')
+from services.resource_service import ResourceService
+resource_service = ResourceService(RESOURCES_FILE)
 
 # Email (Amazon SES). Disabled until MAIL_FROM is set, so the app runs fine
 # before email is configured. A failed send never blocks an inspection.
@@ -1046,6 +1051,104 @@ def delete_user(username):
     if not user_service.delete(username):
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
     return jsonify({'status': 'success', 'message': 'User removed'}), 200
+
+
+RESOURCE_ALLOWED_EXT = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+                        'txt', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'zip'}
+
+
+@app.route('/api/resources', methods=['GET'])
+@login_required
+def list_resources():
+    """Everyone signed in can see the resource library."""
+    items = []
+    for r in resource_service.get_all():
+        items.append({
+            'id': r.get('id'),
+            'title': r.get('title'),
+            'description': r.get('description'),
+            'kind': r.get('kind'),
+            'url': r.get('url') if r.get('kind') == 'link' else None,
+            'filename': r.get('filename') if r.get('kind') == 'file' else None,
+            'created_at': r.get('created_at'),
+        })
+    return jsonify({'status': 'success', 'resources': items, 'is_admin': current_role() == 'admin'}), 200
+
+
+@app.route('/api/resources', methods=['POST'])
+@login_required
+def add_resource():
+    """Admin-only: add a resource (an uploaded file or an external link)."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+
+    title = InputSanitizer.sanitize_string(request.form.get('title', ''), max_length=120).strip()
+    description = InputSanitizer.sanitize_string(request.form.get('description', ''), max_length=400).strip()
+    kind = (request.form.get('kind') or '').strip().lower()
+    if not title:
+        return jsonify({'status': 'error', 'message': 'Title is required'}), 400
+
+    if kind == 'link':
+        url = (request.form.get('url') or '').strip()
+        if not (url.startswith('http://') or url.startswith('https://')):
+            return jsonify({'status': 'error', 'message': 'Enter a valid http(s) link'}), 400
+        rec = resource_service.add(title, description, 'link', url=url, created_by=session.get('user'))
+    elif kind == 'file':
+        file = request.files.get('file')
+        if not file or not file.filename:
+            return jsonify({'status': 'error', 'message': 'Choose a file to upload'}), 400
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in RESOURCE_ALLOWED_EXT:
+            return jsonify({'status': 'error', 'message': f'Unsupported file type .{ext}'}), 400
+        try:
+            rel, stored = file_upload_handler.save_resource(file)
+        except Exception as e:
+            app.logger.error(f'Resource upload failed: {e}')
+            return jsonify({'status': 'error', 'message': 'Could not save the file'}), 500
+        rec = resource_service.add(title, description, 'file', file_path=rel,
+                                   filename=secure_filename(file.filename),
+                                   content_type=file.mimetype, created_by=session.get('user'))
+    else:
+        return jsonify({'status': 'error', 'message': 'Invalid resource type'}), 400
+
+    return jsonify({'status': 'success', 'id': rec['id']}), 201
+
+
+@app.route('/api/resources/<resource_id>', methods=['DELETE'])
+@login_required
+def delete_resource(resource_id):
+    """Admin-only: remove a resource (and its file)."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    rec = resource_service.delete(resource_id)
+    if not rec:
+        return jsonify({'status': 'error', 'message': 'Resource not found'}), 404
+    if rec.get('kind') == 'file' and rec.get('file_path'):
+        file_upload_handler.delete_file(rec['file_path'])
+    return jsonify({'status': 'success'}), 200
+
+
+@app.route('/api/resources/<resource_id>/download')
+@login_required
+def download_resource(resource_id):
+    """Stream/redirect to a resource for any signed-in user."""
+    rec = resource_service.get(resource_id)
+    if not rec:
+        return jsonify({'status': 'error', 'message': 'Resource not found'}), 404
+    if rec.get('kind') == 'link':
+        return redirect(rec.get('url') or '/')
+    rel = rec.get('file_path')
+    if not rel:
+        return jsonify({'status': 'error', 'message': 'No file'}), 404
+    if file_upload_handler.use_s3:
+        signed = file_upload_handler.generate_presigned_url(rel, download_name=rec.get('filename'))
+        if not signed:
+            return jsonify({'status': 'error', 'message': 'Could not generate download'}), 500
+        return redirect(signed)
+    # local: rel is like "resources/<stored>"
+    directory = os.path.join(UPLOAD_FOLDER, os.path.dirname(rel))
+    return send_from_directory(directory, os.path.basename(rel),
+                               as_attachment=True, download_name=rec.get('filename'))
 
 
 @app.route('/api/user-info')

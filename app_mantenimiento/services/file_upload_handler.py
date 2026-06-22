@@ -87,19 +87,52 @@ class FileUploadHandler:
             return rel
         return f"{self.S3_PREFIX}/{rel}"
 
-    def generate_presigned_url(self, relative_path: str):
-        """Return a short-lived signed GET URL for a stored photo, or None."""
+    def generate_presigned_url(self, relative_path: str, download_name: str = None):
+        """Return a short-lived signed GET URL for a stored object, or None.
+        If download_name is given, the object downloads as that filename."""
         if not self.use_s3 or not relative_path:
             return None
         try:
+            params = {'Bucket': self.s3_bucket, 'Key': self._s3_key(relative_path)}
+            if download_name:
+                params['ResponseContentDisposition'] = f'attachment; filename="{download_name}"'
             return self.s3.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': self.s3_bucket, 'Key': self._s3_key(relative_path)},
-                ExpiresIn=self.url_expiry,
-            )
+                'get_object', Params=params, ExpiresIn=self.url_expiry)
         except Exception as e:
             logger.error(f'Could not presign {relative_path}: {e}')
             return None
+
+    def save_resource(self, file) -> tuple:
+        """
+        Save an admin resource file (any allowed doc/image type) under the
+        'resources/' prefix. Returns (relative_path, stored_filename).
+        """
+        ts = int(datetime.now().timestamp())
+        original = secure_filename(file.filename) or 'file'
+        stored = f"{ts}_{original}"
+        relative_path = f"resources/{stored}"
+        if self.use_s3:
+            file.seek(0)
+            self.s3.upload_fileobj(file, self.s3_bucket, self._s3_key(relative_path))
+            return relative_path, stored
+        directory = os.path.join(self.upload_folder, 'resources')
+        os.makedirs(directory, exist_ok=True)
+        file.save(os.path.join(directory, stored))
+        return relative_path, stored
+
+    def delete_file(self, relative_path: str) -> None:
+        """Best-effort removal of a stored file (S3 object or local file)."""
+        if not relative_path:
+            return
+        try:
+            if self.use_s3:
+                self.s3.delete_object(Bucket=self.s3_bucket, Key=self._s3_key(relative_path))
+            else:
+                p = os.path.join(self.upload_folder, relative_path)
+                if os.path.exists(p):
+                    os.remove(p)
+        except Exception as e:
+            logger.error(f'Could not delete {relative_path}: {e}')
 
     def validate_file(self, file) -> Tuple[bool, str]:
         """

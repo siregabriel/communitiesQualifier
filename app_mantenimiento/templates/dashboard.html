@@ -2839,42 +2839,136 @@
             }).join('');
         }
 
-        function renderResources() {
+        function resourceIcon(r) {
+            if (r.kind === 'link') return 'fa-up-right-from-square';
+            const n = (r.filename || '').toLowerCase();
+            if (n.endsWith('.pdf')) return 'fa-file-pdf';
+            if (/\.(xls|xlsx|csv)$/.test(n)) return 'fa-file-excel';
+            if (/\.(doc|docx)$/.test(n)) return 'fa-file-word';
+            if (/\.(ppt|pptx)$/.test(n)) return 'fa-file-powerpoint';
+            if (/\.(png|jpg|jpeg|gif|webp)$/.test(n)) return 'fa-file-image';
+            if (n.endsWith('.zip')) return 'fa-file-zipper';
+            return 'fa-file';
+        }
+
+        function resourceCardHtml(r, isAdmin) {
+            const safeTitle = (r.title || '').replace(/'/g, "\\'");
+            const action = r.kind === 'link'
+                ? `<a class="res-btn" href="${escapeHtml(r.url)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i> Open</a>`
+                : `<a class="res-btn" href="/api/resources/${r.id}/download"><i class="fas fa-download"></i> Download</a>`;
+            const del = isAdmin
+                ? `<button class="res-del" title="Remove" onclick="deleteResource('${r.id}','${safeTitle}')"><i class="fas fa-trash"></i></button>`
+                : '';
+            return `<div class="res-card">
+                ${del}
+                <div class="res-icon"><i class="fas ${resourceIcon(r)}"></i></div>
+                <div class="res-title">${escapeHtml(r.title)}</div>
+                <div class="res-desc">${escapeHtml(r.description || '')}</div>
+                ${action}
+            </div>`;
+        }
+
+        async function renderResources() {
             const gallery = document.getElementById('gallery');
-            gallery.innerHTML = `
-                <div style="grid-column: 1 / -1; background: white; border-radius: 10px; padding: 36px; border: 1px solid #d9dfe8;">
-                    <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 24px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-book"></i> Resources Library</h2>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px;">
-                        <div style="padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
-                            <div style="font-size: 32px; margin-bottom: 12px;">📄</div>
-                            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">Inspection Guidelines</h3>
-                            <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Standard procedures for conducting inspections</p>
-                            <button onclick="alert('Document download coming soon')" style="padding: 8px 16px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">Download PDF</button>
-                        </div>
-                        <div style="padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
-                            <div style="font-size: 32px; margin-bottom: 12px;"><i class="fas fa-clipboard-list"></i></div>
-                            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">Survey Type Guide</h3>
-                            <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Detailed information about each survey type</p>
-                            <button onclick="alert('Document download coming soon')" style="padding: 8px 16px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">Download PDF</button>
-                        </div>
-                        <div style="padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
-                            <div style="font-size: 32px; margin-bottom: 12px;">🎓</div>
-                            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">Training Materials</h3>
-                            <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Videos and tutorials for new inspectors</p>
-                            <button onclick="alert('Training materials coming soon')" style="padding: 8px 16px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">View Training</button>
-                        </div>
-                        <div style="padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
-                            <div style="font-size: 32px; margin-bottom: 12px;"><i class="fas fa-circle-question"></i></div>
-                            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 8px;">FAQ</h3>
-                            <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Frequently asked questions and answers</p>
-                            <button onclick="alert('FAQ coming soon')" style="padding: 8px 16px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">View FAQ</button>
-                        </div>
-                    </div>
-                    <div style="margin-top: 24px; padding: 16px; background: #fff; border-radius: 10px; border: 1px solid #d9dfe8;">
-                        <p style="font-size: 13px; color: #1e40af; margin: 0;"><strong>💡 Tip:</strong> Resources section is ready for document uploads. Contact your administrator to add training materials and guidelines.</p>
-                    </div>
+            let resources = [], admin = isAdmin;
+            try {
+                const resp = await fetch('/api/resources');
+                const d = await resp.json();
+                if (resp.ok && d.status === 'success') { resources = d.resources || []; admin = d.is_admin; }
+            } catch (e) { console.error('Resources load error:', e); }
+
+            const cards = resources.length
+                ? resources.map(r => resourceCardHtml(r, admin)).join('')
+                : `<div class="res-empty"><i class="fas fa-folder-open"></i><p>No resources yet.${admin ? ' Use “Add resource” to upload your first guide.' : ' Check back soon.'}</p></div>`;
+
+            const adminBar = admin ? `
+                <div class="res-adminbar">
+                    <button class="btn btn-primary" onclick="toggleResourceForm()"><i class="fas fa-plus"></i> Add resource</button>
                 </div>
-            `;
+                <div class="res-form" id="resForm" style="display:none;">
+                    <input id="resTitle" class="pw-input" placeholder="Title (e.g. Inspection Guidelines)" maxlength="120">
+                    <input id="resDesc" class="pw-input" placeholder="Short description (optional)" maxlength="400">
+                    <select id="resKind" class="pw-input" onchange="onResourceKindChange()">
+                        <option value="file">Upload a file (PDF, Word, Excel…)</option>
+                        <option value="link">External link (video, web page…)</option>
+                    </select>
+                    <input type="file" id="resFile" class="pw-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.zip">
+                    <input id="resUrl" class="pw-input" placeholder="https://…" style="display:none;">
+                    <button class="btn btn-primary" onclick="submitResource()"><i class="fas fa-check"></i> Save resource</button>
+                    <div class="pw-msg" id="resMsg"></div>
+                </div>` : '';
+
+            gallery.innerHTML = `
+            <style>
+                .res-wrap { grid-column: 1 / -1; background:#fff; border:1px solid #d9dfe8; border-radius:10px; padding:28px 32px; }
+                .res-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+                .res-head h2 { font-size:20px; font-weight:800; margin:0; }
+                .res-adminbar { margin:0; }
+                .res-form { display:grid; gap:10px; max-width:480px; margin:0 0 22px; padding:16px; background:#f8fafc; border:1px solid #d9dfe8; border-radius:10px; }
+                .res-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:16px; }
+                .res-card { position:relative; padding:20px; background:#fff; border:1px solid #d9dfe8; border-radius:10px; display:flex; flex-direction:column; }
+                .res-icon { font-size:26px; color:#00285c; margin-bottom:12px; }
+                .res-title { font-size:15px; font-weight:700; color:#0f1e36; margin-bottom:6px; }
+                .res-desc { font-size:13px; color:#6b7280; margin-bottom:14px; flex:1; }
+                .res-btn { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; background:#00285c; color:#fff; text-decoration:none; font-weight:700; font-size:13px; padding:8px 14px; border-radius:8px; }
+                .res-btn:hover { filter:brightness(1.12); }
+                .res-del { position:absolute; top:10px; right:10px; width:28px; height:28px; border:1px solid #d9dfe8; background:#fff; border-radius:8px; color:#6b7280; cursor:pointer; font-size:11px; }
+                .res-del:hover { border-color:#d13212; color:#d13212; background:#fef2f2; }
+                .res-empty { grid-column:1/-1; text-align:center; color:#6b7280; padding:40px 0; }
+                .res-empty i { font-size:30px; color:#c2cad6; }
+                .res-empty p { margin-top:10px; font-size:14px; }
+            </style>
+            <div class="res-wrap">
+                <div class="res-head"><h2><i class="fas fa-book"></i> Resources Library</h2></div>
+                ${adminBar}
+                <div class="res-grid">${cards}</div>
+            </div>`;
+        }
+
+        function toggleResourceForm() {
+            const f = document.getElementById('resForm');
+            if (f) f.style.display = f.style.display === 'none' ? 'grid' : 'none';
+        }
+        function onResourceKindChange() {
+            const kind = document.getElementById('resKind').value;
+            document.getElementById('resFile').style.display = kind === 'file' ? '' : 'none';
+            document.getElementById('resUrl').style.display = kind === 'link' ? '' : 'none';
+        }
+        async function submitResource() {
+            const msg = document.getElementById('resMsg');
+            msg.className = 'pw-msg';
+            const title = document.getElementById('resTitle').value.trim();
+            const kind = document.getElementById('resKind').value;
+            if (!title) { msg.textContent = 'Enter a title.'; msg.classList.add('error'); return; }
+            const fd = new FormData();
+            fd.append('title', title);
+            fd.append('description', document.getElementById('resDesc').value.trim());
+            fd.append('kind', kind);
+            if (kind === 'file') {
+                const f = document.getElementById('resFile').files[0];
+                if (!f) { msg.textContent = 'Choose a file.'; msg.classList.add('error'); return; }
+                fd.append('file', f);
+            } else {
+                const u = document.getElementById('resUrl').value.trim();
+                if (!u) { msg.textContent = 'Enter a link.'; msg.classList.add('error'); return; }
+                fd.append('url', u);
+            }
+            msg.textContent = 'Saving…';
+            try {
+                const r = await fetch('/api/resources', { method: 'POST', body: fd });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') { renderResources(); }
+                else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
+            } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
+        }
+        async function deleteResource(id, title) {
+            if (!confirm('Remove “' + title + '”?')) return;
+            try {
+                const r = await fetch('/api/resources/' + encodeURIComponent(id), { method: 'DELETE' });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') renderResources();
+                else alert(d.message || 'Could not remove.');
+            } catch (e) { alert('Network error.'); }
         }
 
         // Load regional structure (leadership + community assignments)
