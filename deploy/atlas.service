@@ -10,7 +10,7 @@ WorkingDirectory=/home/ubuntu/CommunitiesQualifier/app_mantenimiento
 # SECRET_KEY (and any other env) come from this file — create it, do NOT commit it
 EnvironmentFile=-/etc/atlas/atlas.env
 ExecStart=/home/ubuntu/CommunitiesQualifier/.venv/bin/gunicorn \
-    --workers 3 \
+    --workers 2 \
     --bind 127.0.0.1:5001 \
     --timeout 60 \
     app:app

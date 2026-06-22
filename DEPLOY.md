@@ -242,6 +242,47 @@ is ever unset, the app transparently falls back to local disk.
 
 ---
 
+## Inspection emails (Amazon SES)
+
+When `MAIL_FROM` is set, the app emails a summary on every inspection submission
+to the **region's leadership** (their `email` in `regions.json`) plus a fixed
+list (`MAIL_EXTRA_RECIPIENTS`). Disabled by default; submissions are never
+blocked if email is off or fails.
+
+### 1. Verify a sender in SES
+SES console (same region you'll use) → **Verified identities** → create one:
+- Easiest: verify the **domain** `atlasseniorliving.net` (add the DNS records SES
+  gives you). Then you can send from any `@atlasseniorliving.net` address.
+- Or verify a single email like `noreply@atlasseniorliving.net`.
+
+### 2. Leave the SES sandbox
+New SES accounts are in **sandbox** mode (can only send to *verified* addresses,
+low limit). To email real recipients, open SES → **Account dashboard** →
+**Request production access** (usually approved within a day).
+
+### 3. Give the app permission to send
+Add SES send permission to the IAM user (the `atlas-uploader` user works).
+Attach `AmazonSESFullAccess`, or an inline policy:
+```json
+{ "Version": "2012-10-17",
+  "Statement": [{ "Effect":"Allow","Action":["ses:SendEmail","ses:SendRawEmail"],"Resource":"*" }] }
+```
+
+### 4. Add the env vars and restart
+```bash
+echo 'MAIL_FROM=Atlas Standards <noreply@atlasseniorliving.net>' | sudo tee -a /etc/atlas/atlas.env
+echo "SES_REGION=us-east-1"                                       | sudo tee -a /etc/atlas/atlas.env
+echo "MAIL_EXTRA_RECIPIENTS=greg@example.com,angie@example.com"   | sudo tee -a /etc/atlas/atlas.env
+echo "APP_BASE_URL=https://standards.atlasseniorliving.net"       | sudo tee -a /etc/atlas/atlas.env
+sudo systemctl restart atlas
+```
+
+Region-leader recipients come from the `email` fields in `regions.json` — fill
+them via the Regions → leadership editor (each leader has an email field). Until
+they're filled, `MAIL_EXTRA_RECIPIENTS` still receives every email.
+
+---
+
 ## Notes / gotchas
 
 - **Branch name:** the workflow and `deploy.sh` assume `main`. If your default
