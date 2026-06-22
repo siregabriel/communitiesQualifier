@@ -2466,8 +2466,17 @@
                 // Question Manager sidebar), otherwise the default dashboard.
                 const params = new URLSearchParams(window.location.search);
                 const requested = params.get('view');
+                const requestedCommunity = params.get('community');
                 const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'resources', 'settings'];
-                showView(validViews.includes(requested) ? requested : 'dashboard');
+                showView(validViews.includes(requested) ? requested : (requestedCommunity ? 'communities' : 'dashboard'));
+
+                // Deep link from the inspection email: open that community's report.
+                if (requestedCommunity) {
+                    setTimeout(() => {
+                        try { openSlidePanel(requestedCommunity); }
+                        catch (e) { console.error('Deep-link open failed:', e); }
+                    }, 400);
+                }
                 
             } catch (error) { 
                 console.error('Error loading user info:', error);

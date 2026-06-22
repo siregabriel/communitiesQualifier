@@ -122,6 +122,19 @@ USERS_FILE = os.path.join(DATA_FOLDER, 'users.json')
 from services.user_service import UserService
 user_service = UserService(USERS_FILE)
 
+# Email (Amazon SES). Disabled until MAIL_FROM is set, so the app runs fine
+# before email is configured. A failed send never blocks an inspection.
+from services.email_service import EmailService
+_extra = [a for a in os.environ.get('MAIL_EXTRA_RECIPIENTS', '').split(',') if a.strip()]
+email_service = EmailService(
+    mail_from=os.environ.get('MAIL_FROM'),
+    region=os.environ.get('SES_REGION') or AWS_REGION,
+    extra_recipients=_extra,
+    app_base_url=os.environ.get('APP_BASE_URL'),
+)
+app.logger.info('Email: SES enabled' if email_service.enabled
+                else 'Email: disabled (set MAIL_FROM to enable)')
+
 # Avatars folder for uploaded profile photos
 AVATARS_FOLDER = os.path.join(UPLOAD_FOLDER, '..', 'avatars')
 AVATARS_FOLDER = os.path.normpath(AVATARS_FOLDER)
@@ -416,6 +429,16 @@ def regional_communities():
         return []
     region = next((r for r in region_service.get_all_regions() if r.get('id') == region_id), None)
     return list(region.get('communities', [])) if region else []
+
+
+def region_leader_emails(community):
+    """Email addresses of the leadership for the region that owns this community."""
+    for r in region_service.get_all_regions():
+        if community in (r.get('communities') or []):
+            return [(l.get('email') or '').strip()
+                    for l in (r.get('leadership') or [])
+                    if (l.get('email') or '').strip()]
+    return []
 
 
 def resolve_display_name(username):
@@ -2014,6 +2037,17 @@ def submit_inspection():
                 'message': 'Internal server error: Failed to save inspection'
             }), 500
         
+        # Fire off the post-visit summary email (best-effort; never blocks the
+        # response or fails the submission if email is down/unconfigured).
+        if email_service.enabled:
+            try:
+                survey_name = (survey_type_service.get_survey_type_name(submission.get('survey_type_id'))
+                               if submission.get('survey_type_id') else None)
+                recipients = region_leader_emails(submission.get('community'))
+                email_service.send_inspection_report(submission, recipients, survey_name)
+            except Exception as e:
+                app.logger.error(f'Post-visit email step failed: {e}')
+
         # Return success with submission data
         return jsonify({
             'status': 'success',
