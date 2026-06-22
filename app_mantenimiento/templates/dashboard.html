@@ -2542,8 +2542,8 @@
                     switch(view) {
                         case 'dashboard':
                             headerTitle.innerHTML = '<i class="fas fa-gauge-high"></i> Dashboard';
-                            headerDesc.textContent = 'Community Performance Overview';
-                            renderCommunityCards();
+                            headerDesc.textContent = 'Performance Overview';
+                            renderDashboard();
                             break;
                         case 'reports':
                             headerTitle.innerHTML = '<i class="fas fa-chart-line"></i> Reports &amp; Analytics';
@@ -2591,6 +2591,151 @@
                     viewRenderTimer = null;
               }
             }, 30);
+        }
+
+        // ===== Dashboard overview =====
+        function renderDashboard() {
+            const gallery = document.getElementById('gallery');
+            const scoreColor = (v) => (v === null || v === undefined || v === 'N/A') ? '#94a3b8'
+                : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212'));
+            const now = new Date();
+            const inThisMonth = (ts) => {
+                const d = new Date(ts);
+                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+            };
+
+            // --- KPIs ---
+            const scored = communityData.filter(c => typeof c.score === 'number');
+            const avgScore = scored.length ? Math.round(scored.reduce((s, c) => s + c.score, 0) / scored.length) : null;
+            const totalActions = communityData.reduce((s, c) => s + (c.actionItems || 0), 0);
+            const totalComms = communityData.length;
+            const visitedThisMonth = communityData.filter(c => c.lastVisitTs && inThisMonth(c.lastVisitTs)).length;
+            const inspectionsThisMonth = (allSubmissions || []).filter(s => s.submitted_at && inThisMonth(s.submitted_at)).length;
+
+            const kpis = [
+                { val: avgScore === null ? 'N/A' : avgScore + '%', lbl: 'Average score', color: scoreColor(avgScore) },
+                { val: `${visitedThisMonth}/${totalComms}`, lbl: 'Visited this month', color: '#00285c' },
+                { val: totalActions, lbl: 'Open action items', color: totalActions > 0 ? '#d13212' : '#0f8a5f' },
+                { val: inspectionsThisMonth, lbl: 'Inspections this month', color: '#00285c' },
+            ];
+            const kpiHtml = kpis.map(k =>
+                `<div class="kpi"><div class="kpi-val" style="color:${k.color}">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`
+            ).join('');
+
+            // --- Needs attention ---
+            const attention = communityData
+                .filter(c => (typeof c.score === 'number' && c.score < 75) || (c.actionItems || 0) > 0)
+                .sort((a, b) => {
+                    const sa = typeof a.score === 'number' ? a.score : 101;
+                    const sb = typeof b.score === 'number' ? b.score : 101;
+                    return sa !== sb ? sa - sb : (b.actionItems || 0) - (a.actionItems || 0);
+                }).slice(0, 6);
+            const attentionHtml = attention.length ? attention.map(c => {
+                const safe = c.name.replace(/'/g, "\\'");
+                const acts = c.actionItems || 0;
+                return `<div class="dash-row" onclick="openSlidePanel('${safe}')">
+                    <div class="dash-row-main"><div class="dash-row-name">${escapeHtml(c.name)}</div>
+                    <div class="dash-row-sub">Last visit: ${escapeHtml(c.lastVisit)}</div></div>
+                    ${acts > 0 ? `<span class="dash-pill">${acts} action${acts > 1 ? 's' : ''}</span>` : ''}
+                    <span class="dash-score" style="color:${scoreColor(typeof c.score === 'number' ? c.score : null)}">${typeof c.score === 'number' ? c.score + '%' : 'N/A'}</span>
+                    <i class="fas fa-chevron-right dash-chev"></i></div>`;
+            }).join('') : '<div class="dash-empty">Everything looks good — no communities need attention.</div>';
+
+            // --- By region ---
+            const byCommunity = {};
+            communityData.forEach(c => byCommunity[c.name] = c);
+            const regionRows = (regions || []).filter(r => r.id !== 'unassigned').map(r => {
+                let sum = 0, cnt = 0, act = 0, has = 0;
+                (r.communities || []).forEach(n => {
+                    const c = byCommunity[n];
+                    if (c) { has++; if (typeof c.score === 'number') { sum += c.score; cnt++; } act += (c.actionItems || 0); }
+                });
+                return { name: r.name, avg: cnt ? Math.round(sum / cnt) : null, actions: act, count: has };
+            }).filter(r => r.count > 0);
+            const regionHtml = regionRows.length ? regionRows.map(r =>
+                `<div class="dash-bars-row">
+                    <div class="dash-bars-label">${escapeHtml(r.name)} <span class="dash-muted">${r.count}</span></div>
+                    <div class="dash-bar"><div class="dash-bar-fill" style="width:${r.avg || 0}%;background:${scoreColor(r.avg)}"></div></div>
+                    <div class="dash-bars-val"><span style="color:${scoreColor(r.avg)}">${r.avg === null ? 'N/A' : r.avg + '%'}</span>${r.actions > 0 ? ` <span class="dash-muted-red">${r.actions}!</span>` : ''}</div>
+                </div>`).join('') : '<div class="dash-empty">No regional data yet.</div>';
+
+            // --- Weakest standards (most-failed items) ---
+            const qStats = {};
+            (allSubmissions || []).forEach(s => (s.responses || []).forEach(r => {
+                const q = r.question_text || 'Item';
+                if (!qStats[q]) qStats[q] = { fail: 0, total: 0 };
+                qStats[q].total++;
+                if (r.condition === 'Fail') qStats[q].fail++;
+            }));
+            const weakest = Object.entries(qStats)
+                .map(([q, v]) => ({ q, fail: v.fail, total: v.total, rate: v.total ? Math.round(v.fail / v.total * 100) : 0 }))
+                .filter(x => x.fail > 0)
+                .sort((a, b) => b.fail - a.fail || b.rate - a.rate).slice(0, 5);
+            const weakestHtml = weakest.length ? weakest.map(x =>
+                `<div class="dash-bars-row">
+                    <div class="dash-bars-label dash-bars-label-wide">${escapeHtml(x.q)}</div>
+                    <div class="dash-bar"><div class="dash-bar-fill" style="width:${x.rate}%;background:#d13212"></div></div>
+                    <div class="dash-bars-val"><span class="dash-muted-red">${x.fail} fail${x.fail > 1 ? 's' : ''}</span></div>
+                </div>`).join('') : '<div class="dash-empty">No failed items recorded yet.</div>';
+
+            // --- Recent activity ---
+            const recent = (allSubmissions || []).slice()
+                .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 5);
+            const recentHtml = recent.length ? recent.map(s => {
+                const score = calculateCommunityScore(s.responses || []);
+                const nm = s.inspector_name || s.username || 'Unknown';
+                const safe = (s.community || '').replace(/'/g, "\\'");
+                return `<div class="dash-row" onclick="openSlidePanel('${safe}')">
+                    <div class="dash-avatar" style="background:${avatarColor(nm)}">${profileInitials(nm)}</div>
+                    <div class="dash-row-main"><div class="dash-row-name">${escapeHtml(s.community || 'Unknown')}</div>
+                    <div class="dash-row-sub">${escapeHtml(nm)} · ${escapeHtml(formatDate(s.submitted_at))}</div></div>
+                    <span class="dash-score" style="color:${scoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span>
+                    <i class="fas fa-chevron-right dash-chev"></i></div>`;
+            }).join('') : '<div class="dash-empty">No inspections recorded yet.</div>';
+
+            gallery.innerHTML = `
+            <style>
+                .dash-wrap { grid-column: 1 / -1; display: grid; gap: 20px; }
+                .dash-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+                .kpi { background: #fff; border: 1px solid #d9dfe8; border-radius: 10px; padding: 18px 20px; }
+                .kpi-val { font-size: 30px; font-weight: 800; line-height: 1; }
+                .kpi-lbl { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; margin-top: 8px; }
+                .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                .dash-card { background: #fff; border: 1px solid #d9dfe8; border-radius: 10px; padding: 18px 20px; }
+                .dash-card h3 { font-size: 15px; font-weight: 800; color: #0f1e36; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+                .dash-card h3 i { color: #1f6fe5; }
+                .dash-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #eef1f6; cursor: pointer; }
+                .dash-row:first-of-type { border-top: none; }
+                .dash-row:hover { background: rgba(0,40,92,.03); margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 8px; }
+                .dash-row-main { flex: 1; min-width: 0; }
+                .dash-row-name { font-weight: 700; font-size: 14px; color: #0f1e36; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .dash-row-sub { font-size: 12px; color: #6b7280; }
+                .dash-score { font-weight: 800; font-size: 14px; flex-shrink: 0; }
+                .dash-pill { background: #fef2f2; color: #d13212; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; }
+                .dash-chev { color: #c2cad6; font-size: 12px; flex-shrink: 0; }
+                .dash-avatar { width: 34px; height: 34px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+                .dash-bars-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+                .dash-bars-label { width: 120px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: #0f1e36; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .dash-bars-label-wide { width: 200px; font-weight: 600; }
+                .dash-bar { flex: 1; height: 8px; background: #eef1f6; border-radius: 999px; overflow: hidden; }
+                .dash-bar-fill { height: 100%; border-radius: 999px; }
+                .dash-bars-val { width: 78px; text-align: right; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+                .dash-muted { color: #9ca3af; font-weight: 500; font-size: 12px; }
+                .dash-muted-red { color: #d13212; }
+                .dash-empty { color: #6b7280; font-size: 13px; padding: 8px 0; }
+                @media (max-width: 820px) { .dash-grid { grid-template-columns: 1fr; } .dash-bars-label-wide { width: 140px; } }
+            </style>
+            <div class="dash-wrap">
+                <div class="dash-kpis">${kpiHtml}</div>
+                <div class="dash-grid">
+                    <div class="dash-card"><h3><i class="fas fa-triangle-exclamation"></i> Needs attention</h3>${attentionHtml}</div>
+                    <div class="dash-card"><h3><i class="fas fa-sitemap"></i> Performance by region</h3>${regionHtml}</div>
+                </div>
+                <div class="dash-grid">
+                    <div class="dash-card"><h3><i class="fas fa-clipboard-check"></i> Weakest standards</h3>${weakestHtml}</div>
+                    <div class="dash-card"><h3><i class="fas fa-clock-rotate-left"></i> Recent activity</h3>${recentHtml}</div>
+                </div>
+            </div>`;
         }
 
         function renderMyVisits() {
