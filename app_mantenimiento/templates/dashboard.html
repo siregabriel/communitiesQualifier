@@ -1718,7 +1718,7 @@
                     conditionIcon: getBadgeIcon(inspection.condition),
                     questionText: inspection.question_text || inspection.questionText || 'N/A',
                     description: inspection.description || '',
-                    photoPath: inspection.photo_path || inspection.photoPath || null,
+                    photoPath: inspection.photo_url || inspection.photo_path || inspection.photoPath || null,
                     timestamp: inspection.submitted_at || inspection.timestamp || ''
                 }));
             
@@ -1743,7 +1743,7 @@
             for (const inspection of inspections) {
                 if (!inspection) continue;
                 
-                const photoPath = inspection.photo_path || inspection.photoPath;
+                const photoPath = inspection.photo_url || inspection.photo_path || inspection.photoPath;
                 
                 if (photoPath && photoPath.trim() !== '') {
                     // Deduplicate by path

@@ -75,9 +75,24 @@ INSPECTIONS_FILE = os.path.join(DATA_FOLDER, 'inspections.json')
 from services.inspection_service import InspectionService
 inspection_service = InspectionService(INSPECTIONS_FILE, UPLOAD_FOLDER)
 
-# Initialize FileUploadHandler
+# Initialize FileUploadHandler.
+# If S3_BUCKET is set, photos are stored privately in S3 and served via signed
+# URLs; otherwise they fall back to the local static/uploads folder. This keeps
+# the app working in dev / before the bucket is configured.
 from services.file_upload_handler import FileUploadHandler
-file_upload_handler = FileUploadHandler(UPLOAD_FOLDER)
+S3_BUCKET = os.environ.get('S3_BUCKET', '').strip() or None
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+S3_URL_EXPIRY = int(os.environ.get('S3_URL_EXPIRY', '3600'))
+file_upload_handler = FileUploadHandler(
+    UPLOAD_FOLDER,
+    s3_bucket=S3_BUCKET,
+    region=AWS_REGION,
+    url_expiry=S3_URL_EXPIRY,
+)
+if S3_BUCKET:
+    app.logger.info(f'Photo storage: S3 bucket "{S3_BUCKET}" ({AWS_REGION})')
+else:
+    app.logger.info('Photo storage: local static/uploads (set S3_BUCKET to use S3)')
 
 # Initialize SurveyTypeService
 SURVEY_TYPES_FILE = os.path.join(DATA_FOLDER, 'survey_types.json')
@@ -2081,11 +2096,22 @@ def get_inspections():
 
         # Enrich with a friendly inspector name. Prefer the name stored on the
         # submission (captured at visit time), else resolve from the username.
+        # When photos live in S3, also attach a short-lived signed URL to each
+        # response so the private objects can be displayed.
         enriched = []
         for sub in submissions:
             uname = sub.get('username', '')
             name = sub.get('inspector_name') or resolve_display_name(uname)
-            enriched.append({**sub, 'inspector_name': name})
+            new_sub = {**sub, 'inspector_name': name}
+            if file_upload_handler.use_s3 and isinstance(sub.get('responses'), list):
+                new_responses = []
+                for resp in sub['responses']:
+                    r = dict(resp)
+                    if r.get('photo_path'):
+                        r['photo_url'] = file_upload_handler.generate_presigned_url(r['photo_path'])
+                    new_responses.append(r)
+                new_sub['responses'] = new_responses
+            enriched.append(new_sub)
 
         return jsonify({
             'status': 'success',

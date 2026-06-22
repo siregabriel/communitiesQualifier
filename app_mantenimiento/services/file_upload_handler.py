@@ -4,32 +4,89 @@ Handles file validation, secure filename generation, and file storage
 """
 
 import os
+import logging
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from typing import Tuple
+
+logger = logging.getLogger(__name__)
+
+# MIME type per extension (for correct in-browser rendering from S3)
+_CONTENT_TYPES = {
+    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+    'gif': 'image/gif', 'webp': 'image/webp',
+}
 
 
 class FileUploadHandler:
     """
     Handles file upload operations including validation, secure filename generation,
     and community-based folder organization.
+
+    Storage backend is selected at construction:
+      - If an S3 bucket is provided, files are uploaded to S3 (private) and served
+        via short-lived presigned URLs.
+      - Otherwise files are saved to the local upload folder and served from /static.
+    Stored path format is identical in both modes ("<community>/<filename>"), so the
+    rest of the app doesn't care which backend is active. For S3 the object key is
+    that path prefixed with "uploads/".
     """
-    
+
     # Allowed file extensions for uploads
     ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
-    
+
     # Maximum file size in bytes (16MB)
     MAX_FILE_SIZE = 16 * 1024 * 1024
-    
-    def __init__(self, upload_folder: str):
+
+    # Prefix used for all object keys in the bucket
+    S3_PREFIX = 'uploads'
+
+    def __init__(self, upload_folder: str, s3_bucket: str = None,
+                 region: str = None, url_expiry: int = 3600):
         """
-        Initialize the FileUploadHandler with the base upload folder path.
-        
+        Initialize the FileUploadHandler.
+
         Args:
-            upload_folder: Base path for file uploads
+            upload_folder: Base path for local file uploads (fallback / dev)
+            s3_bucket: If set, uploads go to this S3 bucket (private)
+            region: AWS region for the bucket
+            url_expiry: Lifetime (seconds) of generated presigned URLs
         """
         self.upload_folder = upload_folder
-        
+        self.s3_bucket = s3_bucket or None
+        self.region = region
+        self.url_expiry = url_expiry
+        self.use_s3 = bool(self.s3_bucket)
+        self._s3 = None  # lazy boto3 client
+
+    @property
+    def s3(self):
+        if self._s3 is None:
+            import boto3
+            self._s3 = boto3.client('s3', region_name=self.region)
+        return self._s3
+
+    def _s3_key(self, relative_path: str) -> str:
+        """Map a stored relative path to its full S3 object key."""
+        rel = (relative_path or '').lstrip('/')
+        if rel.startswith(self.S3_PREFIX + '/'):
+            return rel
+        return f"{self.S3_PREFIX}/{rel}"
+
+    def generate_presigned_url(self, relative_path: str):
+        """Return a short-lived signed GET URL for a stored photo, or None."""
+        if not self.use_s3 or not relative_path:
+            return None
+        try:
+            return self.s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': self.s3_bucket, 'Key': self._s3_key(relative_path)},
+                ExpiresIn=self.url_expiry,
+            )
+        except Exception as e:
+            logger.error(f'Could not presign {relative_path}: {e}')
+            return None
+
     def validate_file(self, file) -> Tuple[bool, str]:
         """
         Validate file type and size.
@@ -78,27 +135,31 @@ class FileUploadHandler:
         Raises:
             IOError: If file cannot be saved to disk
         """
+        # Generate a clean, URL-safe filename (no spaces/commas)
+        timestamp = int(datetime.now().timestamp())
+        file_ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+        safe_community = secure_filename(community)
+        filename = f"{secure_filename(username)}_{timestamp}.{file_ext}"
+        relative_path = f"{safe_community}/{filename}"
+
+        if self.use_s3:
+            try:
+                content_type = _CONTENT_TYPES.get(file_ext, 'application/octet-stream')
+                file.seek(0)
+                self.s3.upload_fileobj(
+                    file,
+                    self.s3_bucket,
+                    self._s3_key(relative_path),
+                    ExtraArgs={'ContentType': content_type},
+                )
+                return relative_path
+            except Exception as e:
+                raise IOError(f"Failed to upload file to S3: {str(e)}")
+
         try:
-            # Ensure community folder exists
             community_folder_path = self.ensure_community_folder(community)
-            
-            # Generate secure filename
-            timestamp = int(datetime.now().timestamp())
-            file_ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
-            filename = f"{username}_{community}_{timestamp}.{file_ext}"
-            
-            # Full path for saving
             full_path = os.path.join(community_folder_path, filename)
-            
-            # Save the file
             file.save(full_path)
-            
-            # Return relative path from upload folder
-            relative_path = os.path.join(
-                secure_filename(community),
-                filename
-            )
-            
             return relative_path
         except (OSError, IOError) as e:
             raise IOError(f"Failed to save file: {str(e)}")

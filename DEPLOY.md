@@ -186,6 +186,62 @@ is built into the profile, and it stores a secure hash):
 
 ---
 
+## Photo storage in S3 (private + signed URLs)
+
+By default, inspection photos are saved on the instance disk under
+`static/uploads/`. To store them durably in S3 (recommended for production),
+set `S3_BUCKET` and AWS credentials — the app then uploads photos privately and
+serves them via short-lived signed URLs. No code change needed; it's env-driven.
+
+### 1. Create the bucket
+AWS console → **S3** → **Create bucket**:
+- Name e.g. `atlas-standards-uploads`, Region **us-east-1** (same as the instance).
+- **Block all public access: ON** (keep it private — the app signs URLs).
+- Create.
+
+### 2. Create an IAM user limited to that bucket
+IAM → **Users → Create user** (e.g. `atlas-uploader`), no console access.
+Attach an inline policy (replace the bucket name):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Action": ["s3:PutObject","s3:GetObject"],
+      "Resource": "arn:aws:s3:::atlas-standards-uploads/*" },
+    { "Effect": "Allow", "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::atlas-standards-uploads" }
+  ]
+}
+```
+
+Then **Create access key** (type: Application running outside AWS) and copy the
+**Access key ID** and **Secret access key**.
+
+### 3. Add the env vars on the server
+Append to `/etc/atlas/atlas.env`, then restart:
+
+```bash
+echo "S3_BUCKET=atlas-standards-uploads"  | sudo tee -a /etc/atlas/atlas.env
+echo "AWS_REGION=us-east-1"               | sudo tee -a /etc/atlas/atlas.env
+echo "AWS_ACCESS_KEY_ID=PASTE_KEY_ID"     | sudo tee -a /etc/atlas/atlas.env
+echo "AWS_SECRET_ACCESS_KEY=PASTE_SECRET" | sudo tee -a /etc/atlas/atlas.env
+sudo systemctl restart atlas
+```
+
+### 4. Migrate existing photos (one-time)
+After the code is deployed (it installs `boto3`) and the env is set:
+
+```bash
+cd /home/ubuntu/CommunitiesQualifier/app_mantenimiento
+sudo -E env $(cat /etc/atlas/atlas.env | xargs) .venv/bin/python scripts/migrate_uploads_to_s3.py
+```
+
+New uploads go straight to S3; migrated photos keep displaying. If `S3_BUCKET`
+is ever unset, the app transparently falls back to local disk.
+
+---
+
 ## Notes / gotchas
 
 - **Branch name:** the workflow and `deploy.sh` assume `main`. If your default
