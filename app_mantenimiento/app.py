@@ -1111,6 +1111,74 @@ def standards_print():
     return render_template('standards_print.html', questions=questions)
 
 
+@app.route('/standards/pdf')
+@login_required
+def standards_pdf():
+    """Server-generated PDF of all standards — reliable download (no browser print)."""
+    import os
+    import html as _html
+    from io import BytesIO
+    from reportlab.lib.pagesizes import LETTER
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                    ListFlowable, ListItem, Image, HRFlowable)
+
+    questions = question_manager.get_all_active_questions()
+    navy = colors.HexColor('#00285c')
+    styles = getSampleStyleSheet()
+    s_title = ParagraphStyle('t', parent=styles['Title'], textColor=navy, fontSize=18, alignment=0, spaceAfter=2)
+    s_sub = ParagraphStyle('s', parent=styles['Normal'], textColor=colors.HexColor('#6b7280'), fontSize=10, spaceAfter=14)
+    s_h = ParagraphStyle('h', parent=styles['Heading2'], textColor=navy, fontSize=13, spaceBefore=14, spaceAfter=4)
+    s_lbl = ParagraphStyle('l', parent=styles['Normal'], textColor=colors.HexColor('#94a3b8'), fontSize=8, spaceBefore=6, spaceAfter=2)
+    s_body = ParagraphStyle('b', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#334155'))
+
+    def esc(x):
+        return _html.escape(str(x or '')).replace('\n', '<br/>')
+
+    story = []
+    logo = os.path.join(os.path.dirname(__file__), 'static', 'atlas-logo.png')
+    if os.path.exists(logo):
+        try:
+            img = Image(logo)
+            ratio = img.imageWidth / float(img.imageHeight)
+            img.drawHeight = 0.45 * inch
+            img.drawWidth = 0.45 * inch * ratio
+            img.hAlign = 'LEFT'
+            story += [img, Spacer(1, 8)]
+        except Exception:
+            pass
+    story.append(Paragraph('Inspection Standards &amp; Pass Criteria', s_title))
+    story.append(Paragraph('Atlas Senior Living &mdash; Communities Standards', s_sub))
+
+    for i, q in enumerate(questions, 1):
+        story.append(Paragraph(f"{i}. {esc(q.get('text'))}", s_h))
+        crit = q.get('pass_criteria') or []
+        if crit:
+            story.append(Paragraph('TO PASS, MUST INCLUDE', s_lbl))
+            story.append(ListFlowable(
+                [ListItem(Paragraph(esc(c), s_body), leftIndent=12) for c in crit],
+                bulletType='bullet', start='•', leftIndent=16))
+        g = (q.get('interpretive_guideline') or '').strip()
+        if g:
+            story.append(Paragraph('INTERPRETIVE GUIDELINE', s_lbl))
+            story.append(Paragraph(esc(g), s_body))
+        story.append(Spacer(1, 8))
+        story.append(HRFlowable(width='100%', color=colors.HexColor('#eef1f6')))
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=LETTER, title='Atlas Standards',
+                            topMargin=0.6 * inch, bottomMargin=0.6 * inch,
+                            leftMargin=0.7 * inch, rightMargin=0.7 * inch)
+    doc.build(story)
+    pdf = buf.getvalue()
+    buf.close()
+    from flask import Response
+    return Response(pdf, mimetype='application/pdf',
+                    headers={'Content-Disposition': 'attachment; filename="Atlas-Standards.pdf"'})
+
+
 @app.route('/api/resources', methods=['GET'])
 @login_required
 def list_resources():
