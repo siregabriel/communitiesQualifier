@@ -461,6 +461,17 @@ def region_leader_emails(community):
             if (l.get('email') or '').strip()]
 
 
+def leadership_names():
+    """All distinct regional leadership names (people who perform inspections)."""
+    names = set()
+    for r in region_service.get_all_regions():
+        for l in (r.get('leadership') or []):
+            n = (l.get('name') or '').strip()
+            if n and n.lower() != 'open':
+                names.add(n)
+    return sorted(names)
+
+
 def resolve_display_name(username):
     """Friendly name for a username (profile override, regional, or username)."""
     if not username:
@@ -1237,6 +1248,7 @@ def get_email_settings():
                for r in region_service.get_all_regions() if r.get('id') != 'unassigned']
     return jsonify({'status': 'success', 'subscribers': s['subscribers'],
                     'admin_notify': s['admin_notify'], 'regions': regions,
+                    'inspectors': leadership_names(),
                     'email_enabled': email_service.enabled}), 200
 
 
@@ -1247,18 +1259,21 @@ def save_email_settings():
     if current_role() != 'admin':
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
-    # keep only real region ids in each subscriber's scope
+    # keep only real region ids and known inspector names in each subscriber's scope
     valid_ids = {r.get('id') for r in region_service.get_all_regions() if r.get('id') != 'unassigned'}
+    valid_names = set(leadership_names())
     subs = []
     for s in (data.get('subscribers') or []):
         if not isinstance(s, dict):
             continue
         regions = [rid for rid in (s.get('regions') or []) if rid in valid_ids]
-        subs.append({'email': s.get('email', ''), 'name': s.get('name', ''), 'regions': regions})
+        inspectors = [n for n in (s.get('inspectors') or []) if n in valid_names]
+        subs.append({'email': s.get('email', ''), 'name': s.get('name', ''),
+                     'regions': regions, 'inspectors': inspectors})
     saved = settings_service.set_email_settings(subscribers=subs, admin_notify=data.get('admin_notify', ''))
     regions = [{'id': r.get('id'), 'name': r.get('name')}
                for r in region_service.get_all_regions() if r.get('id') != 'unassigned']
-    return jsonify({'status': 'success', 'regions': regions, **saved}), 200
+    return jsonify({'status': 'success', 'regions': regions, 'inspectors': leadership_names(), **saved}), 200
 
 
 @app.route('/api/user-info')
@@ -2260,7 +2275,8 @@ def submit_inspection():
                 region = region_for_community(community)
                 region_id = region.get('id') if region else None
                 recipients = region_leader_emails(community)
-                recipients += settings_service.recipients_for_region(region_id)
+                recipients += settings_service.recipients_for_inspection(
+                    region_id, submission.get('inspector_name'))
                 email_service.send_inspection_report(submission, recipients, survey_name)
             except Exception as e:
                 app.logger.error(f'Post-visit email step failed: {e}')

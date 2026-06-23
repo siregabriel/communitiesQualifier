@@ -55,7 +55,8 @@ class SettingsService(JsonFileBacked):
 
     @staticmethod
     def _normalize_subscribers(subs):
-        """Each subscriber: {email, name, regions:[ids]}. Empty regions = all."""
+        """Each subscriber: {email, name, regions:[ids], inspectors:[names]}.
+        Empty regions AND empty inspectors = subscribed to everything."""
         out, seen = [], set()
         for s in (subs or []):
             if not isinstance(s, dict):
@@ -64,9 +65,10 @@ class SettingsService(JsonFileBacked):
             if not _EMAIL_RE.match(email) or email.lower() in seen:
                 continue
             seen.add(email.lower())
-            regions = s.get('regions') or []
-            regions = [r for r in regions if isinstance(r, str) and r]
-            out.append({'email': email, 'name': (s.get('name') or '').strip(), 'regions': regions})
+            regions = [r for r in (s.get('regions') or []) if isinstance(r, str) and r]
+            inspectors = [i.strip() for i in (s.get('inspectors') or []) if isinstance(i, str) and i.strip()]
+            out.append({'email': email, 'name': (s.get('name') or '').strip(),
+                        'regions': regions, 'inspectors': inspectors})
         return out
 
     def get_email_settings(self) -> dict:
@@ -94,11 +96,18 @@ class SettingsService(JsonFileBacked):
             self._save()
             return self.get_email_settings()
 
-    def recipients_for_region(self, region_id) -> list:
-        """Subscriber emails whose scope covers this region (empty scope = all)."""
+    def recipients_for_inspection(self, region_id, inspector_name=None) -> list:
+        """Subscriber emails whose scope covers this inspection.
+        empty regions AND empty inspectors = everything; otherwise match on
+        the inspection's region OR its inspector."""
         out = []
         for s in self.get_email_settings()['subscribers']:
-            if not s['regions'] or (region_id and region_id in s['regions']):
+            regions = s.get('regions') or []
+            inspectors = s.get('inspectors') or []
+            match = (not regions and not inspectors) \
+                or (region_id and region_id in regions) \
+                or (inspector_name and inspector_name in inspectors)
+            if match and s['email'] not in out:
                 out.append(s['email'])
         return out
 

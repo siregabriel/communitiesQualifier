@@ -3693,11 +3693,17 @@
         }
 
         let esRegions = [];
+        let esInspectors = [];
         function subscriberRowHtml(sub) {
-            sub = sub || { email: '', name: '', regions: [] };
-            const all = !sub.regions || sub.regions.length === 0;
-            const checks = esRegions.map(r =>
-                `<label style="font-size:13px;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" class="sub-region" value="${escapeHtml(r.id)}" ${(sub.regions || []).includes(r.id) ? 'checked' : ''}> ${escapeHtml(r.name)}</label>`
+            sub = sub || { email: '', name: '', regions: [], inspectors: [] };
+            const subRegions = sub.regions || [];
+            const subInsp = sub.inspectors || [];
+            const all = subRegions.length === 0 && subInsp.length === 0;
+            const regionChecks = esRegions.map(r =>
+                `<label style="font-size:13px;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" class="sub-region" value="${escapeHtml(r.id)}" ${subRegions.includes(r.id) ? 'checked' : ''}> ${escapeHtml(r.name)}</label>`
+            ).join('');
+            const inspChecks = esInspectors.map(n =>
+                `<label style="font-size:13px;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" ${subInsp.includes(n) ? 'checked' : ''}> ${escapeHtml(n)}</label>`
             ).join('');
             return `<div class="sub-row" style="border:1px solid #d9dfe8;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
                 <div style="display:flex;gap:8px;align-items:center;">
@@ -3705,16 +3711,18 @@
                     <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;">
                     <button class="res-del" type="button" title="Remove" onclick="removeSubRow(this)"><i class="fas fa-trash"></i></button>
                 </div>
-                <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
-                    <label style="font-size:13px;font-weight:700;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}> All regions</label>
-                    <span class="sub-region-list" style="display:${all ? 'none' : 'flex'};flex-wrap:wrap;gap:12px;">${checks}</span>
+                <label style="font-size:13px;font-weight:700;display:inline-flex;gap:4px;align-items:center;margin-top:8px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}> All inspections</label>
+                <div class="sub-detail" style="display:${all ? 'none' : 'block'};margin-top:6px;">
+                    <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">By region</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;">${regionChecks}</div>
+                    ${inspChecks ? `<div style="font-size:12px;color:#6b7280;margin:8px 0 4px;">By inspector</div><div style="display:flex;flex-wrap:wrap;gap:12px;">${inspChecks}</div>` : ''}
                 </div>
             </div>`;
         }
         function onSubAllChange(chk) {
             const row = chk.closest('.sub-row');
-            const list = row.querySelector('.sub-region-list');
-            list.style.display = chk.checked ? 'none' : 'flex';
+            const detail = row.querySelector('.sub-detail');
+            if (detail) detail.style.display = chk.checked ? 'none' : 'block';
         }
         function addSubscriberRow(sub) {
             const wrap = document.getElementById('esSubscribers');
@@ -3730,6 +3738,7 @@
                 const d = await r.json();
                 if (!r.ok || d.status !== 'success') return;
                 esRegions = d.regions || [];
+                esInspectors = d.inspectors || [];
                 const wrap = document.getElementById('esSubscribers');
                 if (wrap) {
                     const subs = (d.subscribers && d.subscribers.length) ? d.subscribers : [null];
@@ -3752,7 +3761,8 @@
                 const name = row.querySelector('.sub-name').value.trim();
                 const all = row.querySelector('.sub-all').checked;
                 const regions = all ? [] : Array.from(row.querySelectorAll('.sub-region:checked')).map(c => c.value);
-                subs.push({ email, name, regions });
+                const inspectors = all ? [] : Array.from(row.querySelectorAll('.sub-inspector:checked')).map(c => c.value);
+                subs.push({ email, name, regions, inspectors });
             });
             try {
                 const r = await fetch('/api/settings/email', {
@@ -3762,6 +3772,7 @@
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
                     esRegions = d.regions || esRegions;
+                    esInspectors = d.inspectors || esInspectors;
                     const wrap = document.getElementById('esSubscribers');
                     const list = (d.subscribers && d.subscribers.length) ? d.subscribers : [null];
                     if (wrap) wrap.innerHTML = list.map(s => subscriberRowHtml(s)).join('');
