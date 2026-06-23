@@ -3632,6 +3632,7 @@
                             <div class="usermgmt">
                                 <div class="usermgmt-form">
                                     <input id="newUserName" class="pw-input" placeholder="Full name" maxlength="80">
+                                    <input id="newUserEmail" class="pw-input" type="email" placeholder="Email (sends them their login)" maxlength="120">
                                     <select id="newUserRole" class="pw-input" onchange="onNewUserRoleChange()">
                                         <option value="staff">Staff — one community</option>
                                         <option value="admin">Administrator — full access</option>
@@ -3664,6 +3665,21 @@
                             </div>
                         </div>
                     </div>
+                    ${admin ? `
+                    <div class="profile-section">
+                        <div class="profile-section-title"><i class="fas fa-envelope"></i> Email &amp; notifications</div>
+                        <div style="display:grid; gap:10px; max-width:520px;">
+                            <label style="font-size:13px;font-weight:700;color:#0f1e36;">Always copy on every inspection email <span style="font-weight:500;color:#6b7280;">(plus the community's region leaders)</span></label>
+                            <textarea id="esInspectionCc" class="pw-input" rows="3" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
+                            <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Notify when a new user is created</label>
+                            <textarea id="esAdminNotify" class="pw-input" rows="3" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <button class="btn btn-primary" onclick="saveEmailSettings()"><i class="fas fa-floppy-disk"></i> Save</button>
+                                <span class="pw-msg" id="esMsg"></span>
+                            </div>
+                            <div id="esNote" style="font-size:12px;color:#9ca3af;"></div>
+                        </div>
+                    </div>` : ''}
                 </div>
             `;
 
@@ -3671,7 +3687,42 @@
                 populateUserFormOptions();
                 onNewUserRoleChange();
                 loadManagedUsers();
+                loadEmailSettings();
             }
+        }
+
+        async function loadEmailSettings() {
+            try {
+                const r = await fetch('/api/settings/email');
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') return;
+                const cc = document.getElementById('esInspectionCc');
+                const an = document.getElementById('esAdminNotify');
+                if (cc) cc.value = (d.inspection_cc || []).join('\n');
+                if (an) an.value = (d.admin_notify || []).join('\n');
+                const note = document.getElementById('esNote');
+                if (note && !d.email_enabled) note.textContent = 'Email sending is not configured on the server yet (MAIL_FROM unset).';
+            } catch (e) { console.error('email settings load:', e); }
+        }
+        async function saveEmailSettings() {
+            const msg = document.getElementById('esMsg');
+            msg.className = 'pw-msg';
+            msg.textContent = 'Saving…';
+            try {
+                const r = await fetch('/api/settings/email', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        inspection_cc: document.getElementById('esInspectionCc').value,
+                        admin_notify: document.getElementById('esAdminNotify').value,
+                    })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    document.getElementById('esInspectionCc').value = (d.inspection_cc || []).join('\n');
+                    document.getElementById('esAdminNotify').value = (d.admin_notify || []).join('\n');
+                    msg.textContent = 'Saved.'; msg.classList.add('ok');
+                } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
+            } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
         }
 
         // ---- User management (admin only) -------------------------------
@@ -3716,8 +3767,10 @@
 
         async function createUser() {
             const nameEl = document.getElementById('newUserName');
+            const emailEl = document.getElementById('newUserEmail');
             const msg = document.getElementById('createUserMsg');
             const name = (nameEl.value || '').trim();
+            const email = (emailEl.value || '').trim();
             const role = document.getElementById('newUserRole').value;
             const community = document.getElementById('newUserCommunity').value;
             const region_id = document.getElementById('newUserRegion').value;
@@ -3727,6 +3780,7 @@
             if (role === 'regional' && !region_id) { msg.textContent = 'Pick a region.'; msg.classList.add('error'); return; }
 
             const body = { display_name: name, role: role };
+            if (email) body.email = email;
             if (role === 'staff') body.community = community;
             if (role === 'regional') body.region_id = region_id;
 
@@ -3739,7 +3793,9 @@
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
                     nameEl.value = '';
-                    showCredentialBox(d.display_name, d.username, d.password, 'Account created');
+                    emailEl.value = '';
+                    const heading = d.emailed ? 'Account created — login emailed' : 'Account created';
+                    showCredentialBox(d.display_name, d.username, d.password, heading);
                     loadManagedUsers();
                 } else {
                     msg.textContent = d.message || 'Could not create user.';

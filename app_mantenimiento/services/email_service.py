@@ -156,6 +156,95 @@ class EmailService:
 
         return subject, html_body, text
 
+    def _shell(self, heading, body_html):
+        """Wrap body in the branded card (logo band + navy header)."""
+        def esc(s):
+            return html.escape(str(s or ''))
+        logo_url = f"{self.app_base_url}/static/atlas-logo.png" if self.app_base_url else None
+        logo_band = (
+            f"<div style='background:#fff;border:1px solid #d9dfe8;border-bottom:none;"
+            f"border-radius:10px 10px 0 0;padding:16px 24px;text-align:center'>"
+            f"<img src='{esc(logo_url)}' alt='Atlas Senior Living' style='height:34px'></div>"
+        ) if logo_url else ""
+        navy_radius = "0" if logo_band else "10px 10px 0 0"
+        return f"""\
+<div style="font-family:Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f1e36">
+  {logo_band}
+  <div style="background:#00285c;color:#fff;padding:18px 24px;border-radius:{navy_radius}">
+    <div style="font-size:12px;letter-spacing:.5px;opacity:.85">COMMUNITIES STANDARDS</div>
+    <div style="font-size:20px;font-weight:800;margin-top:4px">{esc(heading)}</div>
+  </div>
+  <div style="background:#fff;border:1px solid #d9dfe8;border-top:none;border-radius:0 0 10px 10px;padding:22px 24px">
+    {body_html}
+  </div>
+  <div style="color:#9ca3af;font-size:11px;text-align:center;padding:14px">Atlas Senior Living — Communities Standards</div>
+</div>"""
+
+    def _send(self, recipients, subject, html_body, text_body):
+        """Low-level send to a list of recipients. Returns (sent, detail)."""
+        if not self.enabled:
+            return (False, 'email not configured')
+        to = []
+        for addr in (recipients or []):
+            a = (addr or '').strip()
+            if _valid(a) and a.lower() not in [x.lower() for x in to]:
+                to.append(a)
+        if not to:
+            return (False, 'no valid recipients')
+        try:
+            self.ses.send_email(
+                Source=self.mail_from,
+                Destination={'ToAddresses': to},
+                Message={
+                    'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                    'Body': {'Html': {'Data': html_body, 'Charset': 'UTF-8'},
+                             'Text': {'Data': text_body, 'Charset': 'UTF-8'}},
+                },
+            )
+            return (True, f'sent to {len(to)}')
+        except Exception as e:
+            logger.error(f'Email send failed: {e}')
+            return (False, str(e))
+
+    def send_welcome(self, to_email, display_name, username, password, role_label=None):
+        """Welcome a newly-created user with their login details."""
+        if not self.enabled or not _valid(to_email or ''):
+            return (False, 'no recipient / disabled')
+        login = self.app_base_url or ''
+        subject = "Your Atlas Standards account"
+        role_line = f"<tr><td style='color:#6b7280;padding:3px 12px 3px 0'>Role</td><td style='font-weight:600'>{html.escape(role_label)}</td></tr>" if role_label else ""
+        body = f"""\
+<p style="font-size:14px;margin:0 0 14px">Hi {html.escape(display_name)}, an account was created for you on Atlas Standards.</p>
+<table style="font-size:14px;border-collapse:collapse;margin-bottom:8px">
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:700">{html.escape(username)}</td></tr>
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
+  {role_line}
+</table>
+<p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Please sign in and change your password from your profile.</p>
+{f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}"""
+        text = (f"Hi {display_name}, an account was created for you on Atlas Standards.\n"
+                f"Username: {username}\nTemporary password: {password}\n"
+                + (f"Role: {role_label}\n" if role_label else "")
+                + f"Please sign in and change your password.\n" + (f"{login}\n" if login else ""))
+        return self._send([to_email], subject, self._shell("Welcome", body), text)
+
+    def send_new_user_alert(self, admin_emails, display_name, username, role_label, created_by):
+        """Notify admins that a new account was created."""
+        if not self.enabled:
+            return (False, 'disabled')
+        subject = f"New user created: {display_name}"
+        body = f"""\
+<p style="font-size:14px;margin:0 0 12px">A new account was created.</p>
+<table style="font-size:14px;border-collapse:collapse">
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Name</td><td style="font-weight:700">{html.escape(display_name)}</td></tr>
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:600">{html.escape(username)}</td></tr>
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Role</td><td style="font-weight:600">{html.escape(role_label or '')}</td></tr>
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Created by</td><td style="font-weight:600">{html.escape(created_by or '')}</td></tr>
+</table>"""
+        text = (f"New account created.\nName: {display_name}\nUsername: {username}\n"
+                f"Role: {role_label}\nCreated by: {created_by}\n")
+        return self._send(admin_emails, subject, self._shell("New user", body), text)
+
     def send_inspection_report(self, submission, recipients=None, survey_type_name=None):
         """
         Send the summary email. recipients = region-leader addresses; the fixed

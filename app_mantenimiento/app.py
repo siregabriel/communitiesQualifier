@@ -140,6 +140,13 @@ email_service = EmailService(
 app.logger.info('Email: SES enabled' if email_service.enabled
                 else 'Email: disabled (set MAIL_FROM to enable)')
 
+# Runtime-editable settings (email recipient lists, etc.)
+SETTINGS_FILE = os.path.join(DATA_FOLDER, 'settings.json')
+from services.settings_service import SettingsService
+settings_service = SettingsService(SETTINGS_FILE)
+# First run: seed the inspection CC list from MAIL_EXTRA_RECIPIENTS if empty.
+settings_service.seed_inspection_cc(_extra)
+
 # Avatars folder for uploaded profile photos
 AVATARS_FOLDER = os.path.join(UPLOAD_FOLDER, '..', 'avatars')
 AVATARS_FOLDER = os.path.normpath(AVATARS_FOLDER)
@@ -971,6 +978,7 @@ def create_user():
     role = (data.get('role') or '').strip().lower()
     community = (data.get('community') or '').strip() or None
     region_id = (data.get('region_id') or '').strip() or None
+    email = (data.get('email') or '').strip() or None
 
     if not display_name:
         return jsonify({'status': 'error', 'message': 'Name is required'}), 400
@@ -1004,6 +1012,7 @@ def create_user():
         community=community,
         region_id=region_id,
         created_by=session.get('user'),
+        email=email,
     )
     try:
         activity_service.log(session.get('user'), 'user_created',
@@ -1012,6 +1021,23 @@ def create_user():
     except Exception:
         pass
 
+    # Emails (best-effort; never block account creation):
+    #  - welcome the new user with their login (if an email was given)
+    #  - alert the configured admin-notify list
+    role_label = {'admin': 'Administrator', 'staff': 'Staff', 'regional': 'Regional'}.get(role, role)
+    emailed = False
+    if email_service.enabled:
+        try:
+            if email:
+                ok, _ = email_service.send_welcome(email, display_name, username, password, role_label)
+                emailed = bool(ok)
+            admin_notify = settings_service.get_email_settings().get('admin_notify', [])
+            if admin_notify:
+                email_service.send_new_user_alert(admin_notify, display_name, username,
+                                                  role_label, session.get('user'))
+        except Exception as e:
+            app.logger.error(f'User-creation email step failed: {e}')
+
     return jsonify({
         'status': 'success',
         'message': 'User created',
@@ -1019,6 +1045,7 @@ def create_user():
         'password': password,
         'display_name': display_name,
         'role': role,
+        'emailed': emailed,
     }), 201
 
 
@@ -1189,6 +1216,31 @@ def download_resource(resource_id):
     directory = os.path.join(UPLOAD_FOLDER, os.path.dirname(rel))
     return send_from_directory(directory, os.path.basename(rel),
                                as_attachment=True, download_name=rec.get('filename'))
+
+
+@app.route('/api/settings/email', methods=['GET'])
+@login_required
+def get_email_settings():
+    """Admin-only: read the email recipient lists."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    s = settings_service.get_email_settings()
+    return jsonify({'status': 'success', 'inspection_cc': s['inspection_cc'],
+                    'admin_notify': s['admin_notify'], 'email_enabled': email_service.enabled}), 200
+
+
+@app.route('/api/settings/email', methods=['POST'])
+@login_required
+def save_email_settings():
+    """Admin-only: update the email recipient lists (comma/newline separated)."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    s = settings_service.set_email_settings(
+        inspection_cc=data.get('inspection_cc', ''),
+        admin_notify=data.get('admin_notify', ''),
+    )
+    return jsonify({'status': 'success', **s}), 200
 
 
 @app.route('/api/user-info')
@@ -2187,6 +2239,7 @@ def submit_inspection():
                 survey_name = (survey_type_service.get_survey_type_name(submission.get('survey_type_id'))
                                if submission.get('survey_type_id') else None)
                 recipients = region_leader_emails(submission.get('community'))
+                recipients += settings_service.get_email_settings().get('inspection_cc', [])
                 email_service.send_inspection_report(submission, recipients, survey_name)
             except Exception as e:
                 app.logger.error(f'Post-visit email step failed: {e}')

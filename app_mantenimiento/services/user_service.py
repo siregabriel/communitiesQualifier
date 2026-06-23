@@ -72,6 +72,7 @@ class UserService(JsonFileBacked):
                 'role': rec.get('role', 'staff'),
                 'community': rec.get('community'),
                 'region_id': rec.get('region_id'),
+                'email': rec.get('email'),
                 'created_at': rec.get('created_at'),
                 'created_by': rec.get('created_by'),
             })
@@ -80,7 +81,7 @@ class UserService(JsonFileBacked):
 
     # --- Writes ---
     def create(self, username, display_name, role, password_hash,
-               community=None, region_id=None, created_by=None) -> dict:
+               community=None, region_id=None, created_by=None, email=None) -> dict:
         with self._lock:
             self._ensure_fresh()
             rec = {
@@ -88,6 +89,7 @@ class UserService(JsonFileBacked):
                 'role': role,
                 'community': community,
                 'region_id': region_id,
+                'email': email,
                 'password_hash': password_hash,
                 'created_at': datetime.now().isoformat(),
                 'created_by': created_by,
