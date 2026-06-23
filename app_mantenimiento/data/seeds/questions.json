@@ -107,7 +107,13 @@
       "created_at": "2026-06-16T11:59:59",
       "updated_at": "2026-06-16T11:59:59",
       "is_active": true,
-      "pass_criteria": []
+      "pass_criteria": [
+        "All call lights acknowledged AND responded to within 5 minutes",
+        "Response time confirmed by live observation and/or the call-system report during the visit",
+        "Any team member responds — not only assigned staff",
+        "No call lights left unanswered or repeatedly delayed during the walkthrough",
+        "Call-light system fully functional in all observed rooms and common areas"
+      ]
     },
     {
       "id": "q_std3",
@@ -159,7 +165,13 @@
       "created_at": "2026-06-16T11:59:58",
       "updated_at": "2026-06-16T11:59:58",
       "is_active": true,
-      "pass_criteria": []
+      "pass_criteria": [
+        "All chemicals secured behind locked doors when not in active use",
+        "Housekeeping and maintenance carts attended at all times or locked",
+        "Chemical storage areas remain locked during walkthroughs and spot checks",
+        "Staff can demonstrate proper handling and storage procedures",
+        "No loose or unsecured chemicals found in resident-accessible areas"
+      ]
     },
     {
       "id": "q_std4",
@@ -269,7 +281,13 @@
       "created_at": "2026-06-16T11:59:56",
       "updated_at": "2026-06-16T11:59:56",
       "is_active": true,
-      "pass_criteria": []
+      "pass_criteria": [
+        "Call answered promptly and professionally within a few rings",
+        "Team member gives their name and a warm, helpful greeting",
+        "Inquiry handled knowledgeably; key questions answered accurately",
+        "Caller offered a clear next step (tour, follow-up, information sent)",
+        "Overall call reflects Atlas standards for courtesy and responsiveness"
+      ]
     },
     {
       "id": "q_std6",
@@ -321,7 +339,14 @@
       "created_at": "2026-06-16T11:59:55",
       "updated_at": "2026-06-16T11:59:55",
       "is_active": true,
-      "pass_criteria": []
+      "pass_criteria": [
+        "Tour path clean, clutter-free, and well-maintained throughout",
+        "No odors present at any point along the path",
+        "Lighting, temperature, and ambiance appropriate",
+        "Furniture, décor, and finishes in good repair and on Atlas standard",
+        "Resident-facing areas active and inviting",
+        "No unattended carts, equipment, or maintenance items visible"
+      ]
     },
     {
       "id": "q_std7",
@@ -373,7 +398,14 @@
       "created_at": "2026-06-16T11:59:54",
       "updated_at": "2026-06-16T11:59:54",
       "is_active": true,
-      "pass_criteria": []
+      "pass_criteria": [
+        "Room thoroughly cleaned, sanitized, and free of debris",
+        "No odors present",
+        "Walls, flooring, fixtures, and finishes undamaged and in good condition",
+        "Appliances, lighting, HVAC, plumbing, and call system fully operational",
+        "Closets, cabinets, and storage areas clean and functional",
+        "Room presents as bright, fresh, and inviting"
+      ]
     }
   ]
 }
