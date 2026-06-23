@@ -861,12 +861,28 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
 
+        .response-question-row { display: flex; align-items: flex-start; gap: 8px; }
+        .response-question-row .response-question { flex: 1; }
         .response-question {
             font-size: 15px;
             font-weight: 600;
             color: #0f172a;
             margin-bottom: 12px;
         }
+        .std-info-btn { border: none; background: rgba(31,111,229,.1); color: #1f6fe5; width: 26px; height: 26px; border-radius: 7px; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+        .std-info-btn:hover { background: rgba(31,111,229,.2); }
+        .std-sheet-overlay { position: fixed; inset: 0; background: rgba(15,30,54,.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+        .std-sheet-overlay.show { display: flex; }
+        .std-sheet { background: #fff; border-radius: 14px; max-width: 520px; width: 100%; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 24px 56px rgba(2,32,80,.28); overflow: hidden; }
+        .std-sheet-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid #eef1f6; }
+        .std-sheet-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #94a3b8; }
+        .std-sheet-title { font-size: 16px; font-weight: 800; color: #0f1e36; margin-top: 2px; }
+        .std-sheet-close { border: none; background: #f1f5f9; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; color: #475569; flex-shrink: 0; }
+        .std-sheet-body { padding: 18px 20px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #475569; }
+        .std-crit-title { font-weight: 700; color: #0f1e36; margin-bottom: 8px; }
+        .std-crit-list { margin: 0 0 14px; padding-left: 20px; }
+        .std-crit-list li { margin: 5px 0; color: #1f2937; }
+        .std-narr { color: #475569; }
 
         .response-condition {
             display: inline-block;
@@ -1370,6 +1386,20 @@
         </div>
     </div>
 
+    <!-- Standard / pass-criteria popup (drill-in from a Pass/Fail item) -->
+    <div class="std-sheet-overlay" id="stdSheetOverlay" onclick="if(event.target===this)closeStandardSheet()">
+        <div class="std-sheet" role="dialog" aria-modal="true" aria-labelledby="stdSheetTitle">
+            <div class="std-sheet-header">
+                <div>
+                    <div class="std-sheet-eyebrow">Atlas standard</div>
+                    <div class="std-sheet-title" id="stdSheetTitle"></div>
+                </div>
+                <button class="std-sheet-close" onclick="closeStandardSheet()" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="std-sheet-body" id="stdSheetBody"></div>
+        </div>
+    </div>
+
     <!-- Community Details Slide Panel -->
     <div class="slide-panel-overlay" id="slidePanelOverlay" aria-hidden="true"></div>
     <aside class="slide-panel" id="slidePanel" role="dialog" aria-modal="true" aria-labelledby="slidePanelTitle">
@@ -1713,6 +1743,55 @@
             return count;
         }
 
+        // Standards lookup (pass criteria + guideline) for the detail panel.
+        let questionsMap = {};   // by id and by lowercased text
+        async function loadQuestions() {
+            try {
+                const r = await fetch('/api/questions');
+                const d = await r.json();
+                const list = d.questions || d || [];
+                questionsMap = {};
+                (Array.isArray(list) ? list : []).forEach(q => {
+                    const entry = {
+                        text: q.text || '',
+                        guideline: q.interpretive_guideline || '',
+                        criteria: Array.isArray(q.pass_criteria) ? q.pass_criteria : []
+                    };
+                    if (q.id) questionsMap[q.id] = entry;
+                    if (q.text) questionsMap['t:' + q.text.trim().toLowerCase()] = entry;
+                });
+            } catch (e) { console.error('Questions load error:', e); }
+        }
+        function standardFor(response) {
+            return (response.questionId && questionsMap[response.questionId])
+                || questionsMap['t:' + (response.questionText || '').trim().toLowerCase()]
+                || null;
+        }
+        function escapeHtmlForAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
+        function openStandardSheet(title, std) {
+            if (!std) return;
+            let body = '';
+            if (std.criteria && std.criteria.length) {
+                body += '<div class="std-crit-title">To pass, must include:</div><ul class="std-crit-list">'
+                    + std.criteria.map(c => `<li>${escapeHtml(c)}</li>`).join('') + '</ul>';
+            }
+            if (std.guideline && std.guideline.trim()) {
+                body += `<div class="std-narr">${escapeHtml(std.guideline).replace(/\n/g, '<br>')}</div>`;
+            }
+            document.getElementById('stdSheetTitle').textContent = title || 'Standard';
+            document.getElementById('stdSheetBody').innerHTML = body || '<div class="no-data">No standard defined yet.</div>';
+            document.getElementById('stdSheetOverlay').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        function openStandardSheetFor(btn) {
+            const resp = { questionId: btn.dataset.qid || null, questionText: btn.dataset.qtext || '' };
+            openStandardSheet(resp.questionText, standardFor(resp));
+        }
+        function closeStandardSheet() {
+            document.getElementById('stdSheetOverlay').classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
         // Group Responses by Condition
         function groupResponsesByCondition(inspections) {
             if (!inspections || !Array.isArray(inspections)) {
@@ -1732,6 +1811,7 @@
                     condition: inspection.condition,
                     conditionClass: getBadgeClass(inspection.condition),
                     conditionIcon: getBadgeIcon(inspection.condition),
+                    questionId: inspection.question_id || inspection.questionId || null,
                     questionText: inspection.question_text || inspection.questionText || 'N/A',
                     description: inspection.description || '',
                     photoPath: inspection.photo_url || inspection.photo_path || inspection.photoPath || null,
@@ -2067,9 +2147,11 @@
             `;
             
             for (const response of responses) {
+                const std = standardFor(response);
+                const stdBtn = std ? `<button class="std-info-btn" title="View the standard for this item" data-qid="${escapeHtml(response.questionId || '')}" data-qtext="${escapeHtml(response.questionText || '')}" onclick="openStandardSheetFor(this)"><i class="fas fa-circle-info"></i></button>` : '';
                 html += `
                     <div class="response-card">
-                        <div class="response-question">${escapeHtml(response.questionText)}</div>
+                        <div class="response-question-row"><div class="response-question">${escapeHtml(response.questionText)}</div>${stdBtn}</div>
                         <span class="response-condition ${response.conditionClass}">
                             <i class="${response.conditionIcon}"></i> ${response.condition}
                         </span>
@@ -2475,7 +2557,8 @@
                     loadReports(),
                     loadInspections(),
                     loadCommunityData(),
-                    loadRegions()
+                    loadRegions(),
+                    loadQuestions()
                 ]);
                 
                 // Open the view requested via ?view= (e.g. coming from the

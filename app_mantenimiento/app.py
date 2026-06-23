@@ -1557,8 +1557,10 @@ def create_question():
                 'message': 'At least one community must be selected'
             }), 400
 
+        pass_criteria = sanitized_data.get('pass_criteria', [])
+
         # Create question using QuestionManager
-        question = question_manager.create_question(text, photo_required, communities, survey_types, interpretive_guideline)
+        question = question_manager.create_question(text, photo_required, communities, survey_types, interpretive_guideline, pass_criteria)
 
         activity_service.log(session.get('user'), 'question_created', text)
 
@@ -1646,8 +1648,10 @@ def update_question(question_id):
                 'message': 'At least one community must be selected'
             }), 400
 
+        pass_criteria = sanitized_data.get('pass_criteria', [])
+
         # Update question using QuestionManager
-        question = question_manager.update_question(question_id, text, photo_required, communities, survey_types, interpretive_guideline)
+        question = question_manager.update_question(question_id, text, photo_required, communities, survey_types, interpretive_guideline, pass_criteria)
         
         # Check if question was found
         if question is None:

@@ -116,6 +116,16 @@ class InputSanitizer:
                 data['interpretive_guideline'], max_length=5000
             )
 
+        # Sanitize pass_criteria (structured "must include to pass" checklist)
+        if 'pass_criteria' in data:
+            items = data['pass_criteria']
+            if isinstance(items, str):
+                items = items.split('\n')
+            sanitized['pass_criteria'] = [
+                InputSanitizer.sanitize_string(s, max_length=400)
+                for s in (items or []) if isinstance(s, str) and s.strip()
+            ] if isinstance(items, list) else []
+
         # photo_required should be boolean
         if 'photo_required' in data:
             sanitized['photo_required'] = bool(data['photo_required'])

@@ -800,8 +800,13 @@
         .guideline-sheet-body {
             padding: 16px 20px 28px; overflow-y: auto;
             font-size: 14px; line-height: 1.6; color: #475569;
-            white-space: pre-line; -webkit-overflow-scrolling: touch;
+            -webkit-overflow-scrolling: touch;
         }
+        .g-crit-title { font-weight: 700; color: #0f1e36; margin-bottom: 8px; }
+        .g-crit-list { margin: 0 0 14px; padding-left: 20px; }
+        .g-crit-list li { margin: 5px 0; color: #1f2937; }
+        .g-narr { color: #475569; }
+        .guideline-content .g-crit-list li { color: #334155; }
 
         @media (max-width: 768px) {
             .interpretive-guideline { display: none !important; }
@@ -910,9 +915,25 @@
     </div>
 
     <script>
-        function openGuidelineSheet(title, text) {
+        function escapeHtmlR(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function buildGuidelineHtml(text, criteria) {
+            let html = '';
+            if (criteria && criteria.length) {
+                html += '<div class="g-crit-title">To pass, must include:</div><ul class="g-crit-list">'
+                    + criteria.map(c => `<li>${escapeHtmlR(c)}</li>`).join('') + '</ul>';
+            }
+            if (text && text.trim()) {
+                html += `<div class="g-narr">${escapeHtmlR(text).replace(/\n/g, '<br>')}</div>`;
+            }
+            return html;
+        }
+        function openGuidelineSheet(title, text, criteria) {
             document.getElementById('guidelineSheetTitle').textContent = title || '';
-            document.getElementById('guidelineSheetBody').textContent = text || '';
+            document.getElementById('guidelineSheetBody').innerHTML = buildGuidelineHtml(text, criteria);
             document.getElementById('guidelineSheet').classList.add('show');
             document.getElementById('guidelineSheetOverlay').classList.add('show');
             document.body.style.overflow = 'hidden';
@@ -1042,21 +1063,23 @@
             section.dataset.questionId = question.id;
             
             const guidelineText = (question.interpretive_guideline || question.guideline || '').trim();
+            const passCriteria = Array.isArray(question.pass_criteria) ? question.pass_criteria : [];
+            const hasStandard = guidelineText || passCriteria.length;
 
-            // Question title (with a mobile-only info button when a guideline exists)
+            // Question title (with a mobile-only info button when guidance exists)
             const titleRow = document.createElement('div');
             titleRow.className = 'question-title-row';
             const questionTitle = document.createElement('div');
             questionTitle.className = 'question-title';
             questionTitle.textContent = question.text;
             titleRow.appendChild(questionTitle);
-            if (guidelineText) {
+            if (hasStandard) {
                 const infoBtn = document.createElement('button');
                 infoBtn.type = 'button';
                 infoBtn.className = 'guideline-info-btn';
-                infoBtn.setAttribute('aria-label', 'View interpretive guideline');
+                infoBtn.setAttribute('aria-label', 'View the standard for this item');
                 infoBtn.innerHTML = '<i class="fas fa-circle-info"></i>';
-                infoBtn.addEventListener('click', () => openGuidelineSheet(question.text, guidelineText));
+                infoBtn.addEventListener('click', () => openGuidelineSheet(question.text, guidelineText, passCriteria));
                 titleRow.appendChild(infoBtn);
             }
             section.appendChild(titleRow);
@@ -1069,21 +1092,20 @@
                 section.appendChild(questionDesc);
             }
 
-            // Interpretive Guideline — inline on desktop; on mobile it's hidden
+            // Standard expectations — inline on desktop; on mobile it's hidden
             // (CSS) and reachable via the info button -> bottom sheet above.
-            if (guidelineText) {
+            if (hasStandard) {
                 const guidelineDiv = document.createElement('div');
                 guidelineDiv.className = 'interpretive-guideline';
 
                 const guidelineTitle = document.createElement('div');
                 guidelineTitle.className = 'guideline-title';
-                guidelineTitle.textContent = 'Interpretive Guideline';
+                guidelineTitle.textContent = 'Standard expectations';
                 guidelineDiv.appendChild(guidelineTitle);
 
                 const guidelineContent = document.createElement('div');
                 guidelineContent.className = 'guideline-content';
-                // Use textContent so guideline text is rendered safely; CSS preserves line breaks
-                guidelineContent.textContent = guidelineText;
+                guidelineContent.innerHTML = buildGuidelineHtml(guidelineText, passCriteria);
                 guidelineDiv.appendChild(guidelineContent);
 
                 section.appendChild(guidelineDiv);

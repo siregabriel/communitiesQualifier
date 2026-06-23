@@ -37,9 +37,16 @@ class QuestionManager(JsonFileBacked):
         self.load_from_file()
         self._mark_loaded()
 
+    @staticmethod
+    def _clean_criteria(items):
+        """Normalize the 'must include to pass' list: strip, drop blanks."""
+        if isinstance(items, str):
+            items = items.split('\n')
+        return [s.strip() for s in (items or []) if isinstance(s, str) and s.strip()]
+
     def create_question(self, text: str, photo_required: bool, communities: List[str],
                        survey_types: Optional[List[str]] = None,
-                       interpretive_guideline: str = "") -> Dict:
+                       interpretive_guideline: str = "", pass_criteria=None) -> Dict:
         """
         Create new question with validation
         
@@ -78,6 +85,7 @@ class QuestionManager(JsonFileBacked):
             "id": question_id,
             "text": text.strip(),
             "interpretive_guideline": (interpretive_guideline or "").strip(),
+            "pass_criteria": self._clean_criteria(pass_criteria),
             "photo_required": photo_required,
             "communities": communities,
             "survey_types": survey_types,  # Empty array means all types
@@ -150,7 +158,7 @@ class QuestionManager(JsonFileBacked):
 
     def update_question(self, question_id: str, text: str, photo_required: bool,
                        communities: List[str], survey_types: Optional[List[str]] = None,
-                       interpretive_guideline: str = "") -> Optional[Dict]:
+                       interpretive_guideline: str = "", pass_criteria=None) -> Optional[Dict]:
         """
         Update existing question, preserving ID and created_at timestamp
         
@@ -187,6 +195,7 @@ class QuestionManager(JsonFileBacked):
         # Update fields (preserving id and created_at)
         question["text"] = text.strip()
         question["interpretive_guideline"] = (interpretive_guideline or "").strip()
+        question["pass_criteria"] = self._clean_criteria(pass_criteria)
         question["photo_required"] = photo_required
         question["communities"] = communities
         question["survey_types"] = survey_types  # Empty array means all types
