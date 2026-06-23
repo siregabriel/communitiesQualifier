@@ -53,35 +53,64 @@ class SettingsService(JsonFileBacked):
     def _save(self) -> None:
         self._atomic_write({**self.data, 'last_modified': datetime.now().isoformat()}, indent=2)
 
+    @staticmethod
+    def _normalize_subscribers(subs):
+        """Each subscriber: {email, name, regions:[ids]}. Empty regions = all."""
+        out, seen = [], set()
+        for s in (subs or []):
+            if not isinstance(s, dict):
+                continue
+            email = (s.get('email') or '').strip()
+            if not _EMAIL_RE.match(email) or email.lower() in seen:
+                continue
+            seen.add(email.lower())
+            regions = s.get('regions') or []
+            regions = [r for r in regions if isinstance(r, str) and r]
+            out.append({'email': email, 'name': (s.get('name') or '').strip(), 'regions': regions})
+        return out
+
     def get_email_settings(self) -> dict:
         self._ensure_fresh()
         email = self.data.get('email', {}) if isinstance(self.data.get('email'), dict) else {}
+        subs = email.get('subscribers')
+        if subs is None and email.get('inspection_cc'):
+            # migrate the old flat "always copy" list -> all-regions subscribers
+            subs = [{'email': e, 'name': '', 'regions': []} for e in email.get('inspection_cc', [])]
         return {
-            'inspection_cc': list(email.get('inspection_cc', [])),
-            'admin_notify': list(email.get('admin_notify', [])),
+            'subscribers': self._normalize_subscribers(subs),
+            'admin_notify': clean_emails(email.get('admin_notify', [])),
         }
 
-    def set_email_settings(self, inspection_cc=None, admin_notify=None) -> dict:
+    def set_email_settings(self, subscribers=None, admin_notify=None) -> dict:
         with self._lock:
             self._ensure_fresh()
             email = self.data.get('email', {}) if isinstance(self.data.get('email'), dict) else {}
-            if inspection_cc is not None:
-                email['inspection_cc'] = clean_emails(inspection_cc)
+            if subscribers is not None:
+                email['subscribers'] = self._normalize_subscribers(subscribers)
+                email.pop('inspection_cc', None)  # superseded by subscribers
             if admin_notify is not None:
                 email['admin_notify'] = clean_emails(admin_notify)
             self.data['email'] = email
             self._save()
             return self.get_email_settings()
 
-    def seed_inspection_cc(self, emails) -> None:
-        """One-time: populate inspection_cc from env if it's currently empty."""
+    def recipients_for_region(self, region_id) -> list:
+        """Subscriber emails whose scope covers this region (empty scope = all)."""
+        out = []
+        for s in self.get_email_settings()['subscribers']:
+            if not s['regions'] or (region_id and region_id in s['regions']):
+                out.append(s['email'])
+        return out
+
+    def seed_subscribers(self, emails) -> None:
+        """One-time: turn env MAIL_EXTRA_RECIPIENTS into all-regions subscribers."""
         cleaned = clean_emails(emails)
         if not cleaned:
             return
         with self._lock:
             self._ensure_fresh()
             email = self.data.get('email', {}) if isinstance(self.data.get('email'), dict) else {}
-            if not email.get('inspection_cc'):
-                email['inspection_cc'] = cleaned
+            if not email.get('subscribers') and not email.get('inspection_cc'):
+                email['subscribers'] = [{'email': e, 'name': '', 'regions': []} for e in cleaned]
                 self.data['email'] = email
                 self._save()

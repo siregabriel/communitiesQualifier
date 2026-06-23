@@ -144,8 +144,8 @@ app.logger.info('Email: SES enabled' if email_service.enabled
 SETTINGS_FILE = os.path.join(DATA_FOLDER, 'settings.json')
 from services.settings_service import SettingsService
 settings_service = SettingsService(SETTINGS_FILE)
-# First run: seed the inspection CC list from MAIL_EXTRA_RECIPIENTS if empty.
-settings_service.seed_inspection_cc(_extra)
+# First run: seed subscribers (all-regions) from MAIL_EXTRA_RECIPIENTS if empty.
+settings_service.seed_subscribers(_extra)
 
 # Avatars folder for uploaded profile photos
 AVATARS_FOLDER = os.path.join(UPLOAD_FOLDER, '..', 'avatars')
@@ -443,14 +443,22 @@ def regional_communities():
     return list(region.get('communities', [])) if region else []
 
 
-def region_leader_emails(community):
-    """Email addresses of the leadership for the region that owns this community."""
+def region_for_community(community):
+    """The region dict that owns this community, or None."""
     for r in region_service.get_all_regions():
         if community in (r.get('communities') or []):
-            return [(l.get('email') or '').strip()
-                    for l in (r.get('leadership') or [])
-                    if (l.get('email') or '').strip()]
-    return []
+            return r
+    return None
+
+
+def region_leader_emails(community):
+    """Email addresses of the leadership for the region that owns this community."""
+    r = region_for_community(community)
+    if not r:
+        return []
+    return [(l.get('email') or '').strip()
+            for l in (r.get('leadership') or [])
+            if (l.get('email') or '').strip()]
 
 
 def resolve_display_name(username):
@@ -1221,26 +1229,36 @@ def download_resource(resource_id):
 @app.route('/api/settings/email', methods=['GET'])
 @login_required
 def get_email_settings():
-    """Admin-only: read the email recipient lists."""
+    """Admin-only: read subscribers + admin-notify list + the regions to pick from."""
     if current_role() != 'admin':
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     s = settings_service.get_email_settings()
-    return jsonify({'status': 'success', 'inspection_cc': s['inspection_cc'],
-                    'admin_notify': s['admin_notify'], 'email_enabled': email_service.enabled}), 200
+    regions = [{'id': r.get('id'), 'name': r.get('name')}
+               for r in region_service.get_all_regions() if r.get('id') != 'unassigned']
+    return jsonify({'status': 'success', 'subscribers': s['subscribers'],
+                    'admin_notify': s['admin_notify'], 'regions': regions,
+                    'email_enabled': email_service.enabled}), 200
 
 
 @app.route('/api/settings/email', methods=['POST'])
 @login_required
 def save_email_settings():
-    """Admin-only: update the email recipient lists (comma/newline separated)."""
+    """Admin-only: update subscribers + admin-notify list."""
     if current_role() != 'admin':
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
-    s = settings_service.set_email_settings(
-        inspection_cc=data.get('inspection_cc', ''),
-        admin_notify=data.get('admin_notify', ''),
-    )
-    return jsonify({'status': 'success', **s}), 200
+    # keep only real region ids in each subscriber's scope
+    valid_ids = {r.get('id') for r in region_service.get_all_regions() if r.get('id') != 'unassigned'}
+    subs = []
+    for s in (data.get('subscribers') or []):
+        if not isinstance(s, dict):
+            continue
+        regions = [rid for rid in (s.get('regions') or []) if rid in valid_ids]
+        subs.append({'email': s.get('email', ''), 'name': s.get('name', ''), 'regions': regions})
+    saved = settings_service.set_email_settings(subscribers=subs, admin_notify=data.get('admin_notify', ''))
+    regions = [{'id': r.get('id'), 'name': r.get('name')}
+               for r in region_service.get_all_regions() if r.get('id') != 'unassigned']
+    return jsonify({'status': 'success', 'regions': regions, **saved}), 200
 
 
 @app.route('/api/user-info')
@@ -2238,8 +2256,11 @@ def submit_inspection():
             try:
                 survey_name = (survey_type_service.get_survey_type_name(submission.get('survey_type_id'))
                                if submission.get('survey_type_id') else None)
-                recipients = region_leader_emails(submission.get('community'))
-                recipients += settings_service.get_email_settings().get('inspection_cc', [])
+                community = submission.get('community')
+                region = region_for_community(community)
+                region_id = region.get('id') if region else None
+                recipients = region_leader_emails(community)
+                recipients += settings_service.recipients_for_region(region_id)
                 email_service.send_inspection_report(submission, recipients, survey_name)
             except Exception as e:
                 app.logger.error(f'Post-visit email step failed: {e}')

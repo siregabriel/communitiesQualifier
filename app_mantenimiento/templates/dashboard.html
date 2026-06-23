@@ -3669,8 +3669,9 @@
                     <div class="profile-section">
                         <div class="profile-section-title"><i class="fas fa-envelope"></i> Email &amp; notifications</div>
                         <div style="display:grid; gap:10px; max-width:520px;">
-                            <label style="font-size:13px;font-weight:700;color:#0f1e36;">Always copy on every inspection email <span style="font-weight:500;color:#6b7280;">(plus the community's region leaders)</span></label>
-                            <textarea id="esInspectionCc" class="pw-input" rows="3" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
+                            <label style="font-size:13px;font-weight:700;color:#0f1e36;">Inspection report subscribers <span style="font-weight:500;color:#6b7280;">(region leaders always get their own region automatically)</span></label>
+                            <div id="esSubscribers"></div>
+                            <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()" style="justify-self:start;"><i class="fas fa-plus"></i> Add subscriber</button>
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Notify when a new user is created</label>
                             <textarea id="esAdminNotify" class="pw-input" rows="3" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
                             <div style="display:flex;gap:8px;align-items:center;">
@@ -3691,14 +3692,50 @@
             }
         }
 
+        let esRegions = [];
+        function subscriberRowHtml(sub) {
+            sub = sub || { email: '', name: '', regions: [] };
+            const all = !sub.regions || sub.regions.length === 0;
+            const checks = esRegions.map(r =>
+                `<label style="font-size:13px;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" class="sub-region" value="${escapeHtml(r.id)}" ${(sub.regions || []).includes(r.id) ? 'checked' : ''}> ${escapeHtml(r.name)}</label>`
+            ).join('');
+            return `<div class="sub-row" style="border:1px solid #d9dfe8;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input class="pw-input sub-email" type="email" placeholder="email" value="${escapeHtml(sub.email || '')}" style="flex:1;">
+                    <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;">
+                    <button class="res-del" type="button" title="Remove" onclick="removeSubRow(this)"><i class="fas fa-trash"></i></button>
+                </div>
+                <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+                    <label style="font-size:13px;font-weight:700;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}> All regions</label>
+                    <span class="sub-region-list" style="display:${all ? 'none' : 'flex'};flex-wrap:wrap;gap:12px;">${checks}</span>
+                </div>
+            </div>`;
+        }
+        function onSubAllChange(chk) {
+            const row = chk.closest('.sub-row');
+            const list = row.querySelector('.sub-region-list');
+            list.style.display = chk.checked ? 'none' : 'flex';
+        }
+        function addSubscriberRow(sub) {
+            const wrap = document.getElementById('esSubscribers');
+            if (wrap) wrap.insertAdjacentHTML('beforeend', subscriberRowHtml(sub));
+        }
+        function removeSubRow(btn) {
+            const row = btn.closest('.sub-row');
+            if (row) row.remove();
+        }
         async function loadEmailSettings() {
             try {
                 const r = await fetch('/api/settings/email');
                 const d = await r.json();
                 if (!r.ok || d.status !== 'success') return;
-                const cc = document.getElementById('esInspectionCc');
+                esRegions = d.regions || [];
+                const wrap = document.getElementById('esSubscribers');
+                if (wrap) {
+                    const subs = (d.subscribers && d.subscribers.length) ? d.subscribers : [null];
+                    wrap.innerHTML = subs.map(s => subscriberRowHtml(s)).join('');
+                }
                 const an = document.getElementById('esAdminNotify');
-                if (cc) cc.value = (d.inspection_cc || []).join('\n');
                 if (an) an.value = (d.admin_notify || []).join('\n');
                 const note = document.getElementById('esNote');
                 if (note && !d.email_enabled) note.textContent = 'Email sending is not configured on the server yet (MAIL_FROM unset).';
@@ -3708,17 +3745,26 @@
             const msg = document.getElementById('esMsg');
             msg.className = 'pw-msg';
             msg.textContent = 'Saving…';
+            const subs = [];
+            document.querySelectorAll('#esSubscribers .sub-row').forEach(row => {
+                const email = row.querySelector('.sub-email').value.trim();
+                if (!email) return;
+                const name = row.querySelector('.sub-name').value.trim();
+                const all = row.querySelector('.sub-all').checked;
+                const regions = all ? [] : Array.from(row.querySelectorAll('.sub-region:checked')).map(c => c.value);
+                subs.push({ email, name, regions });
+            });
             try {
                 const r = await fetch('/api/settings/email', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        inspection_cc: document.getElementById('esInspectionCc').value,
-                        admin_notify: document.getElementById('esAdminNotify').value,
-                    })
+                    body: JSON.stringify({ subscribers: subs, admin_notify: document.getElementById('esAdminNotify').value })
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
-                    document.getElementById('esInspectionCc').value = (d.inspection_cc || []).join('\n');
+                    esRegions = d.regions || esRegions;
+                    const wrap = document.getElementById('esSubscribers');
+                    const list = (d.subscribers && d.subscribers.length) ? d.subscribers : [null];
+                    if (wrap) wrap.innerHTML = list.map(s => subscriberRowHtml(s)).join('');
                     document.getElementById('esAdminNotify').value = (d.admin_notify || []).join('\n');
                     msg.textContent = 'Saved.'; msg.classList.add('ok');
                 } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
