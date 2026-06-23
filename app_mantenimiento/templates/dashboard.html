@@ -3705,16 +3705,17 @@
 
         let esRegions = [];
         let esInspectors = [];
-        function subscriberRowHtml(sub) {
+        function subscriberRowHtml(sub, isNew) {
             sub = sub || { email: '', name: '', regions: [], inspectors: [] };
             const subRegions = sub.regions || [];
             const subInsp = sub.inspectors || [];
-            const all = subRegions.length === 0 && subInsp.length === 0;
+            // New rows start with "All inspections" OFF so the options are visible.
+            const all = isNew ? false : (subRegions.length === 0 && subInsp.length === 0);
             const regionChecks = esRegions.map(r =>
-                `<label class="chip"><input type="checkbox" class="sub-region" value="${escapeHtml(r.id)}" ${subRegions.includes(r.id) ? 'checked' : ''}><span>${escapeHtml(r.name)}</span></label>`
+                `<label class="chip"><input type="checkbox" class="sub-region" value="${escapeHtml(r.id)}" onchange="onScopeToggle(this)" ${subRegions.includes(r.id) ? 'checked' : ''}><span>${escapeHtml(r.name)}</span></label>`
             ).join('');
             const inspChecks = esInspectors.map(n =>
-                `<label class="chip"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" ${subInsp.includes(n) ? 'checked' : ''}><span>${escapeHtml(n)}</span></label>`
+                `<label class="chip"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" onchange="onScopeToggle(this)" ${subInsp.includes(n) ? 'checked' : ''}><span>${escapeHtml(n)}</span></label>`
             ).join('');
             return `<div class="sub-row" style="border:1px solid #d9dfe8;border-radius:10px;padding:16px 18px;background:#fff;">
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -3723,21 +3724,27 @@
                     <button class="res-del" type="button" title="Remove" onclick="removeSubRow(this)"><i class="fas fa-trash"></i></button>
                 </div>
                 <label class="chip" style="margin-top:14px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}><span><i class="fas fa-globe" style="margin-right:5px;"></i>All inspections</span></label>
-                <div class="sub-detail" style="display:${all ? 'none' : 'block'};margin-top:14px;border-top:1px solid #eef1f6;padding-top:14px;">
+                <div class="sub-detail" style="margin-top:14px;border-top:1px solid #eef1f6;padding-top:14px;">
                     <div class="scope-label">By region</div>
                     <div class="chip-wrap">${regionChecks}</div>
                     ${inspChecks ? `<div class="scope-label" style="margin-top:14px;">By inspector</div><div class="chip-wrap">${inspChecks}</div>` : ''}
                 </div>
             </div>`;
         }
+        // "All inspections" and the specific pills are mutually exclusive.
         function onSubAllChange(chk) {
+            if (!chk.checked) return;
             const row = chk.closest('.sub-row');
-            const detail = row.querySelector('.sub-detail');
-            if (detail) detail.style.display = chk.checked ? 'none' : 'block';
+            row.querySelectorAll('.sub-region, .sub-inspector').forEach(c => { c.checked = false; });
+        }
+        function onScopeToggle(el) {
+            if (!el.checked) return;
+            const all = el.closest('.sub-row').querySelector('.sub-all');
+            if (all) all.checked = false;
         }
         function addSubscriberRow(sub) {
             const wrap = document.getElementById('esSubscribers');
-            if (wrap) wrap.insertAdjacentHTML('beforeend', subscriberRowHtml(sub));
+            if (wrap) wrap.insertAdjacentHTML('beforeend', subscriberRowHtml(sub, true));
         }
         function removeSubRow(btn) {
             const row = btn.closest('.sub-row');
@@ -3752,8 +3759,9 @@
                 esInspectors = d.inspectors || [];
                 const wrap = document.getElementById('esSubscribers');
                 if (wrap) {
-                    const subs = (d.subscribers && d.subscribers.length) ? d.subscribers : [null];
-                    wrap.innerHTML = subs.map(s => subscriberRowHtml(s)).join('');
+                    wrap.innerHTML = (d.subscribers && d.subscribers.length)
+                        ? d.subscribers.map(s => subscriberRowHtml(s)).join('')
+                        : subscriberRowHtml(null, true);
                 }
                 const an = document.getElementById('esAdminNotify');
                 if (an) an.value = (d.admin_notify || []).join('\n');
@@ -3785,8 +3793,9 @@
                     esRegions = d.regions || esRegions;
                     esInspectors = d.inspectors || esInspectors;
                     const wrap = document.getElementById('esSubscribers');
-                    const list = (d.subscribers && d.subscribers.length) ? d.subscribers : [null];
-                    if (wrap) wrap.innerHTML = list.map(s => subscriberRowHtml(s)).join('');
+                    if (wrap) wrap.innerHTML = (d.subscribers && d.subscribers.length)
+                        ? d.subscribers.map(s => subscriberRowHtml(s)).join('')
+                        : subscriberRowHtml(null, true);
                     document.getElementById('esAdminNotify').value = (d.admin_notify || []).join('\n');
                     msg.textContent = 'Saved.'; msg.classList.add('ok');
                 } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
