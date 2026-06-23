@@ -1103,6 +1103,14 @@ RESOURCE_ALLOWED_EXT = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
                         'txt', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'zip'}
 
 
+@app.route('/standards/print')
+@login_required
+def standards_print():
+    """Printable one-pager of all standards (text + pass criteria + guideline)."""
+    questions = question_manager.get_all_active_questions()
+    return render_template('standards_print.html', questions=questions)
+
+
 @app.route('/api/resources', methods=['GET'])
 @login_required
 def list_resources():
@@ -2281,7 +2289,15 @@ def submit_inspection():
                 recipients = region_leader_emails(community)
                 recipients += settings_service.recipients_for_inspection(
                     region_id, submission.get('inspector_name'))
-                email_service.send_inspection_report(submission, recipients, survey_name)
+                # criteria lookup so the email can show "must include to pass" per failed item
+                criteria_map = {}
+                for q in question_manager.get_all_active_questions():
+                    crit = q.get('pass_criteria') or []
+                    if q.get('id'):
+                        criteria_map[q['id']] = crit
+                    if q.get('text'):
+                        criteria_map['t:' + q['text'].strip().lower()] = crit
+                email_service.send_inspection_report(submission, recipients, survey_name, criteria_map)
             except Exception as e:
                 app.logger.error(f'Post-visit email step failed: {e}')
 

@@ -59,7 +59,17 @@ class EmailService:
             return None
         return f"{self.app_base_url}/?community={quote(community or '')}"
 
-    def _build(self, submission, survey_type_name=None):
+    @staticmethod
+    def _criteria_for(response, criteria_map):
+        if not criteria_map:
+            return []
+        qid = response.get('question_id')
+        if qid and criteria_map.get(qid):
+            return criteria_map[qid]
+        key = 't:' + (response.get('question_text') or '').strip().lower()
+        return criteria_map.get(key, [])
+
+    def _build(self, submission, survey_type_name=None, criteria_map=None):
         community = submission.get('community', 'Unknown community')
         inspector = submission.get('inspector_name') or submission.get('username') or 'Unknown'
         when = (submission.get('submitted_at') or '')[:10]
@@ -88,6 +98,8 @@ class EmailService:
                 q = r.get('question_text', 'Item')
                 note = r.get('description', '')
                 lines.append(f"  - {q}" + (f": {note}" if note else ""))
+                for c in self._criteria_for(r, criteria_map):
+                    lines.append(f"      • {c}")
         if link:
             lines += ["", f"View the full report: {link}"]
         text = "\n".join(lines)
@@ -98,12 +110,17 @@ class EmailService:
 
         score_color = '#0f8a5f' if (score is not None and score >= 75) else (
             '#b58b00' if (score is not None and score >= 50) else '#d13212')
-        fail_rows = ''.join(
-            f"<li style='margin:4px 0'><strong>{esc(r.get('question_text','Item'))}</strong>"
-            + (f" — {esc(r.get('description',''))}" if r.get('description') else "")
-            + "</li>"
-            for r in fails
-        )
+        def fail_li(r):
+            crit = self._criteria_for(r, criteria_map)
+            crit_html = ''
+            if crit:
+                items = ''.join(f"<li style='margin:2px 0'>{esc(c)}</li>" for c in crit)
+                crit_html = (f"<div style='font-size:12px;color:#6b7280;margin:4px 0 2px'>Standard — to pass, must include:</div>"
+                             f"<ul style='margin:0 0 6px;padding-left:16px;color:#475569;font-size:12px'>{items}</ul>")
+            return (f"<li style='margin:8px 0'><strong>{esc(r.get('question_text','Item'))}</strong>"
+                    + (f" — {esc(r.get('description',''))}" if r.get('description') else "")
+                    + crit_html + "</li>")
+        fail_rows = ''.join(fail_li(r) for r in fails)
         fail_block = (
             f"<h3 style='font-size:15px;color:#d13212;margin:18px 0 6px'>Failed items ({failed})</h3>"
             f"<ul style='margin:0;padding-left:18px;color:#1f2937;font-size:14px'>{fail_rows}</ul>"
@@ -245,7 +262,7 @@ class EmailService:
                 f"Role: {role_label}\nCreated by: {created_by}\n")
         return self._send(admin_emails, subject, self._shell("New user", body), text)
 
-    def send_inspection_report(self, submission, recipients=None, survey_type_name=None):
+    def send_inspection_report(self, submission, recipients=None, survey_type_name=None, criteria_map=None):
         """
         Send the summary email. recipients = region-leader addresses; the fixed
         MAIL_EXTRA_RECIPIENTS are always added. Returns (sent: bool, detail: str).
@@ -263,7 +280,7 @@ class EmailService:
             return (False, 'no valid recipients')
 
         try:
-            subject, html_body, text = self._build(submission, survey_type_name)
+            subject, html_body, text = self._build(submission, survey_type_name, criteria_map)
             self.ses.send_email(
                 Source=self.mail_from,
                 Destination={'ToAddresses': to},
