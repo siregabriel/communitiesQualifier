@@ -3668,7 +3668,18 @@
                     ${admin ? `
                     <div class="profile-section">
                         <div class="profile-section-title"><i class="fas fa-envelope"></i> Email &amp; notifications</div>
-                        <div style="display:grid; gap:10px; max-width:520px;">
+                        <style>
+                          .chip{position:relative;display:inline-flex;cursor:pointer;}
+                          .chip input{position:absolute;opacity:0;width:0;height:0;}
+                          .chip span{padding:6px 13px;border:1px solid #d9dfe8;border-radius:999px;font-size:13px;font-weight:600;color:#475569;background:#fff;transition:all .12s ease;user-select:none;}
+                          .chip:hover span{border-color:#00285c;color:#00285c;}
+                          .chip input:checked+span{background:#00285c;border-color:#00285c;color:#fff;}
+                          .chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
+                          .sub-row{transition:border-color .12s ease;}
+                          .sub-row:focus-within{border-color:#00285c !important;}
+                          .scope-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;}
+                        </style>
+                        <div style="display:grid; gap:12px;">
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;">Inspection report subscribers <span style="font-weight:500;color:#6b7280;">(region leaders always get their own region automatically)</span></label>
                             <div id="esSubscribers"></div>
                             <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()" style="justify-self:start;"><i class="fas fa-plus"></i> Add subscriber</button>
@@ -3700,22 +3711,22 @@
             const subInsp = sub.inspectors || [];
             const all = subRegions.length === 0 && subInsp.length === 0;
             const regionChecks = esRegions.map(r =>
-                `<label style="font-size:13px;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" class="sub-region" value="${escapeHtml(r.id)}" ${subRegions.includes(r.id) ? 'checked' : ''}> ${escapeHtml(r.name)}</label>`
+                `<label class="chip"><input type="checkbox" class="sub-region" value="${escapeHtml(r.id)}" ${subRegions.includes(r.id) ? 'checked' : ''}><span>${escapeHtml(r.name)}</span></label>`
             ).join('');
             const inspChecks = esInspectors.map(n =>
-                `<label style="font-size:13px;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" ${subInsp.includes(n) ? 'checked' : ''}> ${escapeHtml(n)}</label>`
+                `<label class="chip"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" ${subInsp.includes(n) ? 'checked' : ''}><span>${escapeHtml(n)}</span></label>`
             ).join('');
-            return `<div class="sub-row" style="border:1px solid #d9dfe8;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <input class="pw-input sub-email" type="email" placeholder="email" value="${escapeHtml(sub.email || '')}" style="flex:1;">
-                    <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;">
+            return `<div class="sub-row" style="border:1px solid #d9dfe8;border-radius:10px;padding:16px 18px;background:#fff;">
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <input class="pw-input sub-email" type="email" placeholder="email" value="${escapeHtml(sub.email || '')}" style="flex:1;min-width:200px;">
+                    <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;min-width:160px;">
                     <button class="res-del" type="button" title="Remove" onclick="removeSubRow(this)"><i class="fas fa-trash"></i></button>
                 </div>
-                <label style="font-size:13px;font-weight:700;display:inline-flex;gap:4px;align-items:center;margin-top:8px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}> All inspections</label>
-                <div class="sub-detail" style="display:${all ? 'none' : 'block'};margin-top:6px;">
-                    <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">By region</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:12px;">${regionChecks}</div>
-                    ${inspChecks ? `<div style="font-size:12px;color:#6b7280;margin:8px 0 4px;">By inspector</div><div style="display:flex;flex-wrap:wrap;gap:12px;">${inspChecks}</div>` : ''}
+                <label class="chip" style="margin-top:14px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}><span><i class="fas fa-globe" style="margin-right:5px;"></i>All inspections</span></label>
+                <div class="sub-detail" style="display:${all ? 'none' : 'block'};margin-top:14px;border-top:1px solid #eef1f6;padding-top:14px;">
+                    <div class="scope-label">By region</div>
+                    <div class="chip-wrap">${regionChecks}</div>
+                    ${inspChecks ? `<div class="scope-label" style="margin-top:14px;">By inspector</div><div class="chip-wrap">${inspChecks}</div>` : ''}
                 </div>
             </div>`;
         }
