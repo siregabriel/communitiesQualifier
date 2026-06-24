@@ -136,6 +136,7 @@ email_service = EmailService(
     region=os.environ.get('SES_REGION') or AWS_REGION,
     extra_recipients=_extra,
     app_base_url=os.environ.get('APP_BASE_URL'),
+    configuration_set=os.environ.get('SES_CONFIGURATION_SET'),
 )
 app.logger.info('Email: SES enabled' if email_service.enabled
                 else 'Email: disabled (set MAIL_FROM to enable)')

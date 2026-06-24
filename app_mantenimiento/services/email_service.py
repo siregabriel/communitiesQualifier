@@ -29,13 +29,21 @@ def _valid(addr):
 
 class EmailService:
     def __init__(self, mail_from=None, region=None,
-                 extra_recipients=None, app_base_url=None):
+                 extra_recipients=None, app_base_url=None, configuration_set=None):
         self.mail_from = (mail_from or '').strip() or None
         self.region = region
         self.extra_recipients = [a.strip() for a in (extra_recipients or []) if _valid(a)]
         self.app_base_url = (app_base_url or '').rstrip('/')
+        self.configuration_set = (configuration_set or '').strip() or None
         self.enabled = bool(self.mail_from)
         self._ses = None
+
+    def _send_email(self, **kwargs):
+        """ses.send_email with the configuration set attached (for bounce/
+        complaint tracking) when one is configured."""
+        if self.configuration_set:
+            kwargs['ConfigurationSetName'] = self.configuration_set
+        return self.ses.send_email(**kwargs)
 
     @property
     def ses(self):
@@ -209,7 +217,7 @@ class EmailService:
         if not to:
             return (False, 'no valid recipients')
         try:
-            self.ses.send_email(
+            self._send_email(
                 Source=self.mail_from,
                 Destination={'ToAddresses': to},
                 Message={
@@ -281,7 +289,7 @@ class EmailService:
 
         try:
             subject, html_body, text = self._build(submission, survey_type_name, criteria_map)
-            self.ses.send_email(
+            self._send_email(
                 Source=self.mail_from,
                 Destination={'ToAddresses': to},
                 Message={
