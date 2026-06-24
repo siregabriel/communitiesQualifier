@@ -2913,7 +2913,7 @@
                 const badgeClass = getBadgeClass(item.condition);
                 const badgeIcon = getBadgeIcon(item.condition);
                 const photoHtml = item.photoPath 
-                    ? `<img src="/${item.photoPath}" alt="Inspection photo">`
+                    ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.style.display='none'">`
                     : '<i class="fas fa-clipboard-check"></i>';
                 
                 // Priority badge (Fail = high priority action item)
@@ -4321,7 +4321,7 @@
                                 questionText: response.question_text,
                                 condition: response.condition,
                                 description: response.description,
-                                photoPath: response.photo_path,
+                                photoPath: response.photo_url || response.photo_path,
                                 username: submission.username,
                                 community: submission.community,
                                 surveyTypeId: submission.survey_type_id, // Add survey type ID
@@ -4428,7 +4428,7 @@
                 } else {
                     // Render inspection response card
                     const photoHtml = item.photoPath 
-                        ? `<img src="/${item.photoPath}" alt="Inspection photo">`
+                        ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.style.display='none'">`
                         : '<i class="fas fa-clipboard-check"></i>';
                     
                     return `
@@ -4606,8 +4606,8 @@
             
             // Collect all photos
             const photos = submission.responses
-                .filter(r => r.photo_path)
-                .map(r => r.photo_path);
+                .filter(r => r.photo_url || r.photo_path)
+                .map(r => r.photo_url || r.photo_path);
             
             // Build modal content
             let modalContent = `
@@ -4663,9 +4663,9 @@
                             ${response.description ? `
                                 <div class="response-description">${response.description}</div>
                             ` : ''}
-                            ${response.photo_path ? `
+                            ${(response.photo_url || response.photo_path) ? `
                                 <div class="response-photo">
-                                    <img src="/${response.photo_path}" alt="Response photo">
+                                    <img src="${photoUrl(response.photo_url || response.photo_path)}" alt="Response photo" onerror="this.parentElement.style.display='none'">
                                 </div>
                             ` : ''}
                         </div>
@@ -4686,7 +4686,7 @@
                 photos.forEach(photoPath => {
                     modalContent += `
                         <div class="photo-item">
-                            <img src="/${photoPath}" alt="Inspection photo">
+                            <img src="${photoUrl(photoPath)}" alt="Inspection photo" onerror="this.parentElement.style.display='none'">
                         </div>
                     `;
                 });
