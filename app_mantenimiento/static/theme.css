@@ -1144,3 +1144,34 @@ textarea:focus {
 /* Pass/Fail badges read cleaner as solid fills (tokens already flattened) */
 .badge-pass, .badge-yes { background: var(--grad-success) !important; }
 .badge-fail { background: var(--grad-danger) !important; }
+
+/* ==========================================================================
+   LIGHT SIDEBAR (added 2026-06-24)
+   Soft grey rail with dark text + a navy accent on the active item, and the
+   Log Out action pinned to the bottom, separated by a divider.
+   ========================================================================== */
+.sidebar {
+    background: #f5f6f8 !important;
+    border-right: 1px solid #e4e7ec !important;
+    box-shadow: none !important;
+}
+.sidebar, .sidebar * { color: #1f2937 !important; }
+.sidebar-logo { filter: none !important; opacity: 1 !important; border-bottom: 1px solid #e4e7ec !important; }
+.sidebar-logo span { color: #0f1e36 !important; }
+.user-welcome { border-bottom: 1px solid #e4e7ec !important; }
+.welcome-text { color: #0f1e36 !important; }
+.user-role { color: #6b7280 !important; }
+.sidebar-avatar { background: #e4e7ec !important; color: #00285c !important; box-shadow: none !important; }
+
+.nav-item { color: #475569 !important; }
+.nav-item i { color: #64748b !important; }
+.nav-item:hover { background: #e9ebef !important; color: #0f1e36 !important; transform: none !important; }
+.nav-item:hover i { color: #0f1e36 !important; }
+.nav-item.active { background: #e7edf7 !important; color: #00285c !important; font-weight: 700 !important; box-shadow: inset 3px 0 0 #00285c !important; }
+.nav-item.active i { color: #00285c !important; }
+
+/* Log Out pinned to the bottom, visually separated */
+.navigation-menu { display: flex !important; flex-direction: column !important; }
+.nav-item[href="/logout"] { margin-top: auto !important; border-top: 1px solid #e4e7ec !important; }
+.nav-item[href="/logout"]:hover { background: #fef2f2 !important; color: #b42318 !important; }
+.nav-item[href="/logout"]:hover i { color: #b42318 !important; }
