@@ -276,6 +276,7 @@
         /* Skeleton loading placeholders (shimmer) */
         .skel { background: linear-gradient(90deg, #eef1f6 25%, #e2e8f0 37%, #eef1f6 63%); background-size: 400% 100%; animation: skelsh 1.4s ease infinite; border-radius: 6px; }
         @keyframes skelsh { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+        .nav-skel { display: inline-block; height: 11px; border-radius: 4px; vertical-align: middle; background: linear-gradient(90deg, rgba(255,255,255,.12) 25%, rgba(255,255,255,.22) 37%, rgba(255,255,255,.12) 63%); background-size: 400% 100%; animation: skelsh 1.4s ease infinite; }
         .skel-card { background: #fff; border: 1px solid #d9dfe8; border-radius: 10px; padding: 18px 20px; }
         .skel-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 820px) { .skel-2col { grid-template-columns: 1fr; } }
@@ -1234,8 +1235,8 @@
         <div class="user-welcome">
             <div class="sidebar-avatar" id="sidebarAvatar"></div>
             <div class="user-welcome-text">
-                <div class="welcome-text">Welcome back, <br><span id="userName">Loading...</span></div>
-                <div class="user-role" id="userRole">Loading...</div>
+                <div class="welcome-text">Welcome back, <br><span id="userName"><span class="nav-skel" style="width:90px;"></span></span></div>
+                <div class="user-role" id="userRole"><span class="nav-skel" style="width:54px;"></span></div>
             </div>
         </div>
         
