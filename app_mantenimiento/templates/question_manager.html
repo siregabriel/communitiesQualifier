@@ -1265,7 +1265,10 @@
                     <div style="display:flex;gap:10px;align-items:center;">
                         <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;">Color</span>
                         <input id="stColor" type="color" value="#1f6fe5" style="width:48px;height:42px;border:1px solid #e2e8f0;border-radius:8px;padding:2px;cursor:pointer;">
-                        <button class="btn btn-primary" onclick="createSurveyType()" style="margin-left:auto;"><i class="fas fa-plus"></i> Add</button>
+                        <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
+                            <button id="stCancelBtn" type="button" onclick="stResetForm()" style="display:none;padding:11px 18px;border:1px solid #e2e8f0;background:#fff;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;color:#475569;">Cancel</button>
+                            <button id="stSaveBtn" class="btn btn-primary" onclick="createSurveyType()"><i class="fas fa-plus"></i> Add</button>
+                        </div>
                     </div>
                     <div class="error-message" id="stMsg" style="min-height:16px;"></div>
                 </div>
@@ -1679,6 +1682,8 @@
             document.getElementById('stIcon').value = 'fa-clipboard-list';
             document.getElementById('stColor').value = '#1f6fe5';
             document.getElementById('stMsg').textContent = '';
+            document.getElementById('stSaveBtn').innerHTML = '<i class="fas fa-plus"></i> Add';
+            document.getElementById('stCancelBtn').style.display = 'none';
             stRenderIconGrid();
         }
         function stEsc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
@@ -1708,7 +1713,10 @@
             document.getElementById('stIcon').value = t.icon || 'fa-clipboard-list';
             document.getElementById('stColor').value = (t.color && t.color[0] === '#') ? t.color : '#1f6fe5';
             stRenderIconGrid();
-            document.getElementById('stMsg').textContent = 'Editing "' + (t.name || '') + '" — Add saves changes.';
+            document.getElementById('stSaveBtn').innerHTML = '<i class="fas fa-check"></i> Save changes';
+            document.getElementById('stCancelBtn').style.display = '';
+            document.getElementById('stMsg').textContent = 'Editing "' + (t.name || '') + '"';
+            document.getElementById('stName').focus();
         }
         async function createSurveyType() {
             const msg = document.getElementById('stMsg');
