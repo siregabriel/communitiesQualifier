@@ -81,9 +81,12 @@ class SettingsService(JsonFileBacked):
         return {
             'subscribers': self._normalize_subscribers(subs),
             'admin_notify': clean_emails(email.get('admin_notify', [])),
+            'clinical': clean_emails(email.get('clinical', [])),
+            'ops': clean_emails(email.get('ops', [])),
         }
 
-    def set_email_settings(self, subscribers=None, admin_notify=None) -> dict:
+    def set_email_settings(self, subscribers=None, admin_notify=None,
+                           clinical=None, ops=None) -> dict:
         with self._lock:
             self._ensure_fresh()
             email = self.data.get('email', {}) if isinstance(self.data.get('email'), dict) else {}
@@ -92,9 +95,18 @@ class SettingsService(JsonFileBacked):
                 email.pop('inspection_cc', None)  # superseded by subscribers
             if admin_notify is not None:
                 email['admin_notify'] = clean_emails(admin_notify)
+            if clinical is not None:
+                email['clinical'] = clean_emails(clinical)
+            if ops is not None:
+                email['ops'] = clean_emails(ops)
             self.data['email'] = email
             self._save()
             return self.get_email_settings()
+
+    def recipients_for_route(self, route) -> list:
+        """Company-level Clinical / Ops recipient lists."""
+        s = self.get_email_settings()
+        return s.get('clinical', []) if route == 'clinical' else (s.get('ops', []) if route == 'ops' else [])
 
     def recipients_for_inspection(self, region_id, inspector_name=None) -> list:
         """Subscriber emails whose scope covers this inspection.

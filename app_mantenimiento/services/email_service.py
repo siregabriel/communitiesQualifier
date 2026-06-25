@@ -270,6 +270,38 @@ class EmailService:
                 f"Role: {role_label}\nCreated by: {created_by}\n")
         return self._send(admin_emails, subject, self._shell("New user", body), text)
 
+    def send_directed_comments(self, recipients, route, submission, items):
+        """Email the Clinical/Ops team the comments an inspector directed to them."""
+        if not self.enabled:
+            return (False, 'disabled')
+        label = 'Clinical' if route == 'clinical' else 'Operations'
+        community = submission.get('community', 'a community')
+        inspector = submission.get('inspector_name') or submission.get('username') or 'Unknown'
+        when = (submission.get('submitted_at') or '')[:10]
+
+        def esc(s):
+            return html.escape(str(s or ''))
+        rows = ''.join(
+            f"<li style='margin:8px 0'><strong>{esc(it.get('question_text','Item'))}</strong>"
+            f"<div style='color:#475569;font-size:13px;margin-top:2px'>{esc(it.get('description',''))}</div></li>"
+            for it in items
+        )
+        link = self.report_link(community)
+        button = (f"<div style='margin-top:18px'><a href='{esc(link)}' style='display:inline-block;"
+                  f"background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;"
+                  f"border-radius:8px;font-size:14px'>View full report</a></div>") if link else ""
+        body = (f"<p style='font-size:14px;margin:0 0 12px'>{esc(inspector)} directed the following "
+                f"{label.lower()} item(s) to your team during an inspection of <strong>{esc(community)}</strong>"
+                f"{(' on ' + esc(when)) if when else ''}.</p>"
+                f"<ul style='margin:0;padding-left:18px;font-size:14px;color:#1f2937'>{rows}</ul>{button}")
+        subject = f"{label} follow-up — {community} ({len(items)})"
+        text_lines = [f"{inspector} directed {len(items)} {label.lower()} item(s) to your team for {community}:"]
+        for it in items:
+            text_lines.append(f"  - {it.get('question_text','Item')}: {it.get('description','')}")
+        if link:
+            text_lines += ["", f"View the full report: {link}"]
+        return self._send(recipients, subject, self._shell(f"{label} follow-up", body), "\n".join(text_lines))
+
     def send_inspection_report(self, submission, recipients=None, survey_type_name=None, criteria_map=None):
         """
         Send the summary email. recipients = region-leader addresses; the fixed

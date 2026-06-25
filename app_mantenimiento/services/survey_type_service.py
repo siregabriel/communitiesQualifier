@@ -122,6 +122,69 @@ class SurveyTypeService:
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"Invalid JSON in survey types file: {str(e)}", e.doc, e.pos)
     
+    def _save(self, data: Dict) -> None:
+        data['last_modified'] = datetime.utcnow().isoformat() + 'Z'
+        tmp = self.survey_types_file + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, self.survey_types_file)
+
+    @staticmethod
+    def _slug(name: str) -> str:
+        import re
+        s = re.sub(r'[^a-z0-9]+', '-', (name or '').strip().lower()).strip('-')
+        return s or 'type'
+
+    def create_survey_type(self, name, description='', icon='fa-clipboard-list', color='#1f6fe5') -> Dict:
+        name = (name or '').strip()
+        if not name:
+            raise ValueError('Name is required')
+        data = self._load_data()
+        types = data.setdefault('survey_types', [])
+        existing = {t['id'] for t in types}
+        base = self._slug(name)
+        sid, n = base, 2
+        while sid in existing:
+            sid = f'{base}-{n}'
+            n += 1
+        rec = {
+            'id': sid, 'name': name,
+            'icon': (icon or 'fa-clipboard-list').strip(),
+            'color': (color or '#1f6fe5').strip(),
+            'description': (description or '').strip(),
+            'is_active': True,
+            'created_at': datetime.utcnow().isoformat() + 'Z',
+        }
+        types.append(rec)
+        self._save(data)
+        return rec
+
+    def update_survey_type(self, sid, name=None, description=None, icon=None, color=None) -> Optional[Dict]:
+        data = self._load_data()
+        t = next((x for x in data.get('survey_types', []) if x['id'] == sid), None)
+        if not t:
+            return None
+        if name is not None and name.strip():
+            t['name'] = name.strip()
+        if description is not None:
+            t['description'] = description.strip()
+        if icon is not None and icon.strip():
+            t['icon'] = icon.strip()
+        if color is not None and color.strip():
+            t['color'] = color.strip()
+        self._save(data)
+        return t
+
+    def delete_survey_type(self, sid) -> bool:
+        data = self._load_data()
+        types = data.get('survey_types', [])
+        kept = [x for x in types if x['id'] != sid]
+        if len(kept) == len(types):
+            return False
+        data['survey_types'] = kept
+        self._save(data)
+        return True
+
     def get_all_survey_types(self) -> List[Dict]:
         """
         Get all active survey types

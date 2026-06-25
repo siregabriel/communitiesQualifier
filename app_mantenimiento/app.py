@@ -1326,6 +1326,7 @@ def get_email_settings():
     return jsonify({'status': 'success', 'subscribers': s['subscribers'],
                     'admin_notify': s['admin_notify'], 'regions': regions,
                     'inspectors': leadership_names(),
+                    'clinical': s['clinical'], 'ops': s['ops'],
                     'email_enabled': email_service.enabled}), 200
 
 
@@ -1347,7 +1348,9 @@ def save_email_settings():
         inspectors = [n for n in (s.get('inspectors') or []) if n in valid_names]
         subs.append({'email': s.get('email', ''), 'name': s.get('name', ''),
                      'regions': regions, 'inspectors': inspectors})
-    saved = settings_service.set_email_settings(subscribers=subs, admin_notify=data.get('admin_notify', ''))
+    saved = settings_service.set_email_settings(
+        subscribers=subs, admin_notify=data.get('admin_notify', ''),
+        clinical=data.get('clinical', ''), ops=data.get('ops', ''))
     regions = [{'id': r.get('id'), 'name': r.get('name')}
                for r in region_service.get_all_regions() if r.get('id') != 'unassigned']
     return jsonify({'status': 'success', 'regions': regions, 'inspectors': leadership_names(), **saved}), 200
@@ -1412,6 +1415,57 @@ def get_survey_types():
             'status': 'error',
             'message': 'Internal server error while retrieving survey types'
         }), 500
+
+
+@app.route('/api/survey-types', methods=['POST'])
+@login_required
+def create_survey_type():
+    """Admin-only: create a new survey type (a question group / checklist)."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=80).strip()
+    if not name:
+        return jsonify({'status': 'error', 'message': 'Name is required'}), 400
+    description = InputSanitizer.sanitize_string(data.get('description', ''), max_length=300)
+    icon = InputSanitizer.sanitize_string(data.get('icon', ''), max_length=40) or 'fa-clipboard-list'
+    color = InputSanitizer.sanitize_string(data.get('color', ''), max_length=20) or '#1f6fe5'
+    try:
+        st = survey_type_service.create_survey_type(name, description, icon, color)
+    except Exception as e:
+        app.logger.error(f'Error creating survey type: {e}')
+        return jsonify({'status': 'error', 'message': 'Could not create survey type'}), 500
+    return jsonify({'status': 'success', 'survey_type': st}), 201
+
+
+@app.route('/api/survey-types/<survey_type_id>', methods=['PUT'])
+@login_required
+def update_survey_type(survey_type_id):
+    """Admin-only: edit a survey type's name/description/icon/color."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    st = survey_type_service.update_survey_type(
+        survey_type_id,
+        name=InputSanitizer.sanitize_string(data.get('name', ''), max_length=80) if 'name' in data else None,
+        description=InputSanitizer.sanitize_string(data.get('description', ''), max_length=300) if 'description' in data else None,
+        icon=InputSanitizer.sanitize_string(data.get('icon', ''), max_length=40) if 'icon' in data else None,
+        color=InputSanitizer.sanitize_string(data.get('color', ''), max_length=20) if 'color' in data else None,
+    )
+    if not st:
+        return jsonify({'status': 'error', 'message': 'Survey type not found'}), 404
+    return jsonify({'status': 'success', 'survey_type': st}), 200
+
+
+@app.route('/api/survey-types/<survey_type_id>', methods=['DELETE'])
+@login_required
+def delete_survey_type(survey_type_id):
+    """Admin-only: remove a survey type."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    if survey_type_service.delete_survey_type(survey_type_id):
+        return jsonify({'status': 'success'}), 200
+    return jsonify({'status': 'error', 'message': 'Survey type not found'}), 404
 
 
 @app.route('/api/select-survey-type', methods=['POST'])
@@ -2302,6 +2356,11 @@ def submit_inspection():
                             'message': f'Response {idx}: Failed to save photo'
                         }), 400
             
+            # Optional routing of this item's comment to Clinical / Ops
+            route_to = (response.get('route_to') or '').strip().lower()
+            if route_to not in ('clinical', 'ops'):
+                route_to = None
+
             # Create response object
             response_obj = {
                 'question_id': question_id,
@@ -2309,9 +2368,10 @@ def submit_inspection():
                 'condition': condition,
                 'description': description,
                 'photo_path': photo_path,
+                'route_to': route_to,
                 'answered_at': datetime.now().isoformat()
             }
-            
+
             processed_responses.append(response_obj)
         
         # Create submission using InspectionService
@@ -2367,6 +2427,15 @@ def submit_inspection():
                     if q.get('text'):
                         criteria_map['t:' + q['text'].strip().lower()] = crit
                 email_service.send_inspection_report(submission, recipients, survey_name, criteria_map)
+
+                # Route any item-level comments directed to Clinical / Ops
+                for route in ('clinical', 'ops'):
+                    items = [r for r in submission.get('responses', [])
+                             if r.get('route_to') == route and (r.get('description') or '').strip()]
+                    if items:
+                        to = settings_service.recipients_for_route(route)
+                        if to:
+                            email_service.send_directed_comments(to, route, submission, items)
             except Exception as e:
                 app.logger.error(f'Post-visit email step failed: {e}')
 

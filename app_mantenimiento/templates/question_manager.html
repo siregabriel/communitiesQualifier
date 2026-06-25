@@ -1076,6 +1076,9 @@
                 <button class="btn btn-primary" onclick="openCreateModal()">
                     <i class="fas fa-plus"></i> Create New Question
                 </button>
+                <button class="btn btn-secondary" onclick="openSurveyTypesModal()">
+                    <i class="fas fa-layer-group"></i> Survey Types
+                </button>
                 <a class="btn btn-secondary" href="/standards/pdf" style="text-decoration:none;">
                     <i class="fas fa-file-pdf"></i> Standards PDF
                 </a>
@@ -1239,6 +1242,29 @@
                         <i class="fas fa-trash"></i> Delete
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="surveyTypesModal" class="modal">
+        <div class="modal-content" style="max-width:640px;">
+            <div class="modal-header">
+                <div class="modal-header-title"><i class="fas fa-layer-group"></i> Survey Types</div>
+                <button class="modal-close" onclick="closeSurveyTypesModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="color:#64748b;font-size:13px;margin-bottom:16px;">A survey type is a question group / checklist (e.g. "Atlas Standards", "Sales Quick Visit"). Tag questions to a type, and inspectors pick the type when starting a visit.</p>
+                <div style="display:grid;gap:10px;max-width:560px;margin-bottom:18px;padding:14px;background:#f8fafc;border:1px solid #d9dfe8;border-radius:10px;">
+                    <input id="stName" placeholder="Name (e.g. Sales Quick Visit)" maxlength="80" style="padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                    <input id="stDesc" placeholder="Short description (optional)" maxlength="300" style="padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <input id="stIcon" placeholder="Icon (e.g. fa-clipboard-list)" value="fa-clipboard-list" style="flex:1;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                        <input id="stColor" type="color" value="#1f6fe5" style="width:48px;height:42px;border:1px solid #e2e8f0;border-radius:8px;padding:2px;cursor:pointer;">
+                        <button class="btn btn-primary" onclick="createSurveyType()"><i class="fas fa-plus"></i> Add</button>
+                    </div>
+                    <div class="error-message" id="stMsg" style="min-height:16px;"></div>
+                </div>
+                <div id="stList"><div style="color:#94a3b8;">Loading…</div></div>
             </div>
         </div>
     </div>
@@ -1607,6 +1633,80 @@
 
         function closeModal() {
             document.getElementById('questionModal').classList.remove('show');
+        }
+
+        // ===== Survey Types manager =====
+        let stEditId = null;
+        function openSurveyTypesModal() {
+            document.getElementById('surveyTypesModal').classList.add('show');
+            stResetForm();
+            loadSurveyTypesList();
+        }
+        function closeSurveyTypesModal() {
+            document.getElementById('surveyTypesModal').classList.remove('show');
+        }
+        function stResetForm() {
+            stEditId = null;
+            document.getElementById('stName').value = '';
+            document.getElementById('stDesc').value = '';
+            document.getElementById('stIcon').value = 'fa-clipboard-list';
+            document.getElementById('stColor').value = '#1f6fe5';
+            document.getElementById('stMsg').textContent = '';
+        }
+        function stEsc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+        async function loadSurveyTypesList() {
+            const list = document.getElementById('stList');
+            try {
+                const r = await fetch('/api/survey-types');
+                const d = await r.json();
+                const types = d.survey_types || [];
+                if (!types.length) { list.innerHTML = '<div style="color:#94a3b8;">No survey types yet.</div>'; return; }
+                list.innerHTML = types.map(t => `
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid #eef1f6;">
+                        <span style="width:34px;height:34px;border-radius:8px;background:${stEsc(t.color)};color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas ${stEsc(t.icon)}"></i></span>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;color:#0f172a;">${stEsc(t.name)}</div>
+                            <div style="font-size:12px;color:#64748b;">${stEsc(t.description || '')}</div>
+                        </div>
+                        <button class="btn-icon" title="Edit" onclick='stEdit(${JSON.stringify(t)})' style="border:1px solid #e2e8f0;background:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;color:#475569;"><i class="fas fa-pen"></i></button>
+                        <button class="btn-icon" title="Delete" onclick="stDelete('${t.id}','${stEsc(t.name).replace(/'/g,"\\'")}')" style="border:1px solid #e2e8f0;background:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;color:#dc2626;"><i class="fas fa-trash"></i></button>
+                    </div>`).join('');
+            } catch (e) { list.innerHTML = '<div style="color:#dc2626;">Could not load survey types.</div>'; }
+        }
+        function stEdit(t) {
+            stEditId = t.id;
+            document.getElementById('stName').value = t.name || '';
+            document.getElementById('stDesc').value = t.description || '';
+            document.getElementById('stIcon').value = t.icon || 'fa-clipboard-list';
+            document.getElementById('stColor').value = (t.color && t.color[0] === '#') ? t.color : '#1f6fe5';
+            document.getElementById('stMsg').textContent = 'Editing "' + (t.name || '') + '" — Add saves changes.';
+        }
+        async function createSurveyType() {
+            const msg = document.getElementById('stMsg');
+            const body = {
+                name: document.getElementById('stName').value.trim(),
+                description: document.getElementById('stDesc').value.trim(),
+                icon: document.getElementById('stIcon').value.trim(),
+                color: document.getElementById('stColor').value.trim(),
+            };
+            if (!body.name) { msg.textContent = 'Name is required.'; return; }
+            const url = stEditId ? '/api/survey-types/' + encodeURIComponent(stEditId) : '/api/survey-types';
+            const method = stEditId ? 'PUT' : 'POST';
+            try {
+                const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') { stResetForm(); loadSurveyTypesList(); }
+                else { msg.textContent = d.message || 'Could not save.'; }
+            } catch (e) { msg.textContent = 'Network error.'; }
+        }
+        async function stDelete(id, name) {
+            if (!confirm('Delete survey type "' + name + '"? Questions tagged only to it will no longer appear under any type.')) return;
+            try {
+                const r = await fetch('/api/survey-types/' + encodeURIComponent(id), { method: 'DELETE' });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') loadSurveyTypesList();
+                else alert(d.message || 'Could not delete.');
+            } catch (e) { alert('Network error.'); }
         }
 
         function toggleSelectAll() {

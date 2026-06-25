@@ -3769,6 +3769,10 @@
                             <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()" style="justify-self:start;"><i class="fas fa-plus"></i> Add subscriber</button>
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Notify when a new user is created</label>
                             <textarea id="esAdminNotify" class="pw-input" rows="3" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
+                            <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Clinical team <span style="font-weight:500;color:#6b7280;">(receives comments directed to Clinical)</span></label>
+                            <textarea id="esClinical" class="pw-input" rows="2" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
+                            <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Operations (Ops) team <span style="font-weight:500;color:#6b7280;">(receives comments directed to Ops)</span></label>
+                            <textarea id="esOps" class="pw-input" rows="2" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
                             <div style="display:flex;gap:8px;align-items:center;">
                                 <button class="btn btn-primary" onclick="saveEmailSettings()"><i class="fas fa-floppy-disk"></i> Save</button>
                                 <span class="pw-msg" id="esMsg"></span>
@@ -3849,6 +3853,10 @@
                 }
                 const an = document.getElementById('esAdminNotify');
                 if (an) an.value = (d.admin_notify || []).join('\n');
+                const cl = document.getElementById('esClinical');
+                if (cl) cl.value = (d.clinical || []).join('\n');
+                const op = document.getElementById('esOps');
+                if (op) op.value = (d.ops || []).join('\n');
                 const note = document.getElementById('esNote');
                 if (note && !d.email_enabled) note.textContent = 'Email sending is not configured on the server yet (MAIL_FROM unset).';
             } catch (e) { console.error('email settings load:', e); }
@@ -3870,7 +3878,7 @@
             try {
                 const r = await fetch('/api/settings/email', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subscribers: subs, admin_notify: document.getElementById('esAdminNotify').value })
+                    body: JSON.stringify({ subscribers: subs, admin_notify: document.getElementById('esAdminNotify').value, clinical: document.getElementById('esClinical').value, ops: document.getElementById('esOps').value })
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {

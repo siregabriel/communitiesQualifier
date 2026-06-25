@@ -1167,6 +1167,18 @@
             commentsTextarea.style.fontFamily = 'inherit';
             commentsTextarea.style.resize = 'vertical';
             section.appendChild(commentsTextarea);
+
+            // Optional: direct this item's comment to Clinical or Ops
+            const routeWrap = document.createElement('div');
+            routeWrap.style.marginTop = '12px';
+            routeWrap.innerHTML = `
+                <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:6px;">Direct comment to (optional)</label>
+                <select id="route_${question.id}" style="width:100%;padding:11px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;background:#fff;color:#0f172a;">
+                    <option value="">— No one specific —</option>
+                    <option value="clinical">Clinical</option>
+                    <option value="ops">Operations (Ops)</option>
+                </select>`;
+            section.appendChild(routeWrap);
             
             // Photo upload
             const evidenceLabel = document.createElement('div');
@@ -1300,13 +1312,15 @@
                 
                 const condition = conditionInput.value;
                 const description = document.getElementById(`description_${question.id}`)?.value || '';
-                
+                const routeTo = document.getElementById(`route_${question.id}`)?.value || '';
+
                 // Create response object
                 const response = {
                     question_id: question.id,
                     question_text: question.text,
                     condition: condition,
-                    description: description
+                    description: description,
+                    route_to: routeTo
                 };
                 
                 responses.push(response);
