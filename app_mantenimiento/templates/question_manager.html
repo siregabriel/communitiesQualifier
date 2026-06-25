@@ -1257,10 +1257,15 @@
                 <div style="display:grid;gap:10px;max-width:560px;margin-bottom:18px;padding:14px;background:#f8fafc;border:1px solid #d9dfe8;border-radius:10px;">
                     <input id="stName" placeholder="Name (e.g. Sales Quick Visit)" maxlength="80" style="padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
                     <input id="stDesc" placeholder="Short description (optional)" maxlength="300" style="padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                    <div>
+                        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:6px;">Icon</div>
+                        <div id="stIconGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                        <input type="hidden" id="stIcon" value="fa-clipboard-list">
+                    </div>
                     <div style="display:flex;gap:10px;align-items:center;">
-                        <input id="stIcon" placeholder="Icon (e.g. fa-clipboard-list)" value="fa-clipboard-list" style="flex:1;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;">Color</span>
                         <input id="stColor" type="color" value="#1f6fe5" style="width:48px;height:42px;border:1px solid #e2e8f0;border-radius:8px;padding:2px;cursor:pointer;">
-                        <button class="btn btn-primary" onclick="createSurveyType()"><i class="fas fa-plus"></i> Add</button>
+                        <button class="btn btn-primary" onclick="createSurveyType()" style="margin-left:auto;"><i class="fas fa-plus"></i> Add</button>
                     </div>
                     <div class="error-message" id="stMsg" style="min-height:16px;"></div>
                 </div>
@@ -1637,6 +1642,28 @@
 
         // ===== Survey Types manager =====
         let stEditId = null;
+        const ST_ICONS = ['fa-clipboard-list', 'fa-clipboard-check', 'fa-bolt', 'fa-chart-line',
+            'fa-bullhorn', 'fa-utensils', 'fa-stethoscope', 'fa-user-doctor', 'fa-gear',
+            'fa-shield-halved', 'fa-fire-extinguisher', 'fa-broom', 'fa-building', 'fa-house',
+            'fa-star', 'fa-heart'];
+        function stRenderIconGrid() {
+            const grid = document.getElementById('stIconGrid');
+            if (!grid) return;
+            const cur = document.getElementById('stIcon').value || 'fa-clipboard-list';
+            const icons = ST_ICONS.includes(cur) ? ST_ICONS : [cur, ...ST_ICONS];
+            grid.innerHTML = icons.map(ic => {
+                const on = ic === cur;
+                return `<button type="button" onclick="stPickIcon('${ic}')" title="${ic}"
+                    style="width:42px;height:42px;border-radius:8px;cursor:pointer;font-size:17px;
+                    border:2px solid ${on ? '#00285c' : '#e2e8f0'};
+                    background:${on ? '#eef2fb' : '#fff'};
+                    color:${on ? '#00285c' : '#64748b'};"><i class="fas ${ic}"></i></button>`;
+            }).join('');
+        }
+        function stPickIcon(ic) {
+            document.getElementById('stIcon').value = ic;
+            stRenderIconGrid();
+        }
         function openSurveyTypesModal() {
             document.getElementById('surveyTypesModal').classList.add('show');
             stResetForm();
@@ -1652,6 +1679,7 @@
             document.getElementById('stIcon').value = 'fa-clipboard-list';
             document.getElementById('stColor').value = '#1f6fe5';
             document.getElementById('stMsg').textContent = '';
+            stRenderIconGrid();
         }
         function stEsc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
         async function loadSurveyTypesList() {
@@ -1679,6 +1707,7 @@
             document.getElementById('stDesc').value = t.description || '';
             document.getElementById('stIcon').value = t.icon || 'fa-clipboard-list';
             document.getElementById('stColor').value = (t.color && t.color[0] === '#') ? t.color : '#1f6fe5';
+            stRenderIconGrid();
             document.getElementById('stMsg').textContent = 'Editing "' + (t.name || '') + '" — Add saves changes.';
         }
         async function createSurveyType() {
