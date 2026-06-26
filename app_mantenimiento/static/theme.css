@@ -1182,6 +1182,6 @@ textarea:focus {
     font-size: 10px !important;
     line-height: 1.4 !important;
     color: #9aa3af !important;
-    text-align: center !important;
+    text-align: left !important;
     border-top: 1px solid #eef0f3 !important;
 }
