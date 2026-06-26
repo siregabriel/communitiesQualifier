@@ -1175,3 +1175,13 @@ textarea:focus {
 .nav-item[href="/logout"] { margin-top: auto !important; border-top: 1px solid #e4e7ec !important; }
 .nav-item[href="/logout"]:hover { background: #fef2f2 !important; color: #b42318 !important; }
 .nav-item[href="/logout"]:hover i { color: #b42318 !important; }
+
+/* Copyright line under Log Out */
+.sidebar-copyright {
+    padding: 12px 24px 16px !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    color: #9aa3af !important;
+    text-align: center !important;
+    border-top: 1px solid #eef0f3 !important;
+}
