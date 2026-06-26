@@ -1265,7 +1265,10 @@
         <div class="modal-content" style="max-width:640px;">
             <div class="modal-header">
                 <div class="modal-header-title"><i class="fas fa-layer-group"></i> Survey Types</div>
-                <button class="modal-close" onclick="closeSurveyTypesModal()"><i class="fas fa-times"></i></button>
+                <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+                    <button type="button" onclick="startSurveyTypesTour()" title="Show the tutorial" style="padding:7px 12px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#475569;"><i class="fas fa-circle-question"></i> Help</button>
+                    <button class="modal-close" onclick="closeSurveyTypesModal()"><i class="fas fa-times"></i></button>
+                </div>
             </div>
             <div class="modal-body">
                 <p style="color:#64748b;font-size:13px;margin-bottom:16px;">A survey type is a question group / checklist (e.g. "Atlas Standards", "Sales Quick Visit"). Tag questions to a type, and inspectors pick the type when starting a visit.</p>
@@ -1686,6 +1689,9 @@
             document.getElementById('surveyTypesModal').classList.add('show');
             stResetForm();
             loadSurveyTypesList();
+            let seen = false;
+            try { seen = localStorage.getItem('atlasSurveyTypesTourSeen_v1') === '1'; } catch (e) {}
+            if (!seen) setTimeout(startSurveyTypesTour, 400);
         }
         function closeSurveyTypesModal() {
             document.getElementById('surveyTypesModal').classList.remove('show');
@@ -1950,8 +1956,24 @@
             { target: '#qmPdfBtn', title: 'Printable PDF', text: 'Download a clean PDF of all standards with their pass criteria — great for training.' },
             { title: 'That’s Standards', text: 'Use the Help button to replay this anytime.' },
         ];
-        let sTour = [], sIdx = 0;
-        function startStandardsTour() { sTour = STANDARDS_TOUR; sIdx = 0; sTourShow(); }
+        const SURVEY_TYPES_TOUR = [
+            { title: 'Survey Types', text: 'A survey type is a question group / checklist — like “Atlas Standards” or “Sales Quick Visit”. Here’s how to set them up.' },
+            { target: '#stName', title: 'Name & description', text: 'Give the type a clear name (and an optional description). This is what inspectors see when they pick a checklist to start a visit.' },
+            { target: '#stIconGrid', title: 'Pick an icon', text: 'Choose an icon from the grid so the type is easy to recognize at a glance — no need to know any icon codes.' },
+            { target: '#stColor', title: 'Color', text: 'Pick an accent color for the type. It’s used to tag and tell your checklists apart.' },
+            { target: '#stSaveBtn', title: 'Add it', text: 'Click Add to save the survey type. When you edit an existing one, this becomes “Save changes”.' },
+            { target: '#stList', title: 'Your survey types', text: 'Existing types appear here. Use the pencil to edit one, or the trash icon to remove it. Then tag your standards to a type from the standard editor.' },
+            { title: 'Done', text: 'Reopen this and click Help to replay the tutorial anytime.' },
+        ];
+        let sTour = [], sIdx = 0, sTourKey = 'atlasStandardsTourSeen_v1';
+        function startStandardsTour() { sTour = STANDARDS_TOUR; sIdx = 0; sTourKey = 'atlasStandardsTourSeen_v1'; sTourShow(); }
+        function startSurveyTypesTour() {
+            if (!document.getElementById('surveyTypesModal').classList.contains('show')) {
+                if (typeof openSurveyTypesModal === 'function') openSurveyTypesModal();
+            }
+            sTour = SURVEY_TYPES_TOUR; sIdx = 0; sTourKey = 'atlasSurveyTypesTourSeen_v1';
+            setTimeout(sTourShow, 150);
+        }
         function sTourShow() {
             const step = sTour[sIdx];
             if (!step) { endStandardsTour(); return; }
@@ -1991,7 +2013,7 @@
             document.getElementById('tourBlocker').style.display = 'none';
             document.getElementById('tourRing').style.display = 'none';
             document.getElementById('tourCard').style.display = 'none';
-            try { localStorage.setItem('atlasStandardsTourSeen_v1', '1'); } catch (e) {}
+            try { localStorage.setItem(sTourKey, '1'); } catch (e) {}
         }
         window.addEventListener('load', function () {
             let seen = false;
