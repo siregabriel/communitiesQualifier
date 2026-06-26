@@ -1179,7 +1179,7 @@ textarea:focus {
 /* Copyright line under Log Out */
 .sidebar-copyright {
     padding: 12px 24px 16px !important;
-    font-size: 11px !important;
+    font-size: 6px !important;
     line-height: 1.4 !important;
     color: #9aa3af !important;
     text-align: center !important;
