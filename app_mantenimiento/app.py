@@ -46,6 +46,25 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+# ---- Automatic cache-busting for static assets ----------------------------
+# static_v('theme.css') -> '/static/theme.css?v=<file-mtime>'. The version
+# changes by itself whenever the file is saved, so browsers always pick up
+# edits without anyone hand-bumping a version string.
+_STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
+
+
+@app.context_processor
+def _inject_static_v():
+    def static_v(filename):
+        path = os.path.join(_STATIC_DIR, filename)
+        try:
+            stamp = int(os.path.getmtime(path))
+        except OSError:
+            stamp = 0
+        return url_for('static', filename=filename) + ('?v=%d' % stamp)
+    return {'static_v': static_v}
+
+
 # ==================== SERVICE INITIALIZATION ====================
 
 # Initialize data directory
