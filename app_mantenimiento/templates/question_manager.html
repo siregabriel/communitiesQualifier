@@ -614,6 +614,18 @@
             justify-content: center;
         }
 
+        /* Guided tour */
+        #tourBlocker { position: fixed; inset: 0; z-index: 4000; display: none; }
+        #tourRing { position: fixed; z-index: 4001; border: 3px solid #fff; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(15,23,42,.6); pointer-events: none; display: none; transition: all .25s ease; }
+        .tour-card { position: fixed; z-index: 4002; width: 320px; max-width: calc(100vw - 24px); background: #fff; border-radius: 14px; box-shadow: 0 24px 56px rgba(2,32,80,.32); padding: 20px 22px; display: none; }
+        .tour-progress { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
+        .tour-card h3 { font-size: 17px; font-weight: 800; color: #0f1e36; margin: 6px 0 8px; }
+        .tour-card p { font-size: 14px; line-height: 1.55; color: #475569; margin: 0; }
+        .tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+        .tour-skip { background: none; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 4px; }
+        .tour-btn { background: #00285c; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .tour-btn-ghost { background: #fff; color: #475569; border: 1px solid #d9dfe8; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
         .modal-content {
             background: #fff;
             border-radius: 22px;
@@ -1073,15 +1085,18 @@
                 <div class="user-info">👤 {{ username }}</div>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" onclick="openCreateModal()">
+                <button class="btn btn-primary" id="qmCreateBtn" onclick="openCreateModal()">
                     <i class="fas fa-plus"></i> Create New Question
                 </button>
-                <button class="btn btn-secondary" onclick="openSurveyTypesModal()">
+                <button class="btn btn-secondary" id="qmSurveyTypesBtn" onclick="openSurveyTypesModal()">
                     <i class="fas fa-layer-group"></i> Survey Types
                 </button>
-                <a class="btn btn-secondary" href="/standards/pdf" style="text-decoration:none;">
+                <a class="btn btn-secondary" id="qmPdfBtn" href="/standards/pdf" style="text-decoration:none;">
                     <i class="fas fa-file-pdf"></i> Standards PDF
                 </a>
+                <button class="btn btn-secondary" onclick="startStandardsTour()" title="Show the tutorial">
+                    <i class="fas fa-circle-question"></i> Help
+                </button>
                 <button class="btn btn-secondary" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
@@ -1909,5 +1924,83 @@
 
     <!-- Sidebar Overlay for Mobile -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Guided tour / tutorial -->
+    <div id="tourBlocker"></div>
+    <div id="tourRing"></div>
+    <div class="tour-card" id="tourCard">
+        <div class="tour-progress" id="tourProgress"></div>
+        <h3 id="tourTitle"></h3>
+        <p id="tourText"></p>
+        <div class="tour-actions">
+            <button class="tour-skip" onclick="endStandardsTour()">Skip</button>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+                <button class="tour-btn-ghost" id="tourPrev" onclick="sTourPrev()">Back</button>
+                <button class="tour-btn" id="tourNext" onclick="sTourNext()">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STANDARDS_TOUR = [
+            { title: 'Standards', text: 'Standards are the questions inspectors answer during a visit. Here’s how to manage them.' },
+            { target: '#qmCreateBtn', title: 'Create a standard', text: 'Add a new standard. You set the prompt, an interpretive guideline, the “must include to pass” criteria, whether a photo is required, and which survey types & communities it applies to.' },
+            { target: '#qmSurveyTypesBtn', title: 'Survey Types', text: 'Survey Types are the question groups (e.g. Atlas Standards, Sales Quick Visit). Create them here, then tag questions to a type — inspectors pick the type when starting a visit.' },
+            { target: '#questionsTable', title: 'Your standards', text: 'All your standards live here. Click a row to edit it, or use the actions to manage it.' },
+            { target: '#qmPdfBtn', title: 'Printable PDF', text: 'Download a clean PDF of all standards with their pass criteria — great for training.' },
+            { title: 'That’s Standards', text: 'Use the Help button to replay this anytime.' },
+        ];
+        let sTour = [], sIdx = 0;
+        function startStandardsTour() { sTour = STANDARDS_TOUR; sIdx = 0; sTourShow(); }
+        function sTourShow() {
+            const step = sTour[sIdx];
+            if (!step) { endStandardsTour(); return; }
+            const ring = document.getElementById('tourRing');
+            const card = document.getElementById('tourCard');
+            const blocker = document.getElementById('tourBlocker');
+            blocker.style.display = 'block'; card.style.display = 'block';
+            document.getElementById('tourProgress').textContent = (sIdx + 1) + ' / ' + sTour.length;
+            document.getElementById('tourTitle').textContent = step.title;
+            document.getElementById('tourText').textContent = step.text;
+            document.getElementById('tourPrev').style.visibility = sIdx === 0 ? 'hidden' : 'visible';
+            document.getElementById('tourNext').textContent = (sIdx === sTour.length - 1) ? 'Done' : 'Next';
+            const el = step.target ? document.querySelector(step.target) : null;
+            if (el && el.offsetParent !== null) {
+                el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                setTimeout(() => {
+                    const r = el.getBoundingClientRect();
+                    ring.style.display = 'block';
+                    ring.style.top = (r.top - 6) + 'px'; ring.style.left = (r.left - 6) + 'px';
+                    ring.style.width = (r.width + 12) + 'px'; ring.style.height = (r.height + 12) + 'px';
+                    blocker.style.background = 'transparent';
+                    const vw = window.innerWidth, vh = window.innerHeight, cardW = 320;
+                    card.style.transform = 'none';
+                    let left = r.right + 16;
+                    if (left + cardW > vw - 12) { left = Math.max(12, Math.min(r.left, vw - cardW - 12)); card.style.left = left + 'px'; card.style.top = Math.min(r.bottom + 12, vh - 230) + 'px'; }
+                    else { card.style.left = left + 'px'; card.style.top = Math.max(12, Math.min(r.top, vh - 230)) + 'px'; }
+                }, 220);
+            } else {
+                ring.style.display = 'none';
+                blocker.style.background = 'rgba(15,23,42,.6)';
+                card.style.transform = 'translate(-50%,-50%)'; card.style.top = '50%'; card.style.left = '50%';
+            }
+        }
+        function sTourNext() { if (sIdx >= sTour.length - 1) endStandardsTour(); else { sIdx++; sTourShow(); } }
+        function sTourPrev() { if (sIdx > 0) { sIdx--; sTourShow(); } }
+        function endStandardsTour() {
+            document.getElementById('tourBlocker').style.display = 'none';
+            document.getElementById('tourRing').style.display = 'none';
+            document.getElementById('tourCard').style.display = 'none';
+            try { localStorage.setItem('atlasStandardsTourSeen_v1', '1'); } catch (e) {}
+        }
+        window.addEventListener('load', function () {
+            let seen = false;
+            try { seen = localStorage.getItem('atlasStandardsTourSeen_v1') === '1'; } catch (e) {}
+            if (!seen) setTimeout(startStandardsTour, 900);
+        });
+        window.addEventListener('resize', () => {
+            if (document.getElementById('tourCard') && document.getElementById('tourCard').style.display === 'block') sTourShow();
+        });
+    </script>
 </body>
 </html>

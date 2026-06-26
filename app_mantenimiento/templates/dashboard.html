@@ -1311,7 +1311,7 @@
                 </div>
                 <div class="header-actions">
                     <a href="/questions/manage" class="btn btn-primary" id="questionManagerBtn" style="display: none; text-decoration: none;"><i class="fas fa-clipboard-list"></i> Question Manager</a>
-                    <button class="btn btn-secondary" onclick="startTour()" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
+                    <button class="btn btn-secondary" onclick="contextHelp()" title="Show the tutorial for this screen"><i class="fas fa-circle-question"></i> Help</button>
                     <button class="btn btn-secondary" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
                 </div>
             </div>
@@ -2694,6 +2694,7 @@
                             headerTitle.innerHTML = '<i class="fas fa-sitemap"></i> Regions';
                             headerDesc.textContent = 'Regional Profiles & Leadership';
                             renderRegions();
+                            maybeStartRegionsTour();
                             break;
                         case 'action-items':
                             headerTitle.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Action Items';
@@ -2744,11 +2745,27 @@
                 { title: "You're all set", text: 'That’s it! Use the Help button in the top bar to replay this anytime.' },
             ],
         };
+        const REGIONS_TOUR = [
+            { title: 'Regions & Leadership', text: 'This is where you organize communities into regions and manage each region’s leaders.' },
+            { target: '.region-card', title: 'A region', text: 'Each card is a region — its communities, average score, and open action items.' },
+            { target: '.region-leader', title: 'Leaders are logins', text: 'These are the region’s leaders. Each one automatically gets a login (username from their name, e.g. keith.martin) — so adding a leader here creates their regional account.' },
+            { target: '.region-addleader-btn', title: 'Add a leader / user', text: 'Add a new leader with their name and role. Their regional login is created automatically.' },
+            { target: '.region-leader-actions', title: 'Edit, remove, photo', text: 'Edit a leader’s name or role, remove them, or add a profile photo.' },
+            { target: '.region-leader', title: 'Drag to move between regions', text: 'Grab a leader’s row and drop it onto another region to move them — their account moves with them.' },
+            { title: 'That’s Regions', text: 'Use the Help button on this screen to replay this anytime.' },
+        ];
         let tourSteps = [], tourIdx = 0;
-        function startTour() {
-            tourSteps = (isAdmin ? TOUR_STEPS.admin : TOUR_STEPS.staff);
-            tourIdx = 0;
-            showTourStep();
+        function runTour(steps) { tourSteps = steps || []; tourIdx = 0; showTourStep(); }
+        function startTour() { runTour(isAdmin ? TOUR_STEPS.admin : TOUR_STEPS.staff); }
+        function startRegionsTour() { runTour(REGIONS_TOUR); }
+        function contextHelp() {
+            if (currentView === 'regions') startRegionsTour();
+            else startTour();
+        }
+        function maybeStartRegionsTour() {
+            let seen = false;
+            try { seen = localStorage.getItem('atlasRegionsTourSeen_v1') === '1'; } catch (e) {}
+            if (!seen) { try { localStorage.setItem('atlasRegionsTourSeen_v1', '1'); } catch (e) {} setTimeout(startRegionsTour, 650); }
         }
         function showTourStep() {
             const step = tourSteps[tourIdx];
