@@ -885,6 +885,18 @@
         .std-crit-list li { margin: 5px 0; color: #1f2937; }
         .std-narr { color: #475569; }
 
+        /* Guided tour / tutorial */
+        #tourBlocker { position: fixed; inset: 0; z-index: 4000; display: none; }
+        #tourRing { position: fixed; z-index: 4001; border: 3px solid #fff; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(15,23,42,.6); pointer-events: none; display: none; transition: all .25s ease; }
+        .tour-card { position: fixed; z-index: 4002; width: 320px; max-width: calc(100vw - 24px); background: #fff; border-radius: 14px; box-shadow: 0 24px 56px rgba(2,32,80,.32); padding: 20px 22px; display: none; }
+        .tour-progress { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
+        .tour-card h3 { font-size: 17px; font-weight: 800; color: #0f1e36; margin: 6px 0 8px; }
+        .tour-card p { font-size: 14px; line-height: 1.55; color: #475569; margin: 0; }
+        .tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+        .tour-skip { background: none; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 4px; }
+        .tour-btn { background: #00285c; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .tour-btn-ghost { background: #fff; color: #475569; border: 1px solid #d9dfe8; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
         .response-condition {
             display: inline-block;
             padding: 6px 12px;
@@ -1299,6 +1311,7 @@
                 </div>
                 <div class="header-actions">
                     <a href="/questions/manage" class="btn btn-primary" id="questionManagerBtn" style="display: none; text-decoration: none;"><i class="fas fa-clipboard-list"></i> Question Manager</a>
+                    <button class="btn btn-secondary" onclick="startTour()" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
                     <button class="btn btn-secondary" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
                 </div>
             </div>
@@ -1383,6 +1396,22 @@
             </div>
             <div class="modal-body" id="modalBody">
                 <!-- Content will be dynamically loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Guided tour / tutorial -->
+    <div id="tourBlocker"></div>
+    <div id="tourRing"></div>
+    <div class="tour-card" id="tourCard">
+        <div class="tour-progress" id="tourProgress"></div>
+        <h3 id="tourTitle"></h3>
+        <p id="tourText"></p>
+        <div class="tour-actions">
+            <button class="tour-skip" onclick="endTour()">Skip</button>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+                <button class="tour-btn-ghost" id="tourPrev" onclick="tourPrev()">Back</button>
+                <button class="tour-btn" id="tourNext" onclick="tourNext()">Next</button>
             </div>
         </div>
     </div>
@@ -2576,6 +2605,9 @@
                         try { openSlidePanel(requestedCommunity); }
                         catch (e) { console.error('Deep-link open failed:', e); }
                     }, 400);
+                } else {
+                    // First-time guided tour (role-aware); replayable via the Help button.
+                    maybeStartTour();
                 }
                 
             } catch (error) { 
@@ -2690,6 +2722,98 @@
               }
             }, 30);
         }
+
+        // ===== Guided tour / tutorial =====
+        const TOUR_STEPS = {
+            admin: [
+                { title: 'Welcome to Atlas Standards', text: 'A quick tour of the basics. You can replay it anytime from the Help button in the top bar.' },
+                { target: '.nav-item[data-view="dashboard"]', title: 'Dashboard', text: 'Your at-a-glance overview: average score, communities that need attention, performance by region, and recent activity.' },
+                { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse every community, see its latest score and open action items, and open a full report.' },
+                { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders." },
+                { target: '#standardsLink', title: 'Standards', text: 'Create and edit the inspection standards, their pass criteria, and survey types (the question groups each team uses).' },
+                { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends, top performers, and pass/fail breakdowns across all visits.' },
+                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Create users, choose who receives which inspection emails (by region or inspector), and configure Clinical/Ops routing.' },
+                { title: "You're all set", text: 'That’s the tour. Tap Help in the top bar to see it again whenever you want.' },
+            ],
+            staff: [
+                { title: 'Welcome to Atlas Standards', text: 'A quick tour of how to run your inspections. Replay it anytime from Help.' },
+                { target: '#startVisitBtn', title: 'Start a visit', text: 'Tap here to begin a new inspection — pick the community and survey type, then go item by item marking Pass or Fail.' },
+                { target: '.nav-item[data-view="my-visits"]', title: 'My Visits', text: "See the inspections you've submitted, with their scores and dates." },
+                { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse communities and open a report to review results.' },
+                { title: 'Tip: the info icon', text: "On every inspection item, tap the info icon to see exactly what's required to pass. You can also add a comment and direct it to Clinical or Ops." },
+                { title: "You're all set", text: 'That’s it! Use the Help button in the top bar to replay this anytime.' },
+            ],
+        };
+        let tourSteps = [], tourIdx = 0;
+        function startTour() {
+            tourSteps = (isAdmin ? TOUR_STEPS.admin : TOUR_STEPS.staff);
+            tourIdx = 0;
+            showTourStep();
+        }
+        function showTourStep() {
+            const step = tourSteps[tourIdx];
+            if (!step) { endTour(); return; }
+            const ring = document.getElementById('tourRing');
+            const card = document.getElementById('tourCard');
+            const blocker = document.getElementById('tourBlocker');
+            blocker.style.display = 'block';
+            card.style.display = 'block';
+            document.getElementById('tourProgress').textContent = (tourIdx + 1) + ' / ' + tourSteps.length;
+            document.getElementById('tourTitle').textContent = step.title;
+            document.getElementById('tourText').textContent = step.text;
+            document.getElementById('tourPrev').style.visibility = tourIdx === 0 ? 'hidden' : 'visible';
+            document.getElementById('tourNext').textContent = (tourIdx === tourSteps.length - 1) ? 'Done' : 'Next';
+            const el = step.target ? document.querySelector(step.target) : null;
+            if (el && el.offsetParent !== null) {
+                el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                setTimeout(() => {
+                    const r = el.getBoundingClientRect();
+                    ring.style.display = 'block';
+                    ring.style.top = (r.top - 6) + 'px';
+                    ring.style.left = (r.left - 6) + 'px';
+                    ring.style.width = (r.width + 12) + 'px';
+                    ring.style.height = (r.height + 12) + 'px';
+                    blocker.style.background = 'transparent';
+                    positionTourCard(r);
+                }, 220);
+            } else {
+                ring.style.display = 'none';
+                blocker.style.background = 'rgba(15,23,42,.6)';
+                card.style.transform = 'translate(-50%, -50%)';
+                card.style.top = '50%';
+                card.style.left = '50%';
+            }
+        }
+        function positionTourCard(r) {
+            const card = document.getElementById('tourCard');
+            card.style.transform = 'none';
+            const cardW = 320, margin = 16, vw = window.innerWidth, vh = window.innerHeight;
+            let left = r.right + margin;
+            if (left + cardW > vw - 12) {
+                left = Math.max(12, Math.min(r.left, vw - cardW - 12));
+                card.style.left = left + 'px';
+                card.style.top = Math.min(r.bottom + 12, vh - 230) + 'px';
+            } else {
+                card.style.left = left + 'px';
+                card.style.top = Math.max(12, Math.min(r.top, vh - 230)) + 'px';
+            }
+        }
+        function tourNext() { if (tourIdx >= tourSteps.length - 1) endTour(); else { tourIdx++; showTourStep(); } }
+        function tourPrev() { if (tourIdx > 0) { tourIdx--; showTourStep(); } }
+        function endTour() {
+            document.getElementById('tourBlocker').style.display = 'none';
+            document.getElementById('tourRing').style.display = 'none';
+            document.getElementById('tourCard').style.display = 'none';
+            try { localStorage.setItem('atlasTourSeen_v1', '1'); } catch (e) {}
+        }
+        function maybeStartTour() {
+            let seen = false;
+            try { seen = localStorage.getItem('atlasTourSeen_v1') === '1'; } catch (e) {}
+            if (!seen) setTimeout(startTour, 900);
+        }
+        window.addEventListener('resize', () => {
+            if (document.getElementById('tourCard').style.display === 'block') showTourStep();
+        });
 
         // ===== Dashboard overview =====
         function renderDashboard() {
