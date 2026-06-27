@@ -3640,7 +3640,11 @@
                 });
                 const data = await resp.json();
                 if (resp.ok && data.status === 'success') {
-                    if (Array.isArray(data.regions)) regions = data.regions;
+                    // Reload via GET /api/regions so leadership photos (merged
+                    // server-side) come back too. The assign/remove response only
+                    // returns the raw region structure without photos, which would
+                    // otherwise make avatars flash to initials until a refresh.
+                    await loadRegions();
                     renderRegions();
                 } else {
                     alert(data.message || 'Action failed. Please try again.');
