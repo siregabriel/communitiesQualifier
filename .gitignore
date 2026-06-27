@@ -22,6 +22,7 @@ env/
 # These are git-ignored so a deploy (git pull) never overwrites production data.
 # Seed copies live in app_mantenimiento/data/seeds/ and ARE tracked.
 app_mantenimiento/data/*.json
+app_mantenimiento/data/.secret_key
 
 # ---- Uploaded media (persists on the server) ----
 app_mantenimiento/static/uploads/

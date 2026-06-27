@@ -19,17 +19,53 @@ from services.input_sanitizer import InputSanitizer
 app = Flask(__name__)
 
 # Configuration
-# SECRET_KEY must be set via environment in production (used to sign sessions).
-# Falls back to a dev key locally; logs a warning if the prod fallback is used.
-_secret = os.environ.get('SECRET_KEY')
-if not _secret:
-    _secret = 'dev-only-insecure-key-do-not-use-in-production'
-    if os.environ.get('FLASK_DEBUG', '0') != '1':
-        app.logger.warning('SECRET_KEY env var not set — using an insecure development key. '
-                           'Set SECRET_KEY in production.')
-app.config['SECRET_KEY'] = _secret
+# SECRET_KEY resolution order (never falls back to a hardcoded insecure key):
+#   1. SECRET_KEY env var (preferred for production).
+#   2. A persisted random key in data/.secret_key (stable across restarts so
+#      sessions survive a reboot). Generated with secrets.token_hex on first run.
+def _resolve_secret_key():
+    env_key = os.environ.get('SECRET_KEY')
+    if env_key:
+        return env_key
+    import secrets
+    key_path = os.path.join(os.path.dirname(__file__), 'data', '.secret_key')
+    try:
+        if os.path.exists(key_path):
+            with open(key_path, 'r', encoding='utf-8') as f:
+                k = f.read().strip()
+            if k:
+                return k
+        os.makedirs(os.path.dirname(key_path), exist_ok=True)
+        k = secrets.token_hex(32)
+        with open(key_path, 'w', encoding='utf-8') as f:
+            f.write(k)
+        try:
+            os.chmod(key_path, 0o600)
+        except OSError:
+            pass
+        app.logger.warning('SECRET_KEY env var not set — generated and persisted a '
+                           'random key in data/.secret_key. Set SECRET_KEY in the '
+                           'environment for full control.')
+        return k
+    except OSError:
+        # Last resort (read-only fs): a per-process random key. Sessions won't
+        # survive a restart, but the key is never a known hardcoded value.
+        return secrets.token_hex(32)
+
+
+app.config['SECRET_KEY'] = _resolve_secret_key()
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+
+# --- Session cookie hardening ---
+# Secure: only send the cookie over HTTPS (disable for local http via COOKIE_SECURE=0).
+# HttpOnly: JS can't read the cookie (mitigates XSS cookie theft).
+# SameSite=Lax: the browser won't attach the session cookie to cross-site POST/
+#   fetch requests, which blocks the bulk of CSRF, while still allowing top-level
+#   navigations (so inspection-report email links still log the user in).
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('COOKIE_SECURE', '1') != '0'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Configure upload folder
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
@@ -43,6 +79,76 @@ ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
 def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# ==================== SECURITY MIDDLEWARE ====================
+from urllib.parse import urlparse as _urlparse
+
+# Endpoints that legitimately accept cross-origin / no-Origin POSTs. (None today;
+# kept for clarity / future webhooks.)
+_CSRF_EXEMPT_PATHS = set()
+
+
+@app.before_request
+def _csrf_origin_guard():
+    """Lightweight CSRF protection: for state-changing requests, require the
+    Origin (or Referer) to match our own host. Combined with the SameSite=Lax
+    session cookie, this blocks cross-site forged requests. Same-origin fetch/
+    form posts always send a matching Origin, so legitimate traffic is unaffected."""
+    if request.method not in ('POST', 'PUT', 'DELETE', 'PATCH'):
+        return
+    if request.path in _CSRF_EXEMPT_PATHS:
+        return
+    source = request.headers.get('Origin') or request.headers.get('Referer')
+    if not source:
+        # No Origin/Referer at all (rare). The SameSite cookie still protects us,
+        # so allow rather than break non-browser clients / health checks.
+        return
+    if _urlparse(source).netloc != request.host:
+        app.logger.warning('Blocked cross-origin %s %s from %s',
+                           request.method, request.path, source)
+        return jsonify({'status': 'error', 'message': 'Cross-origin request blocked'}), 403
+
+
+@app.after_request
+def _security_headers(resp):
+    """Standard hardening headers applied to every response."""
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('X-Frame-Options', 'DENY')
+    resp.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    resp.headers.setdefault('X-XSS-Protection', '0')
+    # HSTS only matters over HTTPS; harmless to always send (browsers ignore on http).
+    resp.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    return resp
+
+
+# --- Simple in-memory login throttle (per IP + username) ---
+import time as _time
+from collections import defaultdict as _defaultdict
+_LOGIN_ATTEMPTS = _defaultdict(list)   # key -> [timestamps of recent failures]
+_LOGIN_WINDOW = 300                    # 5 minutes
+_LOGIN_MAX_FAILS = 8                   # allowed failures per window
+
+
+def _login_throttle_key():
+    ip = (request.headers.get('X-Forwarded-For', '') or request.remote_addr or '').split(',')[0].strip()
+    return ip or 'unknown'
+
+
+def login_is_throttled():
+    key = _login_throttle_key()
+    now = _time.time()
+    fails = [t for t in _LOGIN_ATTEMPTS[key] if now - t < _LOGIN_WINDOW]
+    _LOGIN_ATTEMPTS[key] = fails
+    return len(fails) >= _LOGIN_MAX_FAILS
+
+
+def record_login_failure():
+    _LOGIN_ATTEMPTS[_login_throttle_key()].append(_time.time())
+
+
+def reset_login_failures():
+    _LOGIN_ATTEMPTS.pop(_login_throttle_key(), None)
 
 
 # ---- Automatic cache-busting for static assets ----------------------------
@@ -579,22 +685,29 @@ def api_login():
     - 500: Internal server errors
     """
     try:
+        # Throttle brute-force attempts (per client IP).
+        if login_is_throttled():
+            return jsonify({
+                'status': 'error',
+                'message': 'Too many failed attempts. Please wait a few minutes and try again.'
+            }), 429
+
         # Handle JSON parsing errors
         data = request.get_json(silent=True)
-        
+
         if data is None:
             return jsonify({
                 'status': 'error',
                 'message': 'Invalid JSON format or Content-Type must be application/json'
             }), 400
-        
+
         # Validate JSON structure
         if not InputSanitizer.validate_json_structure(data, dict):
             return jsonify({
                 'status': 'error',
                 'message': 'Request body must be a JSON object'
             }), 400
-        
+
         # Sanitize and validate inputs
         username = InputSanitizer.sanitize_username(data.get('username', ''))
         password = data.get('password', '')
@@ -615,6 +728,7 @@ def api_login():
         success, account = authenticate_user(username, password)
 
         if success:
+            reset_login_failures()
             # Store user in session
             session['user'] = username
             session['community'] = account['community']
@@ -632,6 +746,7 @@ def api_login():
                 'display_name': account['display_name']
             }), 200
         else:
+            record_login_failure()
             return jsonify({
                 'status': 'error',
                 'message': 'Invalid username or password'
@@ -3061,5 +3176,5 @@ if __name__ == '__main__':
     # Local development server only. In production the app is served by gunicorn
     # (see deploy/), which imports `app` directly and ignores this block.
     port = int(os.environ.get('PORT', 5001))
-    debug = os.environ.get('FLASK_DEBUG', '1') == '1'  # on by default for local
+    debug = os.environ.get('FLASK_DEBUG', '0') == '1'  # off by default; set FLASK_DEBUG=1 for local dev
     app.run(host='0.0.0.0', port=port, debug=debug)
