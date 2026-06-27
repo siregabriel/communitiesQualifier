@@ -878,6 +878,24 @@ textarea:focus {
 }
 .region-leader-photo-btn:hover { filter: brightness(1.1); }
 
+/* Inspection-count badge on a leader's avatar (top-right) */
+.region-leader-count {
+    position: absolute;
+    top: -5px; right: -6px;
+    min-width: 18px; height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    border: 1.5px solid #fff;
+    background: #00285c;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    pointer-events: auto;
+}
+
 /* Drag & drop leaders */
 .region-leaders { border-radius: var(--r); transition: background .15s ease, box-shadow .15s ease; }
 .region-leaders.drop-target {

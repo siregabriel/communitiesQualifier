@@ -3466,6 +3466,21 @@
             const byCommunity = {};
             communityData.forEach(c => { byCommunity[c.name] = c; });
 
+            // Count completed inspections (one per visit) by inspector name, so we
+            // can show each leader a quick "how active are they" badge.
+            // Badge = last 30 days (rolling); tooltip also shows the all-time total.
+            const normName = (s) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+            const cutoff30 = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            const inspRecent = {};   // last 30 days
+            const inspTotal = {};    // all-time
+            (allSubmissions || []).forEach(s => {
+                const key = normName(s.inspector_name || s.username);
+                if (!key) return;
+                inspTotal[key] = (inspTotal[key] || 0) + 1;
+                const ts = new Date(s.submitted_at).getTime();
+                if (!isNaN(ts) && ts >= cutoff30) inspRecent[key] = (inspRecent[key] || 0) + 1;
+            });
+
             gallery.innerHTML = `<div class="regions-grid">` + regions.map(region => {
                 const comms = region.communities || [];
 
@@ -3491,6 +3506,9 @@
                         const avatar = l.photo
                             ? `<img class="region-leader-avatar-img" src="/static/${l.photo}" alt="${nm}" draggable="false">`
                             : `<div class="region-leader-avatar" style="background:${avatarColor(nm)};">${profileInitials(nm)}</div>`;
+                        const recentCount = inspRecent[normName(nm)] || 0;
+                        const totalCount = inspTotal[normName(nm)] || 0;
+                        const countBadge = `<span class="region-leader-count" title="${recentCount} in the last 30 days · ${totalCount} all-time">${recentCount}</span>`;
                         const dragAttrs = isAdmin ? `draggable="true"
                                 ondragstart="leaderDragStart(event,'${rid}',${i})"
                                 ondragend="leaderDragEnd(event)"
@@ -3520,7 +3538,7 @@
                             </div>` : '';
                         return `
                             <div class="region-leader ${isAdmin ? 'draggable-leader' : ''}" id="leader_${rid}_${i}" ${dragAttrs}>
-                                <div class="region-leader-avatar-wrap">${avatar}${adminUpload}</div>
+                                <div class="region-leader-avatar-wrap">${avatar}${countBadge}${adminUpload}</div>
                                 <div class="region-leader-info">
                                     <div class="region-leader-name">${nm}</div>
                                     <div class="region-leader-role">${l.role || ''}</div>
