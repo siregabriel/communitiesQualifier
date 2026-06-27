@@ -2639,8 +2639,10 @@
                     alert(data.message || 'Could not upload the cover image.');
                     return;
                 }
-                // cache-bust so the new image shows immediately
-                communityCovers[slug] = data.url + (data.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                // Use the signed URL as-is. (Appending a cache-bust param would
+                // break an S3 presigned signature, so don't.) The freshly signed
+                // URL is already unique, so the browser loads the new image.
+                communityCovers[slug] = data.url;
                 renderCommunityCards();
                 if (typeof currentPanelCommunity !== 'undefined' && currentPanelCommunity === name) {
                     applyPanelCover(slug);
@@ -5092,6 +5094,9 @@
         const gallery = document.getElementById('gallery');
         if (gallery) {
             gallery.addEventListener('click', (event) => {
+                // Cover photo controls live on top of the card — clicking them
+                // should NOT open the last-visit panel.
+                if (event.target.closest('.cover-actions')) return;
                 const card = event.target.closest('.community-card');
                 if (card && gallery.contains(card)) {
                     openCommunityFromCard(card);
