@@ -120,6 +120,29 @@ class FileUploadHandler:
         file.save(os.path.join(directory, stored))
         return relative_path, stored
 
+    def save_cover(self, file, slug: str) -> tuple:
+        """
+        Save a community cover image under 'community_covers/<slug>.<ext>'.
+        Re-uploading replaces the previous object. Returns (relative_path,
+        stored_filename).
+        """
+        original = secure_filename(file.filename) or 'cover.jpg'
+        ext = original.rsplit('.', 1)[1].lower() if '.' in original else 'jpg'
+        relative_path = f"community_covers/{slug}.{ext}"
+        if self.use_s3:
+            content_type = _CONTENT_TYPES.get(ext, 'application/octet-stream')
+            file.seek(0)
+            self.s3.upload_fileobj(
+                file, self.s3_bucket, self._s3_key(relative_path),
+                ExtraArgs={'ContentType': content_type},
+            )
+            return relative_path, original
+        directory = os.path.join(self.upload_folder, 'community_covers')
+        os.makedirs(directory, exist_ok=True)
+        file.seek(0)
+        file.save(os.path.join(directory, f"{slug}.{ext}"))
+        return relative_path, original
+
     def delete_file(self, relative_path: str) -> None:
         """Best-effort removal of a stored file (S3 object or local file)."""
         if not relative_path:

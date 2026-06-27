@@ -146,6 +146,29 @@ RESOURCES_FILE = os.path.join(DATA_FOLDER, 'resources.json')
 from services.resource_service import ResourceService
 resource_service = ResourceService(RESOURCES_FILE)
 
+# Admin-uploaded community cover images (shown on dashboard cards + detail panel)
+COVERS_FILE = os.path.join(DATA_FOLDER, 'community_covers.json')
+from services.community_cover_service import CommunityCoverService
+community_cover_service = CommunityCoverService(COVERS_FILE)
+
+
+def community_slug(name: str) -> str:
+    """Mirror of the client-side slug: lowercase, non-alphanumerics -> '_'."""
+    import re as _re
+    s = (name or '').lower()
+    s = _re.sub(r'[^a-z0-9]+', '_', s)
+    return s.strip('_')
+
+
+def cover_url_for(record):
+    """Build a usable image URL for a stored cover record (S3 signed or local)."""
+    if not record or not record.get('path'):
+        return None
+    path = record['path']
+    if file_upload_handler.use_s3:
+        return file_upload_handler.generate_presigned_url(path)
+    return url_for('static', filename=f'uploads/{path}')
+
 # Email (Amazon SES). Disabled until MAIL_FROM is set, so the app runs fine
 # before email is configured. A failed send never blocks an inspection.
 from services.email_service import EmailService
@@ -989,6 +1012,74 @@ def get_communities():
     else:
         communities = [session.get('community')] if session.get('community') else []
     return jsonify({'status': 'success', 'communities': communities}), 200
+
+
+@app.route('/api/community-covers', methods=['GET'])
+@login_required
+def list_community_covers():
+    """Return { slug: image_url } for every community that has a cover image.
+    Any logged-in user can read these (covers are shown on the cards)."""
+    out = {}
+    for slug, rec in community_cover_service.get_all().items():
+        url = cover_url_for(rec)
+        if url:
+            out[slug] = url
+    return jsonify({'status': 'success', 'covers': out}), 200
+
+
+@app.route('/api/communities/cover', methods=['POST'])
+@require_admin
+def upload_community_cover():
+    """Admin-only: upload (or replace) a community's cover image.
+    Multipart form: name (community name) + photo (image file)."""
+    try:
+        name = InputSanitizer.sanitize_community_name(request.form.get('name', ''))
+        if not name:
+            return jsonify({'status': 'error', 'message': 'Community name is required'}), 400
+        if 'photo' not in request.files:
+            return jsonify({'status': 'error', 'message': 'No image provided'}), 400
+
+        file = request.files['photo']
+        valid, msg = file_upload_handler.validate_file(file)
+        if not valid:
+            return jsonify({'status': 'error', 'message': msg}), 400
+
+        slug = community_slug(name)
+        # Remove any previous cover object (extension may differ) before saving.
+        old = community_cover_service.get(slug)
+        if old and old.get('path'):
+            file_upload_handler.delete_file(old['path'])
+
+        rel_path, stored = file_upload_handler.save_cover(file, slug)
+        rec = community_cover_service.set(slug, name, rel_path, stored)
+        activity_service.log(session.get('user'), 'community_cover_set',
+                             f'Set cover image for "{name}"')
+        return jsonify({'status': 'success', 'slug': slug,
+                        'url': cover_url_for(rec)}), 200
+    except Exception as e:
+        app.logger.error(f'Error uploading community cover: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while uploading cover'}), 500
+
+
+@app.route('/api/communities/cover', methods=['DELETE'])
+@require_admin
+def delete_community_cover():
+    """Admin-only: remove a community's cover image (reverts to the gradient)."""
+    try:
+        data = request.get_json(silent=True) or {}
+        name = InputSanitizer.sanitize_community_name(data.get('name', ''))
+        if not name:
+            return jsonify({'status': 'error', 'message': 'Community name is required'}), 400
+        slug = community_slug(name)
+        rec = community_cover_service.delete(slug)
+        if rec and rec.get('path'):
+            file_upload_handler.delete_file(rec['path'])
+        activity_service.log(session.get('user'), 'community_cover_removed',
+                             f'Removed cover image for "{name}"')
+        return jsonify({'status': 'success', 'slug': slug}), 200
+    except Exception as e:
+        app.logger.error(f'Error removing community cover: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while removing cover'}), 500
 
 
 @app.route('/api/users', methods=['GET'])

@@ -541,6 +541,47 @@
             z-index: 1;
         }
 
+        /* Admin cover-photo controls (top-right of the card banner) */
+        .cover-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 6px;
+            z-index: 3;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .community-card:hover .cover-actions { opacity: 1; }
+        .cover-btn {
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 9px;
+            background: rgba(15, 23, 42, 0.55);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+        .cover-btn:hover { background: rgba(15, 23, 42, 0.8); transform: scale(1.06); }
+        .cover-btn-remove:hover { background: #b42318; }
+
+        /* Cover banner inside the detail panel */
+        .panel-cover {
+            width: 100%;
+            height: 180px;
+            background-size: cover;
+            background-position: center;
+            border-radius: 14px;
+            margin-bottom: 18px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+        }
+
         .community-card .card-content {
             padding: 24px;
             text-align: center;
@@ -2103,6 +2144,7 @@
             }
             
             // Update header
+            currentPanelCommunity = data.communityName;
             if (panelTitle) {
                 panelTitle.textContent = data.communityName;
             }
@@ -2111,9 +2153,9 @@
                     ? `Last visit: ${escapeHtml(data.lastVisitDate)} &middot; by ${inspectorAvatarHtml(data.inspectorName)}${escapeHtml(data.inspectorName)}`
                     : `Last visit: ${escapeHtml(data.lastVisitDate)}`;
             }
-            
-            // Build panel content
-            let html = '';
+
+            // Build panel content (cover banner first, if one is set)
+            let html = panelCoverHtml(data.communityName);
             
             // Stats section
             html += renderStats(data.score, data.actionItems);
@@ -2258,6 +2300,44 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Admin-uploaded community cover images: { slug: imageUrl }
+        let communityCovers = {};
+        let currentPanelCommunity = null;
+
+        // Build the cover banner shown at the top of the detail panel (or '' if none).
+        function panelCoverHtml(name) {
+            const slug = getCommunitySlug(name);
+            const url = communityCovers[slug];
+            if (!url) return '';
+            return `<div class="panel-cover" id="panelCoverBanner" style="background-image:url('${url}')"></div>`;
+        }
+
+        // Live-update the panel banner when a cover is added/changed/removed.
+        function applyPanelCover(slug) {
+            const body = document.getElementById('slidePanelBody');
+            if (!body) return;
+            const existing = document.getElementById('panelCoverBanner');
+            const url = communityCovers[slug];
+            if (url) {
+                if (existing) existing.style.backgroundImage = `url('${url}')`;
+                else body.insertAdjacentHTML('afterbegin',
+                    `<div class="panel-cover" id="panelCoverBanner" style="background-image:url('${url}')"></div>`);
+            } else if (existing) {
+                existing.remove();
+            }
+        }
+
+        async function loadCommunityCovers() {
+            try {
+                const res = await fetch('/api/community-covers');
+                if (!res.ok) return;
+                const data = await res.json();
+                communityCovers = data.covers || {};
+            } catch (e) {
+                console.error('Error loading community covers:', e);
+            }
         }
 
         // Community Data Loader
@@ -2475,13 +2555,26 @@
                 const regionBadge = regionName
                     ? `<span class="card-region-badge ${regionName === 'Unassigned' ? 'card-region-badge-unassigned' : ''}"><i class="fas fa-sitemap"></i> ${regionName}</span>`
                     : '';
+                const coverUrl = communityCovers[photoSlug];
+                const nameAttr = community.name.replace(/'/g, "\\'");
+                const coverImg = coverUrl
+                    ? `<img class="cover-img" src="${coverUrl}" alt="${community.name}" loading="lazy" onerror="this.remove()">`
+                    : `<img class="cover-img" src="/static/community_photos/${photoSlug}.jpg" alt="${community.name}" loading="lazy" onerror="this.remove()">`;
+                const coverControls = isAdmin ? `
+                            <div class="cover-actions">
+                                <button class="cover-btn" title="${coverUrl ? 'Change cover photo' : 'Add cover photo'}"
+                                        onclick="triggerCoverUpload('${nameAttr}')">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                                ${coverUrl ? `<button class="cover-btn cover-btn-remove" title="Remove cover photo" onclick="removeCover('${nameAttr}')"><i class="fas fa-trash"></i></button>` : ''}
+                            </div>` : '';
                 return `
                     <div class="community-card">
                         <div class="card-image" style="background: ${community.photoUrl}">
                             <i class="fas fa-building"></i>
-                            <img src="/static/community_photos/${photoSlug}.jpg" alt="${community.name}"
-                                 loading="lazy" onerror="this.remove()">
+                            ${coverImg}
                             ${regionBadge}
+                            ${coverControls}
                         </div>
                         <div class="card-content">
                             <div class="card-title">${community.name}</div>
@@ -2511,6 +2604,76 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // ===== Community cover image upload (admin only) =====
+        let _coverUploadName = null;
+        function triggerCoverUpload(name) {
+            _coverUploadName = name;
+            let input = document.getElementById('coverFileInput');
+            if (!input) {
+                input = document.createElement('input');
+                input.type = 'file';
+                input.id = 'coverFileInput';
+                input.accept = 'image/png,image/jpeg,image/jpg,image/webp,image/gif';
+                input.style.display = 'none';
+                input.addEventListener('change', onCoverFileChosen);
+                document.body.appendChild(input);
+            }
+            input.value = '';
+            input.click();
+        }
+
+        async function onCoverFileChosen(ev) {
+            const file = ev.target.files && ev.target.files[0];
+            const name = _coverUploadName;
+            if (!file || !name) return;
+            const slug = getCommunitySlug(name);
+            const fd = new FormData();
+            fd.append('name', name);
+            fd.append('photo', file);
+            try {
+                const res = await fetch('/api/communities/cover', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (!res.ok || data.status !== 'success') {
+                    alert(data.message || 'Could not upload the cover image.');
+                    return;
+                }
+                // cache-bust so the new image shows immediately
+                communityCovers[slug] = data.url + (data.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                renderCommunityCards();
+                if (typeof currentPanelCommunity !== 'undefined' && currentPanelCommunity === name) {
+                    applyPanelCover(slug);
+                }
+            } catch (e) {
+                console.error('Cover upload failed:', e);
+                alert('Could not upload the cover image.');
+            }
+        }
+
+        async function removeCover(name) {
+            if (!confirm('Remove the cover photo for this community?')) return;
+            const slug = getCommunitySlug(name);
+            try {
+                const res = await fetch('/api/communities/cover', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name }),
+                });
+                const data = await res.json();
+                if (!res.ok || data.status !== 'success') {
+                    alert(data.message || 'Could not remove the cover image.');
+                    return;
+                }
+                delete communityCovers[slug];
+                renderCommunityCards();
+                if (typeof currentPanelCommunity !== 'undefined' && currentPanelCommunity === name) {
+                    applyPanelCover(slug);
+                }
+            } catch (e) {
+                console.error('Cover remove failed:', e);
+                alert('Could not remove the cover image.');
+            }
         }
 
         async function loadUserInfo() {
@@ -2588,6 +2751,7 @@
                     loadReports(),
                     loadInspections(),
                     loadCommunityData(),
+                    loadCommunityCovers(),
                     loadRegions(),
                     loadQuestions()
                 ]);
