@@ -345,6 +345,17 @@
             gap: 24px;
         }
 
+        /* Compact layout (used by Action Items): smaller cards, ~4 columns */
+        .gallery.gallery-compact {
+            grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+            gap: 16px;
+        }
+        .gallery-compact .card-image,
+        .gallery-compact .card-image-themed { height: 120px; font-size: 40px; }
+        .gallery-compact .card-content { padding: 16px; }
+        .gallery-compact .card-title { font-size: 15px; }
+        .gallery-compact .card-description { font-size: 12px; }
+
         .card {
             background: white;
             border-radius: 16px;
@@ -2854,6 +2865,9 @@
             if (viewRenderTimer) clearTimeout(viewRenderTimer);
             viewRenderTimer = setTimeout(() => {
               try {
+                    // Reset compact layout; only Action Items re-applies it.
+                    const galleryEl = document.getElementById('gallery');
+                    if (galleryEl) galleryEl.classList.remove('gallery-compact');
                     switch(view) {
                         case 'dashboard':
                             headerTitle.innerHTML = '<i class="fas fa-gauge-high"></i> Dashboard';
@@ -3248,6 +3262,7 @@
 
         function renderActionItems() {
             const gallery = document.getElementById('gallery');
+            gallery.classList.add('gallery-compact');
 
             // Filter for action items
             const actionConditions = ['Fail'];
