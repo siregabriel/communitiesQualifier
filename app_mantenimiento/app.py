@@ -2716,6 +2716,50 @@ def _export_filename(ext):
     return f"atlas-inspections-{datetime.now().strftime('%Y%m%d')}.{ext}"
 
 
+def _export_summary():
+    """Aggregate stats for the summary section of every export, computed from the
+    same role-scoped submissions as the detail rows."""
+    subs = _scoped_submissions_for_export()
+    total_visits = len(subs)
+    passes = fails = total_responses = 0
+    by_type = {}        # survey_type_id -> count of responses
+    performers = {}     # inspector -> {visits, last}
+    for sub in subs:
+        stid = sub.get('survey_type_id')
+        responses = sub.get('responses') or []
+        for r in responses:
+            total_responses += 1
+            cond = (r.get('condition') or '')
+            if cond == 'Pass':
+                passes += 1
+            elif cond == 'Fail':
+                fails += 1
+            if stid:
+                by_type[stid] = by_type.get(stid, 0) + 1
+        name = sub.get('inspector_name') or 'Unknown'
+        p = performers.setdefault(name, {'visits': 0, 'last': ''})
+        p['visits'] += 1
+        sa = (sub.get('submitted_at') or '')
+        if sa > p['last']:
+            p['last'] = sa
+
+    by_survey_type = sorted(
+        [(survey_type_service.get_survey_type_name(k) or k, v) for k, v in by_type.items()],
+        key=lambda x: x[1], reverse=True)
+    top_performers = sorted(
+        [(n, d['visits'], (d['last'] or '')[:10]) for n, d in performers.items()],
+        key=lambda x: x[1], reverse=True)[:10]
+
+    pass_rate = round(passes / total_responses * 100) if total_responses else 0
+    return {
+        'total_visits': total_visits,
+        'total_responses': total_responses,
+        'passes': passes, 'fails': fails, 'pass_rate': pass_rate,
+        'by_survey_type': by_survey_type,
+        'top_performers': top_performers,
+    }
+
+
 @app.route('/api/reports/export.csv')
 @login_required
 def export_reports_csv():
@@ -2724,6 +2768,29 @@ def export_reports_csv():
     import io
     buf = io.StringIO()
     writer = csv.writer(buf)
+
+    # --- Summary block ---
+    s = _export_summary()
+    writer.writerow(['Atlas Senior Living — Inspection Report'])
+    writer.writerow(['Generated', datetime.now().strftime('%Y-%m-%d %H:%M')])
+    writer.writerow([])
+    writer.writerow(['Total visits', s['total_visits']])
+    writer.writerow(['Total responses', s['total_responses']])
+    writer.writerow(['Pass', s['passes']])
+    writer.writerow(['Fail', s['fails']])
+    writer.writerow(['Pass rate', f"{s['pass_rate']}%"])
+    writer.writerow([])
+    writer.writerow(['Survey type', 'Responses'])
+    for name, count in s['by_survey_type']:
+        writer.writerow([name, count])
+    writer.writerow([])
+    writer.writerow(['Top performers', 'Visits', 'Last visit'])
+    for name, visits, last in s['top_performers']:
+        writer.writerow([name, visits, last])
+    writer.writerow([])
+    writer.writerow(['DETAIL'])
+
+    # --- Detail table ---
     writer.writerow(_EXPORT_HEADERS)
     writer.writerows(_export_rows())
     from flask import Response
@@ -2742,12 +2809,64 @@ def export_reports_xlsx():
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = 'Inspections'
-
     header_fill = PatternFill('solid', fgColor='00285C')
     header_font = Font(bold=True, color='FFFFFF')
+
+    wb = Workbook()
+
+    # ---------- Summary sheet ----------
+    summ = wb.active
+    summ.title = 'Summary'
+    s = _export_summary()
+    title_font = Font(bold=True, size=14, color='00285C')
+    label_font = Font(bold=True)
+
+    summ['A1'] = 'Atlas Senior Living — Inspection Report'
+    summ['A1'].font = title_font
+    summ['A2'] = f"Generated {datetime.now().strftime('%B %d, %Y %H:%M')}"
+    summ['A2'].font = Font(italic=True, color='6B7280')
+
+    kpis = [('Total visits', s['total_visits']), ('Total responses', s['total_responses']),
+            ('Pass', s['passes']), ('Fail', s['fails']), ('Pass rate', f"{s['pass_rate']}%")]
+    row = 4
+    for label, val in kpis:
+        summ.cell(row=row, column=1, value=label).font = label_font
+        summ.cell(row=row, column=2, value=val)
+        row += 1
+
+    row += 1
+    summ.cell(row=row, column=1, value='Survey Type Breakdown').font = title_font
+    row += 1
+    summ.cell(row=row, column=1, value='Survey type').font = header_font
+    summ.cell(row=row, column=1).fill = header_fill
+    summ.cell(row=row, column=2, value='Responses').font = header_font
+    summ.cell(row=row, column=2).fill = header_fill
+    row += 1
+    for name, count in s['by_survey_type']:
+        summ.cell(row=row, column=1, value=name)
+        summ.cell(row=row, column=2, value=count)
+        row += 1
+
+    row += 1
+    summ.cell(row=row, column=1, value='Top Performers').font = title_font
+    row += 1
+    for col, h in enumerate(['Team member', 'Visits', 'Last visit'], start=1):
+        c = summ.cell(row=row, column=col, value=h)
+        c.font = header_font
+        c.fill = header_fill
+    row += 1
+    for name, visits, last in s['top_performers']:
+        summ.cell(row=row, column=1, value=name)
+        summ.cell(row=row, column=2, value=visits)
+        summ.cell(row=row, column=3, value=last)
+        row += 1
+
+    summ.column_dimensions['A'].width = 30
+    summ.column_dimensions['B'].width = 14
+    summ.column_dimensions['C'].width = 16
+
+    # ---------- Detail sheet ----------
+    ws = wb.create_sheet('Inspections')
     for col, name in enumerate(_EXPORT_HEADERS, start=1):
         c = ws.cell(row=1, column=col, value=name)
         c.fill = header_fill
@@ -2812,12 +2931,60 @@ def export_reports_pdf():
     doc = SimpleDocTemplate(buf, pagesize=landscape(letter),
                             leftMargin=0.4 * inch, rightMargin=0.4 * inch,
                             topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+    summ = _export_summary()
+    h2 = ParagraphStyle('h2', parent=styles['Heading2'], textColor=colors.HexColor('#00285c'),
+                        spaceBefore=10, spaceAfter=6)
     story = [
         Paragraph('Atlas Senior Living — Inspection Report', styles['Title']),
         Paragraph(f"Generated {datetime.now().strftime('%B %d, %Y %H:%M')} · {len(rows)} rows",
                   styles['Normal']),
-        Spacer(1, 10),
+        Spacer(1, 8),
     ]
+
+    # ---- Summary section ----
+    kpi_data = [[
+        Paragraph('<b>Total visits</b>', cell), Paragraph('<b>Total responses</b>', cell),
+        Paragraph('<b>Pass</b>', cell), Paragraph('<b>Fail</b>', cell),
+        Paragraph('<b>Pass rate</b>', cell),
+    ], [
+        Paragraph(str(summ['total_visits']), cell), Paragraph(str(summ['total_responses']), cell),
+        Paragraph(f"<font color='#0f8a5f'>{summ['passes']}</font>", cell),
+        Paragraph(f"<font color='#d13212'>{summ['fails']}</font>", cell),
+        Paragraph(f"{summ['pass_rate']}%", cell),
+    ]]
+    kpi_tbl = Table(kpi_data, colWidths=[1.6 * inch] * 5)
+    kpi_tbl.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#d9dfe8')),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eef2f7')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(kpi_tbl)
+
+    if summ['by_survey_type']:
+        story.append(Paragraph('Survey Type Breakdown', h2))
+        st_data = [[Paragraph('<b>Survey type</b>', cell), Paragraph('<b>Responses</b>', cell)]]
+        st_data += [[Paragraph(n, cell), Paragraph(str(c), cell)] for n, c in summ['by_survey_type']]
+        st_tbl = Table(st_data, colWidths=[3.5 * inch, 1.2 * inch])
+        st_tbl.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#d9dfe8')),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eef2f7')),
+        ]))
+        story.append(st_tbl)
+
+    if summ['top_performers']:
+        story.append(Paragraph('Top Performers', h2))
+        tp_data = [[Paragraph('<b>Team member</b>', cell), Paragraph('<b>Visits</b>', cell),
+                    Paragraph('<b>Last visit</b>', cell)]]
+        tp_data += [[Paragraph(n, cell), Paragraph(str(v), cell), Paragraph(l, cell)]
+                    for n, v, l in summ['top_performers']]
+        tp_tbl = Table(tp_data, colWidths=[3 * inch, 1 * inch, 1.4 * inch])
+        tp_tbl.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#d9dfe8')),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eef2f7')),
+        ]))
+        story.append(tp_tbl)
+
+    story.append(Paragraph('Detailed Responses', h2))
     if rows:
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
         tbl.setStyle(TableStyle([
