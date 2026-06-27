@@ -10,6 +10,8 @@ env/
 # ---- OS / editor ----
 .DS_Store
 *.swp
+# FUSE leftovers from editing over a mounted drive (orphaned open-file copies)
+.fuse_hidden*
 
 # ---- Secrets / environment ----
 .env

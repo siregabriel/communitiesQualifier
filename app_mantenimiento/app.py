@@ -10,7 +10,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
-import sqlite3
 import json
 from services.question_manager import QuestionManager
 from services.inspection_service import InspectionService
