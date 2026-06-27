@@ -4385,9 +4385,16 @@
             } catch (e) { alert('Network error.'); }
         }
 
+        // Download the inspection report in the requested format. The server
+        // builds the file role-scoped (admin = all, regional = their region,
+        // staff = their community), so we just navigate to the endpoint.
+        function exportReport(fmt) {
+            window.location.href = '/api/reports/export.' + fmt;
+        }
+
         function renderReports() {
             const gallery = document.getElementById('gallery');
-            
+
             // Calculate statistics
             const totalInspections = allInspections.length;
             const conditionCounts = {
@@ -4570,13 +4577,13 @@
                         <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1e40af;"><i class="fas fa-download"></i> Export Reports</h3>
                         <p style="font-size: 14px; color: #1e40af; margin-bottom: 16px;">Download detailed reports for further analysis</p>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                            <button onclick="alert('CSV export coming soon')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                            <button onclick="exportReport('csv')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
                                 <i class="fas fa-file-csv"></i> Export CSV
                             </button>
-                            <button onclick="alert('PDF export coming soon')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                            <button onclick="exportReport('pdf')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
                                 <i class="fas fa-file-pdf"></i> Export PDF
                             </button>
-                            <button onclick="alert('Excel export coming soon')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                            <button onclick="exportReport('xlsx')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
                                 <i class="fas fa-file-excel"></i> Export Excel
                             </button>
                         </div>

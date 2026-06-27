@@ -4,7 +4,7 @@ Flask application for managing maintenance and cleaning reports
 With user authentication and automatic community detection
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory, send_file
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -2659,6 +2659,185 @@ def get_inspections():
             'status': 'error',
             'message': 'Internal server error while retrieving inspections'
         }), 500
+
+
+# ==================== REPORT EXPORTS (CSV / XLSX / PDF) ====================
+
+def _scoped_submissions_for_export():
+    """Inspection submissions visible to the current user, role-scoped exactly
+    like the Reports view (admin = all, regional = their region, staff = their
+    community), each enriched with a friendly inspector name."""
+    role = current_role()
+    if role == 'admin':
+        submissions = inspection_service.get_all_submissions()
+    elif role == 'regional':
+        allowed = set(regional_communities())
+        submissions = [s for s in inspection_service.get_all_submissions()
+                       if s.get('community') in allowed]
+    else:
+        submissions = inspection_service.get_submissions_by_community(session.get('community'))
+    out = []
+    for sub in submissions:
+        name = sub.get('inspector_name') or resolve_display_name(sub.get('username', ''))
+        out.append({**sub, 'inspector_name': name})
+    return out
+
+
+# Columns shared by every export format.
+_EXPORT_HEADERS = ['Community', 'Region', 'Survey Type', 'Inspector',
+                   'Submitted', 'Standard', 'Result', 'Comment']
+
+
+def _export_rows():
+    """Flatten scoped submissions into one row per question response."""
+    rows = []
+    for sub in _scoped_submissions_for_export():
+        community = sub.get('community', '') or ''
+        region = region_for_community(community)
+        region_name = region.get('name', '') if region else ''
+        survey_name = survey_type_service.get_survey_type_name(sub.get('survey_type_id')) or ''
+        inspector = sub.get('inspector_name', '') or ''
+        submitted = (sub.get('submitted_at', '') or '')[:19].replace('T', ' ')
+        responses = sub.get('responses') or []
+        if not responses:
+            rows.append([community, region_name, survey_name, inspector, submitted, '', '', ''])
+            continue
+        for r in responses:
+            rows.append([
+                community, region_name, survey_name, inspector, submitted,
+                r.get('question_text', '') or '',
+                r.get('condition', '') or '',
+                (r.get('description', '') or '').replace('\r', ' ').replace('\n', ' '),
+            ])
+    return rows
+
+
+def _export_filename(ext):
+    return f"atlas-inspections-{datetime.now().strftime('%Y%m%d')}.{ext}"
+
+
+@app.route('/api/reports/export.csv')
+@login_required
+def export_reports_csv():
+    """Download the inspection report data as CSV (role-scoped)."""
+    import csv
+    import io
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(_EXPORT_HEADERS)
+    writer.writerows(_export_rows())
+    from flask import Response
+    return Response(
+        buf.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{_export_filename("csv")}"'},
+    )
+
+
+@app.route('/api/reports/export.xlsx')
+@login_required
+def export_reports_xlsx():
+    """Download the inspection report data as a styled Excel workbook."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Inspections'
+
+    header_fill = PatternFill('solid', fgColor='00285C')
+    header_font = Font(bold=True, color='FFFFFF')
+    for col, name in enumerate(_EXPORT_HEADERS, start=1):
+        c = ws.cell(row=1, column=col, value=name)
+        c.fill = header_fill
+        c.font = header_font
+        c.alignment = Alignment(vertical='center')
+
+    rows = _export_rows()
+    for r in rows:
+        ws.append(r)
+
+    # Color the Result cells (Pass green, Fail red).
+    pass_font = Font(color='0F8A5F', bold=True)
+    fail_font = Font(color='D13212', bold=True)
+    for i in range(len(rows)):
+        cell = ws.cell(row=i + 2, column=7)  # Result column
+        if (cell.value or '') == 'Pass':
+            cell.font = pass_font
+        elif (cell.value or '') == 'Fail':
+            cell.font = fail_font
+
+    widths = [26, 16, 20, 20, 19, 44, 9, 50]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[chr(64 + i)].width = w
+    ws.freeze_panes = 'A2'
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return send_file(
+        out, as_attachment=True, download_name=_export_filename('xlsx'),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@app.route('/api/reports/export.pdf')
+@login_required
+def export_reports_pdf():
+    """Download the inspection report data as a PDF table (role-scoped)."""
+    import io
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.lib.units import inch
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
+                                    Paragraph, Spacer)
+
+    rows = _export_rows()
+    styles = getSampleStyleSheet()
+    cell = ParagraphStyle('cell', parent=styles['Normal'], fontSize=7.5, leading=9)
+    head = ParagraphStyle('head', parent=styles['Normal'], fontSize=8,
+                          leading=10, textColor=colors.white, fontName='Helvetica-Bold')
+
+    # Build a Paragraph-wrapped table so long text wraps instead of overflowing.
+    table_data = [[Paragraph(h, head) for h in _EXPORT_HEADERS]]
+    for r in rows:
+        table_data.append([Paragraph((str(v) if v is not None else ''), cell) for v in r])
+
+    col_widths = [1.5 * inch, 0.9 * inch, 1.2 * inch, 1.2 * inch, 1.05 * inch,
+                  2.4 * inch, 0.55 * inch, 2.6 * inch]
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(letter),
+                            leftMargin=0.4 * inch, rightMargin=0.4 * inch,
+                            topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+    story = [
+        Paragraph('Atlas Senior Living — Inspection Report', styles['Title']),
+        Paragraph(f"Generated {datetime.now().strftime('%B %d, %Y %H:%M')} · {len(rows)} rows",
+                  styles['Normal']),
+        Spacer(1, 10),
+    ]
+    if rows:
+        tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00285c')),
+            ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#d9dfe8')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f6f8fb')]),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(tbl)
+    else:
+        story.append(Paragraph('No inspection data available.', styles['Normal']))
+
+    doc.build(story)
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name=_export_filename('pdf'),
+                     mimetype='application/pdf')
 
 
 # ==================== ERROR HANDLERS ====================
