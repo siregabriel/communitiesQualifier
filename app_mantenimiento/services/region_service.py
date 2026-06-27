@@ -5,6 +5,7 @@ from data/regions.json and provides lookups. This underpins the dashboard
 Regions view and, later, post-visit report email routing.
 """
 
+import copy
 import json
 import os
 from datetime import datetime
@@ -48,9 +49,10 @@ class RegionService(JsonFileBacked):
         self._atomic_write(data, indent=2)
 
     def get_all_regions(self) -> list:
-        """Return all regions (leadership + community lists)."""
+        """Return a deep copy of all regions (leadership + community lists), so
+        callers can read/enrich them without mutating the internal state."""
         self._ensure_fresh()
-        return self.regions
+        return copy.deepcopy(self.regions)
 
     def get_region_for_community(self, community: str):
         """Return the region dict that contains the given community, or None."""
