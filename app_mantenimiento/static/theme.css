@@ -575,6 +575,20 @@ textarea:focus {
     color: #fff;
 }
 .region-card-unassigned .region-card-header { background: linear-gradient(135deg, #64748b, #94a3b8); }
+.region-rename-btn {
+    margin-right: auto;
+    width: 28px; height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background .15s ease;
+}
+.region-rename-btn:hover { background: rgba(255,255,255,.34); }
 .region-count {
     background: rgba(255,255,255,.2);
     border-radius: var(--r-pill);

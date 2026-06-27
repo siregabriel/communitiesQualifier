@@ -3607,6 +3607,7 @@
                     <div class="region-card ${isUnassigned ? 'region-card-unassigned' : ''}">
                         <div class="region-card-header">
                             <h3>${region.name}</h3>
+                            ${(isAdmin && !isUnassigned) ? `<button class="region-rename-btn" title="Rename region" onclick="renameRegion('${region.id}')"><i class="fas fa-pen"></i></button>` : ''}
                             <span class="region-count">${comms.length} ${comms.length === 1 ? 'community' : 'communities'}</span>
                         </div>
                         <div class="region-card-body">
@@ -3657,6 +3658,14 @@
 
         function moveCommunity(name, regionId) {
             regionAction('/api/regions/assign', { community: name, region_id: regionId });
+        }
+
+        function renameRegion(regionId) {
+            const r = (regions || []).find(x => x.id === regionId);
+            const current = r ? (r.name || '') : '';
+            const name = (prompt('Rename region:', current) || '').trim();
+            if (!name || name === current) return;
+            regionAction('/api/regions/rename', { region_id: regionId, name: name });
         }
 
         function deleteCommunity(name) {

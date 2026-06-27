@@ -2108,6 +2108,34 @@ def assign_region_community():
         return jsonify({'status': 'error', 'message': 'Internal server error while assigning community'}), 500
 
 
+@app.route('/api/regions/rename', methods=['POST'])
+@require_admin
+def rename_region():
+    """Rename a region's display name (admin only). The region id is unchanged,
+    so user scoping is unaffected. Expects JSON: { region_id, name }."""
+    try:
+        data = request.get_json(silent=True)
+        if data is None or not InputSanitizer.validate_json_structure(data, dict):
+            return jsonify({'status': 'error', 'message': 'Request body must be a JSON object'}), 400
+
+        region_id = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
+        new_name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=80)
+
+        if not region_id or not new_name:
+            return jsonify({'status': 'error', 'message': 'region_id and name are required'}), 400
+        if region_id == 'unassigned':
+            return jsonify({'status': 'error', 'message': 'The Unassigned group cannot be renamed'}), 400
+
+        if not region_service.rename_region(region_id, new_name):
+            return jsonify({'status': 'error', 'message': 'Could not rename region (unknown id or unchanged name)'}), 400
+
+        activity_service.log(session.get('user'), 'region_renamed', f'Renamed region {region_id} to "{new_name}"')
+        return jsonify({'status': 'success', 'regions': region_service.get_all_regions()}), 200
+    except Exception as e:
+        app.logger.error(f'Unexpected error renaming region: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while renaming region'}), 500
+
+
 @app.route('/api/regions/rename-community', methods=['POST'])
 @require_admin
 def rename_region_community():

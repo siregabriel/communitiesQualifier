@@ -123,6 +123,21 @@ class RegionService(JsonFileBacked):
                 self.save_to_file()
             return changed
 
+    def rename_region(self, region_id: str, new_name: str) -> bool:
+        """Change a region's display name. The region id (used for user scoping)
+        is unchanged, so this is purely cosmetic and safe."""
+        new_name = (new_name or '').strip()
+        if not region_id or not new_name or region_id == 'unassigned':
+            return False
+        with self._lock:
+            self._ensure_fresh()
+            region = next((r for r in self.regions if r.get('id') == region_id), None)
+            if region is None or region.get('name') == new_name:
+                return False
+            region['name'] = new_name
+            self.save_to_file()
+            return True
+
     # --- Leadership CRUD ---
     def _get_region(self, region_id: str):
         self._ensure_fresh()
