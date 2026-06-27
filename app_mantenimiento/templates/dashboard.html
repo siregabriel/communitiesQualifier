@@ -3092,7 +3092,7 @@
                 const nm = s.inspector_name || s.username || 'Unknown';
                 const safe = (s.community || '').replace(/'/g, "\\'");
                 return `<div class="dash-row" onclick="openSlidePanel('${safe}')">
-                    <div class="dash-avatar" style="background:${avatarColor(nm)}">${profileInitials(nm)}</div>
+                    ${dashAvatarHtml(nm)}
                     <div class="dash-row-main"><div class="dash-row-name">${escapeHtml(s.community || 'Unknown')}</div>
                     <div class="dash-row-sub">${escapeHtml(nm)} · ${escapeHtml(formatDate(s.submitted_at))}</div></div>
                     <span class="dash-score" style="color:${scoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span>
@@ -3120,6 +3120,7 @@
                 .dash-pill { background: #fef2f2; color: #d13212; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; }
                 .dash-chev { color: #c2cad6; font-size: 12px; flex-shrink: 0; }
                 .dash-avatar { width: 34px; height: 34px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+                .dash-avatar-img { object-fit: cover; }
                 .dash-bars-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
                 .dash-bars-label { width: 120px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: #0f1e36; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .dash-bars-label-wide { width: 200px; font-weight: 600; }
@@ -3831,17 +3832,31 @@
         }
         // Small avatar for the inspector shown in the slide-panel subtitle.
         // Uses the leader's uploaded photo when names match, else initials.
-        function inspectorAvatarHtml(name) {
-            if (!name) return '';
-            let photo = null;
+        // Resolve a leader's uploaded photo path by name (from the regions data).
+        function leaderPhotoFor(name) {
+            if (!name) return null;
             const key = name.trim().toLowerCase();
+            let photo = null;
             (regions || []).forEach(r => (r.leadership || []).forEach(l => {
                 if (l.name && l.name.trim().toLowerCase() === key && l.photo) photo = l.photo;
             }));
+            return photo;
+        }
+        function inspectorAvatarHtml(name) {
+            if (!name) return '';
+            const photo = leaderPhotoFor(name);
             if (photo) {
                 return `<img src="/static/${photo}" alt="${escapeHtml(name)}" class="subtitle-avatar" onerror="this.style.display='none'">`;
             }
             return `<span class="subtitle-avatar subtitle-avatar-initials" style="background:${avatarColor(name)};">${profileInitials(name)}</span>`;
+        }
+        // Avatar (photo or initials) for the compact dashboard rows.
+        function dashAvatarHtml(name) {
+            const photo = leaderPhotoFor(name);
+            if (photo) {
+                return `<img class="dash-avatar dash-avatar-img" src="/static/${photo}" alt="${escapeHtml(name)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'dash-avatar',style:'background:${avatarColor(name)}',textContent:'${profileInitials(name)}'}))">`;
+            }
+            return `<div class="dash-avatar" style="background:${avatarColor(name)}">${profileInitials(name)}</div>`;
         }
         function timeAgo(iso) {
             if (!iso) return '';
