@@ -400,6 +400,24 @@
             transition: transform 0.3s ease;
         }
 
+        /* Themed placeholder for action items without a photo: soft red wash
+           (matches the high-priority / Fail nature) with a large relevant icon. */
+        .card-image-themed {
+            background: linear-gradient(135deg, #fde8e4 0%, #fbd5cd 100%);
+            color: #d13212;
+            font-size: 60px;
+        }
+        .card-image-themed::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 80% 18%, rgba(255,255,255,.5), transparent 42%),
+                radial-gradient(circle at 18% 88%, rgba(209,50,18,.12), transparent 40%);
+            pointer-events: none;
+        }
+        .card-image-themed i { position: relative; opacity: .92; }
+
         .card:hover .card-image img {
             transform: scale(1.05);
         }
@@ -3198,9 +3216,39 @@
             gallery.innerHTML = `<div class="visits-list">${rows}</div>`;
         }
 
+        // Pick a relevant Font Awesome icon for a standard based on its wording,
+        // so action-item cards without a photo still look intentional.
+        const STANDARD_ICON_RULES = [
+            [/chemical|hazard|cleaning suppl|bleach/i, 'fa-flask'],
+            [/licens|certif|permit|inspection report|posted and up/i, 'fa-certificate'],
+            [/rent ready|vacant|model|apartment|\bunit\b|\broom/i, 'fa-bed'],
+            [/fire|extinguish|smoke|sprinkler|evacuat/i, 'fa-fire-extinguisher'],
+            [/food|kitchen|dining|meal|menu|refriger|freezer/i, 'fa-utensils'],
+            [/medicat|\bmed\b|pharmac|\bdrug|narcotic/i, 'fa-pills'],
+            [/clean|sanit|housekeep|dust|odor/i, 'fa-broom'],
+            [/door|lock|secur|exit|egress|gate/i, 'fa-door-closed'],
+            [/water|plumb|leak|faucet|sink|toilet/i, 'fa-droplet'],
+            [/temperatur|hvac|\bair\b|thermostat|heat|cooling/i, 'fa-temperature-half'],
+            [/light|electric|outlet|wiring|bulb/i, 'fa-lightbulb'],
+            [/floor|carpet|trip|rug|tile/i, 'fa-shoe-prints'],
+            [/staff|employee|training|caregiver|nurse/i, 'fa-user-nurse'],
+            [/record|document|\bfile|\blog\b|chart|paperwork/i, 'fa-folder-open'],
+            [/pest|bug|insect|rodent|roach/i, 'fa-bug'],
+            [/trash|waste|garbage|dumpster/i, 'fa-trash-can'],
+            [/emergency|safety|first aid|call light|alarm/i, 'fa-kit-medical'],
+            [/sign|notice|label|posting/i, 'fa-clipboard-list'],
+        ];
+        function standardIcon(text) {
+            const t = text || '';
+            for (const [re, icon] of STANDARD_ICON_RULES) {
+                if (re.test(t)) return icon;
+            }
+            return 'fa-clipboard-check';
+        }
+
         function renderActionItems() {
             const gallery = document.getElementById('gallery');
-            
+
             // Filter for action items
             const actionConditions = ['Fail'];
             let actionItems = allInspections.filter(item => actionConditions.includes(item.condition));
@@ -3222,17 +3270,21 @@
             gallery.innerHTML = actionItems.map(item => {
                 const badgeClass = getBadgeClass(item.condition);
                 const badgeIcon = getBadgeIcon(item.condition);
-                const photoHtml = item.photoPath 
-                    ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.style.display='none'">`
-                    : '<i class="fas fa-clipboard-check"></i>';
-                
+                // Show the real inspection photo when present; otherwise a themed
+                // header with an icon relevant to the standard (no blank box).
+                const hasPhoto = !!item.photoPath;
+                const imageInner = hasPhoto
+                    ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${standardIcon(item.questionText)}'}));">`
+                    : `<i class="fas ${standardIcon(item.questionText)}"></i>`;
+                const imageClass = hasPhoto ? 'card-image' : 'card-image card-image-themed';
+
                 // Priority badge (Fail = high priority action item)
                 const priorityClass = 'badge-fail';
                 const priorityText = 'HIGH PRIORITY';
-                
+
                 return `
                     <div class="card">
-                        <div class="card-image">${photoHtml}</div>
+                        <div class="${imageClass}">${imageInner}</div>
                         <div class="card-content">
                             <div class="card-badge ${priorityClass}" style="margin-bottom: 8px;">${priorityText}</div>
                             <div class="card-title"><i class="fas fa-circle-question card-emoji"></i> ${item.questionText}</div>
