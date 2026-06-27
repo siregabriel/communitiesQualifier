@@ -878,15 +878,16 @@ textarea:focus {
 }
 .region-leader-photo-btn:hover { filter: brightness(1.1); }
 
-/* Inspection-count badge on a leader's avatar (top-right) */
+/* Inspection-count badge on a leader's avatar (top-left, distinct from the
+   navy camera button) */
 .region-leader-count {
     position: absolute;
-    top: -5px; right: -6px;
+    top: -5px; left: -6px;
     min-width: 18px; height: 18px;
     padding: 0 4px;
     border-radius: 9px;
     border: 1.5px solid #fff;
-    background: #00285c;
+    background: #16a34a;
     color: #fff;
     font-size: 10px;
     font-weight: 700;
