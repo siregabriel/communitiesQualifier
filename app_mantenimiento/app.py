@@ -3562,8 +3562,10 @@ def export_reports_pdf():
     for r in rows:
         table_data.append([Paragraph((str(v) if v is not None else ''), cell) for v in r])
 
-    col_widths = [1.5 * inch, 0.9 * inch, 1.2 * inch, 1.2 * inch, 1.05 * inch,
-                  2.4 * inch, 0.55 * inch, 2.6 * inch]
+    # Widths sum to ~10.1in, within the landscape-letter printable area
+    # (11in - 0.8in margins = 10.2in), so the table never overflows the left edge.
+    col_widths = [1.6 * inch, 0.8 * inch, 1.1 * inch, 1.0 * inch, 0.95 * inch,
+                  2.1 * inch, 0.5 * inch, 2.05 * inch]
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(letter),
@@ -3625,6 +3627,7 @@ def export_reports_pdf():
     story.append(Paragraph('Detailed Responses', h2))
     if rows:
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+        tbl.hAlign = 'LEFT'
         tbl.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00285c')),
             ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#d9dfe8')),
