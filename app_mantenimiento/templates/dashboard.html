@@ -3462,7 +3462,10 @@
                                     <div style="height:100%;width:${pct}%;background:${col};transition:width .3s ease;"></div>
                                 </div>
                             </div>
-                            <div style="margin-top:14px;font-size:12px;color:#94a3b8;"><i class="fas fa-calendar-day"></i> Move-in date: ${m.target_date ? escapeHtml(m.target_date) : '—'}</div>
+                            <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <span style="font-size:12px;color:#94a3b8;"><i class="fas fa-calendar-day"></i> ${m.target_date ? escapeHtml(m.target_date) : '—'}</span>
+                                ${m.blockers > 0 ? `<span style="font-size:11px;font-weight:700;color:#b42318;background:#fde8e4;padding:3px 9px;border-radius:20px;"><i class="fas fa-lock"></i> ${m.blockers} required pending</span>` : ''}
+                            </div>
                         </div>
                     </div>`;
             }).join('');
@@ -3485,17 +3488,26 @@
             const mv = data.movein, tmpl = data.template;
             const pct = data.total ? Math.round(data.done / data.total * 100) : 0;
             const col = moveInPctColor(pct);
+            const blockers = data.blockers || [];
+            const blockerBanner = blockers.length ? `
+                <div style="margin-top:14px;background:#fde8e4;border:1px solid #f7c4ba;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:13px;font-weight:700;color:#b42318;margin-bottom:4px;"><i class="fas fa-lock"></i> ${blockers.length} required item${blockers.length !== 1 ? 's' : ''} before move-in</div>
+                    <div style="font-size:12px;color:#7f1d1d;">${blockers.map(b => escapeHtml(b.text)).join(' · ')}</div>
+                </div>` : '';
 
             const phases = tmpl.phases.map(ph => {
                 const rows = (ph.items || []).map(it => {
                     const att = it.attachment_url
                         ? `<a href="${it.attachment_url}" target="_blank" rel="noopener" class="mi-att-link"><i class="fas fa-paperclip"></i> ${escapeHtml(it.attachment_name || 'file')}</a>`
                         : '';
+                    const reqBadge = it.required
+                        ? `<span style="font-size:10px;font-weight:700;color:#b42318;background:#fde8e4;padding:2px 7px;border-radius:10px;margin-left:6px;white-space:nowrap;"><i class="fas fa-lock"></i> Required</span>`
+                        : '';
                     return `
                         <div class="mi-item">
                             <input type="checkbox" ${it.done ? 'checked' : ''} onchange="toggleMoveInItem('${mv.id}','${it.id}',this.checked)" class="mi-check">
                             <div style="flex:1;min-width:0;">
-                                <div class="mi-text ${it.done ? 'mi-done' : ''}">${escapeHtml(it.text)}</div>
+                                <div class="mi-text ${it.done ? 'mi-done' : ''}">${escapeHtml(it.text)}${reqBadge}</div>
                                 <div class="mi-controls">
                                     <input type="date" value="${it.date || ''}" onchange="saveMoveInField('${mv.id}','${it.id}','date',this.value)" class="mi-input">
                                     <input type="text" placeholder="Initials" maxlength="8" value="${escapeHtml(it.initials || '')}" onchange="saveMoveInField('${mv.id}','${it.id}','initials',this.value)" class="mi-input mi-initials">
@@ -3532,7 +3544,9 @@
                             <div style="display:flex;gap:8px;">
                                 ${mv.status === 'completed'
                                     ? `<button class="btn btn-secondary" onclick="setMoveInStatus('${mv.id}','active')">Reopen</button>`
-                                    : `<button class="btn btn-primary" onclick="setMoveInStatus('${mv.id}','completed')"><i class="fas fa-check"></i> Mark complete</button>`}
+                                    : (blockers.length
+                                        ? `<button class="btn btn-secondary" disabled title="Complete the required items first" style="opacity:.6;cursor:not-allowed;"><i class="fas fa-lock"></i> Required items pending</button>`
+                                        : `<button class="btn btn-primary" onclick="setMoveInStatus('${mv.id}','completed')"><i class="fas fa-check"></i> Mark complete</button>`)}
                                 <button class="btn btn-secondary" onclick="deleteMoveIn('${mv.id}','${escapeHtml(mv.resident_name).replace(/'/g,"\\'")}')" title="Delete" style="color:#b42318;"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
@@ -3544,6 +3558,7 @@
                                 <div style="height:100%;width:${pct}%;background:${col};transition:width .3s ease;"></div>
                             </div>
                         </div>
+                        ${blockerBanner}
                     </div>
                     ${phases}
                 </div>`;
@@ -3585,10 +3600,16 @@
 
         async function setMoveInStatus(mvId, status) {
             try {
-                await fetch(`/api/moveins/${mvId}/status`, {
+                const r = await fetch(`/api/moveins/${mvId}/status`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
                 });
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') {
+                    const miss = (d.blockers || []).map(b => '• ' + b.text).join('\n');
+                    alert((d.message || 'Could not update status.') + (miss ? '\n\n' + miss : ''));
+                    return;
+                }
                 openMoveIn(mvId);
             } catch (e) { alert('Could not update status.'); }
         }
@@ -3642,7 +3663,7 @@
                 const d = await r.json();
                 tmplDraft = (d.template.phases || []).map(p => ({
                     id: p.id, name: p.name,
-                    items: (p.items || []).map(i => ({ id: i.id, text: i.text }))
+                    items: (p.items || []).map(i => ({ id: i.id, text: i.text, required: !!i.required }))
                 }));
             } catch (e) { tmplDraft = []; }
             tmplRender();
@@ -3662,6 +3683,9 @@
                     ${ph.items.map((it, ii) => `
                         <div class="tmpl-item-row">
                             <input value="${escapeHtml(it.text)}" placeholder="Checklist item" oninput="tmplDraft[${pi}].items[${ii}].text=this.value">
+                            <label title="Required before move-in can be completed" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:${it.required ? '#b42318' : '#94a3b8'};cursor:pointer;white-space:nowrap;">
+                                <input type="checkbox" ${it.required ? 'checked' : ''} onchange="tmplDraft[${pi}].items[${ii}].required=this.checked;tmplRender()" style="accent-color:#b42318;"> Req
+                            </label>
                             <button class="tmpl-mini-btn" title="Remove item" onclick="tmplDelItem(${pi},${ii})"><i class="fas fa-xmark"></i></button>
                         </div>`).join('')}
                     <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;margin-top:4px;" onclick="tmplAddItem(${pi})"><i class="fas fa-plus"></i> Add item</button>
@@ -3677,7 +3701,7 @@
                 .map(p => ({
                     id: p.id || undefined, name: (p.name || '').trim(),
                     items: (p.items || []).filter(it => (it.text || '').trim())
-                        .map(it => ({ id: it.id || undefined, text: it.text.trim() }))
+                        .map(it => ({ id: it.id || undefined, text: it.text.trim(), required: !!it.required }))
                 }))
                 .filter(p => p.name);
             msg.textContent = 'Saving…';

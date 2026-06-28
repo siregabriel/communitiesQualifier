@@ -8,8 +8,8 @@
         { "id": "itm_prep_1", "text": "Reach out to family to confirm pharmacy and PCP, along with insurance information" },
         { "id": "itm_prep_2", "text": "Nursing assessment completed (ALF appropriateness)" },
         { "id": "itm_prep_3", "text": "Confirm time of care received; 1823/POC received with signed medication list" },
-        { "id": "itm_prep_4", "text": "POC / 1823 approved by the AD or WD" },
-        { "id": "itm_prep_5", "text": "Signed Medication form on file (required before any physical move-in)" },
+        { "id": "itm_prep_4", "text": "POC / 1823 approved by the AD or WD", "required": true },
+        { "id": "itm_prep_5", "text": "Signed Medication form on file (required before any physical move-in)", "required": true },
         { "id": "itm_prep_6", "text": "Discuss medications, expectations and the move-in process with family" }
       ]
     },

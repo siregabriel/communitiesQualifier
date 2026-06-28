@@ -64,6 +64,16 @@ class MoveInTemplateService(JsonFileBacked):
                     ids.append(it['id'])
         return ids
 
+    def required_items(self) -> list:
+        """[(id, text)] for items flagged required-for-move-in (compliance gates)."""
+        self._ensure_fresh()
+        out = []
+        for ph in self.phases:
+            for it in (ph.get('items') or []):
+                if it.get('id') and it.get('required'):
+                    out.append((it['id'], it.get('text', '')))
+        return out
+
     def save_template(self, phases) -> dict:
         """Replace the whole template. Normalizes ids so new phases/items get one."""
         clean = []
@@ -83,8 +93,9 @@ class MoveInTemplateService(JsonFileBacked):
                     text = ''
                 if not text:
                     continue
+                required = bool(it.get('required')) if isinstance(it, dict) else False
                 items.append({'id': (it.get('id') if isinstance(it, dict) else None) or _new_id('itm'),
-                              'text': text})
+                              'text': text, 'required': required})
             clean.append({'id': ph.get('id') or _new_id('phase'), 'name': name, 'items': items})
         with self._lock:
             self._ensure_fresh()

@@ -181,6 +181,55 @@ class EmailService:
 
         return subject, html_body, text
 
+    def send_movein_reminder(self, recipients, resident, community, target_date,
+                             days_left, missing_required, missing_other):
+        """Remind the team that a move-in is approaching and items are still open.
+        missing_required / missing_other are lists of item-text strings."""
+        if not self.enabled:
+            return (False, 'disabled')
+
+        def esc(s):
+            return html.escape(str(s or ''))
+
+        when = (f"in {days_left} day{'s' if days_left != 1 else ''}" if days_left and days_left > 0
+                else ("today" if days_left == 0 else "soon"))
+
+        def li_list(items, color):
+            rows = ''.join(
+                f"<li style='margin:3px 0;color:{color}'>{esc(t)}</li>" for t in items)
+            return f"<ul style='margin:6px 0 14px;padding-left:20px;font-size:14px'>{rows}</ul>"
+
+        req_block = ''
+        if missing_required:
+            req_block = (
+                "<div style='font-weight:700;color:#b42318;margin-bottom:4px'>"
+                "&#128274; Required before move-in</div>" + li_list(missing_required, '#7f1d1d'))
+        other_block = ''
+        if missing_other:
+            other_block = (
+                "<div style='font-weight:700;color:#475569;margin-bottom:4px'>"
+                "Still open</div>" + li_list(missing_other, '#475569'))
+
+        link = (f"<p style='margin-top:8px'><a href='{esc(self.app_base_url)}/dashboard?view=move-ins' "
+                f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                f"font-weight:700;padding:11px 20px;border-radius:8px;font-size:14px'>Open Move-Ins</a></p>"
+                if self.app_base_url else "")
+
+        body = f"""\
+<p style="font-size:14px;margin:0 0 12px">The move-in for <b>{esc(resident)}</b> at
+<b>{esc(community)}</b> is <b>{when}</b> (target date {esc(target_date) or 'TBD'}),
+and some checklist items are still open.</p>
+{req_block}
+{other_block}
+{link}"""
+        text_lines = [f"Move-in reminder: {resident} at {community} is {when} (target {target_date})."]
+        if missing_required:
+            text_lines.append("Required before move-in: " + "; ".join(missing_required))
+        if missing_other:
+            text_lines.append("Still open: " + "; ".join(missing_other))
+        subject = f"Move-in {when}: {resident} ({community})"
+        return self._send(recipients, subject, self._shell("Move-In Reminder", body), "\n".join(text_lines))
+
     def _shell(self, heading, body_html):
         """Wrap body in the branded card (logo band + navy header)."""
         def esc(s):

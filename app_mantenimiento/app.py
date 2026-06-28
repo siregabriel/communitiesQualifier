@@ -1222,6 +1222,13 @@ def _movein_attachment_url(entry):
     return url_for('static', filename=f'uploads/{path}')
 
 
+def _movein_blockers(rec):
+    """Required ('gate') items not yet completed for this move-in: [(id, text)]."""
+    comps = rec.get('completions') or {}
+    return [(iid, text) for iid, text in movein_template_service.required_items()
+            if not (comps.get(iid) or {}).get('done')]
+
+
 @app.route('/api/moveins', methods=['GET'])
 @login_required
 def list_moveins():
@@ -1238,6 +1245,7 @@ def list_moveins():
             'status': rec.get('status', 'active'),
             'created_at': rec.get('created_at'),
             'done': done, 'total': total,
+            'blockers': len(_movein_blockers(rec)),
         })
     return jsonify({'status': 'success', 'moveins': out}), 200
 
@@ -1276,11 +1284,13 @@ def get_movein(mv_id):
             it['done'] = bool(entry.get('done'))
             it['date'] = entry.get('date', '')
             it['initials'] = entry.get('initials', '')
+            it['required'] = bool(it.get('required'))
             it['attachment_name'] = entry.get('attachment_name')
             it['attachment_url'] = _movein_attachment_url(entry)
     done, total = _movein_progress(rec, item_ids)
+    blockers = [{'id': i, 'text': t} for i, t in _movein_blockers(rec)]
     return jsonify({'status': 'success', 'movein': rec, 'template': template,
-                    'done': done, 'total': total}), 200
+                    'done': done, 'total': total, 'blockers': blockers}), 200
 
 
 @app.route('/api/moveins/<mv_id>/item', methods=['POST'])
@@ -1348,8 +1358,19 @@ def set_movein_status(mv_id):
     status = (data.get('status') or '').strip().lower()
     if status not in ('active', 'completed', 'archived'):
         return jsonify({'status': 'error', 'message': 'Invalid status'}), 400
-    if movein_service.set_status(mv_id, status) is None:
+    rec = movein_service.get(mv_id)
+    if rec is None:
         return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
+    # Compliance gate: can't mark complete while required items are unchecked.
+    if status == 'completed':
+        blockers = _movein_blockers(rec)
+        if blockers:
+            return jsonify({
+                'status': 'error',
+                'message': 'Cannot complete: required items are still pending.',
+                'blockers': [{'id': i, 'text': t} for i, t in blockers],
+            }), 409
+    movein_service.set_status(mv_id, status)
     return jsonify({'status': 'success'}), 200
 
 
@@ -1370,6 +1391,62 @@ def save_movein_template():
     tmpl = movein_template_service.save_template(phases)
     activity_service.log(session.get('user'), 'movein_template_saved', 'Updated move-in checklist template')
     return jsonify({'status': 'success', 'template': tmpl}), 200
+
+
+def run_movein_reminders(days_ahead=3, other_cap=6):
+    """Email a reminder for every ACTIVE move-in whose target date is within
+    `days_ahead` days and still has open checklist items. Recipients are the
+    community's region leaders plus the admin-notify list. Returns a summary
+    list (also used by the cron script). Safe to call when email is disabled."""
+    from datetime import date as _date
+    today = _date.today()
+    template = movein_template_service.get_template()
+    all_items = [(it['id'], it.get('text', ''), bool(it.get('required')))
+                 for ph in template['phases'] for it in ph.get('items', [])]
+    admin_notify = settings_service.get_email_settings().get('admin_notify', [])
+    sent = []
+    for rec in movein_service.get_all():
+        if rec.get('status') != 'active':
+            continue
+        td = (rec.get('target_date') or '').strip()
+        try:
+            target = datetime.strptime(td, '%Y-%m-%d').date()
+        except ValueError:
+            continue
+        days_left = (target - today).days
+        if days_left < 0 or days_left > days_ahead:
+            continue
+        comps = rec.get('completions') or {}
+        missing_req = [t for (iid, t, req) in all_items if req and not (comps.get(iid) or {}).get('done')]
+        missing_other = [t for (iid, t, req) in all_items if not req and not (comps.get(iid) or {}).get('done')]
+        if not missing_req and not missing_other:
+            continue  # everything done — no need to nag
+        community = rec.get('community', '')
+        recipients = list(dict.fromkeys(region_leader_emails(community) + admin_notify))
+        if not recipients:
+            continue
+        shown_other = missing_other[:other_cap]
+        if len(missing_other) > other_cap:
+            shown_other = shown_other + [f"...and {len(missing_other) - other_cap} more"]
+        ok, detail = email_service.send_movein_reminder(
+            recipients, rec.get('resident_name', ''), community, td, days_left,
+            missing_req, shown_other)
+        sent.append({'resident': rec.get('resident_name'), 'community': community,
+                     'days_left': days_left, 'recipients': recipients, 'sent': ok, 'detail': detail})
+    return sent
+
+
+@app.route('/api/moveins/run-reminders', methods=['POST'])
+@require_admin
+def trigger_movein_reminders():
+    """Admin-only: run the move-in reminder sweep on demand (also used to test)."""
+    data = request.get_json(silent=True) or {}
+    try:
+        days = int(data.get('days_ahead', 3))
+    except (TypeError, ValueError):
+        days = 3
+    result = run_movein_reminders(days_ahead=days)
+    return jsonify({'status': 'success', 'emails': result, 'count': len(result)}), 200
 
 
 @app.route('/api/users', methods=['GET'])
