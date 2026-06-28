@@ -1436,6 +1436,123 @@ def run_movein_reminders(days_ahead=3, other_cap=6):
     return sent
 
 
+def _build_movein_pdf(resident, community, target_date, phases, filled):
+    """Render a move-in checklist PDF. `phases` = [{name, items:[{text, required,
+    done, date, initials}]}]. filled=True shows the resident's progress; False
+    produces a blank form for the binder."""
+    import io
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.units import inch
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
+                                    Paragraph, Spacer)
+
+    styles = getSampleStyleSheet()
+    cell = ParagraphStyle('mi_cell', parent=styles['Normal'], fontSize=9, leading=12)
+    req = ParagraphStyle('mi_req', parent=cell, textColor=colors.HexColor('#b42318'),
+                         fontName='Helvetica-Bold', fontSize=7)
+    head = ParagraphStyle('mi_head', parent=styles['Normal'], fontSize=9, leading=11,
+                          textColor=colors.white, fontName='Helvetica-Bold')
+    phead = ParagraphStyle('mi_phead', parent=styles['Normal'], fontSize=12,
+                           textColor=colors.white, fontName='Helvetica-Bold')
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=0.55 * inch,
+                            rightMargin=0.55 * inch, topMargin=0.55 * inch, bottomMargin=0.55 * inch)
+    story = [
+        Paragraph('Move-In Checklist', styles['Title']),
+        Paragraph('Atlas Senior Living &mdash; New Resident Move-In', styles['Normal']),
+        Spacer(1, 8),
+    ]
+    # Resident info line (filled) or blank lines (template)
+    if filled:
+        info = (f"<b>Resident:</b> {resident or '—'} &nbsp;&nbsp; "
+                f"<b>Community:</b> {community or '—'} &nbsp;&nbsp; "
+                f"<b>Target move-in date:</b> {target_date or '—'}")
+    else:
+        info = ("<b>Resident:</b> ______________________   "
+                "<b>Community:</b> ______________________   "
+                "<b>Move-in date:</b> ____________")
+    story += [Paragraph(info, cell), Spacer(1, 12)]
+
+    col_widths = [0.4 * inch, 4.5 * inch, 1.1 * inch, 0.9 * inch]
+    for ph in phases:
+        # phase header bar
+        ph_tbl = Table([[Paragraph(ph['name'], phead)]], colWidths=[sum(col_widths)])
+        ph_tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#00285c')),
+            ('TOPPADDING', (0, 0), (-1, -1), 6), ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        story.append(ph_tbl)
+
+        rows = [[Paragraph('<b>&#10003;</b>', head), Paragraph('Item', head),
+                 Paragraph('Date', head), Paragraph('Initials', head)]]
+        for it in ph.get('items', []):
+            mark = 'X' if (filled and it.get('done')) else ''
+            txt = it.get('text', '')
+            if it.get('required'):
+                txt += " &nbsp;<font color='#b42318'><b>[REQUIRED]</b></font>"
+            date_v = it.get('date', '') if filled else ''
+            init_v = it.get('initials', '') if filled else ''
+            rows.append([Paragraph(f"<b>{mark}</b>", cell), Paragraph(txt, cell),
+                         Paragraph(date_v or '', cell), Paragraph(init_v or '', cell)])
+        tbl = Table(rows, colWidths=col_widths, repeatRows=1)
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f6fe5')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#c7d0db')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f6f8fb')]),
+            ('TOPPADDING', (0, 0), (-1, -1), 6), ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story += [tbl, Spacer(1, 14)]
+
+    doc.build(story)
+    buf.seek(0)
+    return buf
+
+
+@app.route('/api/moveins/template/pdf')
+@login_required
+def movein_template_pdf():
+    """Blank printable checklist (for the binder)."""
+    template = movein_template_service.get_template()
+    phases = [{'name': ph['name'],
+               'items': [{'text': it.get('text', ''), 'required': bool(it.get('required'))}
+                         for it in ph.get('items', [])]}
+              for ph in template['phases']]
+    buf = _build_movein_pdf('', '', '', phases, filled=False)
+    return send_file(buf, as_attachment=True, download_name='move-in-checklist-blank.pdf',
+                     mimetype='application/pdf')
+
+
+@app.route('/api/moveins/<mv_id>/pdf')
+@login_required
+def movein_pdf(mv_id):
+    """Printable checklist for one resident, showing current progress."""
+    rec = movein_service.get(mv_id)
+    if rec is None:
+        return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
+    template = movein_template_service.get_template()
+    comps = rec.get('completions') or {}
+    phases = []
+    for ph in template['phases']:
+        items = []
+        for it in ph.get('items', []):
+            entry = comps.get(it['id']) or {}
+            items.append({'text': it.get('text', ''), 'required': bool(it.get('required')),
+                          'done': bool(entry.get('done')), 'date': entry.get('date', ''),
+                          'initials': entry.get('initials', '')})
+        phases.append({'name': ph['name'], 'items': items})
+    buf = _build_movein_pdf(rec.get('resident_name', ''), rec.get('community', ''),
+                            rec.get('target_date', ''), phases, filled=True)
+    safe = ''.join(c if c.isalnum() else '-' for c in (rec.get('resident_name') or 'resident')).strip('-').lower()
+    return send_file(buf, as_attachment=True, download_name=f'move-in-{safe or "resident"}.pdf',
+                     mimetype='application/pdf')
+
+
 @app.route('/api/moveins/run-reminders', methods=['POST'])
 @require_admin
 def trigger_movein_reminders():

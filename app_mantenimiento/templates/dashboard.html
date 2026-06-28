@@ -3457,6 +3457,7 @@
                 <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
                     <button id="moveInNewBtn" class="btn btn-primary" onclick="openNewMoveIn()"><i class="fas fa-plus"></i> New move-in</button>
                     ${isAdmin ? `<button id="moveInTemplateBtn" class="btn btn-secondary" onclick="openMoveInTemplate()"><i class="fas fa-list-check"></i> Edit checklist</button>` : ''}
+                    <a class="btn btn-secondary" href="/api/moveins/template/pdf" title="Print a blank checklist for the binder"><i class="fas fa-print"></i> Print blank</a>
                     <button class="btn btn-secondary" onclick="startMoveInsTour()" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
                     <span style="margin-left:auto;color:#64748b;font-size:13px;">${list.length} move-in${list.length !== 1 ? 's' : ''}</span>
                 </div>`;
@@ -3577,7 +3578,8 @@
                                     &nbsp;·&nbsp; <i class="fas fa-calendar-day"></i> ${mv.target_date ? escapeHtml(mv.target_date) : '—'}
                                 </div>
                             </div>
-                            <div style="display:flex;gap:8px;">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <a class="btn btn-secondary" href="/api/moveins/${mv.id}/pdf" title="Print this checklist"><i class="fas fa-print"></i> Print</a>
                                 ${mv.status === 'completed'
                                     ? `<button class="btn btn-secondary" onclick="setMoveInStatus('${mv.id}','active')">Reopen</button>`
                                     : (blockers.length
