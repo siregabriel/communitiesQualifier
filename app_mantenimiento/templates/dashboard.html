@@ -1450,6 +1450,14 @@
         .pm-role { font-size:13px; font-weight:700; color:#1f6fe5; margin-top:2px; }
         .pm-meta { display:flex; flex-wrap:wrap; gap:14px; margin-top:8px; font-size:12px; color:#64748b; }
         .pm-meta span { display:inline-flex; align-items:center; gap:5px; }
+        .pm-rank { margin-left:auto; display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0; }
+        .pm-rank-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:800; padding:5px 11px; border-radius:999px; white-space:nowrap; }
+        .pm-rank-chip .pm-rank-lbl { font-weight:600; font-size:11px; opacity:.85; }
+        .pm-rank-chip.gold { background:#fef6e0; color:#b7791f; border:1px solid #f3d27a; }
+        .pm-rank-chip.silver { background:#f1f5f9; color:#5b6b85; border:1px solid #d3dce8; }
+        .pm-rank-chip.bronze { background:#fbeee4; color:#b45309; border:1px solid #ecc9a8; }
+        .pm-rank-chip.plain { background:#eef2f7; color:#475569; border:1px solid #dbe3ee; }
+        @media (max-width:560px){ .pm-rank { width:100%; margin-left:0; align-items:flex-start; flex-direction:row; flex-wrap:wrap; margin-top:6px; } .pm-header{ flex-wrap:wrap; } }
         .pp-avatar-img, .pp-avatar-fallback { width:60px; height:60px; border-radius:50%; flex-shrink:0; object-fit:cover; }
         .pp-avatar-fallback { display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:21px; }
         .spinner-sm { width:30px; height:30px; margin:0 auto; border:3px solid #e2e8f0; border-top-color:#1f6fe5; border-radius:50%; animation:spin .8s linear infinite; }
@@ -2439,6 +2447,15 @@
             }
 
             const sc = v => (v == null ? '#94a3b8' : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212')));
+            const ordinal = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+            function rankChip(r, label) {
+                if (!r || !r.pos) return '';
+                const cls = r.pos === 1 ? 'gold' : (r.pos === 2 ? 'silver' : (r.pos === 3 ? 'bronze' : 'plain'));
+                const icon = r.pos <= 3 ? '<i class="fas fa-medal"></i>' : '<i class="fas fa-hashtag" style="font-size:9px;"></i>';
+                return `<div class="pm-rank-chip ${cls}">${icon} ${ordinal(r.pos)} <span class="pm-rank-lbl">${label} · of ${r.total}</span></div>`;
+            }
+            const rankBlock = (p.rank && (p.rank.visits.pos || p.rank.pass_rate.pos))
+                ? `<div class="pm-rank">${rankChip(p.rank.visits, 'most inspections')}${rankChip(p.rank.pass_rate, 'best pass rate')}</div>` : '';
             const avatar = p.photo
                 ? `<img src="/static/${p.photo}" alt="" class="pp-avatar-img">`
                 : `<div class="pp-avatar-fallback" style="background:${avatarColor(name)}">${profileInitials(name)}</div>`;
@@ -2461,6 +2478,7 @@
                         <div class="pm-role">${escapeHtml(p.role || 'Team member')}${p.region ? ' · ' + escapeHtml(p.region) : ''}</div>
                         <div class="pm-meta">${p.email ? `<span><i class="fas fa-envelope"></i> ${escapeHtml(p.email)}</span>` : ''}<span><i class="fas fa-clock"></i> Last visit: ${p.last_visit || '—'}</span></div>
                     </div>
+                    ${rankBlock}
                 </div>
                 <div class="pp-kpis">
                     <div class="pp-kpi"><div class="pp-kpi-val">${p.total_visits}</div><div class="pp-kpi-lbl">Total visits</div></div>

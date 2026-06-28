@@ -1277,6 +1277,33 @@ def person_profile():
     weak_list = sorted([{'question': q, 'fails': n} for q, n in weak.items()],
                        key=lambda x: x['fails'], reverse=True)[:5]
 
+    # --- Global leaderboard ranks (across everyone, to fuel competition) ---
+    agg = {}
+    for s in inspection_service.get_all_submissions():
+        key = s.get('inspector_name') or resolve_display_name(s.get('username', '')) or s.get('username', '?')
+        a = agg.setdefault(key, {'visits': 0, 'pass': 0, 'fail': 0})
+        a['visits'] += 1
+        for r in (s.get('responses') or []):
+            if r.get('condition') == 'Pass':
+                a['pass'] += 1
+            elif r.get('condition') == 'Fail':
+                a['fail'] += 1
+
+    def _rank_of(key, pairs):
+        for i, (k, _v) in enumerate(pairs):
+            if k == key:
+                return i + 1
+        return None
+
+    visits_sorted = sorted(((k, a['visits']) for k, a in agg.items() if a['visits'] > 0),
+                           key=lambda x: x[1], reverse=True)
+    pass_sorted = sorted(((k, a['pass'] / (a['pass'] + a['fail'])) for k, a in agg.items()
+                          if (a['pass'] + a['fail']) > 0), key=lambda x: x[1], reverse=True)
+    rank = {
+        'visits': {'pos': _rank_of(name, visits_sorted), 'total': len(visits_sorted)},
+        'pass_rate': {'pos': _rank_of(name, pass_sorted), 'total': len(pass_sorted)},
+    }
+
     meta = {'role': '', 'region': '', 'photo': None, 'email': ''}
     for r in region_service.get_all_regions():
         for l in (r.get('leadership') or []):
@@ -1292,6 +1319,7 @@ def person_profile():
         'last_visit': last_visit[:10], 'avg_score': avg_score, 'pass_rate': pass_rate,
         'passes': passes, 'fails': fails, 'communities': comm_list,
         'weakest': weak_list, 'by_month': months, 'recent': recent[:8],
+        'rank': rank,
     }}), 200
 
 
