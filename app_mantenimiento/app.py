@@ -1323,6 +1323,43 @@ def person_profile():
     }}), 200
 
 
+@app.route('/api/leaderboard')
+@login_required
+def leaderboard():
+    """Global team leaderboard: top by number of inspections and by pass rate.
+    Cross-region by design (visible to everyone) to encourage competition."""
+    agg = {}
+    for s in inspection_service.get_all_submissions():
+        key = s.get('inspector_name') or resolve_display_name(s.get('username', '')) or s.get('username', '?')
+        a = agg.setdefault(key, {'visits': 0, 'pass': 0, 'fail': 0})
+        a['visits'] += 1
+        for r in (s.get('responses') or []):
+            if r.get('condition') == 'Pass':
+                a['pass'] += 1
+            elif r.get('condition') == 'Fail':
+                a['fail'] += 1
+
+    meta = {}
+    for r in region_service.get_all_regions():
+        for l in (r.get('leadership') or []):
+            nm = l.get('name')
+            if nm:
+                meta[nm] = {'role': l.get('role', ''), 'region': r.get('name', '')}
+
+    rows = []
+    for k, a in agg.items():
+        tot = a['pass'] + a['fail']
+        rows.append({'name': k, 'visits': a['visits'],
+                     'pass_rate': round(a['pass'] / tot * 100) if tot else None,
+                     'role': meta.get(k, {}).get('role', ''),
+                     'region': meta.get(k, {}).get('region', '')})
+
+    by_visits = sorted(rows, key=lambda x: x['visits'], reverse=True)[:10]
+    by_pass = sorted([r for r in rows if r['pass_rate'] is not None],
+                     key=lambda x: (x['pass_rate'], x['visits']), reverse=True)[:10]
+    return jsonify({'status': 'success', 'by_visits': by_visits, 'by_pass_rate': by_pass}), 200
+
+
 # ==================== MOVE-IN MODULE ====================
 
 def _movein_progress(rec, item_ids):
