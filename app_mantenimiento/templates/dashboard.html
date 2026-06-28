@@ -3337,17 +3337,30 @@
             // --- Recent activity ---
             const recent = (allSubmissions || []).slice()
                 .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 5);
+            // "NEW" badge: anything submitted after the last time this user saw the
+            // dashboard (stored locally). First-ever visit shows none (baseline).
+            let recentSeenTs = 0;
+            try { recentSeenTs = parseInt(localStorage.getItem('atlasRecentSeenTs') || '0', 10) || 0; } catch (e) {}
             const recentHtml = recent.length ? recent.map(s => {
                 const score = calculateCommunityScore(s.responses || []);
                 const nm = s.inspector_name || s.username || 'Unknown';
                 const safe = (s.community || '').replace(/'/g, "\\'");
+                const ts = new Date(s.submitted_at).getTime() || 0;
+                const isNew = recentSeenTs > 0 && ts > recentSeenTs;
+                const newBadge = isNew ? `<span class="dash-new-badge">NEW</span>` : '';
                 return `<div class="dash-row" onclick="openSlidePanel('${safe}')">
                     ${dashAvatarHtml(nm)}
-                    <div class="dash-row-main"><div class="dash-row-name">${escapeHtml(s.community || 'Unknown')}</div>
+                    <div class="dash-row-main"><div class="dash-row-name dash-row-name-flex"><span class="dash-row-name-text">${escapeHtml(s.community || 'Unknown')}</span>${newBadge}</div>
                     <div class="dash-row-sub">${escapeHtml(nm)} · ${escapeHtml(formatDate(s.submitted_at))}</div></div>
                     <span class="dash-score" style="color:${scoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span>
                     <i class="fas fa-chevron-right dash-chev"></i></div>`;
             }).join('') : '<div class="dash-empty">No inspections recorded yet.</div>';
+            // Mark everything currently shown as "seen" (a few seconds after the
+            // badges paint, so they're visible this visit but gone on the next one).
+            if (recent.length) {
+                const maxTs = Math.max(recentSeenTs, ...recent.map(s => new Date(s.submitted_at).getTime() || 0));
+                setTimeout(() => { try { localStorage.setItem('atlasRecentSeenTs', String(maxTs)); } catch (e) {} }, 4000);
+            }
 
             // --- Upcoming move-ins ---
             const activeMoveIns = (moveInsRaw || []).filter(m => (m.status || 'active') === 'active');
@@ -3401,6 +3414,10 @@
                 .dash-muted { color: #9ca3af; font-weight: 500; font-size: 12px; }
                 .dash-muted-red { color: #d13212; }
                 .dash-empty { color: #6b7280; font-size: 13px; padding: 8px 0; }
+                .dash-row-name-flex { display: flex; align-items: center; gap: 6px; }
+                .dash-row-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+                .dash-new-badge { flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #0f8a5f;
+                    background: #e6f5ee; border: 1px solid #b7e0cd; padding: 1px 6px; border-radius: 6px; }
                 @media (max-width: 820px) { .dash-grid { grid-template-columns: 1fr; } .dash-bars-label-wide { width: 140px; } }
 
                 /* Desktop-only right rail (calendar + upcoming). Below 1200px the
