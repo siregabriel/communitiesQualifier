@@ -1526,7 +1526,7 @@
                 </div>
                 <div class="header-actions">
                     <a href="/questions/manage" class="btn btn-primary" id="questionManagerBtn" style="display: none; text-decoration: none;"><i class="fas fa-clipboard-list"></i> Question Manager</a>
-                    <button class="btn btn-secondary" onclick="contextHelp()" title="Show the tutorial for this screen"><i class="fas fa-circle-question"></i> Help</button>
+                    <button class="btn btn-secondary" id="headerHelpBtn" onclick="contextHelp()" title="Show the tutorial for this screen"><i class="fas fa-circle-question"></i> Help</button>
                     <button class="btn btn-secondary" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
                 </div>
             </div>
@@ -3036,6 +3036,11 @@
                 history.replaceState(null, '', u);
             } catch (e) { /* older browsers: ignore */ }
 
+            // The header Help button only appears on screens with a tutorial it can
+            // open (Dashboard overview, Regions). Move-Ins has its own in-page Help.
+            const headerHelpBtn = document.getElementById('headerHelpBtn');
+            if (headerHelpBtn) headerHelpBtn.style.display = (view === 'dashboard' || view === 'regions') ? '' : 'none';
+
             // Show loading indicator immediately
             showLoadingIndicator();
             console.log('⏳ Loading indicator displayed');
@@ -3150,6 +3155,8 @@
                 { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders." },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the inspection standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends, top performers, and pass/fail breakdowns across all visits.' },
+                { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident’s move-in as a phased checklist — with required compliance items, attachments, printable binder pages, and automatic email reminders. Open it for its own walkthrough.' },
+                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines inspections, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
                 { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Create users, choose who receives which inspection emails (by region or inspector), and configure Clinical/Ops routing.' },
                 { title: "You're all set", text: 'That’s the tour. Tap Help in the top bar to see it again whenever you want.' },
             ],
@@ -3158,6 +3165,8 @@
                 { target: '#startVisitBtn', title: 'Start a visit', text: 'Tap here to begin a new inspection — pick the community and survey type, then go item by item marking Pass or Fail.' },
                 { target: '.nav-item[data-view="my-visits"]', title: 'My Visits', text: "See the inspections you've submitted, with their scores and dates." },
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse communities and open a report to review results.' },
+                { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Follow new resident move-ins for your community as a step-by-step checklist. Open it for its own quick walkthrough.' },
+                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'See inspections and move-in dates for your community on a monthly calendar.' },
                 { title: 'Tip: the info icon', text: "On every inspection item, tap the info icon to see exactly what's required to pass. You can also add a comment and direct it to Clinical or Ops." },
                 { title: "You're all set", text: 'That’s it! Use the Help button in the top bar to replay this anytime.' },
             ],
