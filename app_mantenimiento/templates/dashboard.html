@@ -1000,6 +1000,8 @@
         #tourBlocker { position: fixed; inset: 0; z-index: 4000; display: none; }
         #tourRing { position: fixed; z-index: 4001; border: 3px solid #fff; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(15,23,42,.6); pointer-events: none; display: none; transition: all .25s ease; }
         .tour-card { position: fixed; z-index: 4002; width: 320px; max-width: calc(100vw - 24px); background: #fff; border-radius: 14px; box-shadow: 0 24px 56px rgba(2,32,80,.32); padding: 20px 22px; display: none; }
+        .tour-mascot { position: absolute; top: -54px; right: -12px; width: 98px; height: auto; pointer-events: none; z-index: 1; filter: drop-shadow(0 6px 9px rgba(2,32,80,.22)); }
+        @media (max-width: 560px) { .tour-mascot { width: 72px; top: -40px; right: -4px; } }
         .tour-progress { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
         .tour-card h3 { font-size: 17px; font-weight: 800; color: #0f1e36; margin: 6px 0 8px; }
         .tour-card p { font-size: 14px; line-height: 1.55; color: #475569; margin: 0; }
@@ -1678,6 +1680,7 @@
     <div id="tourBlocker"></div>
     <div id="tourRing"></div>
     <div class="tour-card" id="tourCard">
+        <img id="tourMascot" class="tour-mascot" src="/static/trex1.png" alt="" aria-hidden="true">
         <div class="tour-progress" id="tourProgress"></div>
         <h3 id="tourTitle"></h3>
         <p id="tourText"></p>
@@ -3244,6 +3247,8 @@
             document.getElementById('tourProgress').textContent = (tourIdx + 1) + ' / ' + tourSteps.length;
             document.getElementById('tourTitle').textContent = step.title;
             document.getElementById('tourText').textContent = step.text;
+            const mascot = document.getElementById('tourMascot');
+            if (mascot) mascot.src = '/static/trex' + ((tourIdx % 4) + 1) + '.png';
             document.getElementById('tourPrev').style.visibility = tourIdx === 0 ? 'hidden' : 'visible';
             document.getElementById('tourNext').textContent = (tourIdx === tourSteps.length - 1) ? 'Done' : 'Next';
             const el = step.target ? document.querySelector(step.target) : null;
