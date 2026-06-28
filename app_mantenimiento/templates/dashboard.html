@@ -1414,6 +1414,13 @@
         .mini-daynum { line-height:1; }
         .mini-dots { display:flex; gap:2px; margin-top:3px; height:5px; align-items:center; }
         .mini-dots .cal-dot { width:5px; height:5px; }
+
+        /* Hover tooltip for calendar days (desktop) */
+        #calDayTip { position:fixed; z-index:5000; width:220px; background:#fff; border:1px solid #d9dfe8;
+            border-radius:10px; padding:10px 12px; box-shadow:0 12px 30px rgba(2,32,80,.18); display:none; pointer-events:none; }
+        #calDayTip .cdt-head { font-size:12px; font-weight:800; color:#0f1e36; margin-bottom:6px; }
+        #calDayTip .cdt-row { display:flex; align-items:center; gap:7px; font-size:12px; color:#475569; margin-bottom:4px; }
+        #calDayTip .cdt-foot { font-size:10px; color:#1f6fe5; font-weight:700; margin-top:6px; }
     </style>
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
 
@@ -3395,21 +3402,43 @@
                 .dash-muted-red { color: #d13212; }
                 .dash-empty { color: #6b7280; font-size: 13px; padding: 8px 0; }
                 @media (max-width: 820px) { .dash-grid { grid-template-columns: 1fr; } .dash-bars-label-wide { width: 140px; } }
+
+                /* Desktop-only right rail (calendar + upcoming). Below 1200px the
+                   layout is untouched: rail hidden, the mobile cards show instead. */
+                .dash-layout { grid-column: 1 / -1; }
+                .dash-rail { display: none; }
+                .rail-up-row { padding: 9px 0 9px 10px; border-radius: 0; cursor: pointer; }
+                .rail-up-row:hover { background: rgba(0,40,92,.03); }
+                .rail-up-title { font-size: 13px; font-weight: 700; color: #0f1e36; }
+                .rail-up-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+                @media (min-width: 1200px) {
+                    .dash-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+                    .dash-rail { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 20px; }
+                    .dash-only-mobile { display: none; }
+                }
             </style>
-            <div class="dash-wrap">
-                <div class="dash-kpis">${kpiHtml}</div>
-                <div class="dash-grid">
-                    <div class="dash-card"><h3><i class="fas fa-triangle-exclamation"></i> Needs attention</h3>${attentionHtml}</div>
-                    <div class="dash-card"><h3><i class="fas fa-sitemap"></i> Performance by region</h3>${regionHtml}</div>
+            <div class="dash-layout">
+              <div class="dash-main">
+                <div class="dash-wrap">
+                    <div class="dash-kpis">${kpiHtml}</div>
+                    <div class="dash-grid">
+                        <div class="dash-card"><h3><i class="fas fa-triangle-exclamation"></i> Needs attention</h3>${attentionHtml}</div>
+                        <div class="dash-card"><h3><i class="fas fa-sitemap"></i> Performance by region</h3>${regionHtml}</div>
+                    </div>
+                    <div class="dash-grid">
+                        <div class="dash-card"><h3><i class="fas fa-clipboard-check"></i> Weakest standards</h3>${weakestHtml}</div>
+                        <div class="dash-card"><h3><i class="fas fa-clock-rotate-left"></i> Recent activity</h3>${recentHtml}</div>
+                    </div>
+                    <div class="dash-grid dash-only-mobile">
+                        <div class="dash-card"><h3><i class="fas fa-calendar-days"></i> This month</h3>${dashMiniCalendarHtml()}</div>
+                        <div class="dash-card"><h3><i class="fas fa-house-circle-check"></i> Upcoming move-ins</h3>${moveInsHtml}</div>
+                    </div>
                 </div>
-                <div class="dash-grid">
-                    <div class="dash-card"><h3><i class="fas fa-clipboard-check"></i> Weakest standards</h3>${weakestHtml}</div>
-                    <div class="dash-card"><h3><i class="fas fa-clock-rotate-left"></i> Recent activity</h3>${recentHtml}</div>
-                </div>
-                <div class="dash-grid">
-                    <div class="dash-card"><h3><i class="fas fa-calendar-days"></i> This month</h3>${dashMiniCalendarHtml()}</div>
-                    <div class="dash-card"><h3><i class="fas fa-house-circle-check"></i> Upcoming move-ins</h3>${moveInsHtml}</div>
-                </div>
+              </div>
+              <div class="dash-rail">
+                <div class="dash-card"><h3><i class="fas fa-calendar-days"></i> This month</h3>${dashMiniCalendarHtml()}</div>
+                <div class="dash-card"><h3><i class="fas fa-clock"></i> Upcoming</h3>${dashRailUpcomingHtml()}</div>
+              </div>
             </div>`;
         }
 
@@ -4142,7 +4171,7 @@
                 if (e.m) dots += '<span class="cal-dot cal-dot-mv"></span>';
                 if (e.f) dots += '<span class="cal-dot cal-dot-fup"></span>';
                 const has = e.i || e.m || e.f;
-                cells += `<div class="mini-cal-cell ${k === todayKey ? 'mini-today' : ''} ${has ? 'mini-has' : ''}" ${has ? `onclick="dashOpenCalDay('${k}')"` : ''}>
+                cells += `<div class="mini-cal-cell ${k === todayKey ? 'mini-today' : ''} ${has ? 'mini-has' : ''}" ${has ? `data-calkey="${k}" onclick="dashOpenCalDay('${k}')" onmouseenter="showDayTooltip(this,'${k}')" onmouseleave="hideDayTooltip()"` : ''}>
                             <span class="mini-daynum">${day}</span><span class="mini-dots">${dots}</span></div>`;
             }
             const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -4154,6 +4183,73 @@
             calendarMonth = new Date(parseInt(k.slice(0, 4), 10), parseInt(k.slice(5, 7), 10) - 1, 1);
             calSelectedDay = k;
             showView('calendar');
+        }
+
+        // Events for a single day key (used by the hover tooltip).
+        function dashDayEvents(key) {
+            const out = { insp: [], mvs: [], fups: [] };
+            (allSubmissions || []).forEach(s => {
+                if (!s.submitted_at) return;
+                const d = new Date(s.submitted_at);
+                if (!isNaN(d.getTime()) && _calKey(d) === key) out.insp.push(s);
+            });
+            (moveInsRaw || []).forEach(m => {
+                if (!m.target_date) return;
+                if (m.target_date === key) out.mvs.push(m);
+                if (m.status !== 'archived') {
+                    [[5, 'Day 5 follow-up'], [14, '1–2 week follow-up']].forEach(([n, label]) => {
+                        if (_calAddDays(m.target_date, n) === key) out.fups.push({ ...m, _fupLabel: label });
+                    });
+                }
+            });
+            return out;
+        }
+        function showDayTooltip(cell, key) {
+            let tip = document.getElementById('calDayTip');
+            if (!tip) { tip = document.createElement('div'); tip.id = 'calDayTip'; document.body.appendChild(tip); }
+            const ev = dashDayEvents(key);
+            const dl = new Date(key + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            let rows = '';
+            ev.insp.forEach(s => { const sc = calculateCommunityScore(s.responses || []); rows += `<div class="cdt-row"><span class="cal-dot cal-dot-insp"></span>${escapeHtml(s.community || 'Unknown')} · ${sc === null ? 'N/A' : sc + '%'}</div>`; });
+            ev.mvs.forEach(m => { rows += `<div class="cdt-row"><span class="cal-dot cal-dot-mv"></span>Move-in · ${escapeHtml(m.resident_name)}</div>`; });
+            ev.fups.forEach(m => { rows += `<div class="cdt-row"><span class="cal-dot cal-dot-fup"></span>${escapeHtml(m._fupLabel)} · ${escapeHtml(m.resident_name)}</div>`; });
+            tip.innerHTML = `<div class="cdt-head">${dl}</div>${rows}<div class="cdt-foot">Click to open the day</div>`;
+            tip.style.display = 'block';
+            const r = cell.getBoundingClientRect();
+            const tw = 220;
+            let left = r.left - tw - 10;
+            if (left < 8) left = r.right + 10;
+            tip.style.left = Math.max(8, left) + 'px';
+            tip.style.top = Math.max(8, Math.min(r.top, window.innerHeight - 160)) + 'px';
+        }
+        function hideDayTooltip() {
+            const tip = document.getElementById('calDayTip');
+            if (tip) tip.style.display = 'none';
+        }
+
+        // Right-rail "Upcoming" list: future move-in dates + follow-ups, soonest first.
+        function dashRailUpcomingHtml() {
+            const todayKey = _calKey(new Date());
+            const events = [];
+            (moveInsRaw || []).forEach(m => {
+                if (!m.target_date || m.status === 'archived') return;
+                if (m.target_date >= todayKey) events.push({ date: m.target_date, type: 'mv', m });
+                [[5, 'Day 5 follow-up'], [14, '1–2 week follow-up']].forEach(([n, label]) => {
+                    const k = _calAddDays(m.target_date, n);
+                    if (k >= todayKey) events.push({ date: k, type: 'fup', label, m });
+                });
+            });
+            events.sort((a, b) => a.date.localeCompare(b.date));
+            const top = events.slice(0, 7);
+            if (!top.length) return '<div class="dash-empty">Nothing upcoming.</div>';
+            return top.map(e => {
+                const color = e.type === 'mv' ? '#d97706' : '#0e7490';
+                const title = e.type === 'mv' ? `Move-in · ${escapeHtml(e.m.resident_name)}` : `${escapeHtml(e.label)} · ${escapeHtml(e.m.resident_name)}`;
+                const dl = new Date(e.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const sub = e.type === 'mv' && e.m.blockers ? `${dl} · <span class="dash-muted-red">${e.m.blockers} required pending</span>` : dl;
+                return `<div class="rail-up-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${e.m.id}'),250)" style="border-left:2px solid ${color};">
+                    <div class="rail-up-title">${title}</div><div class="rail-up-sub">${sub} · ${escapeHtml(e.m.community)}</div></div>`;
+            }).join('');
         }
 
         function resourceIcon(r) {
