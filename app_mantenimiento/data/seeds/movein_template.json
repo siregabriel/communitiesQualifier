@@ -1,59 +1,59 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "phases": [
     {
       "id": "phase_prep",
       "name": "Pre Move-In (Red Carpet · Prep)",
       "items": [
-        { "id": "itm_prep_1", "text": "Reach out to family to confirm pharmacy and PCP, along with insurance information" },
-        { "id": "itm_prep_2", "text": "Nursing assessment completed (ALF appropriateness)" },
-        { "id": "itm_prep_3", "text": "Confirm time of care received; 1823/POC received with signed medication list" },
-        { "id": "itm_prep_4", "text": "POC / 1823 approved by the AD or WD", "required": true },
-        { "id": "itm_prep_5", "text": "Signed Medication form on file (required before any physical move-in)", "required": true },
-        { "id": "itm_prep_6", "text": "Discuss medications, expectations and the move-in process with family" }
+        { "id": "itm_prep_1", "text": "Reach out to family to confirm pharmacy and PCP, along with insurance information", "department": "Business Office" },
+        { "id": "itm_prep_2", "text": "Nursing assessment completed (ALF appropriateness)", "department": "Nursing" },
+        { "id": "itm_prep_3", "text": "Confirm time of care received; 1823/POC received with signed medication list", "department": "Nursing" },
+        { "id": "itm_prep_4", "text": "POC / 1823 approved by the AD or WD", "required": true, "department": "Nursing" },
+        { "id": "itm_prep_5", "text": "Signed Medication form on file (required before any physical move-in)", "required": true, "department": "Nursing" },
+        { "id": "itm_prep_6", "text": "Discuss medications, expectations and the move-in process with family", "department": "Nursing" }
       ]
     },
     {
       "id": "phase_day",
       "name": "Move-In Day (Tour-In)",
       "items": [
-        { "id": "itm_day_1", "text": "Welcome Home sign on their door with name" },
-        { "id": "itm_day_2", "text": "Record Red Carpet welcome for new resident; provide to Lifestyles" },
-        { "id": "itm_day_3", "text": "New Resident Notification form completed for managers and care associates" },
-        { "id": "itm_day_4", "text": "New resident admission checklist completed / set up" },
-        { "id": "itm_day_5", "text": "Floor nurse meets with resident to confirm medications" },
-        { "id": "itm_day_6", "text": "Provide pendant and explain how to use it" },
-        { "id": "itm_day_7", "text": "Resident photo taken; provided to business office" },
-        { "id": "itm_day_8", "text": "Escort resident to apartment with ED and tour the amenities" },
-        { "id": "itm_day_9", "text": "Resident added to housekeeping schedule" },
-        { "id": "itm_day_10", "text": "Confirm dining preferences, seat assignment, and any special diets / allergies" }
+        { "id": "itm_day_1", "text": "Welcome Home sign on their door with name", "department": "Lifestyles" },
+        { "id": "itm_day_2", "text": "Record Red Carpet welcome for new resident; provide to Lifestyles", "department": "Lifestyles" },
+        { "id": "itm_day_3", "text": "New Resident Notification form completed for managers and care associates", "department": "Business Office" },
+        { "id": "itm_day_4", "text": "New resident admission checklist completed / set up", "department": "Business Office" },
+        { "id": "itm_day_5", "text": "Floor nurse meets with resident to confirm medications", "department": "Nursing" },
+        { "id": "itm_day_6", "text": "Provide pendant and explain how to use it", "department": "Maintenance" },
+        { "id": "itm_day_7", "text": "Resident photo taken; provided to business office", "department": "Business Office" },
+        { "id": "itm_day_8", "text": "Escort resident to apartment with ED and tour the amenities", "department": "Executive" },
+        { "id": "itm_day_9", "text": "Resident added to housekeeping schedule", "department": "Housekeeping" },
+        { "id": "itm_day_10", "text": "Confirm dining preferences, seat assignment, and any special diets / allergies", "department": "Dietary" }
       ]
     },
     {
       "id": "phase_welcome",
       "name": "Welcome Home",
       "items": [
-        { "id": "itm_wel_1", "text": "Confirm monthly calendar is provided" },
-        { "id": "itm_wel_2", "text": "Move resident into Yardi; confirm physical date and financial dates match" },
-        { "id": "itm_wel_3", "text": "Set up ACH; confirm financial file is complete with all required documents" },
-        { "id": "itm_wel_4", "text": "Signed forms disbursed to specific departments as needed" },
-        { "id": "itm_wel_5", "text": "Permanent nameplate for apartment ordered" }
+        { "id": "itm_wel_1", "text": "Confirm monthly calendar is provided", "department": "Lifestyles" },
+        { "id": "itm_wel_2", "text": "Move resident into Yardi; confirm physical date and financial dates match", "department": "Business Office" },
+        { "id": "itm_wel_3", "text": "Set up ACH; confirm financial file is complete with all required documents", "department": "Business Office" },
+        { "id": "itm_wel_4", "text": "Signed forms disbursed to specific departments as needed", "department": "Business Office" },
+        { "id": "itm_wel_5", "text": "Permanent nameplate for apartment ordered", "department": "Maintenance" }
       ]
     },
     {
       "id": "phase_followup",
       "name": "Follow-Up (Day 5 / 1-2 Weeks)",
       "items": [
-        { "id": "itm_fu_1", "text": "Complete an in-person follow-up with family" },
-        { "id": "itm_fu_2", "text": "Greet resident; ask how they are feeling about their first week" },
-        { "id": "itm_fu_3", "text": "Ask the resident about their likes to get to know them" },
-        { "id": "itm_fu_4", "text": "Confirm resident name displayed on plaque outside apartment" },
-        { "id": "itm_fu_5", "text": "Discuss check-in / check-out process with the resident" },
-        { "id": "itm_fu_6", "text": "Confirm resident's room is satisfactory" },
-        { "id": "itm_fu_7", "text": "Discuss fire drills, emergency exits, and how to put in a work order request" },
-        { "id": "itm_fu_8", "text": "Request permission to help the resident submit a 5-star Google review" },
-        { "id": "itm_fu_9", "text": "Dietary director introduces themselves and reviews the dining plan (1-2 weeks)" },
-        { "id": "itm_fu_10", "text": "Maintenance director check-in and answers any questions (1-2 weeks)" }
+        { "id": "itm_fu_1", "text": "Complete an in-person follow-up with family", "department": "Executive" },
+        { "id": "itm_fu_2", "text": "Greet resident; ask how they are feeling about their first week", "department": "Executive" },
+        { "id": "itm_fu_3", "text": "Ask the resident about their likes to get to know them", "department": "Lifestyles" },
+        { "id": "itm_fu_4", "text": "Confirm resident name displayed on plaque outside apartment", "department": "Maintenance" },
+        { "id": "itm_fu_5", "text": "Discuss check-in / check-out process with the resident", "department": "Executive" },
+        { "id": "itm_fu_6", "text": "Confirm resident's room is satisfactory", "department": "Maintenance" },
+        { "id": "itm_fu_7", "text": "Discuss fire drills, emergency exits, and how to put in a work order request", "department": "Maintenance" },
+        { "id": "itm_fu_8", "text": "Request permission to help the resident submit a 5-star Google review", "department": "Lifestyles" },
+        { "id": "itm_fu_9", "text": "Dietary director introduces themselves and reviews the dining plan (1-2 weeks)", "department": "Dietary" },
+        { "id": "itm_fu_10", "text": "Maintenance director check-in and answers any questions (1-2 weeks)", "department": "Maintenance" }
       ]
     }
   ]

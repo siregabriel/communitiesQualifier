@@ -1334,6 +1334,8 @@
         .mi-controls { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center; }
         .mi-input { padding:6px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; color:#475569; }
         .mi-initials { width:90px; }
+        .mi-note { flex:1; min-width:140px; }
+        .mi-activity { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:#0f8a5f; }
         .mi-attach-btn { padding:6px 12px; border:1px solid #e2e8f0; background:#fff; border-radius:8px;
             font-size:12px; font-weight:600; color:#475569; cursor:pointer; }
         .mi-attach-btn:hover { background:#f1f5f9; }
@@ -2885,7 +2887,8 @@
                     loadCommunityData(),
                     loadCommunityCovers(),
                     loadRegions(),
-                    loadQuestions()
+                    loadQuestions(),
+                    loadMoveInsRaw()
                 ]);
                 
                 // Open the view requested via ?view= (e.g. coming from the
@@ -3065,8 +3068,10 @@
             { target: '#gallery .card', title: 'Each resident', text: 'Every card is one resident’s move-in, with a progress bar and how many required items are still pending.' },
             { target: '#gallery .card', title: 'Open the checklist', text: 'Click a card to open the checklist by phase. Tick items off with a date, initials, and attach signed forms.' },
             { target: '#moveInTemplateBtn', title: 'Edit the checklist', text: 'Admins can edit the master checklist — add or remove phases and items, and mark items as “Required” so a move-in can’t be completed until they’re done.' },
-            { target: '#moveInPrintBlankBtn', title: 'Print for the binder', text: 'Print a clean, blank copy of the checklist to keep in the physical binder. (Each resident’s page also has its own “Print” button with their progress filled in.)' },
-            { title: 'That’s Move-Ins', text: 'Required items act as compliance gates, and the team gets email reminders as the move-in date approaches. Use Help to replay this.' },
+            { target: '#moveInPrintBlankBtn', title: 'Print for the binder', text: 'Print a clean, blank copy of the checklist (with the Atlas logo) for the physical binder. Each resident’s page also has its own “Print” button with their progress filled in.' },
+            { target: '#moveInSearch', title: 'Find & filter', text: 'Search a resident by name, or filter by status and community. Cards show a countdown to move-in day and turn urgent (red) when the date is close and required items are still pending.' },
+            { title: 'Departments & accountability', text: 'Each checklist item can be tagged to a department (Nursing, Dietary, Maintenance…). Inside a resident’s checklist you can filter by department to see just your part, add notes per item, and it records who checked each one.' },
+            { title: 'Export & reminders', text: 'Export all move-ins to Excel or CSV from the toolbar. The team gets automatic email reminders as a move-in approaches, and a completion summary when it’s done. Use Help to replay this anytime.' },
         ];
         let tourSteps = [], tourIdx = 0;
         function runTour(steps) { tourSteps = steps || []; tourIdx = 0; showTourStep(); }
@@ -3085,8 +3090,8 @@
         }
         function maybeStartMoveInsTour() {
             let seen = false;
-            try { seen = localStorage.getItem('atlasMoveInsTourSeen_v2') === '1'; } catch (e) {}
-            if (!seen) { try { localStorage.setItem('atlasMoveInsTourSeen_v2', '1'); } catch (e) {} setTimeout(startMoveInsTour, 650); }
+            try { seen = localStorage.getItem('atlasMoveInsTourSeen_v3') === '1'; } catch (e) {}
+            if (!seen) { try { localStorage.setItem('atlasMoveInsTourSeen_v3', '1'); } catch (e) {} setTimeout(startMoveInsTour, 650); }
         }
         function showTourStep() {
             const step = tourSteps[tourIdx];
@@ -3253,6 +3258,27 @@
                     <i class="fas fa-chevron-right dash-chev"></i></div>`;
             }).join('') : '<div class="dash-empty">No inspections recorded yet.</div>';
 
+            // --- Upcoming move-ins ---
+            const activeMoveIns = (moveInsRaw || []).filter(m => (m.status || 'active') === 'active');
+            const upcoming = activeMoveIns.slice()
+                .sort((a, b) => moveInCountdown(a.target_date).days - moveInCountdown(b.target_date).days)
+                .slice(0, 5);
+            const moveInBlockersTotal = activeMoveIns.reduce((s, m) => s + (m.blockers || 0), 0);
+            const moveInsHtml = upcoming.length ? (
+                `<div class="dash-row" style="cursor:default;border:none;padding-bottom:4px;">
+                    <div class="dash-row-main"><div class="dash-row-sub">${activeMoveIns.length} in progress${moveInBlockersTotal ? ` · <span class="dash-muted-red">${moveInBlockersTotal} required pending</span>` : ''}</div></div>
+                </div>` +
+                upcoming.map(m => {
+                    const cd = moveInCountdown(m.target_date);
+                    const pct = m.total ? Math.round(m.done / m.total * 100) : 0;
+                    return `<div class="dash-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${m.id}'),250)">
+                        <div class="dash-row-main"><div class="dash-row-name">${escapeHtml(m.resident_name)}</div>
+                        <div class="dash-row-sub">${escapeHtml(m.community)} · ${pct}%${m.blockers ? ` · <span class="dash-muted-red">${m.blockers} required</span>` : ''}</div></div>
+                        <span class="dash-score" style="color:${cd.color};font-size:12px;">${cd.label}</span>
+                        <i class="fas fa-chevron-right dash-chev"></i></div>`;
+                }).join('')
+            ) : '<div class="dash-empty">No move-ins in progress.</div>';
+
             gallery.innerHTML = `
             <style>
                 .dash-wrap { grid-column: 1 / -1; display: grid; gap: 20px; }
@@ -3295,6 +3321,9 @@
                 <div class="dash-grid">
                     <div class="dash-card"><h3><i class="fas fa-clipboard-check"></i> Weakest standards</h3>${weakestHtml}</div>
                     <div class="dash-card"><h3><i class="fas fa-clock-rotate-left"></i> Recent activity</h3>${recentHtml}</div>
+                </div>
+                <div class="dash-grid">
+                    <div class="dash-card"><h3><i class="fas fa-house-circle-check"></i> Upcoming move-ins</h3>${moveInsHtml}</div>
                 </div>
             </div>`;
         }
@@ -3444,45 +3473,95 @@
             return pct >= 100 ? '#0f8a5f' : (pct >= 50 ? '#1f6fe5' : '#d97706');
         }
 
-        async function renderMoveIns() {
-            const gallery = document.getElementById('gallery');
-            gallery.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;">Loading…</div>';
-            let list = [];
+        let moveInsRaw = [];
+        let moveInFilters = { search: '', status: 'active', community: 'all' };
+        async function loadMoveInsRaw() {
             try {
                 const r = await fetch('/api/moveins');
                 const d = await r.json();
-                list = d.moveins || [];
-            } catch (e) { console.error('moveins load', e); }
+                moveInsRaw = d.moveins || [];
+            } catch (e) { moveInsRaw = []; }
+        }
 
-            const toolbar = `
-                <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+        function moveInCountdown(targetDate) {
+            if (!targetDate) return { label: 'No date', color: '#94a3b8', days: 9999 };
+            const t = new Date(targetDate + 'T00:00:00');
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const days = Math.round((t - today) / 86400000);
+            if (isNaN(days)) return { label: 'No date', color: '#94a3b8', days: 9999 };
+            if (days < 0) return { label: `${-days}d overdue`, color: '#b42318', days };
+            if (days === 0) return { label: 'Today', color: '#b42318', days };
+            if (days <= 3) return { label: `in ${days} day${days !== 1 ? 's' : ''}`, color: '#d97706', days };
+            return { label: `in ${days} days`, color: '#64748b', days };
+        }
+
+        async function renderMoveIns() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;">Loading…</div>';
+            try {
+                const r = await fetch('/api/moveins');
+                const d = await r.json();
+                moveInsRaw = d.moveins || [];
+            } catch (e) { console.error('moveins load', e); moveInsRaw = []; }
+
+            const communities = Array.from(new Set(moveInsRaw.map(m => m.community).filter(Boolean))).sort();
+            const commOpts = ['all'].concat(communities).map(c =>
+                `<option value="${escapeHtml(c)}" ${moveInFilters.community === c ? 'selected' : ''}>${c === 'all' ? 'All communities' : escapeHtml(c)}</option>`).join('');
+            const statusOpts = [['active', 'In progress'], ['completed', 'Completed'], ['archived', 'Archived'], ['all', 'All statuses']]
+                .map(([v, l]) => `<option value="${v}" ${moveInFilters.status === v ? 'selected' : ''}>${l}</option>`).join('');
+
+            gallery.innerHTML = `
+                <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
                     <button id="moveInNewBtn" class="btn btn-primary" onclick="openNewMoveIn()"><i class="fas fa-plus"></i> New move-in</button>
                     ${isAdmin ? `<button id="moveInTemplateBtn" class="btn btn-secondary" onclick="openMoveInTemplate()"><i class="fas fa-list-check"></i> Edit checklist</button>` : ''}
                     <a id="moveInPrintBlankBtn" class="btn btn-secondary" href="/api/moveins/template/pdf" title="Print a blank checklist for the binder"><i class="fas fa-print"></i> Print blank</a>
+                    <a class="btn btn-secondary" href="/api/moveins/export.xlsx" title="Export to Excel"><i class="fas fa-file-excel"></i> Excel</a>
+                    <a class="btn btn-secondary" href="/api/moveins/export.csv" title="Export to CSV"><i class="fas fa-file-csv"></i> CSV</a>
                     <button class="btn btn-secondary" onclick="startMoveInsTour()" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
-                    <span style="margin-left:auto;color:#64748b;font-size:13px;">${list.length} move-in${list.length !== 1 ? 's' : ''}</span>
-                </div>`;
+                </div>
+                <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
+                    <input id="moveInSearch" class="mi-input" placeholder="Search resident…" value="${escapeHtml(moveInFilters.search)}" oninput="moveInFilters.search=this.value;renderMoveInCards();" style="padding:9px 12px;min-width:200px;">
+                    <select class="mi-input" onchange="moveInFilters.status=this.value;renderMoveInCards();" style="padding:9px 12px;">${statusOpts}</select>
+                    <select class="mi-input" onchange="moveInFilters.community=this.value;renderMoveInCards();" style="padding:9px 12px;">${commOpts}</select>
+                    <span id="moveInCount" style="margin-left:auto;color:#64748b;font-size:13px;"></span>
+                </div>
+                <div id="moveInCards" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>`;
+            renderMoveInCards();
+            maybeStartMoveInsTour();
+        }
+
+        function renderMoveInCards() {
+            const host = document.getElementById('moveInCards');
+            if (!host) return;
+            const q = (moveInFilters.search || '').trim().toLowerCase();
+            let list = moveInsRaw.filter(m =>
+                (moveInFilters.status === 'all' || (m.status || 'active') === moveInFilters.status)
+                && (moveInFilters.community === 'all' || m.community === moveInFilters.community)
+                && (!q || (m.resident_name || '').toLowerCase().includes(q)));
+
+            // urgency sort: active first, then soonest move-in date
+            list.sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1)
+                || moveInCountdown(a.target_date).days - moveInCountdown(b.target_date).days);
+
+            const countEl = document.getElementById('moveInCount');
+            if (countEl) countEl.textContent = `${list.length} shown`;
 
             if (!list.length) {
-                gallery.innerHTML = toolbar +
-                    `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-house-circle-check"></i><p>No move-ins yet. Click “New move-in” to start one.</p></div>`;
-                maybeStartMoveInsTour();
+                host.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-house-circle-check"></i><p>No move-ins match your filters.</p></div>`;
                 return;
             }
 
-            // active first, then by target date
-            list.sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1)
-                || (a.target_date || '').localeCompare(b.target_date || ''));
-
-            const cards = list.map(m => {
+            host.innerHTML = list.map(m => {
                 const pct = m.total ? Math.round(m.done / m.total * 100) : 0;
                 const col = moveInPctColor(pct);
+                const cd = moveInCountdown(m.target_date);
+                const urgent = m.status === 'active' && (cd.days <= 3) && m.blockers > 0;
                 const statusBadge = m.status === 'completed'
                     ? `<span class="card-badge badge-pass">Completed</span>`
                     : (m.status === 'archived' ? `<span class="card-badge" style="background:#e2e8f0;color:#475569;">Archived</span>`
                         : `<span class="card-badge" style="background:#e7edf7;color:#00285c;">In progress</span>`);
                 return `
-                    <div class="card" style="cursor:pointer;" onclick="openMoveIn('${m.id}')">
+                    <div class="card" style="cursor:pointer;${urgent ? 'border-top:3px solid #b42318;' : ''}" onclick="openMoveIn('${m.id}')">
                         <div style="padding:20px;">
                             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
                                 <div style="min-width:0;">
@@ -3500,18 +3579,21 @@
                                 </div>
                             </div>
                             <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <span style="font-size:12px;color:#94a3b8;"><i class="fas fa-calendar-day"></i> ${m.target_date ? escapeHtml(m.target_date) : '—'}</span>
+                                <span style="font-size:12px;font-weight:700;color:${cd.color};"><i class="fas fa-calendar-day"></i> ${cd.label}</span>
                                 ${m.blockers > 0 ? `<span style="font-size:11px;font-weight:700;color:#b42318;background:#fde8e4;padding:3px 9px;border-radius:20px;"><i class="fas fa-lock"></i> ${m.blockers} required pending</span>` : ''}
                             </div>
                         </div>
                     </div>`;
             }).join('');
-
-            gallery.innerHTML = toolbar + cards;
-            maybeStartMoveInsTour();
         }
 
+        let moveInDeptFilter = 'all';
+        let _openMoveInId = null;
+        const MOVEIN_DEPARTMENTS = ['Nursing', 'Business Office', 'Dietary', 'Maintenance', 'Housekeeping', 'Lifestyles', 'Executive'];
+        function setMoveInDeptFilter(v) { moveInDeptFilter = v; if (_openMoveInId) openMoveIn(_openMoveInId); }
+
         async function openMoveIn(id) {
+            _openMoveInId = id;
             const gallery = document.getElementById('gallery');
             gallery.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;">Loading…</div>';
             let data;
@@ -3534,38 +3616,56 @@
                 </div>` : '';
 
             const phases = tmpl.phases.map(ph => {
-                const rows = (ph.items || []).map(it => {
+                const visibleItems = (ph.items || []).filter(it => moveInDeptFilter === 'all' || it.department === moveInDeptFilter);
+                if (!visibleItems.length) return '';
+                const rows = visibleItems.map(it => {
                     const att = it.attachment_url
                         ? `<a href="${it.attachment_url}" target="_blank" rel="noopener" class="mi-att-link"><i class="fas fa-paperclip"></i> ${escapeHtml(it.attachment_name || 'file')}</a>`
                         : '';
                     const reqBadge = it.required
                         ? `<span style="font-size:10px;font-weight:700;color:#b42318;background:#fde8e4;padding:2px 7px;border-radius:10px;margin-left:6px;white-space:nowrap;"><i class="fas fa-lock"></i> Required</span>`
                         : '';
+                    const deptBadge = it.department
+                        ? `<span style="font-size:10px;font-weight:600;color:#00285c;background:#e7edf7;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">${escapeHtml(it.department)}</span>`
+                        : '';
+                    const activity = (it.done && it.updated_by)
+                        ? `<span class="mi-activity"><i class="fas fa-circle-check"></i> ${escapeHtml(it.updated_by)}${it.updated_at ? ' · ' + escapeHtml((it.updated_at || '').slice(0, 10)) : ''}</span>`
+                        : '';
                     return `
                         <div class="mi-item">
                             <input type="checkbox" ${it.done ? 'checked' : ''} onchange="toggleMoveInItem('${mv.id}','${it.id}',this.checked)" class="mi-check">
                             <div style="flex:1;min-width:0;">
-                                <div class="mi-text ${it.done ? 'mi-done' : ''}">${escapeHtml(it.text)}${reqBadge}</div>
+                                <div class="mi-text ${it.done ? 'mi-done' : ''}">${escapeHtml(it.text)}${reqBadge}${deptBadge}</div>
                                 <div class="mi-controls">
                                     <input type="date" value="${it.date || ''}" onchange="saveMoveInField('${mv.id}','${it.id}','date',this.value)" class="mi-input">
                                     <input type="text" placeholder="Initials" maxlength="8" value="${escapeHtml(it.initials || '')}" onchange="saveMoveInField('${mv.id}','${it.id}','initials',this.value)" class="mi-input mi-initials">
+                                    <input type="text" placeholder="Add a note…" value="${escapeHtml(it.note || '')}" onchange="saveMoveInField('${mv.id}','${it.id}','note',this.value)" class="mi-input mi-note">
                                     ${att}
                                     <button class="mi-attach-btn" onclick="document.getElementById('mif_${it.id}').click()"><i class="fas fa-paperclip"></i> ${it.attachment_url ? 'Replace' : 'Attach'}</button>
                                     <input type="file" id="mif_${it.id}" style="display:none;" onchange="uploadMoveInAttachment('${mv.id}','${it.id}',this)">
+                                    ${activity}
                                 </div>
                             </div>
                         </div>`;
                 }).join('');
-                const phDone = (ph.items || []).filter(i => i.done).length;
+                const phDone = visibleItems.filter(i => i.done).length;
                 return `
                     <div class="mi-phase">
                         <div class="mi-phase-head">
                             <span>${escapeHtml(ph.name)}</span>
-                            <span class="mi-phase-count">${phDone}/${(ph.items || []).length}</span>
+                            <span class="mi-phase-count">${phDone}/${visibleItems.length}</span>
                         </div>
                         ${rows}
                     </div>`;
             }).join('');
+
+            const deptOpts = ['all'].concat(MOVEIN_DEPARTMENTS).map(dep =>
+                `<option value="${dep}" ${moveInDeptFilter === dep ? 'selected' : ''}>${dep === 'all' ? 'All departments' : dep}</option>`).join('');
+            const deptFilter = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                    <span style="font-size:13px;color:#64748b;"><i class="fas fa-filter"></i> Show:</span>
+                    <select onchange="setMoveInDeptFilter(this.value)" class="mi-input" style="padding:8px 12px;">${deptOpts}</select>
+                </div>`;
 
             gallery.innerHTML = `
                 <div style="grid-column:1/-1;max-width:900px;">
@@ -3599,6 +3699,7 @@
                         </div>
                         ${blockerBanner}
                     </div>
+                    ${deptFilter}
                     ${phases}
                 </div>`;
         }
@@ -3702,7 +3803,7 @@
                 const d = await r.json();
                 tmplDraft = (d.template.phases || []).map(p => ({
                     id: p.id, name: p.name,
-                    items: (p.items || []).map(i => ({ id: i.id, text: i.text, required: !!i.required }))
+                    items: (p.items || []).map(i => ({ id: i.id, text: i.text, required: !!i.required, department: i.department || '' }))
                 }));
             } catch (e) { tmplDraft = []; }
             tmplRender();
@@ -3722,6 +3823,10 @@
                     ${ph.items.map((it, ii) => `
                         <div class="tmpl-item-row">
                             <input value="${escapeHtml(it.text)}" placeholder="Checklist item" oninput="tmplDraft[${pi}].items[${ii}].text=this.value">
+                            <select title="Responsible department" onchange="tmplDraft[${pi}].items[${ii}].department=this.value" style="flex:0 0 auto;width:130px;padding:7px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;">
+                                <option value="" ${!it.department ? 'selected' : ''}>Dept…</option>
+                                ${MOVEIN_DEPARTMENTS.map(dep => `<option value="${dep}" ${it.department === dep ? 'selected' : ''}>${dep}</option>`).join('')}
+                            </select>
                             <label title="Required before move-in can be completed" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:${it.required ? '#b42318' : '#94a3b8'};cursor:pointer;white-space:nowrap;">
                                 <input type="checkbox" ${it.required ? 'checked' : ''} onchange="tmplDraft[${pi}].items[${ii}].required=this.checked;tmplRender()" style="accent-color:#b42318;"> Req
                             </label>
@@ -3740,7 +3845,7 @@
                 .map(p => ({
                     id: p.id || undefined, name: (p.name || '').trim(),
                     items: (p.items || []).filter(it => (it.text || '').trim())
-                        .map(it => ({ id: it.id || undefined, text: it.text.trim(), required: !!it.required }))
+                        .map(it => ({ id: it.id || undefined, text: it.text.trim(), required: !!it.required, department: it.department || '' }))
                 }))
                 .filter(p => p.name);
             msg.textContent = 'Saving…';

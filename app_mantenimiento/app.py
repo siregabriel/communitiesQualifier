@@ -1284,7 +1284,11 @@ def get_movein(mv_id):
             it['done'] = bool(entry.get('done'))
             it['date'] = entry.get('date', '')
             it['initials'] = entry.get('initials', '')
+            it['note'] = entry.get('note', '')
             it['required'] = bool(it.get('required'))
+            it['department'] = it.get('department', '')
+            it['updated_by'] = entry.get('updated_by')
+            it['updated_at'] = entry.get('updated_at')
             it['attachment_name'] = entry.get('attachment_name')
             it['attachment_url'] = _movein_attachment_url(entry)
     done, total = _movein_progress(rec, item_ids)
@@ -1306,6 +1310,7 @@ def update_movein_item(mv_id):
         done=data.get('done'),
         date=data.get('date'),
         initials=data.get('initials'),
+        note=data.get('note'),
         updated_by=session.get('user'))
     if rec is None:
         return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
@@ -1371,6 +1376,21 @@ def set_movein_status(mv_id):
                 'blockers': [{'id': i, 'text': t} for i, t in blockers],
             }), 409
     movein_service.set_status(mv_id, status)
+    # Send a summary email when a move-in is completed (best-effort).
+    if status == 'completed':
+        try:
+            community = rec.get('community', '')
+            recipients = list(dict.fromkeys(
+                region_leader_emails(community)
+                + settings_service.get_email_settings().get('admin_notify', [])))
+            if recipients:
+                item_ids = movein_template_service.all_item_ids()
+                done, total = _movein_progress(rec, item_ids)
+                email_service.send_movein_completed(
+                    recipients, rec.get('resident_name', ''), community,
+                    rec.get('target_date', ''), done, total)
+        except Exception as e:
+            app.logger.error(f'Move-in completion email failed: {str(e)}')
     return jsonify({'status': 'success'}), 200
 
 
@@ -1434,6 +1454,66 @@ def run_movein_reminders(days_ahead=3, other_cap=6):
         sent.append({'resident': rec.get('resident_name'), 'community': community,
                      'days_left': days_left, 'recipients': recipients, 'sent': ok, 'detail': detail})
     return sent
+
+
+_MOVEIN_EXPORT_HEADERS = ['Resident', 'Community', 'Target date', 'Status',
+                          'Completed', 'Total', 'Percent', 'Required pending', 'Created']
+
+
+def _movein_export_rows():
+    item_ids = movein_template_service.all_item_ids()
+    rows = []
+    for rec in movein_service.get_all():
+        done, total = _movein_progress(rec, item_ids)
+        pct = round(done / total * 100) if total else 0
+        rows.append([
+            rec.get('resident_name', ''), rec.get('community', ''),
+            rec.get('target_date', ''), rec.get('status', 'active'),
+            done, total, f"{pct}%", len(_movein_blockers(rec)),
+            (rec.get('created_at', '') or '')[:10],
+        ])
+    return rows
+
+
+@app.route('/api/moveins/export.csv')
+@login_required
+def export_moveins_csv():
+    import csv
+    import io
+    from flask import Response
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(_MOVEIN_EXPORT_HEADERS)
+    w.writerows(_movein_export_rows())
+    return Response(buf.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': 'attachment; filename="atlas-moveins.csv"'})
+
+
+@app.route('/api/moveins/export.xlsx')
+@login_required
+def export_moveins_xlsx():
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Move-Ins'
+    hf = PatternFill('solid', fgColor='00285C')
+    hfont = Font(bold=True, color='FFFFFF')
+    for col, name in enumerate(_MOVEIN_EXPORT_HEADERS, start=1):
+        c = ws.cell(row=1, column=col, value=name)
+        c.fill = hf
+        c.font = hfont
+    for r in _movein_export_rows():
+        ws.append(r)
+    for i, wdt in enumerate([26, 24, 14, 12, 11, 8, 9, 16, 12], start=1):
+        ws.column_dimensions[chr(64 + i)].width = wdt
+    ws.freeze_panes = 'A2'
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return send_file(out, as_attachment=True, download_name='atlas-moveins.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 def _build_movein_pdf(resident, community, target_date, phases, filled):

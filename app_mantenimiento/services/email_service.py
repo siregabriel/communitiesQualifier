@@ -230,6 +230,29 @@ and some checklist items are still open.</p>
         subject = f"Move-in {when}: {resident} ({community})"
         return self._send(recipients, subject, self._shell("Move-In Reminder", body), "\n".join(text_lines))
 
+    def send_movein_completed(self, recipients, resident, community, target_date, done, total):
+        """Notify the team that a resident's move-in checklist is complete."""
+        if not self.enabled:
+            return (False, 'disabled')
+
+        def esc(s):
+            return html.escape(str(s or ''))
+
+        link = (f"<p style='margin-top:8px'><a href='{esc(self.app_base_url)}/dashboard?view=move-ins' "
+                f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                f"font-weight:700;padding:11px 20px;border-radius:8px;font-size:14px'>Open Move-Ins</a></p>"
+                if self.app_base_url else "")
+        body = f"""\
+<p style="font-size:14px;margin:0 0 12px">The move-in checklist for <b>{esc(resident)}</b> at
+<b>{esc(community)}</b> has been <b style="color:#0f8a5f">completed</b>
+({esc(done)}/{esc(total)} items, target date {esc(target_date) or 'n/a'}).</p>
+<p style="font-size:14px;margin:0 0 4px">Nice work to the whole team. &#127881;</p>
+{link}"""
+        text = (f"Move-in completed: {resident} at {community} "
+                f"({done}/{total} items, target {target_date}).")
+        return self._send(recipients, f"Move-in completed: {resident} ({community})",
+                          self._shell("Move-In Completed", body), text)
+
     def _shell(self, heading, body_html):
         """Wrap body in the branded card (logo band + navy header)."""
         def esc(s):

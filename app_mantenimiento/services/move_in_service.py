@@ -94,8 +94,9 @@ class MoveInTemplateService(JsonFileBacked):
                 if not text:
                     continue
                 required = bool(it.get('required')) if isinstance(it, dict) else False
+                department = (it.get('department') or '').strip() if isinstance(it, dict) else ''
                 items.append({'id': (it.get('id') if isinstance(it, dict) else None) or _new_id('itm'),
-                              'text': text, 'required': required})
+                              'text': text, 'required': required, 'department': department})
             clean.append({'id': ph.get('id') or _new_id('phase'), 'name': name, 'items': items})
         with self._lock:
             self._ensure_fresh()
@@ -158,7 +159,7 @@ class MoveInService(JsonFileBacked):
             return json.loads(json.dumps(rec))
 
     def update_item(self, mv_id, item_id, done=None, date=None, initials=None,
-                    updated_by=None) -> dict:
+                    note=None, updated_by=None) -> dict:
         with self._lock:
             self._ensure_fresh()
             rec = next((m for m in self.moveins if m.get('id') == mv_id), None)
@@ -172,6 +173,8 @@ class MoveInService(JsonFileBacked):
                 entry['date'] = (date or '').strip()
             if initials is not None:
                 entry['initials'] = (initials or '').strip()[:8]
+            if note is not None:
+                entry['note'] = (note or '').strip()[:500]
             entry['updated_at'] = datetime.now().isoformat()
             entry['updated_by'] = updated_by
             self._save()
