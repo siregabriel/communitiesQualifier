@@ -1302,6 +1302,33 @@
                 display: none;
             }
         }
+
+        /* ===== Move-In module ===== */
+        .mi-phase { background:#fff; border:1px solid #d9dfe8; border-radius:12px; margin-bottom:16px; overflow:hidden; }
+        .mi-phase-head { display:flex; justify-content:space-between; align-items:center;
+            background:linear-gradient(135deg,#00285c,#1f6fe5); color:#fff; padding:12px 18px; font-weight:700; font-size:15px; }
+        .mi-phase-count { background:rgba(255,255,255,.2); border-radius:20px; padding:2px 10px; font-size:12px; }
+        .mi-item { display:flex; align-items:flex-start; gap:12px; padding:13px 18px; border-top:1px solid #eef1f6; }
+        .mi-item:first-of-type { border-top:none; }
+        .mi-check { width:19px; height:19px; margin-top:2px; cursor:pointer; flex-shrink:0; accent-color:#00285c; }
+        .mi-text { font-size:14px; color:#0f1e36; line-height:1.4; }
+        .mi-done { color:#94a3b8; text-decoration:line-through; }
+        .mi-controls { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+        .mi-input { padding:6px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; color:#475569; }
+        .mi-initials { width:90px; }
+        .mi-attach-btn { padding:6px 12px; border:1px solid #e2e8f0; background:#fff; border-radius:8px;
+            font-size:12px; font-weight:600; color:#475569; cursor:pointer; }
+        .mi-attach-btn:hover { background:#f1f5f9; }
+        .mi-att-link { display:inline-flex; align-items:center; gap:5px; padding:6px 10px; background:#e7edf7;
+            color:#00285c; border-radius:8px; font-size:12px; font-weight:600; text-decoration:none; }
+        .mi-label { display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px; }
+        .mi-modal-input { width:100%; padding:10px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; }
+        /* template editor rows */
+        .tmpl-phase { border:1px solid #d9dfe8; border-radius:10px; padding:12px; margin-bottom:12px; background:#f8fafc; }
+        .tmpl-phase-name { width:100%; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-weight:700; font-size:14px; margin-bottom:8px; }
+        .tmpl-item-row { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+        .tmpl-item-row input { flex:1; padding:7px 10px; border:1px solid #e2e8f0; border-radius:7px; font-size:13px; }
+        .tmpl-mini-btn { width:30px; height:30px; border:1px solid #e2e8f0; background:#fff; border-radius:7px; cursor:pointer; color:#b42318; flex-shrink:0; }
     </style>
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
 
@@ -1350,6 +1377,10 @@
             <a href="#" class="nav-item" data-view="action-items">
                 <i class="fas fa-check-circle" aria-hidden="true"></i>
                 <span>Action Items</span>
+            </a>
+            <a href="#" class="nav-item" data-view="move-ins">
+                <i class="fas fa-house-circle-check" aria-hidden="true"></i>
+                <span>Move-Ins</span>
             </a>
             <a href="#" class="nav-item" data-view="resources">
                 <i class="fas fa-book" aria-hidden="true"></i>
@@ -1455,6 +1486,58 @@
 
     <!-- Sidebar Overlay for Mobile -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- New Move-In Modal -->
+    <div id="moveInModal" class="modal">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header">
+                <div class="modal-header-title"><i class="fas fa-house-circle-check"></i> New move-in</div>
+                <button class="modal-close" onclick="closeNewMoveIn()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div style="display:grid;gap:12px;">
+                    <div>
+                        <label class="mi-label">Resident name</label>
+                        <input id="miResident" class="mi-modal-input" placeholder="e.g. Jane Doe" maxlength="120">
+                    </div>
+                    <div>
+                        <label class="mi-label">Community</label>
+                        <input id="miCommunity" class="mi-modal-input" list="miCommunityList" placeholder="Start typing…">
+                        <datalist id="miCommunityList"></datalist>
+                    </div>
+                    <div>
+                        <label class="mi-label">Target move-in date</label>
+                        <input id="miDate" type="date" class="mi-modal-input">
+                    </div>
+                    <div class="error-message" id="miMsg" style="min-height:16px;"></div>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;">
+                        <button class="btn btn-secondary" onclick="closeNewMoveIn()">Cancel</button>
+                        <button class="btn btn-primary" onclick="submitNewMoveIn()"><i class="fas fa-plus"></i> Create</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move-In Checklist Template Editor (admin) -->
+    <div id="moveInTemplateModal" class="modal">
+        <div class="modal-content" style="max-width:720px;">
+            <div class="modal-header">
+                <div class="modal-header-title"><i class="fas fa-list-check"></i> Edit move-in checklist</div>
+                <button class="modal-close" onclick="closeMoveInTemplate()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="color:#64748b;font-size:13px;margin:0 0 14px;">Organize the checklist by phase. These items apply to every resident move-in.</p>
+                <div id="tmplPhases"></div>
+                <button class="btn btn-secondary" onclick="tmplAddPhase()" style="margin-top:6px;"><i class="fas fa-plus"></i> Add phase</button>
+                <div class="error-message" id="tmplMsg" style="min-height:16px;margin-top:10px;"></div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+                    <button class="btn btn-secondary" onclick="closeMoveInTemplate()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveMoveInTemplate()"><i class="fas fa-check"></i> Save checklist</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Inspection Details Modal -->
     <div class="modal-overlay" id="inspectionModal">
@@ -2792,7 +2875,7 @@
                 const params = new URLSearchParams(window.location.search);
                 const requested = params.get('view');
                 const requestedCommunity = params.get('community');
-                const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'resources', 'settings'];
+                const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'move-ins', 'resources', 'settings'];
                 showView(validViews.includes(requested) ? requested : (requestedCommunity ? 'communities' : 'dashboard'));
 
                 // Deep link from the inspection email: open that community's report.
@@ -2899,6 +2982,11 @@
                             headerTitle.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Action Items';
                             headerDesc.textContent = 'Items Requiring Attention';
                             renderActionItems();
+                            break;
+                        case 'move-ins':
+                            headerTitle.innerHTML = '<i class="fas fa-house-circle-check"></i> Move-Ins';
+                            headerDesc.textContent = 'New Resident Move-In Checklists';
+                            renderMoveIns();
                             break;
                         case 'resources':
                             headerTitle.innerHTML = '<i class="fas fa-book"></i> Resources';
@@ -3311,6 +3399,298 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // ============================================================
+        //  MOVE-IN MODULE
+        // ============================================================
+        let moveInTemplateCache = null;
+
+        function moveInPctColor(pct) {
+            return pct >= 100 ? '#0f8a5f' : (pct >= 50 ? '#1f6fe5' : '#d97706');
+        }
+
+        async function renderMoveIns() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;">Loading…</div>';
+            let list = [];
+            try {
+                const r = await fetch('/api/moveins');
+                const d = await r.json();
+                list = d.moveins || [];
+            } catch (e) { console.error('moveins load', e); }
+
+            const toolbar = `
+                <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="openNewMoveIn()"><i class="fas fa-plus"></i> New move-in</button>
+                    ${isAdmin ? `<button class="btn btn-secondary" onclick="openMoveInTemplate()"><i class="fas fa-list-check"></i> Edit checklist</button>` : ''}
+                    <span style="margin-left:auto;color:#64748b;font-size:13px;">${list.length} move-in${list.length !== 1 ? 's' : ''}</span>
+                </div>`;
+
+            if (!list.length) {
+                gallery.innerHTML = toolbar +
+                    `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-house-circle-check"></i><p>No move-ins yet. Click “New move-in” to start one.</p></div>`;
+                return;
+            }
+
+            // active first, then by target date
+            list.sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1)
+                || (a.target_date || '').localeCompare(b.target_date || ''));
+
+            const cards = list.map(m => {
+                const pct = m.total ? Math.round(m.done / m.total * 100) : 0;
+                const col = moveInPctColor(pct);
+                const statusBadge = m.status === 'completed'
+                    ? `<span class="card-badge badge-pass">Completed</span>`
+                    : (m.status === 'archived' ? `<span class="card-badge" style="background:#e2e8f0;color:#475569;">Archived</span>`
+                        : `<span class="card-badge" style="background:#e7edf7;color:#00285c;">In progress</span>`);
+                return `
+                    <div class="card" style="cursor:pointer;" onclick="openMoveIn('${m.id}')">
+                        <div style="padding:20px;">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                                <div style="min-width:0;">
+                                    <div style="font-size:17px;font-weight:800;color:#0f1e36;">${escapeHtml(m.resident_name)}</div>
+                                    <div style="font-size:13px;color:#64748b;margin-top:2px;"><i class="fas fa-building"></i> ${escapeHtml(m.community)}</div>
+                                </div>
+                                ${statusBadge}
+                            </div>
+                            <div style="margin-top:16px;">
+                                <div style="display:flex;justify-content:space-between;font-size:12px;color:#475569;margin-bottom:5px;">
+                                    <span>${m.done}/${m.total} completed</span><span style="font-weight:700;color:${col};">${pct}%</span>
+                                </div>
+                                <div style="height:8px;background:#eef1f6;border-radius:5px;overflow:hidden;">
+                                    <div style="height:100%;width:${pct}%;background:${col};transition:width .3s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="margin-top:14px;font-size:12px;color:#94a3b8;"><i class="fas fa-calendar-day"></i> Move-in date: ${m.target_date ? escapeHtml(m.target_date) : '—'}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            gallery.innerHTML = toolbar + cards;
+        }
+
+        async function openMoveIn(id) {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;">Loading…</div>';
+            let data;
+            try {
+                const r = await fetch('/api/moveins/' + encodeURIComponent(id));
+                data = await r.json();
+                if (data.status !== 'success') throw new Error(data.message);
+            } catch (e) {
+                gallery.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>Could not load this move-in.</p></div>`;
+                return;
+            }
+            const mv = data.movein, tmpl = data.template;
+            const pct = data.total ? Math.round(data.done / data.total * 100) : 0;
+            const col = moveInPctColor(pct);
+
+            const phases = tmpl.phases.map(ph => {
+                const rows = (ph.items || []).map(it => {
+                    const att = it.attachment_url
+                        ? `<a href="${it.attachment_url}" target="_blank" rel="noopener" class="mi-att-link"><i class="fas fa-paperclip"></i> ${escapeHtml(it.attachment_name || 'file')}</a>`
+                        : '';
+                    return `
+                        <div class="mi-item">
+                            <input type="checkbox" ${it.done ? 'checked' : ''} onchange="toggleMoveInItem('${mv.id}','${it.id}',this.checked)" class="mi-check">
+                            <div style="flex:1;min-width:0;">
+                                <div class="mi-text ${it.done ? 'mi-done' : ''}">${escapeHtml(it.text)}</div>
+                                <div class="mi-controls">
+                                    <input type="date" value="${it.date || ''}" onchange="saveMoveInField('${mv.id}','${it.id}','date',this.value)" class="mi-input">
+                                    <input type="text" placeholder="Initials" maxlength="8" value="${escapeHtml(it.initials || '')}" onchange="saveMoveInField('${mv.id}','${it.id}','initials',this.value)" class="mi-input mi-initials">
+                                    ${att}
+                                    <button class="mi-attach-btn" onclick="document.getElementById('mif_${it.id}').click()"><i class="fas fa-paperclip"></i> ${it.attachment_url ? 'Replace' : 'Attach'}</button>
+                                    <input type="file" id="mif_${it.id}" style="display:none;" onchange="uploadMoveInAttachment('${mv.id}','${it.id}',this)">
+                                </div>
+                            </div>
+                        </div>`;
+                }).join('');
+                const phDone = (ph.items || []).filter(i => i.done).length;
+                return `
+                    <div class="mi-phase">
+                        <div class="mi-phase-head">
+                            <span>${escapeHtml(ph.name)}</span>
+                            <span class="mi-phase-count">${phDone}/${(ph.items || []).length}</span>
+                        </div>
+                        ${rows}
+                    </div>`;
+            }).join('');
+
+            gallery.innerHTML = `
+                <div style="grid-column:1/-1;max-width:900px;">
+                    <button class="btn btn-secondary" onclick="showView('move-ins')" style="margin-bottom:16px;"><i class="fas fa-arrow-left"></i> Back to move-ins</button>
+                    <div class="content-section" style="margin-bottom:18px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                            <div>
+                                <h2 style="margin:0;font-size:22px;color:#0f1e36;">${escapeHtml(mv.resident_name)}</h2>
+                                <div style="color:#64748b;font-size:14px;margin-top:4px;">
+                                    <i class="fas fa-building"></i> ${escapeHtml(mv.community)}
+                                    &nbsp;·&nbsp; <i class="fas fa-calendar-day"></i> ${mv.target_date ? escapeHtml(mv.target_date) : '—'}
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                ${mv.status === 'completed'
+                                    ? `<button class="btn btn-secondary" onclick="setMoveInStatus('${mv.id}','active')">Reopen</button>`
+                                    : `<button class="btn btn-primary" onclick="setMoveInStatus('${mv.id}','completed')"><i class="fas fa-check"></i> Mark complete</button>`}
+                                <button class="btn btn-secondary" onclick="deleteMoveIn('${mv.id}','${escapeHtml(mv.resident_name).replace(/'/g,"\\'")}')" title="Delete" style="color:#b42318;"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        <div style="margin-top:16px;">
+                            <div style="display:flex;justify-content:space-between;font-size:13px;color:#475569;margin-bottom:6px;">
+                                <span>Overall progress</span><span style="font-weight:700;color:${col};">${data.done}/${data.total} · ${pct}%</span>
+                            </div>
+                            <div style="height:10px;background:#eef1f6;border-radius:6px;overflow:hidden;">
+                                <div style="height:100%;width:${pct}%;background:${col};transition:width .3s ease;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    ${phases}
+                </div>`;
+        }
+
+        async function toggleMoveInItem(mvId, itemId, done) {
+            try {
+                await fetch(`/api/moveins/${mvId}/item`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_id: itemId, done })
+                });
+                // refresh just to update phase/overall counts
+                openMoveIn(mvId);
+            } catch (e) { alert('Could not save. Try again.'); }
+        }
+
+        async function saveMoveInField(mvId, itemId, field, value) {
+            try {
+                await fetch(`/api/moveins/${mvId}/item`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_id: itemId, [field]: value })
+                });
+            } catch (e) { alert('Could not save. Try again.'); }
+        }
+
+        async function uploadMoveInAttachment(mvId, itemId, input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('item_id', itemId);
+            fd.append('file', file);
+            try {
+                const r = await fetch(`/api/moveins/${mvId}/item/attachment`, { method: 'POST', body: fd });
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') { alert(d.message || 'Upload failed.'); return; }
+                openMoveIn(mvId);
+            } catch (e) { alert('Upload failed.'); }
+        }
+
+        async function setMoveInStatus(mvId, status) {
+            try {
+                await fetch(`/api/moveins/${mvId}/status`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                openMoveIn(mvId);
+            } catch (e) { alert('Could not update status.'); }
+        }
+
+        async function deleteMoveIn(mvId, name) {
+            if (!confirm(`Delete the move-in for ${name}? This cannot be undone.`)) return;
+            try {
+                await fetch('/api/moveins/' + mvId, { method: 'DELETE' });
+                showView('move-ins');
+            } catch (e) { alert('Could not delete.'); }
+        }
+
+        // ---- New move-in modal ----
+        function openNewMoveIn() {
+            const opts = (communityData || []).map(c => `<option value="${escapeHtml(c.name)}">`).join('');
+            document.getElementById('miCommunityList').innerHTML = opts;
+            document.getElementById('miResident').value = '';
+            document.getElementById('miCommunity').value = '';
+            document.getElementById('miDate').value = '';
+            document.getElementById('miMsg').textContent = '';
+            document.getElementById('moveInModal').classList.add('show');
+        }
+        function closeNewMoveIn() { document.getElementById('moveInModal').classList.remove('show'); }
+        async function submitNewMoveIn() {
+            const resident = document.getElementById('miResident').value.trim();
+            const community = document.getElementById('miCommunity').value.trim();
+            const target_date = document.getElementById('miDate').value;
+            const msg = document.getElementById('miMsg');
+            if (!resident) { msg.textContent = 'Enter the resident name.'; return; }
+            if (!community) { msg.textContent = 'Choose a community.'; return; }
+            msg.textContent = 'Saving…';
+            try {
+                const r = await fetch('/api/moveins', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resident_name: resident, community, target_date })
+                });
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') { msg.textContent = d.message || 'Could not create.'; return; }
+                closeNewMoveIn();
+                openMoveIn(d.movein.id);
+            } catch (e) { msg.textContent = 'Network error.'; }
+        }
+
+        // ---- Template editor (admin) ----
+        // tmplDraft keeps item ids so existing move-in progress isn't orphaned
+        // when the template is edited. Items: { id, text } (id null = new item).
+        let tmplDraft = [];   // [{id, name, items:[{id,text},...]}]
+        async function openMoveInTemplate() {
+            try {
+                const r = await fetch('/api/moveins/template');
+                const d = await r.json();
+                tmplDraft = (d.template.phases || []).map(p => ({
+                    id: p.id, name: p.name,
+                    items: (p.items || []).map(i => ({ id: i.id, text: i.text }))
+                }));
+            } catch (e) { tmplDraft = []; }
+            tmplRender();
+            document.getElementById('tmplMsg').textContent = '';
+            document.getElementById('moveInTemplateModal').classList.add('show');
+        }
+        function closeMoveInTemplate() { document.getElementById('moveInTemplateModal').classList.remove('show'); }
+        function tmplRender() {
+            const host = document.getElementById('tmplPhases');
+            host.innerHTML = tmplDraft.map((ph, pi) => `
+                <div class="tmpl-phase">
+                    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+                        <input class="tmpl-phase-name" value="${escapeHtml(ph.name)}" placeholder="Phase name"
+                               oninput="tmplDraft[${pi}].name=this.value" style="margin-bottom:0;">
+                        <button class="tmpl-mini-btn" title="Remove phase" onclick="tmplDelPhase(${pi})"><i class="fas fa-trash"></i></button>
+                    </div>
+                    ${ph.items.map((it, ii) => `
+                        <div class="tmpl-item-row">
+                            <input value="${escapeHtml(it.text)}" placeholder="Checklist item" oninput="tmplDraft[${pi}].items[${ii}].text=this.value">
+                            <button class="tmpl-mini-btn" title="Remove item" onclick="tmplDelItem(${pi},${ii})"><i class="fas fa-xmark"></i></button>
+                        </div>`).join('')}
+                    <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;margin-top:4px;" onclick="tmplAddItem(${pi})"><i class="fas fa-plus"></i> Add item</button>
+                </div>`).join('');
+        }
+        function tmplAddPhase() { tmplDraft.push({ id: null, name: '', items: [{ id: null, text: '' }] }); tmplRender(); }
+        function tmplDelPhase(pi) { tmplDraft.splice(pi, 1); tmplRender(); }
+        function tmplAddItem(pi) { tmplDraft[pi].items.push({ id: null, text: '' }); tmplRender(); }
+        function tmplDelItem(pi, ii) { tmplDraft[pi].items.splice(ii, 1); tmplRender(); }
+        async function saveMoveInTemplate() {
+            const msg = document.getElementById('tmplMsg');
+            const phases = tmplDraft
+                .map(p => ({
+                    id: p.id || undefined, name: (p.name || '').trim(),
+                    items: (p.items || []).filter(it => (it.text || '').trim())
+                        .map(it => ({ id: it.id || undefined, text: it.text.trim() }))
+                }))
+                .filter(p => p.name);
+            msg.textContent = 'Saving…';
+            try {
+                const r = await fetch('/api/moveins/template', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phases })
+                });
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') { msg.textContent = d.message || 'Could not save.'; return; }
+                closeMoveInTemplate();
+                renderMoveIns();
+            } catch (e) { msg.textContent = 'Network error.'; }
         }
 
         function resourceIcon(r) {

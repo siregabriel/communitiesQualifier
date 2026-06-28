@@ -181,7 +181,7 @@ os.makedirs(DATA_FOLDER, exist_ok=True)
 # ship in git and only populate a file that doesn't exist yet.
 import shutil
 SEED_FOLDER = os.path.join(DATA_FOLDER, 'seeds')
-for _seed_name in ('regions.json', 'questions.json', 'survey_types.json', 'resources.json'):
+for _seed_name in ('regions.json', 'questions.json', 'survey_types.json', 'resources.json', 'movein_template.json'):
     _live = os.path.join(DATA_FOLDER, _seed_name)
     _seed = os.path.join(SEED_FOLDER, _seed_name)
     if not os.path.exists(_live) and os.path.exists(_seed):
@@ -255,6 +255,13 @@ resource_service = ResourceService(RESOURCES_FILE)
 COVERS_FILE = os.path.join(DATA_FOLDER, 'community_covers.json')
 from services.community_cover_service import CommunityCoverService
 community_cover_service = CommunityCoverService(COVERS_FILE)
+
+# Move-In module: editable checklist template + per-resident move-in records
+MOVEIN_TEMPLATE_FILE = os.path.join(DATA_FOLDER, 'movein_template.json')
+MOVEINS_FILE = os.path.join(DATA_FOLDER, 'moveins.json')
+from services.move_in_service import MoveInTemplateService, MoveInService
+movein_template_service = MoveInTemplateService(MOVEIN_TEMPLATE_FILE)
+movein_service = MoveInService(MOVEINS_FILE)
 
 
 def community_slug(name: str) -> str:
@@ -1194,6 +1201,175 @@ def delete_community_cover():
     except Exception as e:
         app.logger.error(f'Error removing community cover: {str(e)}')
         return jsonify({'status': 'error', 'message': 'Internal server error while removing cover'}), 500
+
+
+# ==================== MOVE-IN MODULE ====================
+
+def _movein_progress(rec, item_ids):
+    """Count completed items for a move-in record against the template items."""
+    comps = rec.get('completions') or {}
+    done = sum(1 for iid in item_ids if (comps.get(iid) or {}).get('done'))
+    total = len(item_ids)
+    return done, total
+
+
+def _movein_attachment_url(entry):
+    path = (entry or {}).get('attachment_path')
+    if not path:
+        return None
+    if file_upload_handler.use_s3:
+        return file_upload_handler.generate_presigned_url(path, download_name=entry.get('attachment_name'))
+    return url_for('static', filename=f'uploads/{path}')
+
+
+@app.route('/api/moveins', methods=['GET'])
+@login_required
+def list_moveins():
+    """List all move-ins with computed progress (any logged-in user)."""
+    item_ids = movein_template_service.all_item_ids()
+    out = []
+    for rec in movein_service.get_all():
+        done, total = _movein_progress(rec, item_ids)
+        out.append({
+            'id': rec.get('id'),
+            'resident_name': rec.get('resident_name'),
+            'community': rec.get('community'),
+            'target_date': rec.get('target_date'),
+            'status': rec.get('status', 'active'),
+            'created_at': rec.get('created_at'),
+            'done': done, 'total': total,
+        })
+    return jsonify({'status': 'success', 'moveins': out}), 200
+
+
+@app.route('/api/moveins', methods=['POST'])
+@login_required
+def create_movein():
+    """Create a new resident move-in record."""
+    data = request.get_json(silent=True) or {}
+    resident = InputSanitizer.sanitize_string(data.get('resident_name', ''), max_length=120)
+    community = InputSanitizer.sanitize_community_name(data.get('community', ''))
+    target_date = InputSanitizer.sanitize_string(data.get('target_date', ''), max_length=20)
+    if not resident:
+        return jsonify({'status': 'error', 'message': 'Resident name is required'}), 400
+    if not community:
+        return jsonify({'status': 'error', 'message': 'Community is required'}), 400
+    rec = movein_service.create(resident, community, target_date, created_by=session.get('user'))
+    activity_service.log(session.get('user'), 'movein_created', f'Started move-in for {resident} ({community})')
+    return jsonify({'status': 'success', 'movein': rec}), 200
+
+
+@app.route('/api/moveins/<mv_id>', methods=['GET'])
+@login_required
+def get_movein(mv_id):
+    """Return a move-in record merged with the template (phases + items + completion)."""
+    rec = movein_service.get(mv_id)
+    if rec is None:
+        return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
+    template = movein_template_service.get_template()
+    comps = rec.get('completions') or {}
+    item_ids = []
+    for ph in template['phases']:
+        for it in ph.get('items', []):
+            item_ids.append(it['id'])
+            entry = comps.get(it['id']) or {}
+            it['done'] = bool(entry.get('done'))
+            it['date'] = entry.get('date', '')
+            it['initials'] = entry.get('initials', '')
+            it['attachment_name'] = entry.get('attachment_name')
+            it['attachment_url'] = _movein_attachment_url(entry)
+    done, total = _movein_progress(rec, item_ids)
+    return jsonify({'status': 'success', 'movein': rec, 'template': template,
+                    'done': done, 'total': total}), 200
+
+
+@app.route('/api/moveins/<mv_id>/item', methods=['POST'])
+@login_required
+def update_movein_item(mv_id):
+    """Update one checklist item's completion (done / date / initials)."""
+    data = request.get_json(silent=True) or {}
+    item_id = InputSanitizer.sanitize_string(data.get('item_id', ''), max_length=60)
+    if not item_id:
+        return jsonify({'status': 'error', 'message': 'item_id is required'}), 400
+    rec = movein_service.update_item(
+        mv_id, item_id,
+        done=data.get('done'),
+        date=data.get('date'),
+        initials=data.get('initials'),
+        updated_by=session.get('user'))
+    if rec is None:
+        return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
+    return jsonify({'status': 'success'}), 200
+
+
+@app.route('/api/moveins/<mv_id>/item/attachment', methods=['POST'])
+@login_required
+def upload_movein_attachment(mv_id):
+    """Attach a file (signed form, etc.) to a checklist item."""
+    item_id = InputSanitizer.sanitize_string(request.form.get('item_id', ''), max_length=60)
+    if not item_id:
+        return jsonify({'status': 'error', 'message': 'item_id is required'}), 400
+    if movein_service.get(mv_id) is None:
+        return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
+    if 'file' not in request.files or not request.files['file'].filename:
+        return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+    file = request.files['file']
+    try:
+        rel, name = file_upload_handler.save_movein_attachment(file, mv_id, item_id)
+        movein_service.set_attachment(mv_id, item_id, rel, name)
+        entry = (movein_service.get(mv_id).get('completions') or {}).get(item_id, {})
+        return jsonify({'status': 'success', 'attachment_name': name,
+                        'attachment_url': _movein_attachment_url(entry)}), 200
+    except Exception as e:
+        app.logger.error(f'Error uploading move-in attachment: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error while uploading attachment'}), 500
+
+
+@app.route('/api/moveins/<mv_id>', methods=['DELETE'])
+@login_required
+def delete_movein(mv_id):
+    """Delete a move-in record (and best-effort remove its attachments)."""
+    rec = movein_service.get(mv_id)
+    if rec is None:
+        return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
+    for entry in (rec.get('completions') or {}).values():
+        if entry.get('attachment_path'):
+            file_upload_handler.delete_file(entry['attachment_path'])
+    movein_service.delete(mv_id)
+    activity_service.log(session.get('user'), 'movein_deleted', f"Deleted move-in for {rec.get('resident_name')}")
+    return jsonify({'status': 'success'}), 200
+
+
+@app.route('/api/moveins/<mv_id>/status', methods=['POST'])
+@login_required
+def set_movein_status(mv_id):
+    """Mark a move-in active / completed / archived."""
+    data = request.get_json(silent=True) or {}
+    status = (data.get('status') or '').strip().lower()
+    if status not in ('active', 'completed', 'archived'):
+        return jsonify({'status': 'error', 'message': 'Invalid status'}), 400
+    if movein_service.set_status(mv_id, status) is None:
+        return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
+    return jsonify({'status': 'success'}), 200
+
+
+@app.route('/api/moveins/template', methods=['GET'])
+@login_required
+def get_movein_template():
+    return jsonify({'status': 'success', 'template': movein_template_service.get_template()}), 200
+
+
+@app.route('/api/moveins/template', methods=['POST'])
+@require_admin
+def save_movein_template():
+    """Admin-only: replace the move-in checklist template (phases + items)."""
+    data = request.get_json(silent=True) or {}
+    phases = data.get('phases')
+    if not isinstance(phases, list):
+        return jsonify({'status': 'error', 'message': 'phases must be a list'}), 400
+    tmpl = movein_template_service.save_template(phases)
+    activity_service.log(session.get('user'), 'movein_template_saved', 'Updated move-in checklist template')
+    return jsonify({'status': 'success', 'template': tmpl}), 200
 
 
 @app.route('/api/users', methods=['GET'])
