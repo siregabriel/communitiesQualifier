@@ -2939,7 +2939,17 @@
         function showView(view) {
             console.log(`<i class="fas fa-location-dot card-emoji"></i> showView called with view: ${view}`);
             currentView = view;
-            
+
+            // Keep the URL in sync with the current section so a refresh returns
+            // here (instead of re-reading a stale ?view= from when the page first
+            // loaded). Use replaceState so we don't spam the browser history.
+            try {
+                const u = new URL(window.location);
+                u.searchParams.set('view', view);
+                u.searchParams.delete('community'); // one-time deep-link; don't re-open on refresh
+                history.replaceState(null, '', u);
+            } catch (e) { /* older browsers: ignore */ }
+
             // Show loading indicator immediately
             showLoadingIndicator();
             console.log('⏳ Loading indicator displayed');
