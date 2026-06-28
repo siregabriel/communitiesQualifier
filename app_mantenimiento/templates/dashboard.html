@@ -1376,9 +1376,11 @@
         .cal-badge { font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .cal-insp { background:#e7edf7; color:#00285c; }
         .cal-mv { background:#fef0e6; color:#b45309; }
+        .cal-fup { background:#e0f2f7; color:#0e7490; }
         .cal-dot { display:inline-block; width:9px; height:9px; border-radius:50%; flex-shrink:0; }
         .cal-dot-insp { background:#1f6fe5; }
         .cal-dot-mv { background:#d97706; }
+        .cal-dot-fup { background:#0e7490; }
         .cal-detail { margin-top:20px; background:#fff; border:1px solid #e4e7ec; border-radius:12px; padding:16px 18px; }
         .cal-detail-head { font-size:15px; font-weight:800; color:#0f1e36; margin-bottom:10px; }
         .cal-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid #eef1f6; cursor:pointer; }
@@ -3970,23 +3972,45 @@
         function calNextMonth() { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1); renderCalendar(); }
         function calToday() { const n = new Date(); calendarMonth = new Date(n.getFullYear(), n.getMonth(), 1); calSelectedDay = _calKey(n); renderCalendar(); }
         function calSelectDay(k) { calSelectedDay = (calSelectedDay === k ? null : k); renderCalendar(); }
+        let calFilter = { region: 'all', community: 'all' };
+        function _calAddDays(ymd, n) { const d = new Date(ymd + 'T00:00:00'); d.setDate(d.getDate() + n); return _calKey(d); }
+        function _calCommunityInRegion(community, regionId) {
+            const r = (regions || []).find(x => x.id === regionId);
+            return !!(r && (r.communities || []).includes(community));
+        }
+        function _calPass(community) {
+            if (calFilter.community !== 'all') return community === calFilter.community;
+            if (calFilter.region !== 'all') return _calCommunityInRegion(community, calFilter.region);
+            return true;
+        }
+        function calSetRegion(v) { calFilter.region = v; calFilter.community = 'all'; renderCalendar(); }
+        function calSetCommunity(v) { calFilter.community = v; renderCalendar(); }
+        // Follow-up events generated from each move-in's target date.
+        const CAL_FOLLOWUPS = [[5, 'Day 5 follow-up'], [14, '1–2 week follow-up']];
 
         async function renderCalendar() {
             const gallery = document.getElementById('gallery');
             if (!calendarMonth) { const n = new Date(); calendarMonth = new Date(n.getFullYear(), n.getMonth(), 1); }
             await loadMoveInsRaw();   // keep move-in dates fresh
 
-            const insp = {}, mvs = {};
+            const insp = {}, mvs = {}, fups = {};
             (allSubmissions || []).forEach(s => {
-                if (!s.submitted_at) return;
+                if (!s.submitted_at || !_calPass(s.community)) return;
                 const d = new Date(s.submitted_at);
                 if (isNaN(d.getTime())) return;
                 const k = _calKey(d);
                 (insp[k] = insp[k] || []).push(s);
             });
             (moveInsRaw || []).forEach(m => {
-                if (!m.target_date) return;
+                if (!m.target_date || !_calPass(m.community)) return;
                 (mvs[m.target_date] = mvs[m.target_date] || []).push(m);
+                // Follow-up reminders (skip archived move-ins)
+                if (m.status !== 'archived') {
+                    CAL_FOLLOWUPS.forEach(([n, label]) => {
+                        const fk = _calAddDays(m.target_date, n);
+                        (fups[fk] = fups[fk] || []).push({ ...m, _fupLabel: label });
+                    });
+                }
             });
 
             const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
@@ -4000,17 +4024,18 @@
             for (let i = 0; i < startWeekday; i++) cells += `<div class="cal-cell cal-empty"></div>`;
             for (let day = 1; day <= daysInMonth; day++) {
                 const k = _calKey(new Date(year, month, day));
-                const ic = (insp[k] || []).length, mc = (mvs[k] || []).length;
+                const ic = (insp[k] || []).length, mc = (mvs[k] || []).length, fc = (fups[k] || []).length;
                 let badges = '';
                 if (ic) badges += `<span class="cal-badge cal-insp">${ic} insp</span>`;
                 if (mc) badges += `<span class="cal-badge cal-mv">${mc} move-in</span>`;
-                cells += `<div class="cal-cell ${k === todayKey ? 'cal-today' : ''} ${k === calSelectedDay ? 'cal-selected' : ''} ${(ic || mc) ? 'cal-has' : ''}" onclick="calSelectDay('${k}')">
+                if (fc) badges += `<span class="cal-badge cal-fup">${fc} follow-up</span>`;
+                cells += `<div class="cal-cell ${k === todayKey ? 'cal-today' : ''} ${k === calSelectedDay ? 'cal-selected' : ''} ${(ic || mc || fc) ? 'cal-has' : ''}" onclick="calSelectDay('${k}')">
                             <div class="cal-daynum">${day}</div>${badges}</div>`;
             }
 
             let detail = '';
             if (calSelectedDay) {
-                const ins = insp[calSelectedDay] || [], mv = mvs[calSelectedDay] || [];
+                const ins = insp[calSelectedDay] || [], mv = mvs[calSelectedDay] || [], fu = fups[calSelectedDay] || [];
                 const dlabel = new Date(calSelectedDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
                 const rows = [];
                 ins.forEach(s => {
@@ -4022,8 +4047,23 @@
                 mv.forEach(m => {
                     rows.push(`<div class="cal-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${m.id}'),250)"><span class="cal-dot cal-dot-mv"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(m.resident_name)}</div><div class="cal-row-sub">Move-in · ${escapeHtml(m.community)}${m.blockers ? ` · <span style="color:#b42318;font-weight:700;">${m.blockers} required pending</span>` : ''}</div></div><span class="cal-row-score" style="color:#d97706;"><i class="fas fa-house-circle-check"></i></span></div>`);
                 });
+                fu.forEach(m => {
+                    rows.push(`<div class="cal-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${m.id}'),250)"><span class="cal-dot cal-dot-fup"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(m.resident_name)}</div><div class="cal-row-sub">${escapeHtml(m._fupLabel)} · ${escapeHtml(m.community)}</div></div><span class="cal-row-score" style="color:#0e7490;"><i class="fas fa-bell"></i></span></div>`);
+                });
                 detail = `<div class="cal-detail"><div class="cal-detail-head"><i class="fas fa-calendar-day"></i> ${dlabel}</div>${rows.length ? rows.join('') : '<div class="cal-empty-note">Nothing scheduled this day.</div>'}</div>`;
             }
+
+            // Filter option lists
+            const regionOpts = ['all'].concat((regions || []).map(r => r.id)).map(id => {
+                const label = id === 'all' ? 'All regions' : ((regions.find(r => r.id === id) || {}).name || id);
+                return `<option value="${id}" ${calFilter.region === id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+            }).join('');
+            const commSource = calFilter.region !== 'all'
+                ? (((regions || []).find(r => r.id === calFilter.region) || {}).communities || [])
+                : (communityData || []).map(c => c.name);
+            const commList = Array.from(new Set(commSource)).sort();
+            const commOpts = ['all'].concat(commList).map(c =>
+                `<option value="${escapeHtml(c)}" ${calFilter.community === c ? 'selected' : ''}>${c === 'all' ? 'All communities' : escapeHtml(c)}</option>`).join('');
 
             gallery.innerHTML = `<div style="grid-column:1/-1;">
                 <div class="cal-toolbar">
@@ -4034,7 +4074,13 @@
                     <div class="cal-legend" style="margin-left:auto;">
                         <span><span class="cal-dot cal-dot-insp"></span> Inspections</span>
                         <span><span class="cal-dot cal-dot-mv"></span> Move-ins</span>
+                        <span><span class="cal-dot cal-dot-fup"></span> Follow-ups</span>
                     </div>
+                </div>
+                <div class="cal-toolbar" style="margin-bottom:18px;">
+                    <span style="font-size:13px;color:#64748b;"><i class="fas fa-filter"></i> Filter:</span>
+                    <select class="mi-input" onchange="calSetRegion(this.value)" style="padding:8px 12px;">${regionOpts}</select>
+                    <select class="mi-input" onchange="calSetCommunity(this.value)" style="padding:8px 12px;">${commOpts}</select>
                 </div>
                 <div class="cal-grid cal-weekhead">${weekdays.map(w => `<div class="cal-weekday">${w}</div>`).join('')}</div>
                 <div class="cal-grid">${cells}</div>
