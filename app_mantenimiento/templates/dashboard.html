@@ -121,6 +121,22 @@
             font-size: 16px;
         }
 
+        .nav-badge {
+            margin-left: auto;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 9px;
+            background: #0f8a5f;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
         /* Main Content Styles */
         .main-content {
             margin-left: 260px;
@@ -1445,6 +1461,7 @@
             <a href="#" class="nav-item active" data-view="dashboard" aria-current="page">
                 <i class="fas fa-home" aria-hidden="true"></i>
                 <span>Dashboard</span>
+                <span class="nav-badge" id="dashNavBadge" style="display:none;" aria-label="new activity"></span>
             </a>
             <a href="#" class="nav-item" data-view="my-visits">
                 <i class="fas fa-file-alt" aria-hidden="true"></i>
@@ -2974,6 +2991,7 @@
                 const requestedCommunity = params.get('community');
                 const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'move-ins', 'calendar', 'resources', 'settings'];
                 showView(validViews.includes(requested) ? requested : (requestedCommunity ? 'communities' : 'dashboard'));
+                updateDashboardNavBadge();
 
                 // Deep link from the inspection email: open that community's report.
                 if (requestedCommunity) {
@@ -3249,6 +3267,19 @@
             if (document.getElementById('tourCard').style.display === 'block') showTourStep();
         });
 
+        // Count of inspections newer than the last dashboard visit; drives the
+        // "NEW" badge on the Dashboard sidebar item.
+        function updateDashboardNavBadge() {
+            const badge = document.getElementById('dashNavBadge');
+            if (!badge) return;
+            let seen = 0;
+            try { seen = parseInt(localStorage.getItem('atlasRecentSeenTs') || '0', 10) || 0; } catch (e) {}
+            if (seen <= 0) { badge.style.display = 'none'; return; }
+            const cnt = (allSubmissions || []).filter(s => (new Date(s.submitted_at).getTime() || 0) > seen).length;
+            if (cnt > 0) { badge.textContent = cnt > 9 ? '9+' : String(cnt); badge.style.display = 'inline-flex'; }
+            else badge.style.display = 'none';
+        }
+
         // ===== Dashboard overview =====
         function renderDashboard() {
             const gallery = document.getElementById('gallery');
@@ -3359,7 +3390,10 @@
             // badges paint, so they're visible this visit but gone on the next one).
             if (recent.length) {
                 const maxTs = Math.max(recentSeenTs, ...recent.map(s => new Date(s.submitted_at).getTime() || 0));
-                setTimeout(() => { try { localStorage.setItem('atlasRecentSeenTs', String(maxTs)); } catch (e) {} }, 4000);
+                setTimeout(() => {
+                    try { localStorage.setItem('atlasRecentSeenTs', String(maxTs)); } catch (e) {}
+                    updateDashboardNavBadge();
+                }, 4000);
             }
 
             // --- Upcoming move-ins ---
