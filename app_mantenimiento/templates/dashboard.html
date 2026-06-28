@@ -1357,6 +1357,45 @@
             .modal.show { padding:10px; }
             .modal .modal-body { padding:18px 16px 20px; }
         }
+
+        /* ===== Calendar ===== */
+        .cal-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+        .cal-month { font-size:18px; font-weight:800; color:#0f1e36; min-width:160px; text-align:center; }
+        .cal-legend { display:flex; gap:16px; font-size:12px; color:#64748b; align-items:center; }
+        .cal-legend span { display:inline-flex; align-items:center; gap:6px; }
+        .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
+        .cal-weekhead { margin-bottom:8px; }
+        .cal-weekday { text-align:center; font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; }
+        .cal-cell { min-height:94px; background:#fff; border:1px solid #e4e7ec; border-radius:10px; padding:8px;
+            cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:border-color .15s, box-shadow .15s; overflow:hidden; }
+        .cal-cell.cal-empty { background:transparent; border:none; cursor:default; }
+        .cal-cell.cal-has:hover { border-color:#1f6fe5; box-shadow:0 2px 8px rgba(31,111,229,.12); }
+        .cal-cell.cal-today { border-color:#00285c; box-shadow:inset 0 0 0 1px #00285c; }
+        .cal-cell.cal-selected { border-color:#1f6fe5; box-shadow:0 0 0 2px rgba(31,111,229,.3); }
+        .cal-daynum { font-size:13px; font-weight:700; color:#0f1e36; }
+        .cal-badge { font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .cal-insp { background:#e7edf7; color:#00285c; }
+        .cal-mv { background:#fef0e6; color:#b45309; }
+        .cal-dot { display:inline-block; width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+        .cal-dot-insp { background:#1f6fe5; }
+        .cal-dot-mv { background:#d97706; }
+        .cal-detail { margin-top:20px; background:#fff; border:1px solid #e4e7ec; border-radius:12px; padding:16px 18px; }
+        .cal-detail-head { font-size:15px; font-weight:800; color:#0f1e36; margin-bottom:10px; }
+        .cal-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid #eef1f6; cursor:pointer; }
+        .cal-row:first-of-type { border-top:none; }
+        .cal-row:hover { background:rgba(0,40,92,.03); margin:0 -8px; padding-left:8px; padding-right:8px; border-radius:8px; }
+        .cal-row-main { flex:1; min-width:0; }
+        .cal-row-title { font-weight:700; font-size:14px; color:#0f1e36; }
+        .cal-row-sub { font-size:12px; color:#64748b; }
+        .cal-row-score { font-weight:700; font-size:13px; flex-shrink:0; }
+        .cal-empty-note { color:#94a3b8; font-size:13px; padding:6px 0; }
+        @media (max-width: 640px) {
+            .cal-cell { min-height:62px; padding:5px; gap:2px; }
+            .cal-grid { gap:5px; }
+            .cal-badge { font-size:8px; padding:1px 4px; }
+            .cal-daynum { font-size:12px; }
+            .cal-weekday { font-size:9px; }
+        }
     </style>
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
 
@@ -1409,6 +1448,10 @@
             <a href="#" class="nav-item" data-view="move-ins">
                 <i class="fas fa-house-circle-check" aria-hidden="true"></i>
                 <span>Move-Ins</span>
+            </a>
+            <a href="#" class="nav-item" data-view="calendar">
+                <i class="fas fa-calendar-days" aria-hidden="true"></i>
+                <span>Calendar</span>
             </a>
             <a href="#" class="nav-item" data-view="resources">
                 <i class="fas fa-book" aria-hidden="true"></i>
@@ -2904,7 +2947,7 @@
                 const params = new URLSearchParams(window.location.search);
                 const requested = params.get('view');
                 const requestedCommunity = params.get('community');
-                const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'move-ins', 'resources', 'settings'];
+                const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'move-ins', 'calendar', 'resources', 'settings'];
                 showView(validViews.includes(requested) ? requested : (requestedCommunity ? 'communities' : 'dashboard'));
 
                 // Deep link from the inspection email: open that community's report.
@@ -3026,6 +3069,11 @@
                             headerTitle.innerHTML = '<i class="fas fa-house-circle-check"></i> Move-Ins';
                             headerDesc.textContent = 'New Resident Move-In Checklists';
                             renderMoveIns();
+                            break;
+                        case 'calendar':
+                            headerTitle.innerHTML = '<i class="fas fa-calendar-days"></i> Calendar';
+                            headerDesc.textContent = 'Inspections & move-in schedule';
+                            renderCalendar();
                             break;
                         case 'resources':
                             headerTitle.innerHTML = '<i class="fas fa-book"></i> Resources';
@@ -3905,6 +3953,93 @@
                 closeMoveInTemplate();
                 renderMoveIns();
             } catch (e) { msg.textContent = 'Network error.'; }
+        }
+
+        // ============================================================
+        //  CALENDAR  (inspections + move-in dates)
+        // ============================================================
+        let calendarMonth = null;   // Date pointing at the 1st of the shown month
+        let calSelectedDay = null;  // 'YYYY-MM-DD'
+        function _calKey(d) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+        function _calScoreColor(v) {
+            return (v === null || v === undefined) ? '#94a3b8' : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212'));
+        }
+        function calPrevMonth() { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1); renderCalendar(); }
+        function calNextMonth() { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1); renderCalendar(); }
+        function calToday() { const n = new Date(); calendarMonth = new Date(n.getFullYear(), n.getMonth(), 1); calSelectedDay = _calKey(n); renderCalendar(); }
+        function calSelectDay(k) { calSelectedDay = (calSelectedDay === k ? null : k); renderCalendar(); }
+
+        async function renderCalendar() {
+            const gallery = document.getElementById('gallery');
+            if (!calendarMonth) { const n = new Date(); calendarMonth = new Date(n.getFullYear(), n.getMonth(), 1); }
+            await loadMoveInsRaw();   // keep move-in dates fresh
+
+            const insp = {}, mvs = {};
+            (allSubmissions || []).forEach(s => {
+                if (!s.submitted_at) return;
+                const d = new Date(s.submitted_at);
+                if (isNaN(d.getTime())) return;
+                const k = _calKey(d);
+                (insp[k] = insp[k] || []).push(s);
+            });
+            (moveInsRaw || []).forEach(m => {
+                if (!m.target_date) return;
+                (mvs[m.target_date] = mvs[m.target_date] || []).push(m);
+            });
+
+            const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
+            const startWeekday = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const todayKey = _calKey(new Date());
+            const monthName = calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            let cells = '';
+            for (let i = 0; i < startWeekday; i++) cells += `<div class="cal-cell cal-empty"></div>`;
+            for (let day = 1; day <= daysInMonth; day++) {
+                const k = _calKey(new Date(year, month, day));
+                const ic = (insp[k] || []).length, mc = (mvs[k] || []).length;
+                let badges = '';
+                if (ic) badges += `<span class="cal-badge cal-insp">${ic} insp</span>`;
+                if (mc) badges += `<span class="cal-badge cal-mv">${mc} move-in</span>`;
+                cells += `<div class="cal-cell ${k === todayKey ? 'cal-today' : ''} ${k === calSelectedDay ? 'cal-selected' : ''} ${(ic || mc) ? 'cal-has' : ''}" onclick="calSelectDay('${k}')">
+                            <div class="cal-daynum">${day}</div>${badges}</div>`;
+            }
+
+            let detail = '';
+            if (calSelectedDay) {
+                const ins = insp[calSelectedDay] || [], mv = mvs[calSelectedDay] || [];
+                const dlabel = new Date(calSelectedDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+                const rows = [];
+                ins.forEach(s => {
+                    const score = calculateCommunityScore(s.responses || []);
+                    const nm = s.inspector_name || s.username || '—';
+                    const safe = (s.community || '').replace(/'/g, "\\'");
+                    rows.push(`<div class="cal-row" onclick="openSlidePanel('${safe}')"><span class="cal-dot cal-dot-insp"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(s.community || 'Unknown')}</div><div class="cal-row-sub">Inspection · ${escapeHtml(nm)}</div></div><span class="cal-row-score" style="color:${_calScoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span></div>`);
+                });
+                mv.forEach(m => {
+                    rows.push(`<div class="cal-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${m.id}'),250)"><span class="cal-dot cal-dot-mv"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(m.resident_name)}</div><div class="cal-row-sub">Move-in · ${escapeHtml(m.community)}${m.blockers ? ` · <span style="color:#b42318;font-weight:700;">${m.blockers} required pending</span>` : ''}</div></div><span class="cal-row-score" style="color:#d97706;"><i class="fas fa-house-circle-check"></i></span></div>`);
+                });
+                detail = `<div class="cal-detail"><div class="cal-detail-head"><i class="fas fa-calendar-day"></i> ${dlabel}</div>${rows.length ? rows.join('') : '<div class="cal-empty-note">Nothing scheduled this day.</div>'}</div>`;
+            }
+
+            gallery.innerHTML = `<div style="grid-column:1/-1;">
+                <div class="cal-toolbar">
+                    <button class="btn btn-secondary" onclick="calPrevMonth()" aria-label="Previous month"><i class="fas fa-chevron-left"></i></button>
+                    <div class="cal-month">${monthName}</div>
+                    <button class="btn btn-secondary" onclick="calNextMonth()" aria-label="Next month"><i class="fas fa-chevron-right"></i></button>
+                    <button class="btn btn-secondary" onclick="calToday()" style="margin-left:8px;">Today</button>
+                    <div class="cal-legend" style="margin-left:auto;">
+                        <span><span class="cal-dot cal-dot-insp"></span> Inspections</span>
+                        <span><span class="cal-dot cal-dot-mv"></span> Move-ins</span>
+                    </div>
+                </div>
+                <div class="cal-grid cal-weekhead">${weekdays.map(w => `<div class="cal-weekday">${w}</div>`).join('')}</div>
+                <div class="cal-grid">${cells}</div>
+                ${detail}
+            </div>`;
         }
 
         function resourceIcon(r) {
