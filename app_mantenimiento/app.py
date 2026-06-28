@@ -1229,13 +1229,40 @@ def _movein_blockers(rec):
             if not (comps.get(iid) or {}).get('done')]
 
 
+def _movein_allowed_communities():
+    """Communities the current user may see move-ins for, or None = all (admin)."""
+    role = current_role()
+    if role == 'admin':
+        return None
+    if role == 'regional':
+        return set(regional_communities())
+    # staff
+    c = session.get('community')
+    return {c} if c else set()
+
+
+def _can_access_movein(rec):
+    allowed = _movein_allowed_communities()
+    return allowed is None or (rec and rec.get('community') in allowed)
+
+
+def _scoped_moveins():
+    """All move-in records visible to the current user (role-scoped)."""
+    allowed = _movein_allowed_communities()
+    everything = movein_service.get_all()
+    if allowed is None:
+        return everything
+    return [m for m in everything if m.get('community') in allowed]
+
+
 @app.route('/api/moveins', methods=['GET'])
 @login_required
 def list_moveins():
-    """List all move-ins with computed progress (any logged-in user)."""
+    """List move-ins with computed progress, scoped to the user's role
+    (admin = all, regional = their region's communities, staff = their community)."""
     item_ids = movein_template_service.all_item_ids()
     out = []
-    for rec in movein_service.get_all():
+    for rec in _scoped_moveins():
         done, total = _movein_progress(rec, item_ids)
         out.append({
             'id': rec.get('id'),
@@ -1262,6 +1289,10 @@ def create_movein():
         return jsonify({'status': 'error', 'message': 'Resident name is required'}), 400
     if not community:
         return jsonify({'status': 'error', 'message': 'Community is required'}), 400
+    # Non-admins can only create move-ins for communities in their own scope.
+    allowed = _movein_allowed_communities()
+    if allowed is not None and community not in allowed:
+        return jsonify({'status': 'error', 'message': 'You can only create move-ins for your own communities'}), 403
     rec = movein_service.create(resident, community, target_date, created_by=session.get('user'))
     activity_service.log(session.get('user'), 'movein_created', f'Started move-in for {resident} ({community})')
     return jsonify({'status': 'success', 'movein': rec}), 200
@@ -1272,7 +1303,7 @@ def create_movein():
 def get_movein(mv_id):
     """Return a move-in record merged with the template (phases + items + completion)."""
     rec = movein_service.get(mv_id)
-    if rec is None:
+    if rec is None or not _can_access_movein(rec):
         return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
     template = movein_template_service.get_template()
     comps = rec.get('completions') or {}
@@ -1305,6 +1336,8 @@ def update_movein_item(mv_id):
     item_id = InputSanitizer.sanitize_string(data.get('item_id', ''), max_length=60)
     if not item_id:
         return jsonify({'status': 'error', 'message': 'item_id is required'}), 400
+    if not _can_access_movein(movein_service.get(mv_id)):
+        return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
     rec = movein_service.update_item(
         mv_id, item_id,
         done=data.get('done'),
@@ -1324,7 +1357,7 @@ def upload_movein_attachment(mv_id):
     item_id = InputSanitizer.sanitize_string(request.form.get('item_id', ''), max_length=60)
     if not item_id:
         return jsonify({'status': 'error', 'message': 'item_id is required'}), 400
-    if movein_service.get(mv_id) is None:
+    if not _can_access_movein(movein_service.get(mv_id)):
         return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
     if 'file' not in request.files or not request.files['file'].filename:
         return jsonify({'status': 'error', 'message': 'No file provided'}), 400
@@ -1345,7 +1378,7 @@ def upload_movein_attachment(mv_id):
 def delete_movein(mv_id):
     """Delete a move-in record (and best-effort remove its attachments)."""
     rec = movein_service.get(mv_id)
-    if rec is None:
+    if rec is None or not _can_access_movein(rec):
         return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
     for entry in (rec.get('completions') or {}).values():
         if entry.get('attachment_path'):
@@ -1364,7 +1397,7 @@ def set_movein_status(mv_id):
     if status not in ('active', 'completed', 'archived'):
         return jsonify({'status': 'error', 'message': 'Invalid status'}), 400
     rec = movein_service.get(mv_id)
-    if rec is None:
+    if rec is None or not _can_access_movein(rec):
         return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
     # Compliance gate: can't mark complete while required items are unchecked.
     if status == 'completed':
@@ -1463,7 +1496,7 @@ _MOVEIN_EXPORT_HEADERS = ['Resident', 'Community', 'Target date', 'Status',
 def _movein_export_rows():
     item_ids = movein_template_service.all_item_ids()
     rows = []
-    for rec in movein_service.get_all():
+    for rec in _scoped_moveins():
         done, total = _movein_progress(rec, item_ids)
         pct = round(done / total * 100) if total else 0
         rows.append([
@@ -1625,7 +1658,7 @@ def movein_template_pdf():
 def movein_pdf(mv_id):
     """Printable checklist for one resident, showing current progress."""
     rec = movein_service.get(mv_id)
-    if rec is None:
+    if rec is None or not _can_access_movein(rec):
         return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
     template = movein_template_service.get_template()
     comps = rec.get('completions') or {}
