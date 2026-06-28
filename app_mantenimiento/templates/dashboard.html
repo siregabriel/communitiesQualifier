@@ -1438,6 +1438,34 @@
         .mini-dots { display:flex; gap:2px; margin-top:3px; height:5px; align-items:center; }
         .mini-dots .cal-dot { width:5px; height:5px; }
 
+        /* Team-member profile panel */
+        .pp-head { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+        .pp-avatar-img, .pp-avatar-fallback { width:58px; height:58px; border-radius:50%; flex-shrink:0; object-fit:cover; }
+        .pp-avatar-fallback { display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:20px; }
+        .pp-head-meta { font-size:13px; color:#64748b; display:grid; gap:4px; }
+        .pp-email, .pp-last { display:flex; align-items:center; gap:6px; }
+        .pp-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:8px; }
+        .pp-kpi { background:#f6f8fb; border-radius:10px; padding:12px 10px; text-align:center; }
+        .pp-kpi-val { font-size:20px; font-weight:800; color:#0f1e36; line-height:1; }
+        .pp-kpi-lbl { font-size:11px; color:#6b7280; margin-top:6px; }
+        .pp-section { margin-top:22px; }
+        .pp-section h4 { font-size:13px; font-weight:800; color:#0f1e36; text-transform:uppercase; letter-spacing:.04em; margin:0 0 10px; }
+        .pp-bar-row { display:flex; align-items:center; gap:10px; padding:4px 0; }
+        .pp-bar-lbl { width:34px; font-size:12px; font-weight:700; color:#64748b; flex-shrink:0; }
+        .pp-bar { flex:1; height:8px; background:#eef1f6; border-radius:999px; overflow:hidden; }
+        .pp-bar-fill { height:100%; background:linear-gradient(90deg,#1f6fe5,#0bb8d4); border-radius:999px; }
+        .pp-bar-val { width:24px; text-align:right; font-size:12px; font-weight:700; color:#0f1e36; flex-shrink:0; }
+        .pp-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px solid #eef1f6; }
+        .pp-row:first-of-type { border-top:none; }
+        .pp-row[onclick] { cursor:pointer; }
+        .pp-row[onclick]:hover { background:rgba(0,40,92,.03); margin:0 -8px; padding-left:8px; padding-right:8px; border-radius:8px; }
+        .pp-row-name { font-size:13px; color:#0f1e36; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .pp-row-meta { font-size:12px; color:#64748b; flex-shrink:0; }
+        .pp-pill { background:#fef2f2; color:#d13212; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; flex-shrink:0; }
+        .region-leader-name-link { cursor:pointer; }
+        .region-leader-name-link:hover { color:#1f6fe5; text-decoration:underline; }
+        .tp-row:hover { background:rgba(31,111,229,.05); }
+
         /* Hover tooltip for calendar days (desktop) */
         #calDayTip { position:fixed; z-index:5000; width:220px; background:#fff; border:1px solid #d9dfe8;
             border-radius:10px; padding:10px 12px; box-shadow:0 12px 30px rgba(2,32,80,.18); display:none; pointer-events:none; }
@@ -2362,6 +2390,61 @@
                 overlay.classList.add('show');
                 overlay.setAttribute('aria-hidden', 'false');
             }
+        }
+
+        // ===== Team-member profile panel (reuses the slide panel) =====
+        async function openPersonPanel(name) {
+            if (!name) return;
+            const panelTitle = document.getElementById('slidePanelTitle');
+            const panelSubtitle = document.getElementById('slidePanelSubtitle');
+            const panelBody = document.getElementById('slidePanelBody');
+            currentPanelCommunity = null; // this panel isn't a community
+            panelTitle.textContent = name;
+            panelSubtitle.textContent = 'Loading…';
+            panelBody.innerHTML = '<div style="padding:48px;text-align:center;color:#94a3b8;">Loading…</div>';
+            showPanel(); showOverlay();
+
+            let p;
+            try {
+                const r = await fetch('/api/people/profile?name=' + encodeURIComponent(name));
+                const d = await r.json();
+                if (d.status !== 'success') throw new Error();
+                p = d.profile;
+            } catch (e) {
+                panelBody.innerHTML = '<div class="no-data" style="padding:40px;">Could not load this profile.</div>';
+                return;
+            }
+
+            const sc = v => (v == null ? '#94a3b8' : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212')));
+            panelSubtitle.innerHTML = escapeHtml(p.role || 'Team member') + (p.region ? ' · ' + escapeHtml(p.region) : '');
+            const avatar = p.photo
+                ? `<img src="/static/${p.photo}" alt="" class="pp-avatar-img">`
+                : `<div class="pp-avatar-fallback" style="background:${avatarColor(name)}">${profileInitials(name)}</div>`;
+            const maxV = Math.max(1, ...p.by_month.map(m => m.visits));
+            const bars = p.by_month.map(m =>
+                `<div class="pp-bar-row"><span class="pp-bar-lbl">${m.label}</span><div class="pp-bar"><div class="pp-bar-fill" style="width:${Math.round(m.visits / maxV * 100)}%"></div></div><span class="pp-bar-val">${m.visits}</span></div>`).join('');
+            const comms = p.communities.length ? p.communities.map(c =>
+                `<div class="pp-row" onclick="openSlidePanel('${(c.name || '').replace(/'/g, "\\'")}')"><span class="pp-row-name">${escapeHtml(c.name)}</span><span class="pp-row-meta">${c.visits} visit${c.visits !== 1 ? 's' : ''} · <b style="color:${sc(c.avg_score)}">${c.avg_score == null ? 'N/A' : c.avg_score + '%'}</b></span></div>`).join('') : '<div class="no-data">No inspections yet.</div>';
+            const weak = p.weakest.length ? p.weakest.map(w =>
+                `<div class="pp-row"><span class="pp-row-name">${escapeHtml(w.question)}</span><span class="pp-pill">${w.fails} fail${w.fails !== 1 ? 's' : ''}</span></div>`).join('') : '<div class="no-data">No failed items.</div>';
+            const recent = p.recent.length ? p.recent.map(x =>
+                `<div class="pp-row" onclick="openSlidePanel('${(x.community || '').replace(/'/g, "\\'")}')"><span class="pp-row-name">${escapeHtml(x.community)}</span><span class="pp-row-meta">${x.date} · <b style="color:${sc(x.score)}">${x.score == null ? 'N/A' : x.score + '%'}</b></span></div>`).join('') : '<div class="no-data">No recent visits.</div>';
+
+            panelBody.innerHTML = `
+                <div class="pp-head">${avatar}<div class="pp-head-meta">
+                    ${p.email ? `<div class="pp-email"><i class="fas fa-envelope"></i> ${escapeHtml(p.email)}</div>` : ''}
+                    <div class="pp-last"><i class="fas fa-clock"></i> Last visit: ${p.last_visit || '—'}</div>
+                </div></div>
+                <div class="pp-kpis">
+                    <div class="pp-kpi"><div class="pp-kpi-val">${p.total_visits}</div><div class="pp-kpi-lbl">Total visits</div></div>
+                    <div class="pp-kpi"><div class="pp-kpi-val">${p.visits_this_month}</div><div class="pp-kpi-lbl">This month</div></div>
+                    <div class="pp-kpi"><div class="pp-kpi-val" style="color:${sc(p.avg_score)}">${p.avg_score == null ? 'N/A' : p.avg_score + '%'}</div><div class="pp-kpi-lbl">Avg score</div></div>
+                    <div class="pp-kpi"><div class="pp-kpi-val">${p.pass_rate}%</div><div class="pp-kpi-lbl">Pass rate</div></div>
+                </div>
+                <div class="pp-section"><h4>Activity · last 6 months</h4>${bars}</div>
+                <div class="pp-section"><h4>Communities covered</h4>${comms}</div>
+                <div class="pp-section"><h4>Most-failed standards</h4>${weak}</div>
+                <div class="pp-section"><h4>Recent inspections</h4>${recent}</div>`;
         }
 
         // Render Panel Content
@@ -4644,7 +4727,7 @@
                             <div class="region-leader ${isAdmin ? 'draggable-leader' : ''}" id="leader_${rid}_${i}" ${dragAttrs}>
                                 <div class="region-leader-avatar-wrap">${avatar}${countBadge}${adminUpload}</div>
                                 <div class="region-leader-info">
-                                    <div class="region-leader-name">${nm}</div>
+                                    <div class="region-leader-name region-leader-name-link" onclick="event.stopPropagation(); openPersonPanel('${safeNm}')" title="View profile">${nm}</div>
                                     <div class="region-leader-role">${l.role || ''}</div>
                                 </div>
                                 ${adminActions}
@@ -5685,10 +5768,11 @@
                                     ${topPerformers.map((p, index) => {
                                         const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
                                         const last = p.lastVisit ? new Date(p.lastVisit).toLocaleDateString() : '—';
+                                        const safeName = (p.name || '').replace(/'/g, "\\'");
                                         return `
-                                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                            <tr class="tp-row" style="border-bottom: 1px solid #f1f5f9; cursor:pointer;" onclick="openPersonPanel('${safeName}')" title="View profile">
                                                 <td style="padding: 12px; font-size: 14px; font-weight: 700;">${medal}</td>
-                                                <td style="padding: 12px; font-size: 14px;">${p.name}</td>
+                                                <td style="padding: 12px; font-size: 14px; color:#1f6fe5; font-weight:600;">${p.name}</td>
                                                 <td style="padding: 12px; text-align: center;">
                                                     <span style="display: inline-block; padding: 4px 12px; background: rgba(31,111,229,0.1); color: #1f6fe5; border-radius: 6px; font-size: 14px; font-weight: 700;">${p.visits}</span>
                                                 </td>

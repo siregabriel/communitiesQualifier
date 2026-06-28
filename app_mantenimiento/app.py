@@ -1203,6 +1203,98 @@ def delete_community_cover():
         return jsonify({'status': 'error', 'message': 'Internal server error while removing cover'}), 500
 
 
+@app.route('/api/people/profile')
+@login_required
+def person_profile():
+    """Aggregated activity profile for one team member, computed across ALL
+    communities (intentionally cross-region — performance profiles are visible
+    to everyone to encourage healthy competition). Any logged-in user can view."""
+    from datetime import datetime as _dt
+    name = InputSanitizer.sanitize_string(request.args.get('name', ''), max_length=120)
+    if not name:
+        return jsonify({'status': 'error', 'message': 'name is required'}), 400
+
+    # Match by inspector display name (captured at visit time) or username.
+    subs = []
+    for s in inspection_service.get_all_submissions():
+        disp = s.get('inspector_name') or resolve_display_name(s.get('username', ''))
+        if disp == name or s.get('username') == name:
+            subs.append(s)
+
+    now = _dt.now()
+    visits_this_month = 0
+    last_visit = ''
+    passes = fails = 0
+    by_comm, by_month, weak, recent = {}, {}, {}, []
+    for s in subs:
+        sa = s.get('submitted_at', '') or ''
+        try:
+            d = _dt.strptime(sa[:19], '%Y-%m-%dT%H:%M:%S')
+        except ValueError:
+            d = None
+        if d and d.year == now.year and d.month == now.month:
+            visits_this_month += 1
+        if d:
+            mk = d.strftime('%Y-%m')
+            by_month[mk] = by_month.get(mk, 0) + 1
+        if sa > last_visit:
+            last_visit = sa
+        comm = s.get('community', '')
+        c = by_comm.setdefault(comm, {'visits': 0, 'pass': 0, 'fail': 0})
+        c['visits'] += 1
+        sp = sf = 0
+        for r in (s.get('responses') or []):
+            cond = r.get('condition')
+            if cond == 'Pass':
+                passes += 1; sp += 1; c['pass'] += 1
+            elif cond == 'Fail':
+                fails += 1; sf += 1; c['fail'] += 1
+                q = r.get('question_text', '')
+                if q:
+                    weak[q] = weak.get(q, 0) + 1
+        sc = round(sp / (sp + sf) * 100) if (sp + sf) else None
+        recent.append({'community': comm, 'date': sa[:10], 'score': sc, 'submitted_at': sa})
+
+    pass_rate = round(passes / (passes + fails) * 100) if (passes + fails) else 0
+    scores = [r['score'] for r in recent if r['score'] is not None]
+    avg_score = round(sum(scores) / len(scores)) if scores else None
+    recent.sort(key=lambda x: x['submitted_at'], reverse=True)
+
+    comm_list = []
+    for cn, cc in by_comm.items():
+        tot = cc['pass'] + cc['fail']
+        comm_list.append({'name': cn, 'visits': cc['visits'],
+                          'avg_score': round(cc['pass'] / tot * 100) if tot else None})
+    comm_list.sort(key=lambda x: x['visits'], reverse=True)
+
+    months = []
+    for i in range(5, -1, -1):
+        m = now.month - 1 - i
+        y, mm = now.year + (m // 12), (m % 12) + 1
+        months.append({'label': _dt(y, mm, 1).strftime('%b'),
+                       'visits': by_month.get(f"{y:04d}-{mm:02d}", 0)})
+
+    weak_list = sorted([{'question': q, 'fails': n} for q, n in weak.items()],
+                       key=lambda x: x['fails'], reverse=True)[:5]
+
+    meta = {'role': '', 'region': '', 'photo': None, 'email': ''}
+    for r in region_service.get_all_regions():
+        for l in (r.get('leadership') or []):
+            if (l.get('name') or '') == name:
+                meta = {'role': l.get('role', ''), 'region': r.get('name', ''),
+                        'photo': profile_service.get_leader_photo(r.get('id', ''), name),
+                        'email': l.get('email', '')}
+
+    return jsonify({'status': 'success', 'profile': {
+        'name': name, 'role': meta['role'], 'region': meta['region'],
+        'photo': meta['photo'], 'email': meta['email'],
+        'total_visits': len(subs), 'visits_this_month': visits_this_month,
+        'last_visit': last_visit[:10], 'avg_score': avg_score, 'pass_rate': pass_rate,
+        'passes': passes, 'fails': fails, 'communities': comm_list,
+        'weakest': weak_list, 'by_month': months, 'recent': recent[:8],
+    }}), 200
+
+
 # ==================== MOVE-IN MODULE ====================
 
 def _movein_progress(rec, item_ids):
