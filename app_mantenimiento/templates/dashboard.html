@@ -1398,6 +1398,22 @@
             .cal-daynum { font-size:12px; }
             .cal-weekday { font-size:9px; }
         }
+
+        /* Dashboard mini-calendar */
+        .mini-cal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+        .mini-cal-head > span { font-weight:800; color:#0f1e36; font-size:14px; }
+        .mini-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+        .mini-cal-weekhead { margin-bottom:4px; }
+        .mini-weekday { text-align:center; font-size:10px; font-weight:700; color:#94a3b8; }
+        .mini-cal-cell { aspect-ratio:1/1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+            border-radius:8px; font-size:12px; color:#475569; }
+        .mini-cal-cell.mini-empty { visibility:hidden; }
+        .mini-cal-cell.mini-has { cursor:pointer; background:#f6f8fb; font-weight:700; color:#0f1e36; }
+        .mini-cal-cell.mini-has:hover { background:#e7edf7; }
+        .mini-cal-cell.mini-today { box-shadow:inset 0 0 0 2px #00285c; color:#00285c; font-weight:800; }
+        .mini-daynum { line-height:1; }
+        .mini-dots { display:flex; gap:2px; margin-top:3px; height:5px; align-items:center; }
+        .mini-dots .cal-dot { width:5px; height:5px; }
     </style>
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
 
@@ -3391,6 +3407,7 @@
                     <div class="dash-card"><h3><i class="fas fa-clock-rotate-left"></i> Recent activity</h3>${recentHtml}</div>
                 </div>
                 <div class="dash-grid">
+                    <div class="dash-card"><h3><i class="fas fa-calendar-days"></i> This month</h3>${dashMiniCalendarHtml()}</div>
                     <div class="dash-card"><h3><i class="fas fa-house-circle-check"></i> Upcoming move-ins</h3>${moveInsHtml}</div>
                 </div>
             </div>`;
@@ -4086,6 +4103,57 @@
                 <div class="cal-grid">${cells}</div>
                 ${detail}
             </div>`;
+        }
+
+        // Compact month mini-calendar for the dashboard (event dots only).
+        function dashMiniCalendarHtml() {
+            const now = new Date();
+            const year = now.getFullYear(), month = now.getMonth();
+            const ev = {}; // key -> {i,m,f}
+            (allSubmissions || []).forEach(s => {
+                if (!s.submitted_at) return;
+                const d = new Date(s.submitted_at);
+                if (isNaN(d.getTime()) || d.getMonth() !== month || d.getFullYear() !== year) return;
+                (ev[_calKey(d)] = ev[_calKey(d)] || {}).i = true;
+            });
+            (moveInsRaw || []).forEach(m => {
+                if (!m.target_date) return;
+                const dd = new Date(m.target_date + 'T00:00:00');
+                if (dd.getMonth() === month && dd.getFullYear() === year) (ev[m.target_date] = ev[m.target_date] || {}).m = true;
+                if (m.status !== 'archived') {
+                    [5, 14].forEach(n => {
+                        const fk = _calAddDays(m.target_date, n);
+                        const fd = new Date(fk + 'T00:00:00');
+                        if (fd.getMonth() === month && fd.getFullYear() === year) (ev[fk] = ev[fk] || {}).f = true;
+                    });
+                }
+            });
+            const startWeekday = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const todayKey = _calKey(now);
+            const wd = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+            let cells = '';
+            for (let i = 0; i < startWeekday; i++) cells += `<div class="mini-cal-cell mini-empty"></div>`;
+            for (let day = 1; day <= daysInMonth; day++) {
+                const k = _calKey(new Date(year, month, day));
+                const e = ev[k] || {};
+                let dots = '';
+                if (e.i) dots += '<span class="cal-dot cal-dot-insp"></span>';
+                if (e.m) dots += '<span class="cal-dot cal-dot-mv"></span>';
+                if (e.f) dots += '<span class="cal-dot cal-dot-fup"></span>';
+                const has = e.i || e.m || e.f;
+                cells += `<div class="mini-cal-cell ${k === todayKey ? 'mini-today' : ''} ${has ? 'mini-has' : ''}" ${has ? `onclick="dashOpenCalDay('${k}')"` : ''}>
+                            <span class="mini-daynum">${day}</span><span class="mini-dots">${dots}</span></div>`;
+            }
+            const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            return `<div class="mini-cal-head"><span>${monthName}</span><a onclick="showView('calendar')" style="cursor:pointer;font-size:12px;color:#1f6fe5;font-weight:700;">Full calendar →</a></div>
+                <div class="mini-cal-grid mini-cal-weekhead">${wd.map(w => `<div class="mini-weekday">${w}</div>`).join('')}</div>
+                <div class="mini-cal-grid">${cells}</div>`;
+        }
+        function dashOpenCalDay(k) {
+            calendarMonth = new Date(parseInt(k.slice(0, 4), 10), parseInt(k.slice(5, 7), 10) - 1, 1);
+            calSelectedDay = k;
+            showView('calendar');
         }
 
         function resourceIcon(r) {
