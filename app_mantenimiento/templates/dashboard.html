@@ -3191,14 +3191,29 @@
             { title: 'Departments & accountability', text: 'Each checklist item can be tagged to a department (Nursing, Dietary, Maintenance…). Inside a resident’s checklist you can filter by department to see just your part, add notes per item, and it records who checked each one.' },
             { title: 'Export & reminders', text: 'Export all move-ins to Excel or CSV from the toolbar. The team gets automatic email reminders as a move-in approaches, and a completion summary when it’s done. Use Help to replay this anytime.' },
         ];
+        const CALENDAR_TOUR = [
+            { title: 'Calendar', text: 'A monthly view of everything scheduled — inspections, move-in dates, and follow-up reminders, all in one place.' },
+            { target: '.cal-month', title: 'Browse months', text: 'Move between months with the arrows, or jump back to the current month with “Today”.' },
+            { target: '.cal-legend', title: 'Three kinds of events', text: 'Blue dots are inspections, amber are move-in dates, and teal are move-in follow-ups (Day 5 and 1–2 weeks).' },
+            { target: '#calFilterBar', title: 'Filter the view', text: 'Narrow the calendar to a region or a single community to focus on just what matters to you.' },
+            { target: '#gallery .cal-cell.cal-has', title: 'Open a day', text: 'Click any day with events to see the full detail below — each item links straight to its inspection or move-in.' },
+            { title: 'That’s the Calendar', text: 'Use the Help button on this screen to replay this anytime.' },
+        ];
         let tourSteps = [], tourIdx = 0;
         function runTour(steps) { tourSteps = steps || []; tourIdx = 0; showTourStep(); }
         function startTour() { runTour(isAdmin ? TOUR_STEPS.admin : TOUR_STEPS.staff); }
         function startRegionsTour() { runTour(REGIONS_TOUR); }
         function startMoveInsTour() { runTour(MOVEINS_TOUR); }
+        function startCalendarTour() { runTour(CALENDAR_TOUR); }
+        function maybeStartCalendarTour() {
+            let seen = false;
+            try { seen = localStorage.getItem('atlasCalendarTourSeen_v1') === '1'; } catch (e) {}
+            if (!seen) { try { localStorage.setItem('atlasCalendarTourSeen_v1', '1'); } catch (e) {} setTimeout(startCalendarTour, 650); }
+        }
         function contextHelp() {
             if (currentView === 'regions') startRegionsTour();
             else if (currentView === 'move-ins') startMoveInsTour();
+            else if (currentView === 'calendar') startCalendarTour();
             else startTour();
         }
         function maybeStartRegionsTour() {
@@ -4177,13 +4192,14 @@
                     <div class="cal-month">${monthName}</div>
                     <button class="btn btn-secondary" onclick="calNextMonth()" aria-label="Next month"><i class="fas fa-chevron-right"></i></button>
                     <button class="btn btn-secondary" onclick="calToday()" style="margin-left:8px;">Today</button>
+                    <button class="btn btn-secondary" onclick="startCalendarTour()" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
                     <div class="cal-legend" style="margin-left:auto;">
                         <span><span class="cal-dot cal-dot-insp"></span> Inspections</span>
                         <span><span class="cal-dot cal-dot-mv"></span> Move-ins</span>
                         <span><span class="cal-dot cal-dot-fup"></span> Follow-ups</span>
                     </div>
                 </div>
-                <div class="cal-toolbar" style="margin-bottom:18px;">
+                <div class="cal-toolbar" id="calFilterBar" style="margin-bottom:18px;">
                     <span style="font-size:13px;color:#64748b;"><i class="fas fa-filter"></i> Filter:</span>
                     <select class="mi-input" onchange="calSetRegion(this.value)" style="padding:8px 12px;">${regionOpts}</select>
                     <select class="mi-input" onchange="calSetCommunity(this.value)" style="padding:8px 12px;">${commOpts}</select>
@@ -4192,6 +4208,7 @@
                 <div class="cal-grid">${cells}</div>
                 ${detail}
             </div>`;
+            maybeStartCalendarTour();
         }
 
         // Compact month mini-calendar for the dashboard (event dots only).
