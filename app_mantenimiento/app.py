@@ -1446,7 +1446,7 @@ def _build_movein_pdf(resident, community, target_date, phases, filled):
     from reportlab.lib.units import inch
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
-                                    Paragraph, Spacer)
+                                    Paragraph, Spacer, Image)
 
     styles = getSampleStyleSheet()
     cell = ParagraphStyle('mi_cell', parent=styles['Normal'], fontSize=9, leading=12)
@@ -1460,7 +1460,19 @@ def _build_movein_pdf(resident, community, target_date, phases, filled):
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=0.55 * inch,
                             rightMargin=0.55 * inch, topMargin=0.55 * inch, bottomMargin=0.55 * inch)
-    story = [
+    story = []
+    logo = os.path.join(os.path.dirname(__file__), 'static', 'atlas-logo.png')
+    if os.path.exists(logo):
+        try:
+            img = Image(logo)
+            ratio = img.imageWidth / float(img.imageHeight)
+            img.drawHeight = 0.5 * inch
+            img.drawWidth = 0.5 * inch * ratio
+            img.hAlign = 'CENTER'
+            story += [img, Spacer(1, 6)]
+        except Exception:
+            pass
+    story += [
         Paragraph('Move-In Checklist', styles['Title']),
         Paragraph('Atlas Senior Living &mdash; New Resident Move-In', styles['Normal']),
         Spacer(1, 8),
