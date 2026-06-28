@@ -4545,6 +4545,19 @@
         }
 
         // Render Regional Profiles
+        // A distinct, stable header gradient per region (by name) so each card is
+        // easy to tell apart. Unassigned keeps its gray header.
+        const REGION_GRADIENTS = [
+            ['#00285c', '#1f6fe5'], ['#0f5132', '#16a34a'], ['#7c2d12', '#ea7317'],
+            ['#4c1d95', '#7c3aed'], ['#831843', '#db2777'], ['#134e4a', '#0e7490'],
+            ['#3730a3', '#4f46e5'], ['#7f1d1d', '#dc2626'], ['#1e3a5f', '#0891b2'],
+        ];
+        function regionHeaderStyle(isUnassigned, idx) {
+            if (isUnassigned) return '';
+            const [a, b] = REGION_GRADIENTS[idx % REGION_GRADIENTS.length];
+            return `background: linear-gradient(135deg, ${a} 0%, ${b} 100%);`;
+        }
+
         function renderRegions() {
             const gallery = document.getElementById('gallery');
 
@@ -4572,7 +4585,7 @@
                 if (!isNaN(ts) && ts >= cutoff30) inspRecent[key] = (inspRecent[key] || 0) + 1;
             });
 
-            gallery.innerHTML = `<div class="regions-grid">` + regions.map(region => {
+            gallery.innerHTML = `<div class="regions-grid">` + regions.map((region, regionIdx) => {
                 const comms = region.communities || [];
 
                 // Aggregate score across the region's communities that have data
@@ -4695,7 +4708,7 @@
 
                 return `
                     <div class="region-card ${isUnassigned ? 'region-card-unassigned' : ''}">
-                        <div class="region-card-header">
+                        <div class="region-card-header" style="${regionHeaderStyle(isUnassigned, regionIdx)}">
                             <h3>${region.name}</h3>
                             ${(isAdmin && !isUnassigned) ? `<button class="region-rename-btn" title="Rename region" onclick="renameRegion('${region.id}')"><i class="fas fa-pen"></i></button>` : ''}
                             <span class="region-count">${comms.length} ${comms.length === 1 ? 'community' : 'communities'}</span>
