@@ -792,6 +792,24 @@
             padding: 20px;
         }
 
+        /* Move-In modals use the .modal class — hidden until .show is added */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 2000;
+            animation: fadeIn 0.25s ease;
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal .modal-header-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; }
+        .modal .modal-body { padding: 22px 24px 24px; }
+
         .modal-content {
             background: white;
             border-radius: 20px;
@@ -3041,18 +3059,33 @@
             { target: '.region-leader', title: 'Drag to move between regions', text: 'Grab a leader’s row and drop it onto another region to move them — their account moves with them.' },
             { title: 'That’s Regions', text: 'Use the Help button on this screen to replay this anytime.' },
         ];
+        const MOVEINS_TOUR = [
+            { title: 'Move-Ins', text: 'Track each new resident’s move-in as a checklist — so nothing slips through the cracks and you can spot blind spots at a glance.' },
+            { target: '#moveInNewBtn', title: 'Start a move-in', text: 'Create a move-in for a new resident: their name, community, and target move-in date. It loads the full checklist automatically.' },
+            { target: '#gallery .card', title: 'Each resident', text: 'Every card is one resident’s move-in, with a progress bar and how many required items are still pending.' },
+            { target: '#gallery .card', title: 'Open the checklist', text: 'Click a card to open the checklist by phase. Tick items off with a date, initials, and attach signed forms.' },
+            { target: '#moveInTemplateBtn', title: 'Edit the checklist', text: 'Admins can edit the master checklist — add or remove phases and items, and mark items as “Required” so a move-in can’t be completed until they’re done.' },
+            { title: 'That’s Move-Ins', text: 'Required items act as compliance gates, and the team gets email reminders as the move-in date approaches. Use Help to replay this.' },
+        ];
         let tourSteps = [], tourIdx = 0;
         function runTour(steps) { tourSteps = steps || []; tourIdx = 0; showTourStep(); }
         function startTour() { runTour(isAdmin ? TOUR_STEPS.admin : TOUR_STEPS.staff); }
         function startRegionsTour() { runTour(REGIONS_TOUR); }
+        function startMoveInsTour() { runTour(MOVEINS_TOUR); }
         function contextHelp() {
             if (currentView === 'regions') startRegionsTour();
+            else if (currentView === 'move-ins') startMoveInsTour();
             else startTour();
         }
         function maybeStartRegionsTour() {
             let seen = false;
             try { seen = localStorage.getItem('atlasRegionsTourSeen_v1') === '1'; } catch (e) {}
             if (!seen) { try { localStorage.setItem('atlasRegionsTourSeen_v1', '1'); } catch (e) {} setTimeout(startRegionsTour, 650); }
+        }
+        function maybeStartMoveInsTour() {
+            let seen = false;
+            try { seen = localStorage.getItem('atlasMoveInsTourSeen_v1') === '1'; } catch (e) {}
+            if (!seen) { try { localStorage.setItem('atlasMoveInsTourSeen_v1', '1'); } catch (e) {} setTimeout(startMoveInsTour, 650); }
         }
         function showTourStep() {
             const step = tourSteps[tourIdx];
@@ -3422,14 +3455,16 @@
 
             const toolbar = `
                 <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
-                    <button class="btn btn-primary" onclick="openNewMoveIn()"><i class="fas fa-plus"></i> New move-in</button>
-                    ${isAdmin ? `<button class="btn btn-secondary" onclick="openMoveInTemplate()"><i class="fas fa-list-check"></i> Edit checklist</button>` : ''}
+                    <button id="moveInNewBtn" class="btn btn-primary" onclick="openNewMoveIn()"><i class="fas fa-plus"></i> New move-in</button>
+                    ${isAdmin ? `<button id="moveInTemplateBtn" class="btn btn-secondary" onclick="openMoveInTemplate()"><i class="fas fa-list-check"></i> Edit checklist</button>` : ''}
+                    <button class="btn btn-secondary" onclick="startMoveInsTour()" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
                     <span style="margin-left:auto;color:#64748b;font-size:13px;">${list.length} move-in${list.length !== 1 ? 's' : ''}</span>
                 </div>`;
 
             if (!list.length) {
                 gallery.innerHTML = toolbar +
                     `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-house-circle-check"></i><p>No move-ins yet. Click “New move-in” to start one.</p></div>`;
+                maybeStartMoveInsTour();
                 return;
             }
 
@@ -3471,6 +3506,7 @@
             }).join('');
 
             gallery.innerHTML = toolbar + cards;
+            maybeStartMoveInsTour();
         }
 
         async function openMoveIn(id) {
