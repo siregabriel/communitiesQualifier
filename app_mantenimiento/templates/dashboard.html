@@ -1346,9 +1346,17 @@
         /* template editor rows */
         .tmpl-phase { border:1px solid #d9dfe8; border-radius:10px; padding:12px; margin-bottom:12px; background:#f8fafc; }
         .tmpl-phase-name { width:100%; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-weight:700; font-size:14px; margin-bottom:8px; }
-        .tmpl-item-row { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
-        .tmpl-item-row input { flex:1; padding:7px 10px; border:1px solid #e2e8f0; border-radius:7px; font-size:13px; }
+        .tmpl-item-row { display:flex; gap:6px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+        .tmpl-item-row input[type="text"], .tmpl-item-row > input:not([type]) { flex:1 1 160px; padding:7px 10px; border:1px solid #e2e8f0; border-radius:7px; font-size:13px; }
         .tmpl-mini-btn { width:30px; height:30px; border:1px solid #e2e8f0; background:#fff; border-radius:7px; cursor:pointer; color:#b42318; flex-shrink:0; }
+        @media (max-width: 560px) {
+            .mi-item { padding:12px 14px; }
+            .mi-note { min-width:120px; }
+            .mi-initials { width:72px; }
+            .mi-phase-head { font-size:14px; padding:11px 14px; }
+            .modal.show { padding:10px; }
+            .modal .modal-body { padding:18px 16px 20px; }
+        }
     </style>
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
 
@@ -3525,7 +3533,7 @@
                     <select class="mi-input" onchange="moveInFilters.community=this.value;renderMoveInCards();" style="padding:9px 12px;">${commOpts}</select>
                     <span id="moveInCount" style="margin-left:auto;color:#64748b;font-size:13px;"></span>
                 </div>
-                <div id="moveInCards" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>`;
+                <div id="moveInCards" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:16px;"></div>`;
             renderMoveInCards();
             maybeStartMoveInsTour();
         }
