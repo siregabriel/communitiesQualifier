@@ -3138,7 +3138,7 @@
                 const params = new URLSearchParams(window.location.search);
                 const requested = params.get('view');
                 const requestedCommunity = params.get('community');
-                const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'move-ins', 'calendar', 'resources', 'settings'];
+                const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'move-ins', 'calendar', 'resources', 'settings', 'region-detail'];
                 showView(validViews.includes(requested) ? requested : (requestedCommunity ? 'communities' : 'dashboard'));
                 updateDashboardNavBadge();
 
@@ -3271,6 +3271,11 @@
                             headerTitle.innerHTML = '<i class="fas fa-calendar-days"></i> Calendar';
                             headerDesc.textContent = 'Inspections & move-in schedule';
                             renderCalendar();
+                            break;
+                        case 'region-detail':
+                            headerTitle.innerHTML = '<i class="fas fa-sitemap"></i> Region';
+                            headerDesc.textContent = 'Community performance';
+                            renderRegionDetail();
                             break;
                         case 'resources':
                             headerTitle.innerHTML = '<i class="fas fa-book"></i> Resources';
@@ -3510,10 +3515,10 @@
                     const c = byCommunity[n];
                     if (c) { has++; if (typeof c.score === 'number') { sum += c.score; cnt++; } act += (c.actionItems || 0); }
                 });
-                return { name: r.name, avg: cnt ? Math.round(sum / cnt) : null, actions: act, count: has };
+                return { id: r.id, name: r.name, avg: cnt ? Math.round(sum / cnt) : null, actions: act, count: has };
             }).filter(r => r.count > 0);
             const regionHtml = regionRows.length ? regionRows.map(r =>
-                `<div class="dash-bars-row">
+                `<div class="dash-bars-row dash-bars-row-link" onclick="openRegionView('${r.id}')" title="View this region's communities">
                     <div class="dash-bars-label">${escapeHtml(r.name)} <span class="dash-muted">${r.count}</span></div>
                     <div class="dash-bar"><div class="dash-bar-fill" style="width:${r.avg || 0}%;background:${scoreColor(r.avg)}"></div></div>
                     <div class="dash-bars-val"><span style="color:${scoreColor(r.avg)}">${r.avg === null ? 'N/A' : r.avg + '%'}</span>${r.actions > 0 ? ` <span class="dash-muted-red">${r.actions}!</span>` : ''}</div>
@@ -3613,6 +3618,8 @@
                 .dash-avatar { width: 34px; height: 34px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
                 .dash-avatar-img { object-fit: cover; }
                 .dash-bars-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+                .dash-bars-row-link { cursor: pointer; border-radius: 8px; transition: background .15s ease; }
+                .dash-bars-row-link:hover { background: rgba(31,111,229,.06); margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
                 .dash-bars-label { width: 120px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: #0f1e36; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .dash-bars-label-wide { width: 200px; font-weight: 600; }
                 .dash-bar { flex: 1; height: 8px; background: #eef1f6; border-radius: 999px; overflow: hidden; }
@@ -4028,7 +4035,7 @@
                 </div>`;
 
             gallery.innerHTML = `
-                <div style="grid-column:1/-1;max-width:900px;">
+                <div style="grid-column:1/-1;max-width:100%; padding:0 70px;">
                     <button class="btn btn-secondary" onclick="showView('move-ins')" style="margin-bottom:16px;"><i class="fas fa-arrow-left"></i> Back to move-ins</button>
                     <div class="content-section" style="margin-bottom:18px;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
@@ -4687,6 +4694,58 @@
         }
 
         // Render Regional Profiles
+        // ===== Region performance detail (dedicated view) =====
+        let currentRegionView = null;
+        function openRegionView(regionId) {
+            currentRegionView = regionId;
+            showView('region-detail');
+            try { const u = new URL(location); u.searchParams.set('region', regionId); history.replaceState(null, '', u); } catch (e) {}
+        }
+        function renderRegionDetail() {
+            const gallery = document.getElementById('gallery');
+            let rid = currentRegionView;
+            if (!rid) { try { rid = new URLSearchParams(location.search).get('region'); } catch (e) {} }
+            const region = (regions || []).find(r => r.id === rid);
+            if (!region) {
+                gallery.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-sitemap"></i><p>Region not found.</p><button class="btn btn-secondary" onclick="showView('regions')" style="margin-top:14px;">Back to Regions</button></div>`;
+                return;
+            }
+            currentRegionView = rid;
+            const sc = v => (v == null ? '#94a3b8' : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212')));
+            const byCommunity = {};
+            (communityData || []).forEach(c => byCommunity[c.name] = c);
+            const rows = (region.communities || []).map(n => {
+                const c = byCommunity[n] || {};
+                return { name: n, score: (typeof c.score === 'number' ? c.score : null), actions: c.actionItems || 0, last: c.lastVisit || 'No visits yet' };
+            });
+            const scored = rows.filter(r => r.score !== null);
+            const avg = scored.length ? Math.round(scored.reduce((s, r) => s + r.score, 0) / scored.length) : null;
+            const totalActions = rows.reduce((s, r) => s + r.actions, 0);
+            rows.sort((a, b) => { if (a.score === null) return 1; if (b.score === null) return -1; return a.score - b.score; });
+            const list = rows.length ? rows.map(r => `
+                <div class="pp-row" onclick="openSlidePanel('${(r.name || '').replace(/'/g, "\\'")}')">
+                    <span class="pp-row-name">${escapeHtml(r.name)}</span>
+                    <span class="pp-row-meta">${r.actions > 0 ? `<span class="dash-pill" style="background:#fef2f2;color:#d13212;padding:2px 8px;border-radius:999px;font-weight:700;">${r.actions} open</span> · ` : ''}Last: ${escapeHtml(r.last)} · <b style="color:${sc(r.score)}">${r.score === null ? 'N/A' : r.score + '%'}</b></span>
+                </div>`).join('') : '<div class="no-data">No communities in this region.</div>';
+            const card = 'background:#fff;border:1px solid #d9dfe8;border-radius:12px;padding:22px 24px;';
+            gallery.innerHTML = `<div style="grid-column:1/-1;max-width:900px;">
+                <button class="btn btn-secondary" onclick="showView('dashboard')" style="margin-bottom:16px;"><i class="fas fa-arrow-left"></i> Back</button>
+                <div style="${card}margin-bottom:18px;">
+                    <h2 style="margin:0;font-size:22px;color:#0f1e36;"><i class="fas fa-sitemap" style="color:#1f6fe5;"></i> ${escapeHtml(region.name)}</h2>
+                    <div style="color:#64748b;font-size:14px;margin-top:4px;">${rows.length} communit${rows.length !== 1 ? 'ies' : 'y'}${region.leadership && region.leadership.length ? ' · led by ' + region.leadership.map(l => escapeHtml(l.name)).join(', ') : ''}</div>
+                    <div class="pp-kpis" style="margin-top:16px;grid-template-columns:repeat(3,1fr);">
+                        <div class="pp-kpi"><div class="pp-kpi-val" style="color:${sc(avg)}">${avg === null ? 'N/A' : avg + '%'}</div><div class="pp-kpi-lbl">Avg score</div></div>
+                        <div class="pp-kpi"><div class="pp-kpi-val" style="color:${totalActions > 0 ? '#d13212' : '#0f8a5f'}">${totalActions}</div><div class="pp-kpi-lbl">Open action items</div></div>
+                        <div class="pp-kpi"><div class="pp-kpi-val">${rows.length}</div><div class="pp-kpi-lbl">Communities</div></div>
+                    </div>
+                </div>
+                <div style="${card}">
+                    <h3 style="margin:0 0 6px;font-size:15px;font-weight:800;color:#0f1e36;">Communities · lowest score first</h3>
+                    ${list}
+                </div>
+            </div>`;
+        }
+
         // A distinct, stable header gradient per region (by name) so each card is
         // easy to tell apart. Unassigned keeps its gray header.
         const REGION_GRADIENTS = [
