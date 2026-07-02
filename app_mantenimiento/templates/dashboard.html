@@ -1493,6 +1493,8 @@
         .lb-val { flex-shrink:0; font-size:15px; font-weight:800; color:#0f1e36; background:#eef2f7; padding:3px 12px; border-radius:8px; }
         .lb-empty { color:#94a3b8; font-size:13px; padding:8px 0; }
         @media (max-width:820px) { .lb-grid { grid-template-columns:1fr; } }
+        .region-emblem { display:inline-block; vertical-align:middle; }
+        .region-emblem-onheader { box-shadow:0 0 0 2px rgba(255,255,255,.85); }
         .region-name-link { cursor:pointer; }
         .region-name-link:hover { text-decoration:underline; }
         .region-leader-name-link { cursor:pointer; }
@@ -3521,7 +3523,7 @@
             }).filter(r => r.count > 0);
             const regionHtml = regionRows.length ? regionRows.map(r =>
                 `<div class="dash-bars-row dash-bars-row-link" onclick="openRegionView('${r.id}')" title="View this region's communities">
-                    <div class="dash-bars-label">${escapeHtml(r.name)} <span class="dash-muted">${r.count}</span></div>
+                    <div class="dash-bars-label" style="display:flex;align-items:center;gap:7px;">${regionEmblem(r.id, 20)}<span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.name)} <span class="dash-muted">${r.count}</span></span></div>
                     <div class="dash-bar"><div class="dash-bar-fill" style="width:${r.avg || 0}%;background:${scoreColor(r.avg)}"></div></div>
                     <div class="dash-bars-val"><span style="color:${scoreColor(r.avg)}">${r.avg === null ? 'N/A' : r.avg + '%'}</span>${r.actions > 0 ? ` <span class="dash-muted-red">${r.actions}!</span>` : ''}</div>
                 </div>`).join('') : '<div class="dash-empty">No regional data yet.</div>';
@@ -4736,8 +4738,13 @@
             gallery.innerHTML = `<div style="grid-column:1/-1;max-width:100%; padding:0 70px;">
                 <button class="btn btn-secondary" onclick="showView('${back}')" style="margin-bottom:16px;"><i class="fas fa-arrow-left"></i> Back</button>
                 <div style="${card}margin-bottom:18px;">
-                    <h2 style="margin:0;font-size:22px;color:#0f1e36;"><i class="fas fa-sitemap" style="color:#1f6fe5;"></i> ${escapeHtml(region.name)}</h2>
-                    <div style="color:#64748b;font-size:14px;margin-top:4px;">${rows.length} communit${rows.length !== 1 ? 'ies' : 'y'}${region.leadership && region.leadership.length ? ' · led by ' + region.leadership.map(l => escapeHtml(l.name)).join(', ') : ''}</div>
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        ${regionEmblem(region.id, 46) || '<i class="fas fa-sitemap" style="color:#1f6fe5;font-size:24px;"></i>'}
+                        <div>
+                            <h2 style="margin:0;font-size:22px;color:#0f1e36;">${escapeHtml(region.name)}</h2>
+                            <div style="color:#64748b;font-size:14px;margin-top:2px;">${rows.length} communit${rows.length !== 1 ? 'ies' : 'y'}${region.leadership && region.leadership.length ? ' · led by ' + region.leadership.map(l => escapeHtml(l.name)).join(', ') : ''}</div>
+                        </div>
+                    </div>
                     <div class="pp-kpis" style="margin-top:16px;grid-template-columns:repeat(3,1fr);">
                         <div class="pp-kpi"><div class="pp-kpi-val" style="color:${sc(avg)}">${avg === null ? 'N/A' : avg + '%'}</div><div class="pp-kpi-lbl">Avg score</div></div>
                         <div class="pp-kpi"><div class="pp-kpi-val" style="color:${totalActions > 0 ? '#d13212' : '#0f8a5f'}">${totalActions}</div><div class="pp-kpi-lbl">Open action items</div></div>
@@ -4762,6 +4769,13 @@
             if (isUnassigned) return '';
             const [a, b] = REGION_GRADIENTS[idx % REGION_GRADIENTS.length];
             return `background: linear-gradient(135deg, ${a} 0%, ${b} 100%);`;
+        }
+        // Per-region emblem (SVG). Returns '' for regions without one (e.g. Unassigned).
+        const REGION_EMBLEMS = ['coastal', 'magnolia', 'atlantic', 'innovia', 'dmv'];
+        function regionEmblem(id, px, cls) {
+            const key = (id || '').toLowerCase();
+            if (!REGION_EMBLEMS.includes(key)) return '';
+            return `<img class="region-emblem ${cls || ''}" src="/static/region-${key}.svg" alt="" style="width:${px}px;height:${px}px;flex-shrink:0;border-radius:${Math.round(px * 0.23)}px;">`;
         }
 
         function renderRegions() {
@@ -4915,6 +4929,7 @@
                 return `
                     <div class="region-card ${isUnassigned ? 'region-card-unassigned' : ''}">
                         <div class="region-card-header" style="${regionHeaderStyle(isUnassigned, regionIdx)}">
+                            ${regionEmblem(region.id, 34, 'region-emblem-onheader')}
                             <h3 class="region-name-link" onclick="openRegionView('${region.id}')" title="View this region's performance">${region.name}</h3>
                             ${(isAdmin && !isUnassigned) ? `<button class="region-rename-btn" title="Rename region" onclick="renameRegion('${region.id}')"><i class="fas fa-pen"></i></button>` : ''}
                             <span class="region-count">${comms.length} ${comms.length === 1 ? 'community' : 'communities'}</span>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Innovia">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#7c3aed"/>
+  <path d="M32 13 C33.4 27 37 30.6 51 32 C37 33.4 33.4 37 32 51 C30.6 37 27 33.4 13 32 C27 30.6 30.6 27 32 13 Z" fill="#ffffff"/>
+  <circle cx="46" cy="18" r="2.6" fill="#d8c7fb"/>
+</svg>
