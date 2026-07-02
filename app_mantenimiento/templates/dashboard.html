@@ -1493,6 +1493,8 @@
         .lb-val { flex-shrink:0; font-size:15px; font-weight:800; color:#0f1e36; background:#eef2f7; padding:3px 12px; border-radius:8px; }
         .lb-empty { color:#94a3b8; font-size:13px; padding:8px 0; }
         @media (max-width:820px) { .lb-grid { grid-template-columns:1fr; } }
+        .region-name-link { cursor:pointer; }
+        .region-name-link:hover { text-decoration:underline; }
         .region-leader-name-link { cursor:pointer; }
         .region-leader-name-link:hover { color:#1f6fe5; text-decoration:underline; }
         .tp-row:hover { background:rgba(31,111,229,.05); }
@@ -4696,7 +4698,9 @@
         // Render Regional Profiles
         // ===== Region performance detail (dedicated view) =====
         let currentRegionView = null;
+        let regionViewReturn = 'dashboard';
         function openRegionView(regionId) {
+            regionViewReturn = (currentView === 'region-detail') ? regionViewReturn : (currentView || 'dashboard');
             currentRegionView = regionId;
             showView('region-detail');
             try { const u = new URL(location); u.searchParams.set('region', regionId); history.replaceState(null, '', u); } catch (e) {}
@@ -4728,8 +4732,9 @@
                     <span class="pp-row-meta">${r.actions > 0 ? `<span class="dash-pill" style="background:#fef2f2;color:#d13212;padding:2px 8px;border-radius:999px;font-weight:700;">${r.actions} open</span> · ` : ''}Last: ${escapeHtml(r.last)} · <b style="color:${sc(r.score)}">${r.score === null ? 'N/A' : r.score + '%'}</b></span>
                 </div>`).join('') : '<div class="no-data">No communities in this region.</div>';
             const card = 'background:#fff;border:1px solid #d9dfe8;border-radius:12px;padding:22px 24px;';
+            const back = regionViewReturn || 'dashboard';
             gallery.innerHTML = `<div style="grid-column:1/-1;max-width:900px;">
-                <button class="btn btn-secondary" onclick="showView('dashboard')" style="margin-bottom:16px;"><i class="fas fa-arrow-left"></i> Back</button>
+                <button class="btn btn-secondary" onclick="showView('${back}')" style="margin-bottom:16px;"><i class="fas fa-arrow-left"></i> Back</button>
                 <div style="${card}margin-bottom:18px;">
                     <h2 style="margin:0;font-size:22px;color:#0f1e36;"><i class="fas fa-sitemap" style="color:#1f6fe5;"></i> ${escapeHtml(region.name)}</h2>
                     <div style="color:#64748b;font-size:14px;margin-top:4px;">${rows.length} communit${rows.length !== 1 ? 'ies' : 'y'}${region.leadership && region.leadership.length ? ' · led by ' + region.leadership.map(l => escapeHtml(l.name)).join(', ') : ''}</div>
@@ -4910,7 +4915,7 @@
                 return `
                     <div class="region-card ${isUnassigned ? 'region-card-unassigned' : ''}">
                         <div class="region-card-header" style="${regionHeaderStyle(isUnassigned, regionIdx)}">
-                            <h3>${region.name}</h3>
+                            <h3 class="region-name-link" onclick="openRegionView('${region.id}')" title="View this region's performance">${region.name}</h3>
                             ${(isAdmin && !isUnassigned) ? `<button class="region-rename-btn" title="Rename region" onclick="renameRegion('${region.id}')"><i class="fas fa-pen"></i></button>` : ''}
                             <span class="region-count">${comms.length} ${comms.length === 1 ? 'community' : 'communities'}</span>
                         </div>
