@@ -4733,7 +4733,7 @@
                 </div>`).join('') : '<div class="no-data">No communities in this region.</div>';
             const card = 'background:#fff;border:1px solid #d9dfe8;border-radius:12px;padding:22px 24px;';
             const back = regionViewReturn || 'dashboard';
-            gallery.innerHTML = `<div style="grid-column:1/-1;max-width:900px;">
+            gallery.innerHTML = `<div style="grid-column:1/-1;max-width:100%; padding:0 70px;">
                 <button class="btn btn-secondary" onclick="showView('${back}')" style="margin-bottom:16px;"><i class="fas fa-arrow-left"></i> Back</button>
                 <div style="${card}margin-bottom:18px;">
                     <h2 style="margin:0;font-size:22px;color:#0f1e36;"><i class="fas fa-sitemap" style="color:#1f6fe5;"></i> ${escapeHtml(region.name)}</h2>
