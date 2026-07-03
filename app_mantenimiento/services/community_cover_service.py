@@ -71,6 +71,25 @@ class CommunityCoverService(JsonFileBacked):
             self._save()
             return rec
 
+    def rename(self, old_slug: str, new_slug: str, new_name: str):
+        """Follow a community rename: re-key the cover from old_slug to
+        new_slug and update its display name. The underlying image file is
+        left in place (its path still resolves), only the lookup key changes.
+        Returns the moved record or None if there was nothing to move."""
+        if old_slug == new_slug and not new_name:
+            return None
+        with self._lock:
+            self._ensure_fresh()
+            rec = self.covers.get(old_slug)
+            if rec is None:
+                return None
+            rec['name'] = new_name or rec.get('name', '')
+            if new_slug != old_slug:
+                self.covers.pop(old_slug, None)
+                self.covers[new_slug] = rec
+            self._save()
+            return rec
+
     def delete(self, slug: str):
         """Remove a cover; returns the removed record (so the caller can also
         delete the underlying file) or None."""

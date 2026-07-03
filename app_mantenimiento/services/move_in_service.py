@@ -158,6 +158,20 @@ class MoveInService(JsonFileBacked):
             self._save()
             return json.loads(json.dumps(rec))
 
+    def rename_community(self, old_name, new_name) -> int:
+        """Update every move-in that references old_name so it follows a
+        community rename. Returns the number of records changed."""
+        with self._lock:
+            self._ensure_fresh()
+            changed = 0
+            for m in self.moveins:
+                if m.get('community') == old_name:
+                    m['community'] = new_name
+                    changed += 1
+            if changed:
+                self._save()
+            return changed
+
     def update_item(self, mv_id, item_id, done=None, date=None, initials=None,
                     note=None, updated_by=None) -> dict:
         with self._lock:

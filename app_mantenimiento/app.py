@@ -661,6 +661,10 @@ def require_admin(f):
     def decorated_function(*args, **kwargs):
         # Only admins may access admin routes
         if current_role() != 'admin':
+            # API endpoints must answer with JSON 403 so the frontend's fetch()
+            # can surface the error, instead of silently redirecting to a page.
+            if request.path.startswith('/api/'):
+                return jsonify({'status': 'error', 'message': 'Admin access required'}), 403
             return redirect(url_for('report_form'))
         return f(*args, **kwargs)
     return decorated_function
@@ -2927,6 +2931,10 @@ def rename_region_community():
         try:
             question_manager.rename_community(old_name, new_name)
             inspection_service.rename_community(old_name, new_name)
+            # Keep move-ins and the cover photo pointing at the renamed community
+            movein_service.rename_community(old_name, new_name)
+            community_cover_service.rename(
+                community_slug(old_name), community_slug(new_name), new_name)
         except Exception as e:
             app.logger.error(f'Partial error during community rename: {str(e)}')
 
