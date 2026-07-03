@@ -811,7 +811,15 @@
         /* Guided tour */
         #tourBlocker { position: fixed; inset: 0; z-index: 4000; display: none; }
         #tourRing { position: fixed; z-index: 4001; border: 3px solid #fff; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(15,23,42,.6); pointer-events: none; display: none; transition: all .25s ease; }
-        .tour-card { position: fixed; z-index: 4002; width: 320px; max-width: calc(100vw - 24px); background: #fff; border-radius: 14px; box-shadow: 0 24px 56px rgba(2,32,80,.32); padding: 20px 22px; display: none; }
+        .tour-card { position: fixed; z-index: 4002; width: 320px; max-width: calc(100vw - 24px); background: #fff; border-radius: 14px; box-shadow: 0 24px 56px rgba(2,32,80,.32); padding: 20px 22px; display: none; overflow: hidden; }
+        /* Elegant entrance: soft fade + a one-time diagonal light sweep (destello) */
+        .tour-card.tour-animate { animation: tourCardIn .34s cubic-bezier(.2,.8,.2,1) both, tourCardGlow .9s ease-out both; }
+        .tour-card::after { content: ''; position: absolute; top: 0; left: -75%; width: 55%; height: 100%; pointer-events: none; opacity: 0; background: linear-gradient(105deg, transparent 0%, rgba(31,111,229,.10) 38%, rgba(31,111,229,.30) 50%, rgba(31,111,229,.10) 62%, transparent 100%); transform: skewX(-16deg); }
+        .tour-card.tour-animate::after { animation: tourShine .95s cubic-bezier(.25,.6,.3,1) .06s both; }
+        @keyframes tourCardIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes tourCardGlow { 0% { box-shadow: 0 24px 56px rgba(2,32,80,.32), 0 0 0 0 rgba(31,111,229,0); } 32% { box-shadow: 0 24px 56px rgba(2,32,80,.32), 0 0 0 4px rgba(31,111,229,.16); } 100% { box-shadow: 0 24px 56px rgba(2,32,80,.32), 0 0 0 0 rgba(31,111,229,0); } }
+        @keyframes tourShine { 0% { left: -75%; opacity: 0; } 14% { opacity: 1; } 100% { left: 130%; opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) { .tour-card.tour-animate { animation: tourCardIn .2s ease both; } .tour-card.tour-animate::after { animation: none; } }
         .tour-progress { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
         .tour-card h3 { font-size: 17px; font-weight: 800; color: #0f1e36; margin: 6px 0 8px; }
         .tour-card p { font-size: 14px; line-height: 1.55; color: #475569; margin: 0; }
@@ -1110,6 +1118,7 @@
             const blocker = document.getElementById('tourBlocker');
             blocker.style.display = 'block';
             card.style.display = 'block';
+            card.classList.remove('tour-animate'); void card.offsetWidth; card.classList.add('tour-animate');
             document.getElementById('tourProgress').textContent = (fIdx + 1) + ' / ' + fTour.length;
             document.getElementById('tourTitle').textContent = step.title;
             document.getElementById('tourText').textContent = step.text;
