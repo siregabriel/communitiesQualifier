@@ -1795,6 +1795,35 @@ def _build_movein_pdf(resident, community, target_date, phases, filled):
         ]))
         story += [tbl, Spacer(1, 14)]
 
+    # Sign-off block for the physical binder: staff + resident/family signatures.
+    from reportlab.platypus import KeepTogether
+    sig_label = ParagraphStyle('mi_sig', parent=cell, fontSize=9,
+                               textColor=colors.HexColor('#475569'))
+    sig_head = ParagraphStyle('mi_sighead', parent=cell, fontSize=10,
+                              fontName='Helvetica-Bold', textColor=colors.HexColor('#00285c'))
+    line = "________________________________"
+    sig_rows = [
+        [Paragraph(line, cell), Paragraph(line, cell)],
+        [Paragraph('Staff signature', sig_label), Paragraph('Resident / Family signature', sig_label)],
+        [Paragraph('&nbsp;', cell), Paragraph('&nbsp;', cell)],
+        [Paragraph('Printed name: ______________________', sig_label),
+         Paragraph('Printed name: ______________________', sig_label)],
+        [Paragraph('Date: ____________', sig_label),
+         Paragraph('Date: ____________', sig_label)],
+    ]
+    sig_tbl = Table(sig_rows, colWidths=[3.2 * inch, 3.2 * inch])
+    sig_tbl.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+    ]))
+    story += [KeepTogether([
+        Spacer(1, 10),
+        Paragraph('Sign-off', sig_head),
+        Spacer(1, 8),
+        sig_tbl,
+    ])]
+
     doc.build(story)
     buf.seek(0)
     return buf
