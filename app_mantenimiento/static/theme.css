@@ -1308,3 +1308,52 @@ html[data-theme="dark"] .res-icon { color: #8ab4ff; }
 html[data-theme="dark"] .chip span { background: #1b2537 !important; border-color: #2b3a52 !important; color: #c2cddd !important; }
 html[data-theme="dark"] .chip:hover span { border-color: #7db0ff !important; color: #eaf2ff !important; }
 html[data-theme="dark"] .chip input:checked + span { background: #1f6fe5 !important; border-color: #1f6fe5 !important; color: #fff !important; }
+
+/* Regions view: the edit / delete / add-leader / photo controls are white in the
+   light skin, which reads harshly on dark. Soften them to muted dark surfaces. */
+html[data-theme="dark"] .region-edit-btn,
+html[data-theme="dark"] .region-del-btn,
+html[data-theme="dark"] .region-leader-actions button {
+    background: #1b2537 !important; border-color: #33425c !important; color: #cfe0ff !important;
+}
+html[data-theme="dark"] .region-del-btn { color: #ff9d85 !important; }
+html[data-theme="dark"] .region-edit-btn:hover,
+html[data-theme="dark"] .region-leader-actions button:hover { border-color: #7db0ff !important; color: #eaf2ff !important; }
+html[data-theme="dark"] .region-del-btn:hover,
+html[data-theme="dark"] .region-leader-actions button:last-child:hover { background: rgba(209,50,18,.18) !important; border-color: #ff9d85 !important; color: #ff9d85 !important; }
+html[data-theme="dark"] .region-addleader-btn {
+    background: #161f2e !important; border-color: #3b4d6b !important; color: #9cc4ff !important;
+}
+html[data-theme="dark"] .region-addleader-btn:hover { border-color: #7db0ff !important; color: #eaf2ff !important; }
+/* Edit / add-leader forms use the light --bg; give them a subtle dark panel */
+html[data-theme="dark"] .region-addleader,
+html[data-theme="dark"] .region-leader-editform { background: #1b2537 !important; border-color: #2b3a52 !important; }
+/* Soften the white rings around the avatar camera + count badges */
+html[data-theme="dark"] .region-leader-photo-btn { border-color: #131d2c !important; }
+html[data-theme="dark"] .region-leader-count { border-color: #131d2c !important; }
+
+/* Other white utility controls across the app → muted dark surfaces so they
+   don't glare against the dark UI. */
+html[data-theme="dark"] .btn-secondary,
+html[data-theme="dark"] .btn-cancel,
+html[data-theme="dark"] .cards-sort,
+html[data-theme="dark"] .cards-sort button,
+html[data-theme="dark"] .filter-btn,
+html[data-theme="dark"] .profile-edit-btn,
+html[data-theme="dark"] .cred-copy,
+html[data-theme="dark"] .umrow-actions button {
+    background: #1b2537 !important; color: #cfe0ff !important; border-color: #33425c !important; box-shadow: none !important;
+}
+html[data-theme="dark"] .btn-cancel { color: #9fb0c4 !important; }
+html[data-theme="dark"] .btn-secondary:hover,
+html[data-theme="dark"] .cards-sort button:hover,
+html[data-theme="dark"] .filter-btn:hover,
+html[data-theme="dark"] .profile-edit-btn:hover,
+html[data-theme="dark"] .cred-copy:hover,
+html[data-theme="dark"] .umrow-actions button:hover { border-color: #7db0ff !important; color: #eaf2ff !important; }
+html[data-theme="dark"] .umrow-actions button:last-child:hover { border-color: #ff9d85 !important; color: #ff9d85 !important; background: rgba(209,50,18,.18) !important; }
+/* Keep the "active" filter pill a solid accent */
+html[data-theme="dark"] .filter-btn.active { background: #1f6fe5 !important; border-color: #1f6fe5 !important; color: #fff !important; }
+/* User-management form + credential rows */
+html[data-theme="dark"] .usermgmt-form,
+html[data-theme="dark"] .cred-row { background: #1b2537 !important; border-color: #2b3a52 !important; }
