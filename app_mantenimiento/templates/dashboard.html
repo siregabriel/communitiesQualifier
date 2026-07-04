@@ -41,12 +41,16 @@
             --border: #d9dfe8; --border-2: #eef1f6;
             --text: #0f1e36; --text-2: #475569; --text-muted: #64748b; --text-faint: #94a3b8;
             --track: #eef1f6; --hover: rgba(0,40,92,.03); --kpi-navy: #00285c;
+            --tint-blue-bg: #e7edf7; --tint-blue-fg: #00285c;
+            --tint-red-bg: #fde8e4; --tint-red-fg: #b42318; --tint-red-border: #f7c4ba;
         }
         html[data-theme="dark"] {
             --surface: #161f2e; --surface-2: #1b2537; --surface-3: #212d42;
             --border: #2b3a52; --border-2: #26324a;
             --text: #e7edf6; --text-2: #c2cddd; --text-muted: #9fb0c4; --text-faint: #8595ac;
             --track: #26324a; --hover: rgba(255,255,255,.045); --kpi-navy: #7db0ff;
+            --tint-blue-bg: rgba(31,111,229,.20); --tint-blue-fg: #9cc4ff;
+            --tint-red-bg: rgba(209,50,18,.20); --tint-red-fg: #ff9d85; --tint-red-border: rgba(209,50,18,.4);
             color-scheme: dark;
         }
         /* Base surfaces */
@@ -4170,7 +4174,7 @@
                 const statusBadge = m.status === 'completed'
                     ? `<span class="card-badge badge-pass">Completed</span>`
                     : (m.status === 'archived' ? `<span class="card-badge" style="background:#e2e8f0;color:#475569;">Archived</span>`
-                        : `<span class="card-badge" style="background:#e7edf7;color:#00285c;">In progress</span>`);
+                        : `<span class="card-badge" style="background:var(--tint-blue-bg);color:var(--tint-blue-fg);">In progress</span>`);
                 return `
                     <div class="card" style="cursor:pointer;${urgent ? 'border-top:3px solid #b42318;' : ''}" onclick="openMoveIn('${m.id}')">
                         <div style="padding:20px;">
@@ -4191,7 +4195,7 @@
                             </div>
                             <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                                 <span style="font-size:12px;font-weight:700;color:${cd.color};"><i class="fas fa-calendar-day"></i> ${cd.label}</span>
-                                ${m.blockers > 0 ? `<span style="font-size:11px;font-weight:700;color:#b42318;background:#fde8e4;padding:3px 9px;border-radius:20px;"><i class="fas fa-lock"></i> ${m.blockers} required pending</span>` : ''}
+                                ${m.blockers > 0 ? `<span style="font-size:11px;font-weight:700;color:var(--tint-red-fg);background:var(--tint-red-bg);padding:3px 9px;border-radius:20px;"><i class="fas fa-lock"></i> ${m.blockers} required pending</span>` : ''}
                             </div>
                         </div>
                     </div>`;
@@ -4243,7 +4247,7 @@
             const pct = total ? Math.round(done / total * 100) : 0;
             const col = moveInPctColor(pct);
             const blockerBanner = blockers.length ? `
-                <div style="margin-top:14px;background:#fde8e4;border:1px solid #f7c4ba;border-radius:10px;padding:12px 14px;">
+                <div style="margin-top:14px;background:var(--tint-red-bg);border:1px solid var(--tint-red-border);border-radius:10px;padding:12px 14px;">
                     <div style="font-size:13px;font-weight:700;color:#b42318;margin-bottom:4px;"><i class="fas fa-lock"></i> ${blockers.length} required item${blockers.length !== 1 ? 's' : ''} before move-in</div>
                     <div style="font-size:12px;color:#7f1d1d;">${blockers.map(b => escapeHtml(b.text)).join(' · ')}</div>
                 </div>` : '';
@@ -4256,10 +4260,10 @@
                         ? `<a href="${it.attachment_url}" target="_blank" rel="noopener" class="mi-att-link"><i class="fas fa-paperclip"></i> ${escapeHtml(it.attachment_name || 'file')}</a>`
                         : '';
                     const reqBadge = it.required
-                        ? `<span style="font-size:10px;font-weight:700;color:#b42318;background:#fde8e4;padding:2px 7px;border-radius:10px;margin-left:6px;white-space:nowrap;"><i class="fas fa-lock"></i> Required</span>`
+                        ? `<span style="font-size:10px;font-weight:700;color:var(--tint-red-fg);background:var(--tint-red-bg);padding:2px 7px;border-radius:10px;margin-left:6px;white-space:nowrap;"><i class="fas fa-lock"></i> Required</span>`
                         : '';
                     const deptBadge = it.department
-                        ? `<span style="font-size:10px;font-weight:600;color:#00285c;background:#e7edf7;padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">${escapeHtml(it.department)}</span>`
+                        ? `<span style="font-size:10px;font-weight:600;color:var(--tint-blue-fg);background:var(--tint-blue-bg);padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap;">${escapeHtml(it.department)}</span>`
                         : '';
                     const activity = (it.done && it.updated_by)
                         ? `<span class="mi-activity"><i class="fas fa-circle-check"></i> ${escapeHtml(it.updated_by)}${it.updated_at ? ' · ' + escapeHtml((it.updated_at || '').slice(0, 10)) : ''}</span>`

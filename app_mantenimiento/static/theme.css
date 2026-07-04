@@ -1357,3 +1357,35 @@ html[data-theme="dark"] .filter-btn.active { background: #1f6fe5 !important; bor
 /* User-management form + credential rows */
 html[data-theme="dark"] .usermgmt-form,
 html[data-theme="dark"] .cred-row { background: #1b2537 !important; border-color: #2b3a52 !important; }
+
+/* Pastel chips / badges: the light skin gives these a pale tint + dark text,
+   which the catch-all text-lift would turn into light-on-light. Re-tint them
+   to dark fills with light text (dark-mode badge convention). */
+html[data-theme="dark"] .cal-insp,
+html[data-theme="dark"] .mi-att-link { background: rgba(31,111,229,.20) !important; color: #9cc4ff !important; }
+html[data-theme="dark"] .cal-mv { background: rgba(217,119,6,.24) !important; color: #f0b968 !important; }
+html[data-theme="dark"] .cal-fup { background: rgba(14,116,144,.26) !important; color: #6fd0e6 !important; }
+html[data-theme="dark"] .pp-pill,
+html[data-theme="dark"] .visit-fail { background: rgba(209,50,18,.20) !important; color: #ff9d85 !important; }
+html[data-theme="dark"] .visit-pass { background: rgba(16,185,129,.18) !important; color: #5fd6a3 !important; }
+html[data-theme="dark"] .pm-rank-chip.gold { background: rgba(242,183,5,.18) !important; color: #f2c94c !important; border-color: rgba(242,183,5,.42) !important; }
+html[data-theme="dark"] .pm-rank-chip.silver { background: rgba(148,163,184,.18) !important; color: #cbd5e1 !important; border-color: rgba(148,163,184,.42) !important; }
+html[data-theme="dark"] .pm-rank-chip.bronze { background: rgba(180,83,9,.22) !important; color: #e0a06a !important; border-color: rgba(180,83,9,.42) !important; }
+html[data-theme="dark"] .pm-rank-chip.plain { background: #1b2537 !important; color: #c2cddd !important; border-color: #2b3a52 !important; }
+
+/* Light sub-panels / close buttons that were pale */
+html[data-theme="dark"] .tmpl-phase,
+html[data-theme="dark"] .res-form { background: #1b2537 !important; border-color: #2b3a52 !important; }
+html[data-theme="dark"] .tmpl-phase-name { background: #131d2c !important; border-color: #2b3a52 !important; color: #e7edf6 !important; }
+html[data-theme="dark"] .pm-close { background: #1b2537 !important; color: #c2cddd !important; }
+
+/* Action-item themed header (soft red wash) → dark maroon so it doesn't glare */
+html[data-theme="dark"] .card-image-themed {
+    background: linear-gradient(135deg, #2a1a1a 0%, #34201c 100%) !important;
+    color: #ff9d85 !important;
+}
+html[data-theme="dark"] .card-image-themed::after {
+    background:
+        radial-gradient(circle at 80% 18%, rgba(255,255,255,.05), transparent 42%),
+        radial-gradient(circle at 18% 88%, rgba(209,50,18,.20), transparent 40%) !important;
+}
