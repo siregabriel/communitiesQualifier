@@ -38,7 +38,26 @@
         html[data-theme="dark"] { color-scheme: dark; }
         html[data-theme="dark"] body { background: #0b1220 !important; color: #e7edf6; }
         html[data-theme="dark"] .main-content { background: #0b1220 !important; }
-        html[data-theme="dark"] .sidebar { background: #0f1826 !important; }
+        /* Beat the external light theme.css sidebar rules in dark mode. */
+        html[data-theme="dark"] .sidebar { background: #131d2c !important; border-right-color: #26324a !important; }
+        html[data-theme="dark"] .sidebar,
+        html[data-theme="dark"] .sidebar * { color: rgba(255,255,255,0.92) !important; }
+        html[data-theme="dark"] .sidebar-logo { border-bottom-color: #26324a !important; }
+        html[data-theme="dark"] .sidebar-logo span { color: #eaf0f8 !important; }
+        html[data-theme="dark"] .sidebar-logo span span { color: #1f6fe5 !important; }
+        html[data-theme="dark"] .user-welcome { border-bottom-color: #26324a !important; }
+        html[data-theme="dark"] .welcome-text { color: #ffffff !important; }
+        html[data-theme="dark"] .user-role { color: #7db0ff !important; }
+        html[data-theme="dark"] .sidebar-avatar { background: #26324a !important; color: #cfe0ff !important; }
+        html[data-theme="dark"] .nav-item i { color: rgba(255,255,255,0.72) !important; }
+        html[data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
+        html[data-theme="dark"] .nav-item:hover i { color: #ffffff !important; }
+        html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,0.22) !important; color: #eaf2ff !important; box-shadow: inset 3px 0 0 #3b82f6 !important; }
+        html[data-theme="dark"] .nav-item.active i { color: #9cc4ff !important; }
+        html[data-theme="dark"] .nav-item[href="/logout"] { border-top-color: #26324a !important; }
+        html[data-theme="dark"] .nav-item[href="/logout"]:hover { background: rgba(180,35,24,0.18) !important; color: #ff9d85 !important; }
+        html[data-theme="dark"] .nav-item[href="/logout"]:hover i { color: #ff9d85 !important; }
+        html[data-theme="dark"] .sidebar-copyright { color: rgba(255,255,255,0.5) !important; border-top-color: #26324a !important; }
         html[data-theme="dark"] .header-section,
         html[data-theme="dark"] .container,
         html[data-theme="dark"] .content-section,

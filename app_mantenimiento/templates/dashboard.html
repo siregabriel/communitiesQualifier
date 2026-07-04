@@ -57,14 +57,29 @@
                 radial-gradient(950px 500px at 105% -5%, rgba(30,64,120,.16), transparent 55%),
                 linear-gradient(180deg, #0b1220 0%, #0c1424 42%, #0e1728 100%) !important;
         }
-        html[data-theme="dark"] .sidebar { background: #131d2c !important; }
-        /* Sidebar text was tuned for the lighter default sidebar; brighten it in dark mode. */
-        html[data-theme="dark"] .nav-item { color: rgba(255,255,255,0.92) !important; }
-        html[data-theme="dark"] .nav-item i { color: rgba(255,255,255,0.75); }
-        html[data-theme="dark"] .nav-item:hover { color: #ffffff !important; background: rgba(255,255,255,0.07) !important; }
+        /* The external theme.css paints the sidebar as a LIGHT theme with !important
+           (incl. `.sidebar * { color:#1f2937 !important }`, which hits the label spans
+           directly). To win in dark mode we mirror those selectors with higher
+           specificity + !important. */
+        html[data-theme="dark"] .sidebar { background: #131d2c !important; border-right-color: #26324a !important; }
+        html[data-theme="dark"] .sidebar,
+        html[data-theme="dark"] .sidebar * { color: rgba(255,255,255,0.92) !important; }
+        html[data-theme="dark"] .sidebar-logo { border-bottom-color: #26324a !important; }
+        html[data-theme="dark"] .sidebar-logo span { color: #eaf0f8 !important; }
+        html[data-theme="dark"] .sidebar-logo span span { color: #1f6fe5 !important; } /* keep "Standards" blue */
+        html[data-theme="dark"] .user-welcome { border-bottom-color: #26324a !important; }
         html[data-theme="dark"] .welcome-text { color: #ffffff !important; }
-        html[data-theme="dark"] .sidebar-logo span { color: #eaf0f8; }
-        html[data-theme="dark"] .sidebar-copyright { color: rgba(255,255,255,0.55) !important; }
+        html[data-theme="dark"] .user-role { color: #7db0ff !important; }
+        html[data-theme="dark"] .sidebar-avatar { background: #26324a !important; color: #cfe0ff !important; }
+        html[data-theme="dark"] .nav-item i { color: rgba(255,255,255,0.72) !important; }
+        html[data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
+        html[data-theme="dark"] .nav-item:hover i { color: #ffffff !important; }
+        html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,0.22) !important; color: #eaf2ff !important; box-shadow: inset 3px 0 0 #3b82f6 !important; }
+        html[data-theme="dark"] .nav-item.active i { color: #9cc4ff !important; }
+        html[data-theme="dark"] .nav-item[href="/logout"] { border-top-color: #26324a !important; }
+        html[data-theme="dark"] .nav-item[href="/logout"]:hover { background: rgba(180,35,24,0.18) !important; color: #ff9d85 !important; }
+        html[data-theme="dark"] .nav-item[href="/logout"]:hover i { color: #ff9d85 !important; }
+        html[data-theme="dark"] .sidebar-copyright { color: rgba(255,255,255,0.5) !important; border-top-color: #26324a !important; }
         html[data-theme="dark"] .header-left h1 { color: var(--text) !important; }
         html[data-theme="dark"] .header-left p { color: var(--text-muted) !important; }
         /* Card / panel surfaces */
