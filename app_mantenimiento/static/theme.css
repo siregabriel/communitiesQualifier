@@ -1375,6 +1375,8 @@ html[data-theme="dark"] .pm-rank-chip.gold { background: rgba(242,183,5,.18) !im
 html[data-theme="dark"] .pm-rank-chip.silver { background: rgba(148,163,184,.18) !important; color: #cbd5e1 !important; border-color: rgba(148,163,184,.42) !important; }
 html[data-theme="dark"] .pm-rank-chip.bronze { background: rgba(180,83,9,.22) !important; color: #e0a06a !important; border-color: rgba(180,83,9,.42) !important; }
 html[data-theme="dark"] .pm-rank-chip.plain { background: #1b2537 !important; color: #c2cddd !important; border-color: #2b3a52 !important; }
+/* Leaderboard value pills: dark fill; count text light, % keeps its inline status color */
+html[data-theme="dark"] .lb-val { background: #1b2537 !important; color: #e7edf6; }
 
 /* Light sub-panels / close buttons that were pale */
 html[data-theme="dark"] .tmpl-phase,
