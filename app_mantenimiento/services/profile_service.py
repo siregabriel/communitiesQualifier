@@ -81,6 +81,17 @@ class ProfileService(JsonFileBacked):
             self.profiles.setdefault(username, {})['password_hash'] = password_hash
             self._save()
 
+    # --- Force a password change on next login (after an admin reset) ---
+    def get_must_change(self, username: str) -> bool:
+        self._ensure_fresh()
+        return bool(self.profiles.get(username, {}).get('must_change'))
+
+    def set_must_change(self, username: str, value: bool) -> None:
+        with self._lock:
+            self._ensure_fresh()
+            self.profiles.setdefault(username, {})['must_change'] = bool(value)
+            self._save()
+
     # --- Region leadership photos ---
     @staticmethod
     def leader_key(region_id: str, leader_name: str) -> str:

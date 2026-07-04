@@ -110,6 +110,26 @@ def _csrf_origin_guard():
         return jsonify({'status': 'error', 'message': 'Cross-origin request blocked'}), 403
 
 
+_MUST_CHANGE_ALLOW = {'/change-password', '/api/profile/password', '/logout',
+                      '/api/user-info', '/login', '/api/login', '/api/forgot-password'}
+
+
+@app.before_request
+def _must_change_guard():
+    """When an admin has reset an account, the user must set a new password
+    before doing anything else. Allow only the change-password page + its API,
+    logout and static assets until they do."""
+    if not session.get('must_change'):
+        return
+    path = request.path
+    if path in _MUST_CHANGE_ALLOW or path.startswith('/static/'):
+        return
+    if path.startswith('/api/'):
+        return jsonify({'status': 'error', 'must_change_password': True,
+                        'message': 'Please set a new password to continue.'}), 403
+    return redirect(url_for('change_password_page'))
+
+
 @app.after_request
 def _security_headers(resp):
     """Standard hardening headers applied to every response."""
@@ -562,6 +582,34 @@ def username_taken(candidate):
     return False
 
 
+def resolve_account_context(username):
+    """Resolve an account across all three sources for reset flows.
+    Returns dict {exists, display_name, context, email} or {exists: False}."""
+    if username in USERS_DB:
+        u = USERS_DB[username]
+        comm = u.get('community')
+        return {'exists': True,
+                'display_name': profile_service.get_display_name(username) or username,
+                'context': 'Administrator' if comm is None else f'Staff · {comm}',
+                'email': None}
+    custom = user_service.get(username)
+    if custom:
+        comm = custom.get('community')
+        role = custom.get('role', 'staff')
+        ctx = role.capitalize() + (f' · {comm}' if comm else '')
+        return {'exists': True,
+                'display_name': profile_service.get_display_name(username) or custom.get('display_name') or username,
+                'context': ctx, 'email': custom.get('email')}
+    regionals = get_regional_accounts()
+    if username in regionals:
+        acct = regionals[username]
+        return {'exists': True,
+                'display_name': acct.get('display_name') or username,
+                'context': f"Regional · {acct.get('region_id', '')}",
+                'email': acct.get('email')}
+    return {'exists': False}
+
+
 def generate_unique_username(base):
     """Slug from a name, with a numeric suffix if it collides."""
     base = slugify_name(base) or 'user'
@@ -747,6 +795,9 @@ def api_login():
             session['region_id'] = account['region_id']
             session['display_name'] = account['display_name']
             session.permanent = True
+            # If an admin reset this account, force a password change before use.
+            must_change = profile_service.get_must_change(username)
+            session['must_change'] = bool(must_change)
 
             return jsonify({
                 'status': 'success',
@@ -754,7 +805,8 @@ def api_login():
                 'username': username,
                 'community': account['community'],
                 'role': account['role'],
-                'display_name': account['display_name']
+                'display_name': account['display_name'],
+                'must_change_password': bool(must_change)
             }), 200
         else:
             record_login_failure()
@@ -772,6 +824,50 @@ def api_login():
         }), 500
 
 
+_forgot_attempts = {}
+
+
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    """Public: a user asks for a password reset. We never reveal whether the
+    account exists; if it does, the configured admins are emailed so they can
+    reset it (admin-assisted flow). Lightly rate-limited per IP."""
+    from datetime import datetime, timedelta
+    generic = jsonify({'status': 'success',
+                       'message': "If that account exists, your administrator has been notified."})
+    try:
+        ip = request.remote_addr or 'unknown'
+        now = datetime.now()
+        hits = [t for t in _forgot_attempts.get(ip, []) if now - t < timedelta(minutes=10)]
+        if len(hits) >= 5:
+            return jsonify({'status': 'error',
+                            'message': 'Too many requests. Please try again later.'}), 429
+        hits.append(now)
+        _forgot_attempts[ip] = hits
+
+        data = request.get_json(silent=True) or {}
+        username = InputSanitizer.sanitize_username(data.get('username', ''))
+        if not username:
+            return generic, 200
+
+        acct = resolve_account_context(username)
+        if acct.get('exists'):
+            admin_notify = settings_service.get_email_settings().get('admin_notify', [])
+            if admin_notify:
+                try:
+                    email_service.send_password_reset_request(
+                        admin_notify, acct.get('display_name'), username,
+                        acct.get('context', ''), now.strftime('%b %d, %Y %I:%M %p'))
+                except Exception as e:
+                    app.logger.error(f'Reset-request email failed: {str(e)}')
+            activity_service.log(username, 'password_reset_requested',
+                                 f"Password reset requested for {acct.get('display_name') or username}")
+        return generic, 200
+    except Exception as e:
+        app.logger.error(f'forgot_password error: {str(e)}')
+        return generic, 200
+
+
 @app.route('/logout')
 def logout():
     """
@@ -779,6 +875,17 @@ def logout():
     """
     session.clear()
     return redirect(url_for('login'))
+
+
+@app.route('/change-password')
+def change_password_page():
+    """Standalone page to set a new password. Shown (and required) right after
+    an admin reset, and reachable by anyone signed in who wants to change it."""
+    if not session.get('user'):
+        return redirect(url_for('login'))
+    return render_template('change_password.html',
+                           forced=bool(session.get('must_change')),
+                           display_name=session.get('display_name') or session.get('user'))
 
 
 @app.route('/')
@@ -1057,19 +1164,24 @@ def change_password():
         username = session.get('user')
         current_password = data.get('current_password', '')
         new_password = data.get('new_password', '')
+        forced = bool(session.get('must_change'))
 
-        if not current_password or not new_password:
+        if not new_password or (not forced and not current_password):
             return jsonify({'status': 'error', 'message': 'Current and new password are required'}), 400
 
         if len(new_password) < 6:
             return jsonify({'status': 'error', 'message': 'New password must be at least 6 characters'}), 400
 
-        # Verify current password
-        success, _ = authenticate_user(username, current_password)
-        if not success:
-            return jsonify({'status': 'error', 'message': 'Current password is incorrect'}), 400
+        # In the forced flow the user just authenticated with the temp password,
+        # so we don't ask for it again; otherwise verify the current password.
+        if not forced:
+            success, _ = authenticate_user(username, current_password)
+            if not success:
+                return jsonify({'status': 'error', 'message': 'Current password is incorrect'}), 400
 
         profile_service.set_password_hash(username, generate_password_hash(new_password))
+        profile_service.set_must_change(username, False)
+        session['must_change'] = False
         activity_service.log(username, 'password_changed', 'Changed account password')
         return jsonify({'status': 'success', 'message': 'Password updated successfully'}), 200
     except Exception as e:
@@ -1988,12 +2100,50 @@ def reset_user_password(username):
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
     password = generate_password()
     user_service.set_password_hash(username, generate_password_hash(password))
-    # Clear any per-user profile override so the new password takes effect.
+    # Clear any per-user profile override so the new password takes effect,
+    # and force a password change on next login.
     try:
         profile_service.set_password_hash(username, '')
+        profile_service.set_must_change(username, True)
     except Exception:
         pass
     return jsonify({'status': 'success', 'username': username, 'password': password}), 200
+
+
+@app.route('/api/admin/reset-password', methods=['POST'])
+@login_required
+def admin_reset_password():
+    """Admin-only: reset ANY account (admin/staff, created user, or regional)
+    to a temporary password and force a change on next login. The temp password
+    is returned once so the admin can share it with the user."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    username = InputSanitizer.sanitize_username(data.get('username', ''))
+    if not username:
+        return jsonify({'status': 'error', 'message': 'Username is required'}), 400
+    acct = resolve_account_context(username)
+    if not acct.get('exists'):
+        return jsonify({'status': 'error', 'message': 'No account with that username'}), 404
+    password = generate_password()
+    # A profile override takes precedence over every account source, so this
+    # works uniformly for admin/staff, created users and regional leaders.
+    profile_service.set_password_hash(username, generate_password_hash(password))
+    profile_service.set_must_change(username, True)
+    activity_service.log(session.get('user'), 'password_reset',
+                         f"Reset password for {acct.get('display_name') or username}")
+    # Best-effort: also email the user their temp password if we have one on file.
+    emailed = False
+    if acct.get('email'):
+        try:
+            ok, _ = email_service.send_welcome(acct['email'], acct.get('display_name') or username,
+                                               username, password, acct.get('context'))
+            emailed = bool(ok)
+        except Exception:
+            emailed = False
+    return jsonify({'status': 'success', 'username': username,
+                    'display_name': acct.get('display_name') or username,
+                    'password': password, 'emailed': emailed}), 200
 
 
 @app.route('/api/users/<username>', methods=['DELETE'])

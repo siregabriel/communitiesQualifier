@@ -5675,6 +5675,15 @@
                                 <div class="usermgmt-list" id="managedUsersList"><div class="activity-empty">Loading…</div></div>
                             </div>
                         </div>
+                        <div class="profile-section">
+                            <div class="profile-section-title"><i class="fas fa-key"></i> Reset a user's password</div>
+                            <div class="usermgmt-form">
+                                <input id="resetUsername" class="pw-input" placeholder="Username to reset (e.g. keith.martin)" maxlength="80" autocomplete="off">
+                                <button class="btn btn-primary" onclick="adminResetPassword()"><i class="fas fa-rotate-right"></i> Reset to temporary password</button>
+                                <div class="pw-msg" id="resetPwMsg"></div>
+                                <div class="usermgmt-credential" id="resetPwResult" style="display:none;"></div>
+                            </div>
+                        </div>
                         ` : `
                         <div class="profile-section">
                             <div class="profile-section-title"><i class="fas fa-palette"></i> Display preferences</div>
@@ -5920,18 +5929,42 @@
             }
         }
 
-        function showCredentialBox(displayName, username, password, heading) {
-            const box = document.getElementById('createUserResult');
+        function showCredentialBox(displayName, username, password, heading, boxId) {
+            boxId = boxId || 'createUserResult';
+            const box = document.getElementById(boxId);
             if (!box) return;
             box.style.display = '';
             box.innerHTML = `
                 <div class="cred-head"><i class="fas fa-circle-check"></i> ${escapeHtml(heading || 'Credentials')} — ${escapeHtml(displayName)}</div>
-                <div class="cred-note">Copy these now — the password is shown only once.</div>
+                <div class="cred-note">Copy these now — the password is shown only once. The user will be asked to set a new one at sign-in.</div>
                 <div class="cred-row"><span class="cred-label">Username</span><code>${escapeHtml(username)}</code><button class="cred-copy" onclick="copyText('${username.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
                 <div class="cred-row"><span class="cred-label">Password</span><code>${escapeHtml(password)}</code><button class="cred-copy" onclick="copyText('${password.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
-                <button class="cred-dismiss" onclick="document.getElementById('createUserResult').style.display='none'">Done</button>
+                <button class="cred-dismiss" onclick="document.getElementById('${boxId}').style.display='none'">Done</button>
             `;
             box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function adminResetPassword() {
+            const el = document.getElementById('resetUsername');
+            const msg = document.getElementById('resetPwMsg');
+            const username = (el.value || '').trim();
+            msg.className = 'pw-msg';
+            if (!username) { msg.textContent = 'Enter the username to reset.'; msg.classList.add('error'); return; }
+            try {
+                const r = await fetch('/api/admin/reset-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    el.value = '';
+                    const heading = d.emailed ? 'Password reset — temporary password emailed' : 'Password reset';
+                    showCredentialBox(d.display_name, d.username, d.password, heading, 'resetPwResult');
+                } else {
+                    msg.textContent = d.message || 'Could not reset password.'; msg.classList.add('error');
+                }
+            } catch (e) {
+                msg.textContent = 'Network error.'; msg.classList.add('error');
+            }
         }
 
         function copyText(text, btn) {

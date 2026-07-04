@@ -55,6 +55,18 @@
         }
         html[data-theme="dark"] .theme-toggle-float { background: rgba(22,31,46,.85); border-color: #2b3a52; color: #cbd5e1; }
 
+        .forgot-row { text-align: center; margin-top: 16px; }
+        .forgot-row a { color: #1f6fe5; text-decoration: none; font-weight: 600; font-size: 13px; }
+        .forgot-row a:hover { text-decoration: underline; }
+        .forgot-panel { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+        .forgot-help { font-size: 13px; color: #64748b; margin-bottom: 12px; line-height: 1.5; }
+        .forgot-msg { font-size: 13px; margin-top: 12px; min-height: 18px; text-align: center; }
+        .forgot-msg.ok { color: #0f8a5f; }
+        .forgot-msg.err { color: #dc2626; }
+        html[data-theme="dark"] .forgot-panel { border-top-color: #2b3a52; }
+        html[data-theme="dark"] .forgot-help { color: #9fb0c4; }
+        html[data-theme="dark"] .forgot-row a { color: #7db0ff; }
+
         .login-split { display: flex; min-height: 100vh; }
 
         /* ---- Left: photo + pitch ---- */
@@ -244,6 +256,18 @@
 
                     <div class="loading" id="loading"><div class="spinner"></div></div>
                 </form>
+
+                <div class="forgot-row">
+                    <a href="#" id="forgotLink">Forgot your password?</a>
+                </div>
+                <div class="forgot-panel" id="forgotPanel" hidden>
+                    <p class="forgot-help">Enter your username and we'll notify your administrator to reset it for you.</p>
+                    <div class="form-group">
+                        <input type="text" id="forgotUser" placeholder="Your username (e.g. keith.martin)" autocomplete="username">
+                    </div>
+                    <button type="button" class="submit-btn" id="forgotBtn"><span>Request reset</span></button>
+                    <div class="forgot-msg" id="forgotMsg"></div>
+                </div>
             </div>
         </section>
     </div>
@@ -286,7 +310,7 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    window.location.href = '/';
+                    window.location.href = data.must_change_password ? '/change-password' : '/';
                 } else {
                     generalError.textContent = data.message || 'Invalid credentials';
                     generalError.classList.add('show');
@@ -302,6 +326,39 @@
 
         passwordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loginForm.dispatchEvent(new Event('submit'));
+        });
+
+        // --- Forgot password (admin-assisted) ---
+        const forgotLink = document.getElementById('forgotLink');
+        const forgotPanel = document.getElementById('forgotPanel');
+        const forgotBtn = document.getElementById('forgotBtn');
+        const forgotMsg = document.getElementById('forgotMsg');
+        forgotLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            forgotPanel.hidden = !forgotPanel.hidden;
+            if (!forgotPanel.hidden) document.getElementById('forgotUser').focus();
+        });
+        forgotBtn.addEventListener('click', async () => {
+            const u = document.getElementById('forgotUser').value.trim();
+            forgotMsg.className = 'forgot-msg';
+            if (!u) { forgotMsg.textContent = 'Please enter your username.'; forgotMsg.className = 'forgot-msg err'; return; }
+            forgotBtn.disabled = true;
+            try {
+                const r = await fetch('/api/forgot-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u })
+                });
+                const d = await r.json();
+                if (r.status === 429) {
+                    forgotMsg.textContent = d.message || 'Too many requests. Try again later.'; forgotMsg.className = 'forgot-msg err';
+                } else {
+                    forgotMsg.textContent = d.message || 'If that account exists, your administrator has been notified.';
+                    forgotMsg.className = 'forgot-msg ok';
+                }
+            } catch (err) {
+                forgotMsg.textContent = 'Network error. Please try again.'; forgotMsg.className = 'forgot-msg err';
+            } finally {
+                forgotBtn.disabled = false;
+            }
         });
 
         if ('serviceWorker' in navigator) {

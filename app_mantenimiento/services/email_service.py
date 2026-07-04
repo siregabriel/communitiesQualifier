@@ -342,6 +342,29 @@ and some checklist items are still open.</p>
                 f"Role: {role_label}\nCreated by: {created_by}\n")
         return self._send(admin_emails, subject, self._shell("New user", body), text)
 
+    def send_password_reset_request(self, admin_emails, display_name, username, context, requested_at):
+        """Notify admins that a user requested a password reset (admin-assisted flow)."""
+        if not self.enabled:
+            return (False, 'disabled')
+        subject = f"Password reset requested: {display_name or username}"
+        ctx_line = (f"<tr><td style='color:#6b7280;padding:3px 12px 3px 0'>Account</td>"
+                    f"<td style='font-weight:600'>{html.escape(context)}</td></tr>") if context else ""
+        body = f"""\
+<p style="font-size:14px;margin:0 0 12px">A user asked to reset their password. Reset it from
+<b>Settings &rarr; Reset a user's password</b>, then share the temporary password with them.</p>
+<table style="font-size:14px;border-collapse:collapse">
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Name</td><td style="font-weight:700">{html.escape(display_name or '')}</td></tr>
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:700;font-family:monospace">{html.escape(username)}</td></tr>
+  {ctx_line}
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Requested</td><td style="font-weight:600">{html.escape(requested_at)}</td></tr>
+</table>
+<p style="font-size:12px;color:#9ca3af;margin:14px 0 0">If you don't recognize this request, you can ignore it — no change was made.</p>"""
+        text = (f"Password reset requested.\nName: {display_name}\nUsername: {username}\n"
+                + (f"Account: {context}\n" if context else "")
+                + f"Requested: {requested_at}\n"
+                "Reset it from Settings > Reset a user's password, then share the temporary password.\n")
+        return self._send(admin_emails, subject, self._shell("Password reset requested", body), text)
+
     def send_directed_comments(self, recipients, route, submission, items):
         """Email the Clinical/Ops team the comments an inspector directed to them."""
         if not self.enabled:
