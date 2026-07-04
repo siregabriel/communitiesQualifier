@@ -1298,9 +1298,12 @@ html[data-theme="dark"] .res-btn-ghost { background: #1b2537 !important; color: 
 /* Catch-all: lift class-based dark ink text inside the content area so nothing
    is dark-on-dark. `:where()` keeps this at very low specificity, so any status
    color (.danger/.success), accent icon, link, or inline color still wins. */
-html[data-theme="dark"] :where(.main-content) :where(h1,h2,h3,h4,h5,h6,p,span,div,td,li,label,strong,b,small,i) { color: #d7e0ec; }
+html[data-theme="dark"] :where(.main-content,.slide-panel,.pm-card,.tour-card,.std-sheet,.modal-content,#calDayTip) :where(h1,h2,h3,h4,h5,h6,p,span,div,td,li,label,strong,b,small,i) { color: #d7e0ec; }
 /* Secondary/muted text stays a touch dimmer to preserve hierarchy. */
 html[data-theme="dark"] .main-content :where(.res-desc,.dash-row-sub,.pp-bar-val,.cal-daynum,.rail-up-sub,.panel-stat-label) { color: #9fb0c4; }
+/* Two-class selectors that outrank the catch-all — lift explicitly. */
+html[data-theme="dark"] .mini-cal-cell.mini-has,
+html[data-theme="dark"] .mini-cal-cell.mini-today { color: #eef2f8 !important; }
 /* Decorative navy icons → soft accent so they read on dark. */
 html[data-theme="dark"] .res-icon { color: #8ab4ff; }
 
@@ -1378,6 +1381,13 @@ html[data-theme="dark"] .tmpl-phase,
 html[data-theme="dark"] .res-form { background: #1b2537 !important; border-color: #2b3a52 !important; }
 html[data-theme="dark"] .tmpl-phase-name { background: #131d2c !important; border-color: #2b3a52 !important; color: #e7edf6 !important; }
 html[data-theme="dark"] .pm-close { background: #1b2537 !important; color: #c2cddd !important; }
+
+/* Community cards: the name + "open actions" pill use two-class selectors that
+   escape the catch-all text lift, so target them explicitly. */
+html[data-theme="dark"] .community-card .card-title { color: #eef2f8 !important; }
+html[data-theme="dark"] .community-card .card-date { color: #9fb0c4 !important; }
+html[data-theme="dark"] .action-items { background: #1b2537 !important; color: #c2cddd !important; border-color: #2b3a52 !important; }
+html[data-theme="dark"] .action-items.has-actions { background: rgba(209,50,18,.18) !important; color: #ff9d85 !important; border-color: rgba(209,50,18,.4) !important; }
 
 /* Action-item themed header (soft red wash) → dark maroon so it doesn't glare */
 html[data-theme="dark"] .card-image-themed {
