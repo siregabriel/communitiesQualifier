@@ -57,7 +57,14 @@
                 radial-gradient(950px 500px at 105% -5%, rgba(30,64,120,.16), transparent 55%),
                 linear-gradient(180deg, #0b1220 0%, #0c1424 42%, #0e1728 100%) !important;
         }
-        html[data-theme="dark"] .sidebar { background: #0f1826 !important; }
+        html[data-theme="dark"] .sidebar { background: #131d2c !important; }
+        /* Sidebar text was tuned for the lighter default sidebar; brighten it in dark mode. */
+        html[data-theme="dark"] .nav-item { color: rgba(255,255,255,0.92) !important; }
+        html[data-theme="dark"] .nav-item i { color: rgba(255,255,255,0.75); }
+        html[data-theme="dark"] .nav-item:hover { color: #ffffff !important; background: rgba(255,255,255,0.07) !important; }
+        html[data-theme="dark"] .welcome-text { color: #ffffff !important; }
+        html[data-theme="dark"] .sidebar-logo span { color: #eaf0f8; }
+        html[data-theme="dark"] .sidebar-copyright { color: rgba(255,255,255,0.55) !important; }
         html[data-theme="dark"] .header-left h1 { color: var(--text) !important; }
         html[data-theme="dark"] .header-left p { color: var(--text-muted) !important; }
         /* Card / panel surfaces */
