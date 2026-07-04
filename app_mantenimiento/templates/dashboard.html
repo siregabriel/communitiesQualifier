@@ -16,11 +16,131 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Apply the saved (or system) theme before first paint to avoid a flash.
+        (function () {
+            try {
+                var t = localStorage.getItem('atlasTheme');
+                if (t !== 'light' && t !== 'dark') {
+                    t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {}
+        })();
+    </script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        /* ===================== Theme tokens + dark mode ===================== */
+        :root {
+            --surface: #ffffff; --surface-2: #f8fafc; --surface-3: #f1f5f9;
+            --border: #d9dfe8; --border-2: #eef1f6;
+            --text: #0f1e36; --text-2: #475569; --text-muted: #64748b; --text-faint: #94a3b8;
+            --track: #eef1f6; --hover: rgba(0,40,92,.03); --kpi-navy: #00285c;
+        }
+        html[data-theme="dark"] {
+            --surface: #161f2e; --surface-2: #1b2537; --surface-3: #212d42;
+            --border: #2b3a52; --border-2: #26324a;
+            --text: #e7edf6; --text-2: #c2cddd; --text-muted: #9fb0c4; --text-faint: #8595ac;
+            --track: #26324a; --hover: rgba(255,255,255,.045); --kpi-navy: #7db0ff;
+            color-scheme: dark;
+        }
+        /* Base surfaces */
+        html[data-theme="dark"] body { background: #0b1220 !important; color: var(--text); }
+        html[data-theme="dark"] .main-content {
+            background:
+                radial-gradient(1100px 520px at 15% -10%, rgba(31,111,229,.10), transparent 60%),
+                radial-gradient(950px 500px at 105% -5%, rgba(30,64,120,.16), transparent 55%),
+                linear-gradient(180deg, #0b1220 0%, #0c1424 42%, #0e1728 100%) !important;
+        }
+        html[data-theme="dark"] .sidebar { background: #0f1826 !important; }
+        html[data-theme="dark"] .header-left h1 { color: var(--text) !important; }
+        html[data-theme="dark"] .header-left p { color: var(--text-muted) !important; }
+        /* Card / panel surfaces */
+        html[data-theme="dark"] .kpi,
+        html[data-theme="dark"] .dash-card,
+        html[data-theme="dark"] .skel-card,
+        html[data-theme="dark"] .std-sheet,
+        html[data-theme="dark"] .tour-card,
+        html[data-theme="dark"] .pm-card,
+        html[data-theme="dark"] .lb-card,
+        html[data-theme="dark"] .cal-detail,
+        html[data-theme="dark"] .cal-cell,
+        html[data-theme="dark"] .mi-phase,
+        html[data-theme="dark"] .res-card,
+        html[data-theme="dark"] .modal-content,
+        html[data-theme="dark"] .slide-panel,
+        html[data-theme="dark"] .filter-section,
+        html[data-theme="dark"] #calDayTip {
+            background: var(--surface) !important;
+            border-color: var(--border) !important;
+            color: var(--text);
+        }
+        html[data-theme="dark"] .slide-panel-body,
+        html[data-theme="dark"] .modal-body { background: var(--surface) !important; color: var(--text); }
+        html[data-theme="dark"] .slide-panel-header,
+        html[data-theme="dark"] .modal-header { background: var(--surface-2) !important; border-color: var(--border) !important; }
+        html[data-theme="dark"] .std-sheet-close,
+        html[data-theme="dark"] .slide-panel-close { background: var(--surface-3) !important; color: var(--text-2) !important; }
+        /* Headings + text */
+        html[data-theme="dark"] .dash-card h3,
+        html[data-theme="dark"] .dash-row-name,
+        html[data-theme="dark"] .dash-row-name-text,
+        html[data-theme="dark"] .dash-bars-label,
+        html[data-theme="dark"] .rail-up-title,
+        html[data-theme="dark"] .slide-panel-title h2 { color: var(--text) !important; }
+        html[data-theme="dark"] .dash-row-sub,
+        html[data-theme="dark"] .dash-empty,
+        html[data-theme="dark"] .dash-muted,
+        html[data-theme="dark"] .kpi-lbl,
+        html[data-theme="dark"] .rail-up-sub,
+        html[data-theme="dark"] .std-sheet-body,
+        html[data-theme="dark"] .slide-panel-subtitle { color: var(--text-muted) !important; }
+        /* Rows / tracks / hovers / borders */
+        html[data-theme="dark"] .dash-row { border-top-color: var(--border-2) !important; }
+        html[data-theme="dark"] .dash-row:hover,
+        html[data-theme="dark"] .dash-bars-row-link:hover,
+        html[data-theme="dark"] .rail-up-row:hover { background: var(--hover) !important; }
+        html[data-theme="dark"] .dash-bar { background: var(--track) !important; }
+        html[data-theme="dark"] .dash-chev { color: #5b6b83 !important; }
+        html[data-theme="dark"] .dash-pill { background: rgba(209,50,18,.18) !important; color: #ff9d85 !important; }
+        html[data-theme="dark"] .dash-new-badge { background: rgba(15,138,95,.16) !important; border-color: rgba(15,138,95,.4) !important; color: #4ecb98 !important; }
+        /* Inputs */
+        html[data-theme="dark"] input,
+        html[data-theme="dark"] select,
+        html[data-theme="dark"] textarea {
+            background: var(--surface-2) !important; color: var(--text) !important; border-color: var(--border) !important;
+        }
+        /* Skeleton shimmer */
+        html[data-theme="dark"] .skel,
+        html[data-theme="dark"] .skel-card .skel { background: linear-gradient(90deg, #1b2537 25%, #243044 37%, #1b2537 63%) !important; background-size: 400% 100%; }
+
+        /* ===================== Draggable dashboard (desktop only) ===================== */
+        .dash-drag {
+            cursor: grab; color: #c2cad6; margin-right: 2px; padding: 2px 4px;
+            border-radius: 6px; display: none; flex-shrink: 0;
+        }
+        .dash-drag:hover { background: rgba(31,111,229,.10); color: #1f6fe5; }
+        .dash-drag:active { cursor: grabbing; }
+        html[data-theme="dark"] .dash-drag { color: #5b6b83; }
+        html[data-theme="dark"] .dash-drag:hover { background: rgba(31,111,229,.18); color: #7db0ff; }
+        .dash-dragging { opacity: .5; outline: 2px dashed #1f6fe5; outline-offset: 3px; }
+        .dash-toolbar { display: none; }
+        .dash-reset {
+            background: none; border: none; color: #64748b; font-size: 12px; font-weight: 600;
+            cursor: pointer; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .dash-reset:hover { background: rgba(0,40,92,.05); color: #0f1e36; }
+        html[data-theme="dark"] .dash-reset { color: var(--text-muted); }
+        html[data-theme="dark"] .dash-reset:hover { background: rgba(255,255,255,.05); color: var(--text); }
+        /* Only expose drag affordances + reset toolbar on desktop widths. */
+        @media (min-width: 992px) {
+            .dash-drag { display: inline-flex; }
+            .dash-toolbar { display: flex; justify-content: flex-end; margin-bottom: -6px; }
         }
 
         body {
@@ -1604,6 +1724,7 @@
                 </div>
                 <div class="header-actions">
                     <a href="/questions/manage" class="btn btn-primary" id="questionManagerBtn" style="display: none; text-decoration: none;"><i class="fas fa-clipboard-list"></i> Question Manager</a>
+                    <button class="btn btn-secondary" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
                     <button class="btn btn-secondary" id="headerHelpBtn" onclick="contextHelp()" title="Show the tutorial for this screen"><i class="fas fa-circle-question"></i> Help</button>
                     <button class="btn btn-secondary" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
                 </div>
@@ -1903,6 +2024,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             console.log('🚀 Dashboard loaded');
             testButtons();
+            _updateThemeIcon();
         });
 
         // Score Calculation Function
@@ -3495,12 +3617,12 @@
 
             const kpis = [
                 { val: avgScore === null ? 'N/A' : avgScore + '%', lbl: 'Average score', color: scoreColor(avgScore) },
-                { val: `${visitedThisMonth}/${totalComms}`, lbl: 'Visited this month', color: '#00285c' },
+                { val: `${visitedThisMonth}/${totalComms}`, lbl: 'Visited this month', color: 'var(--kpi-navy)' },
                 { val: totalActions, lbl: 'Open action items', color: totalActions > 0 ? '#d13212' : '#0f8a5f' },
-                { val: inspectionsThisMonth, lbl: 'Inspections this month', color: '#00285c' },
+                { val: inspectionsThisMonth, lbl: 'Inspections this month', color: 'var(--kpi-navy)' },
             ];
             const kpiHtml = kpis.map(k =>
-                `<div class="kpi"><div class="kpi-val" style="color:${k.color}">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`
+                `<div class="kpi" data-kpi="${k.lbl}"><div class="kpi-val" style="color:${k.color}">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`
             ).join('');
 
             // --- Needs attention ---
@@ -3667,14 +3789,13 @@
             <div class="dash-layout">
               <div class="dash-main">
                 <div class="dash-wrap">
-                    <div class="dash-kpis">${kpiHtml}</div>
-                    <div class="dash-grid">
-                        <div class="dash-card"><h3><i class="fas fa-triangle-exclamation"></i> Needs attention</h3>${attentionHtml}</div>
-                        <div class="dash-card"><h3><i class="fas fa-sitemap"></i> Performance by region</h3>${regionHtml}</div>
-                    </div>
-                    <div class="dash-grid">
-                        <div class="dash-card"><h3><i class="fas fa-clipboard-check"></i> Weakest standards</h3>${weakestHtml}</div>
-                        <div class="dash-card"><h3><i class="fas fa-clock-rotate-left"></i> Recent activity</h3>${recentHtml}</div>
+                    <div class="dash-toolbar"><button class="dash-reset" id="dashResetBtn" onclick="resetDashLayout()"><i class="fas fa-rotate-left"></i> Reset layout</button></div>
+                    <div class="dash-kpis" id="dashKpis">${kpiHtml}</div>
+                    <div class="dash-grid" id="dashMainGrid">
+                        <div class="dash-card" data-card="attention"><h3><i class="fas fa-triangle-exclamation"></i> Needs attention</h3>${attentionHtml}</div>
+                        <div class="dash-card" data-card="region"><h3><i class="fas fa-sitemap"></i> Performance by region</h3>${regionHtml}</div>
+                        <div class="dash-card" data-card="weakest"><h3><i class="fas fa-clipboard-check"></i> Weakest standards</h3>${weakestHtml}</div>
+                        <div class="dash-card" data-card="recent"><h3><i class="fas fa-clock-rotate-left"></i> Recent activity</h3>${recentHtml}</div>
                     </div>
                     <div class="dash-grid dash-only-mobile">
                         <div class="dash-card"><h3><i class="fas fa-calendar-days"></i> This month</h3>${dashMiniCalendarHtml()}</div>
@@ -3687,6 +3808,113 @@
                 <div class="dash-card"><h3><i class="fas fa-clock"></i> Upcoming</h3>${dashRailUpcomingHtml()}</div>
               </div>
             </div>`;
+            setupDashLayout();
+        }
+
+        // ===================== Draggable dashboard grid (desktop only) =====================
+        // Two independent sortable zones: the KPI strip and the 2x2 main grid.
+        // Order is saved per browser; on mobile the default order is left untouched.
+        const DASH_ZONES = [
+            { id: 'dashKpis', key: 'atlasDashOrder_kpi', attr: 'data-kpi' },
+            { id: 'dashMainGrid', key: 'atlasDashOrder_main', attr: 'data-card' },
+        ];
+        let _dashDragged = null;
+
+        function _dashIsDesktop() {
+            return window.matchMedia('(min-width: 992px)').matches;
+        }
+
+        function _dashCards(zone) {
+            const c = document.getElementById(zone.id);
+            if (!c) return [];
+            return Array.from(c.querySelectorAll(':scope > [' + zone.attr + ']'));
+        }
+
+        function _dashApplyOrder(zone) {
+            const container = document.getElementById(zone.id);
+            if (!container) return;
+            let saved;
+            try { saved = JSON.parse(localStorage.getItem(zone.key) || 'null'); } catch (e) { saved = null; }
+            if (!Array.isArray(saved)) return;
+            const byKey = {};
+            _dashCards(zone).forEach(el => { byKey[el.getAttribute(zone.attr)] = el; });
+            saved.forEach(k => { if (byKey[k]) container.appendChild(byKey[k]); });
+        }
+
+        function _dashSaveOrder(zone) {
+            const order = _dashCards(zone).map(el => el.getAttribute(zone.attr));
+            try { localStorage.setItem(zone.key, JSON.stringify(order)); } catch (e) {}
+        }
+
+        function _dashEnableDrag(zone) {
+            const container = document.getElementById(zone.id);
+            if (!container) return;
+            _dashCards(zone).forEach(card => {
+                // Insert a grip handle (once) — only the handle starts a drag,
+                // so clicking rows inside a card still works normally.
+                let handle = card.querySelector(':scope > h3 > .dash-drag, :scope > .dash-drag');
+                if (!handle) {
+                    handle = document.createElement('span');
+                    handle.className = 'dash-drag';
+                    handle.title = 'Drag to reorder';
+                    handle.setAttribute('draggable', 'true');
+                    handle.innerHTML = '<i class="fas fa-grip-vertical"></i>';
+                    const h3 = card.querySelector(':scope > h3');
+                    if (h3) h3.insertBefore(handle, h3.firstChild);
+                    else card.insertBefore(handle, card.firstChild);
+                }
+                handle.ondragstart = (e) => {
+                    _dashDragged = card;
+                    card.classList.add('dash-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    try { e.dataTransfer.setData('text/plain', card.getAttribute(zone.attr)); } catch (err) {}
+                };
+                handle.ondragend = () => {
+                    card.classList.remove('dash-dragging');
+                    _dashDragged = null;
+                    _dashSaveOrder(zone);
+                };
+                card.ondragover = (e) => {
+                    if (!_dashDragged || _dashDragged === card) return;
+                    // Only reorder within the same zone.
+                    if (card.parentElement !== _dashDragged.parentElement) return;
+                    e.preventDefault();
+                    const r = card.getBoundingClientRect();
+                    const midX = r.left + r.width / 2, midY = r.top + r.height / 2;
+                    let before;
+                    if (e.clientY < midY - 6) before = true;
+                    else if (e.clientY > midY + 6) before = false;
+                    else before = e.clientX < midX;
+                    container.insertBefore(_dashDragged, before ? card : card.nextSibling);
+                };
+            });
+        }
+
+        function setupDashLayout() {
+            if (!_dashIsDesktop()) return; // mobile stays exactly as-is
+            DASH_ZONES.forEach(z => { _dashApplyOrder(z); _dashEnableDrag(z); });
+        }
+
+        function resetDashLayout() {
+            DASH_ZONES.forEach(z => { try { localStorage.removeItem(z.key); } catch (e) {} });
+            if (typeof renderDashboard === 'function') renderDashboard();
+        }
+
+        // ===================== Light / dark theme =====================
+        function _updateThemeIcon() {
+            const btn = document.getElementById('themeToggleBtn');
+            if (!btn) return;
+            const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+            btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+        }
+
+        function toggleTheme() {
+            const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            const next = cur === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            try { localStorage.setItem('atlasTheme', next); } catch (e) {}
+            _updateThemeIcon();
         }
 
         function renderMyVisits() {

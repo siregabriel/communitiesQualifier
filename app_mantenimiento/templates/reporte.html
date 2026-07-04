@@ -19,12 +19,48 @@
     
     <!-- Anime.js for premium animations -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('atlasTheme');
+                if (t !== 'light' && t !== 'dark') {
+                    t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {}
+        })();
+    </script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+
+        /* ===================== Dark mode ===================== */
+        html[data-theme="dark"] { color-scheme: dark; }
+        html[data-theme="dark"] body { background: #0b1220 !important; color: #e7edf6; }
+        html[data-theme="dark"] .container,
+        html[data-theme="dark"] .question-section,
+        html[data-theme="dark"] .success-card,
+        html[data-theme="dark"] .file-upload-wrapper,
+        html[data-theme="dark"] .tour-card {
+            background: #161f2e !important; border-color: #2b3a52 !important; color: #e7edf6;
+        }
+        html[data-theme="dark"] .header-left h1,
+        html[data-theme="dark"] .question-text,
+        html[data-theme="dark"] label { color: #e7edf6 !important; }
+        html[data-theme="dark"] .header-left p,
+        html[data-theme="dark"] .tour-card p { color: #9fb0c4 !important; }
+        html[data-theme="dark"] .form-group,
+        html[data-theme="dark"] .condition-rating,
+        html[data-theme="dark"] .radio-label { background: #1b2537 !important; border-color: #2b3a52 !important; color: #e7edf6; }
+        html[data-theme="dark"] input,
+        html[data-theme="dark"] select,
+        html[data-theme="dark"] textarea {
+            background: #1b2537 !important; color: #e7edf6 !important; border-color: #2b3a52 !important;
+        }
+        html[data-theme="dark"] .tour-btn-ghost { background: #1b2537 !important; color: #c2cddd !important; border-color: #2b3a52 !important; }
 
         body {
             font-family: 'Inter', sans-serif;
@@ -861,6 +897,7 @@
                 {% endif %}
             </div>
             <div style="display:flex;gap:10px;align-items:flex-start;">
+                <button class="logout-btn" type="button" id="themeToggleBtn" onclick="toggleTheme()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#00285c;" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
                 <button class="logout-btn" type="button" onclick="startFormTour()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#00285c;" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
@@ -1497,6 +1534,21 @@
         function logout() {
             if (confirm('Logout?')) window.location.href = '/logout';
         }
+
+        function _updateThemeIcon() {
+            var b = document.getElementById('themeToggleBtn'); if (!b) return;
+            var d = document.documentElement.getAttribute('data-theme') === 'dark';
+            b.innerHTML = d ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            b.title = d ? 'Switch to light mode' : 'Switch to dark mode';
+        }
+        function toggleTheme() {
+            var c = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            var n = c === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', n);
+            try { localStorage.setItem('atlasTheme', n); } catch (e) {}
+            _updateThemeIcon();
+        }
+        document.addEventListener('DOMContentLoaded', _updateThemeIcon);
 
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {

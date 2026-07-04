@@ -16,6 +16,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('atlasTheme');
+                if (t !== 'light' && t !== 'dark') {
+                    t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {}
+        })();
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; }
@@ -24,6 +35,25 @@
             background: #ffffff !important;
             color: #0f1e36;
         }
+
+        /* ===================== Dark mode (right form panel) ===================== */
+        html[data-theme="dark"] { color-scheme: dark; }
+        html[data-theme="dark"] body { background: #0b1220 !important; color: #e7edf6; }
+        html[data-theme="dark"] .login-right { background: #0f1826 !important; }
+        html[data-theme="dark"] .login-card h1 { color: #e7edf6 !important; }
+        html[data-theme="dark"] .form-group label { color: #b9c5d6 !important; }
+        html[data-theme="dark"] input[type="text"],
+        html[data-theme="dark"] input[type="password"] {
+            background: #1b2537 !important; color: #e7edf6 !important; border-color: #2b3a52 !important;
+        }
+        html[data-theme="dark"] input::placeholder { color: #6b7a90 !important; }
+        html[data-theme="dark"] .theme-toggle-float { color: #b9c5d6; }
+        .theme-toggle-float {
+            position: fixed; top: 16px; right: 18px; z-index: 5; background: rgba(255,255,255,.85);
+            border: 1px solid #d9dfe8; color: #475569; width: 38px; height: 38px; border-radius: 10px;
+            cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;
+        }
+        html[data-theme="dark"] .theme-toggle-float { background: rgba(22,31,46,.85); border-color: #2b3a52; color: #cbd5e1; }
 
         .login-split { display: flex; min-height: 100vh; }
 
@@ -171,6 +201,7 @@
     </style>
 </head>
 <body>
+    <button class="theme-toggle-float" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
     <div class="login-split">
         <section class="login-left">
             <div class="login-left-inner">
@@ -278,6 +309,21 @@
                 navigator.serviceWorker.register('/static/service-worker.js').catch(() => {});
             });
         }
+
+        function _updateThemeIcon() {
+            var b = document.getElementById('themeToggleBtn'); if (!b) return;
+            var d = document.documentElement.getAttribute('data-theme') === 'dark';
+            b.innerHTML = d ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            b.title = d ? 'Switch to light mode' : 'Switch to dark mode';
+        }
+        function toggleTheme() {
+            var c = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            var n = c === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', n);
+            try { localStorage.setItem('atlasTheme', n); } catch (e) {}
+            _updateThemeIcon();
+        }
+        document.addEventListener('DOMContentLoaded', _updateThemeIcon);
     </script>
 
     <!-- Subtle network pattern behind the form -->
