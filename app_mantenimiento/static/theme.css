@@ -1218,3 +1218,93 @@ textarea:focus {
     text-align: left !important;
     border-top: 1px solid #eef0f3 !important;
 }
+
+/* ==========================================================================
+   DARK MODE  (added 2026-07)
+   Overrides the light AWS skin above whenever <html data-theme="dark">.
+   This file loads last, so these win over the light rules. The sidebar is
+   themed from the page templates; here we cover the main content surfaces,
+   tables, text and inputs so every view (Reports, Resources, Communities,
+   Regions, Profile, My Visits, …) reads correctly on dark.
+   ========================================================================== */
+html[data-theme="dark"] { --bg: #0b1220; --line: #2b3a52; }
+html[data-theme="dark"] body { background: #0b1220 !important; color: #e7edf6; }
+
+/* Panels the skin paints pure white → dark surface */
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .community-card,
+html[data-theme="dark"] .response-card,
+html[data-theme="dark"] .panel-stat-card,
+html[data-theme="dark"] .survey-type-label,
+html[data-theme="dark"] .visit-row,
+html[data-theme="dark"] .region-card,
+html[data-theme="dark"] .region-stat,
+html[data-theme="dark"] .profile-header,
+html[data-theme="dark"] .profile-section,
+html[data-theme="dark"] .profile-stat,
+html[data-theme="dark"] .content-section,
+html[data-theme="dark"] .table-container,
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .res-wrap,
+html[data-theme="dark"] .res-card {
+    background: #161f2e !important;
+    border-color: #2b3a52 !important;
+    color: #e7edf6;
+}
+html[data-theme="dark"] .card:hover,
+html[data-theme="dark"] .community-card:hover,
+html[data-theme="dark"] .visit-row:hover,
+html[data-theme="dark"] .region-card:hover,
+html[data-theme="dark"] .profile-stat-clickable:hover { border-color: #3b4d6b !important; }
+
+/* Headings + body text lifted off the dark surfaces */
+html[data-theme="dark"] .main-content { color: #e7edf6; }
+html[data-theme="dark"] .main-content h1,
+html[data-theme="dark"] .main-content h2,
+html[data-theme="dark"] .main-content h3,
+html[data-theme="dark"] .main-content h4 { color: #eef2f8 !important; }
+html[data-theme="dark"] .panel-stat-label,
+html[data-theme="dark"] .region-stat-label,
+html[data-theme="dark"] .profile-sub,
+html[data-theme="dark"] .muted,
+html[data-theme="dark"] .text-muted { color: #9fb0c4 !important; }
+
+/* Tables (incl. the inline-styled report tables) */
+html[data-theme="dark"] table thead th,
+html[data-theme="dark"] table thead tr { background: #1b2537 !important; color: #c2cddd !important; border-bottom-color: #2b3a52 !important; }
+html[data-theme="dark"] table td,
+html[data-theme="dark"] table th { border-color: #2b3a52 !important; }
+html[data-theme="dark"] table tbody tr { border-color: #2b3a52 !important; }
+html[data-theme="dark"] table tbody tr:hover,
+html[data-theme="dark"] table tbody tr:hover td { background: rgba(255,255,255,.04) !important; }
+
+/* Inputs */
+html[data-theme="dark"] input[type="text"],
+html[data-theme="dark"] input[type="password"],
+html[data-theme="dark"] input[type="email"],
+html[data-theme="dark"] input[type="search"],
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+    background: #1b2537 !important; color: #e7edf6 !important; border-color: #2b3a52 !important;
+}
+
+/* Small ghost/utility buttons that were white */
+html[data-theme="dark"] .res-replace,
+html[data-theme="dark"] .res-del,
+html[data-theme="dark"] .mi-attach-btn,
+html[data-theme="dark"] .tmpl-mini-btn { background: #1b2537 !important; border-color: #2b3a52 !important; color: #c2cddd !important; }
+html[data-theme="dark"] .res-btn-ghost { background: #1b2537 !important; color: #cfe0ff !important; border-color: #3b4d6b !important; }
+
+/* Catch-all: lift class-based dark ink text inside the content area so nothing
+   is dark-on-dark. `:where()` keeps this at very low specificity, so any status
+   color (.danger/.success), accent icon, link, or inline color still wins. */
+html[data-theme="dark"] :where(.main-content) :where(h1,h2,h3,h4,h5,h6,p,span,div,td,li,label,strong,b,small,i) { color: #d7e0ec; }
+/* Secondary/muted text stays a touch dimmer to preserve hierarchy. */
+html[data-theme="dark"] .main-content :where(.res-desc,.dash-row-sub,.pp-bar-val,.cal-daynum,.rail-up-sub,.panel-stat-label) { color: #9fb0c4; }
+/* Decorative navy icons → soft accent so they read on dark. */
+html[data-theme="dark"] .res-icon { color: #8ab4ff; }
+
+/* Filter chips (Reports) */
+html[data-theme="dark"] .chip span { background: #1b2537 !important; border-color: #2b3a52 !important; color: #c2cddd !important; }
+html[data-theme="dark"] .chip:hover span { border-color: #7db0ff !important; color: #eaf2ff !important; }
+html[data-theme="dark"] .chip input:checked + span { background: #1f6fe5 !important; border-color: #1f6fe5 !important; color: #fff !important; }

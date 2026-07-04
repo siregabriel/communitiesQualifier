@@ -4995,7 +4995,7 @@
                     <span class="pp-row-name">${escapeHtml(r.name)}</span>
                     <span class="pp-row-meta">${r.actions > 0 ? `<span class="dash-pill" style="background:#fef2f2;color:#d13212;padding:2px 8px;border-radius:999px;font-weight:700;">${r.actions} open</span> · ` : ''}Last: ${escapeHtml(r.last)} · <b style="color:${sc(r.score)}">${r.score === null ? 'N/A' : r.score + '%'}</b></span>
                 </div>`).join('') : '<div class="no-data">No communities in this region.</div>';
-            const card = 'background:#fff;border:1px solid #d9dfe8;border-radius:12px;padding:22px 24px;';
+            const card = 'background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 24px;';
             const back = regionViewReturn || 'dashboard';
             gallery.innerHTML = `<div style="grid-column:1/-1;max-width:100%; padding:0 70px;">
                 <button class="btn btn-secondary" onclick="showView('${back}')" style="margin-bottom:16px;"><i class="fas fa-arrow-left"></i> Back</button>
@@ -5745,7 +5745,7 @@
             const inspChecks = esInspectors.map(n =>
                 `<label class="chip"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" onchange="onScopeToggle(this)" ${subInsp.includes(n) ? 'checked' : ''}><span>${escapeHtml(n)}</span></label>`
             ).join('');
-            return `<div class="sub-row" style="border:1px solid #d9dfe8;border-radius:10px;padding:16px 18px;background:#fff;">
+            return `<div class="sub-row" style="border:1px solid var(--border);border-radius:10px;padding:16px 18px;background:var(--surface);">
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <input class="pw-input sub-email" type="email" placeholder="email" value="${escapeHtml(sub.email || '')}" style="flex:1;min-width:200px;">
                     <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;min-width:160px;">
@@ -6087,7 +6087,7 @@
                     <div id="leaderboardHost"></div>
 
                     <!-- Survey Type Breakdown -->
-                    <div style="background: white; padding: 32px; border-radius: 10px; border: 1px solid #d9dfe8;">
+                    <div style="background: var(--surface); padding: 32px; border-radius: 10px; border: 1px solid var(--border);">
                         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-chart-pie"></i> Survey Type Breakdown</h3>
                         <div style="display: grid; gap: 12px;">
                             ${Object.values(surveyTypeBreakdown).map(type => {
@@ -6114,7 +6114,7 @@
                     
                     <!-- Top tables side by side -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 24px;">
-                    <div style="background: white; padding: 32px; border-radius: 10px; border: 1px solid #d9dfe8;">
+                    <div style="background: var(--surface); padding: 32px; border-radius: 10px; border: 1px solid var(--border);">
                         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-trophy"></i> Top Performing Communities</h3>
                         <div style="overflow-x: auto;">
                             <table style="width: 100%; border-collapse: collapse;">
@@ -6152,7 +6152,7 @@
                     </div>
 
                     <!-- Top Performers -->
-                    <div style="background: white; padding: 32px; border-radius: 10px; border: 1px solid #d9dfe8;">
+                    <div style="background: var(--surface); padding: 32px; border-radius: 10px; border: 1px solid var(--border);">
                         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-medal"></i> Top Performers</h3>
                         ${topPerformers.length === 0 ? `
                             <div style="color:#64748b; font-size:14px; padding: 8px 0;">No visits reported yet.</div>
@@ -6191,9 +6191,9 @@
                     </div>
 
                     <!-- Export Options -->
-                    <div style="background: #fff; padding: 24px; border-radius: 10px; border: 1px solid #d9dfe8;">
+                    <div style="background: var(--surface); padding: 24px; border-radius: 10px; border: 1px solid var(--border);">
                         <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1e40af;"><i class="fas fa-download"></i> Export Reports</h3>
-                        <p style="font-size: 14px; color: #1e40af; margin-bottom: 16px;">Download detailed reports for further analysis</p>
+                        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">Download detailed reports for further analysis</p>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                             <button onclick="exportReport('csv')" style="padding: 10px 20px; background: #00285c; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
                                 <i class="fas fa-file-csv"></i> Export CSV
