@@ -510,13 +510,13 @@
 
         .gallery {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
             gap: 24px;
         }
 
         /* Compact layout (used by Action Items): smaller cards, ~4 columns */
         .gallery.gallery-compact {
-            grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(225px, 100%), 1fr));
             gap: 16px;
         }
         .gallery-compact .card-image,
@@ -1438,7 +1438,12 @@
             .main-content {
                 margin-left: 0;
                 padding-bottom: 104px; /* clear the mobile bottom tab bar + raised New Visit button */
+                overflow-x: hidden;    /* never scroll sideways on mobile */
             }
+            html, body { overflow-x: hidden; max-width: 100%; }
+            /* KPIs: force two shrink-to-fit columns so the row can't exceed the
+               viewport (auto-fit at ~160px min tipped into a 1px overflow). */
+            .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 
             /* The floating "Start New Visit" button is redundant on mobile —
                the bottom tab bar already has "New Visit". Hide it here. */
