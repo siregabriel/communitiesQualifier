@@ -1,0 +1,58 @@
+{# Mobile-only liquid-glass bottom tab bar. Include with an optional
+   {% set tabbar_active = 'home'|'my-visits'|'new-visit'|'move-ins'|'calendar' %}
+   before the include to mark the active tab on static pages. On the dashboard
+   SPA the active tab is updated live by updateMobileTab() in JS. #}
+<style>
+    .mtab { display: none; }
+    @media (max-width: 768px) {
+        .mtab {
+            display: flex; position: fixed; z-index: 900;
+            left: 10px; right: 10px; bottom: 10px;
+            align-items: center; justify-content: space-around;
+            padding: 7px 4px; border-radius: 24px;
+            background: rgba(255,255,255,.62);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+            backdrop-filter: blur(22px) saturate(180%);
+            border: 1px solid rgba(255,255,255,.7);
+            box-shadow: 0 10px 30px rgba(2,12,34,.18), inset 0 1px 0 rgba(255,255,255,.9);
+        }
+    }
+    .mtab-item {
+        flex: 1; min-width: 0; text-decoration: none;
+        display: flex; flex-direction: column; align-items: center; gap: 3px;
+        padding: 6px 2px; border-radius: 15px; -webkit-tap-highlight-color: transparent;
+        transition: background .2s ease;
+    }
+    .mtab-ic { font-size: 19px; line-height: 1; color: #8a97a8; transition: color .2s ease, transform .2s cubic-bezier(.2,.8,.2,1); }
+    .mtab-lb { font-size: 10px; font-weight: 600; color: #8a97a8; white-space: nowrap; }
+    .mtab-item.on { background: rgba(31,111,229,.14); }
+    .mtab-item.on .mtab-ic { color: #1f6fe5; transform: translateY(-1px); }
+    .mtab-item.on .mtab-lb { color: #1f6fe5; font-weight: 800; }
+    .mtab-item:active .mtab-ic { transform: scale(.9); }
+    /* Dark mode (only applies when a page sets data-theme="dark") */
+    html[data-theme="dark"] .mtab {
+        background: rgba(22,31,46,.72); border-color: rgba(255,255,255,.12);
+        box-shadow: 0 10px 30px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    html[data-theme="dark"] .mtab-ic, html[data-theme="dark"] .mtab-lb { color: #9fb0c4; }
+    html[data-theme="dark"] .mtab-item.on { background: rgba(31,111,229,.24); }
+    html[data-theme="dark"] .mtab-item.on .mtab-ic,
+    html[data-theme="dark"] .mtab-item.on .mtab-lb { color: #7db0ff; }
+</style>
+<nav class="mtab" aria-label="Quick navigation">
+    <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'home' else '' }}" data-tab="home" data-view="dashboard" href="/dashboard">
+        <span class="mtab-ic"><i class="fas fa-gauge-high"></i></span><span class="mtab-lb">Home</span>
+    </a>
+    <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'my-visits' else '' }}" data-tab="my-visits" data-view="my-visits" href="/dashboard?view=my-visits">
+        <span class="mtab-ic"><i class="fas fa-file-lines"></i></span><span class="mtab-lb">My Visits</span>
+    </a>
+    <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'new-visit' else '' }}" data-tab="new-visit" href="/select-survey-type">
+        <span class="mtab-ic"><i class="fas fa-square-plus"></i></span><span class="mtab-lb">New Visit</span>
+    </a>
+    <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'move-ins' else '' }}" data-tab="move-ins" data-view="move-ins" href="/dashboard?view=move-ins">
+        <span class="mtab-ic"><i class="fas fa-house-circle-check"></i></span><span class="mtab-lb">Move-Ins</span>
+    </a>
+    <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'calendar' else '' }}" data-tab="calendar" data-view="calendar" href="/dashboard?view=calendar">
+        <span class="mtab-ic"><i class="fas fa-calendar-days"></i></span><span class="mtab-lb">Calendar</span>
+    </a>
+</nav>

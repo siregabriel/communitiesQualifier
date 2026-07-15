@@ -570,5 +570,16 @@
         // Load survey types when page loads
         document.addEventListener('DOMContentLoaded', loadSurveyTypes);
     </script>
+
+    <style>
+        /* Lift the fixed Continue button above the mobile tab bar, and give the
+           page enough bottom room so the last card clears both. */
+        @media (max-width: 768px) {
+            body { padding-bottom: 176px; }
+            .continue-btn-container { bottom: 82px; }
+        }
+    </style>
+    {% set tabbar_active = 'new-visit' %}
+    {% include 'mobile_tabbar.html' %}
 </body>
 </html>

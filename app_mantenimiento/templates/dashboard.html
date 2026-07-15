@@ -1437,6 +1437,7 @@
 
             .main-content {
                 margin-left: 0;
+                padding-bottom: 92px; /* clear the mobile bottom tab bar */
             }
 
             .mobile-menu-toggle {
@@ -3334,6 +3335,7 @@
         function showView(view) {
             console.log(`<i class="fas fa-location-dot card-emoji"></i> showView called with view: ${view}`);
             currentView = view;
+            if (typeof updateMobileTab === 'function') updateMobileTab(view);
 
             // Keep the URL in sync with the current section so a refresh returns
             // here (instead of re-reading a stale ?view= from when the page first
@@ -6787,6 +6789,23 @@
                 }
             });
         }
+    </script>
+
+    {% include 'mobile_tabbar.html' %}
+    <script>
+        // Mobile bottom tab bar: highlight the active tab and, on the dashboard
+        // SPA, navigate via showView (smoother than a full page load). "New Visit"
+        // has no data-view, so it follows its href to the start-visit flow.
+        function updateMobileTab(view) {
+            const map = { 'dashboard': 'home', 'my-visits': 'my-visits', 'move-ins': 'move-ins', 'calendar': 'calendar' };
+            const tab = map[view] || null;
+            document.querySelectorAll('.mtab-item').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
+        }
+        document.addEventListener('click', function (e) {
+            const a = e.target.closest('.mtab-item[data-view]');
+            if (a && typeof showView === 'function') { e.preventDefault(); showView(a.dataset.view); }
+        });
+        document.addEventListener('DOMContentLoaded', () => updateMobileTab(typeof currentView !== 'undefined' ? currentView : 'dashboard'));
     </script>
 </body>
 </html>
