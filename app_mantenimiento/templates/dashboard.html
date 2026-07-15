@@ -1440,6 +1440,12 @@
                 padding-bottom: 92px; /* clear the mobile bottom tab bar */
             }
 
+            /* The floating "Start New Visit" button is redundant on mobile —
+               the bottom tab bar already has "New Visit". Hide it here. */
+            .start-visit-btn {
+                display: none !important;
+            }
+
             .mobile-menu-toggle {
                 display: block;
             }
