@@ -3775,13 +3775,13 @@
 
             gallery.innerHTML = `
             <style>
-                .dash-wrap { grid-column: 1 / -1; display: grid; gap: 20px; }
+                .dash-wrap { grid-column: 1 / -1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
                 .dash-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
                 .kpi { background: #fff; border: 1px solid #d9dfe8; border-radius: 10px; padding: 18px 20px; }
                 .kpi-val { font-size: 30px; font-weight: 800; line-height: 1; }
                 .kpi-lbl { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; margin-top: 8px; }
-                .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-                .dash-card { background: #fff; border: 1px solid #d9dfe8; border-radius: 10px; padding: 18px 20px; }
+                .dash-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+                .dash-card { background: #fff; border: 1px solid #d9dfe8; border-radius: 10px; padding: 18px 20px; min-width: 0; }
                 .dash-card h3 { font-size: 15px; font-weight: 800; color: #0f1e36; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
                 .dash-card h3 i { color: #1f6fe5; }
                 .dash-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #eef1f6; cursor: pointer; }
@@ -3810,14 +3810,15 @@
                 .dash-row-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
                 .dash-new-badge { flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #0f8a5f;
                     background: #e6f5ee; border: 1px solid #b7e0cd; padding: 1px 6px; border-radius: 6px; }
-                @media (max-width: 820px) { .dash-grid { grid-template-columns: 1fr; } .dash-bars-label-wide { width: 140px; } }
+                @media (max-width: 820px) { .dash-grid { grid-template-columns: minmax(0, 1fr); } .dash-bars-label-wide { width: 140px; } }
 
                 /* Desktop-only right rail (calendar + upcoming). The 260px sidebar
                    already eats into the viewport, so we only split off the rail once
                    there's genuinely enough room — otherwise it crowds/overlaps the
                    main content. Below the breakpoint the rail is hidden and the same
                    panels show as stacked mobile cards instead. */
-                .dash-layout { grid-column: 1 / -1; }
+                .dash-layout { grid-column: 1 / -1; min-width: 0; }
+                .dash-main { min-width: 0; }
                 .dash-rail { display: none; min-width: 0; }
                 .rail-up-row { padding: 9px 0 9px 10px; border-radius: 0; cursor: pointer; }
                 .rail-up-row:hover { background: rgba(0,40,92,.03); }
