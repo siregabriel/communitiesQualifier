@@ -5864,9 +5864,9 @@
             ).join('');
             return `<div class="sub-row" style="border:1px solid var(--border);border-radius:10px;padding:16px 18px;background:var(--surface);">
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                    <input class="pw-input sub-email" type="email" placeholder="email" value="${escapeHtml(sub.email || '')}" style="flex:1;min-width:200px;">
+                    <input class="pw-input sub-email" type="email" placeholder="email" value="${escapeHtml(sub.email || '')}" style="flex:1;min-width:200px;" data-original="${escapeHtml(sub.email || '')}">
                     <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;min-width:160px;">
-                    <button class="res-del" type="button" title="Remove" onclick="removeSubRow(this)"><i class="fas fa-trash"></i></button>
+                    <button class="res-del" type="button" title="${isNew ? 'Discard' : 'Remove this subscriber'}" onclick="${isNew ? 'removeSubRow(this)' : 'deleteSavedSubscriber(this)'}"><i class="fas fa-trash"></i></button>
                 </div>
                 <label class="chip" style="margin-top:14px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}><span><i class="fas fa-globe" style="margin-right:5px;"></i>All inspections</span></label>
                 <div class="sub-detail" style="margin-top:14px;border-top:1px solid #eef1f6;padding-top:14px;">
@@ -5874,11 +5874,12 @@
                     <div class="chip-wrap">${regionChecks}</div>
                     ${inspChecks ? `<div class="scope-label" style="margin-top:14px;">By inspector</div><div class="chip-wrap">${inspChecks}</div>` : ''}
                 </div>
-                ${isNew ? `<div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                    <button class="btn btn-primary" type="button" onclick="saveSingleSubscriber(this)"><i class="fas fa-user-plus"></i> Add this subscriber</button>
-                    <button class="btn btn-secondary" type="button" onclick="removeSubRow(this)">Cancel</button>
+                <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <button class="btn btn-primary" type="button" onclick="saveSingleSubscriber(this)">
+                        <i class="fas fa-${isNew ? 'user-plus' : 'floppy-disk'}"></i> ${isNew ? 'Add this subscriber' : 'Save changes'}</button>
+                    ${isNew ? '<button class="btn btn-secondary" type="button" onclick="removeSubRow(this)">Cancel</button>' : ''}
                     <span class="pw-msg sub-msg"></span>
-                </div>` : ''}
+                </div>
             </div>`;
         }
         // "All inspections" and the specific pills are mutually exclusive.
@@ -5892,6 +5893,28 @@
             const all = el.closest('.sub-row').querySelector('.sub-all');
             if (all) all.checked = false;
         }
+        // Delete an already-saved subscriber row (server-side, immediately).
+        async function deleteSavedSubscriber(btn) {
+            const row = btn.closest('.sub-row');
+            const emailEl = row.querySelector('.sub-email');
+            const email = (emailEl.dataset.original || emailEl.value || '').trim();
+            if (!email) { row.remove(); updateSubCount(); return; }
+            if (!confirm(`Remove ${email} from the notification lists?`)) return;
+            try {
+                const r = await fetch('/api/settings/email/recipient', {
+                    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    await loadEmailSettings();
+                    await loadNotificationSummary();
+                } else {
+                    alert(d.message || 'Could not remove that subscriber.');
+                }
+            } catch (e) { alert('Network error.'); }
+        }
+
         // Save ONE subscriber immediately, without touching the others.
         async function saveSingleSubscriber(btn) {
             const row = btn.closest('.sub-row');
@@ -5995,9 +6018,12 @@
                 subs.push({ email, name, regions, inspectors });
             });
             try {
+                // NOTE: subscribers are deliberately NOT sent here. They are added,
+                // updated and removed one at a time, so saving these fields can
+                // never drop an existing subscriber.
                 const r = await fetch('/api/settings/email', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subscribers: subs, admin_notify: document.getElementById('esAdminNotify').value, clinical: document.getElementById('esClinical').value, ops: document.getElementById('esOps').value })
+                    body: JSON.stringify({ admin_notify: document.getElementById('esAdminNotify').value, clinical: document.getElementById('esClinical').value, ops: document.getElementById('esOps').value })
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {

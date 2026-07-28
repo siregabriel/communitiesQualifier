@@ -2602,17 +2602,21 @@ def save_email_settings():
     if current_role() != 'admin':
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
-    # keep only real region ids and known inspector names in each subscriber's scope
-    valid_ids = {r.get('id') for r in region_service.get_all_regions() if r.get('id') != 'unassigned'}
-    valid_names = set(leadership_names())
-    subs = []
-    for s in (data.get('subscribers') or []):
-        if not isinstance(s, dict):
-            continue
-        regions = [rid for rid in (s.get('regions') or []) if rid in valid_ids]
-        inspectors = [n for n in (s.get('inspectors') or []) if n in valid_names]
-        subs.append({'email': s.get('email', ''), 'name': s.get('name', ''),
-                     'regions': regions, 'inspectors': inspectors})
+    # Subscribers are managed individually (add / update / remove one at a time),
+    # so this endpoint only rewrites them when the caller explicitly sends the
+    # key. That way saving the other fields can never drop someone silently.
+    subs = None
+    if 'subscribers' in data:
+        valid_ids = {r.get('id') for r in region_service.get_all_regions() if r.get('id') != 'unassigned'}
+        valid_names = set(leadership_names())
+        subs = []
+        for s in (data.get('subscribers') or []):
+            if not isinstance(s, dict):
+                continue
+            regions = [rid for rid in (s.get('regions') or []) if rid in valid_ids]
+            inspectors = [n for n in (s.get('inspectors') or []) if n in valid_names]
+            subs.append({'email': s.get('email', ''), 'name': s.get('name', ''),
+                         'regions': regions, 'inspectors': inspectors})
     saved = settings_service.set_email_settings(
         subscribers=subs, admin_notify=data.get('admin_notify', ''),
         clinical=data.get('clinical', ''), ops=data.get('ops', ''))
