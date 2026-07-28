@@ -5805,7 +5805,11 @@
                         <div style="display:grid; gap:12px;">
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;">Inspection report subscribers <span style="font-weight:500;color:#6b7280;">(region leaders always get their own region automatically)</span></label>
                             <div id="esSubscribers"></div>
-                            <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()" style="justify-self:start;"><i class="fas fa-plus"></i> Add subscriber</button>
+                            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                                <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()"><i class="fas fa-plus"></i> Add another subscriber</button>
+                                <span id="esSubCount" style="font-size:12.5px;font-weight:700;color:#64748b;"></span>
+                                <span style="font-size:12px;color:#9ca3af;">Adding creates a new entry — it never replaces the ones above.</span>
+                            </div>
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Notify when a new user is created</label>
                             <textarea id="esAdminNotify" class="pw-input" rows="3" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Clinical team <span style="font-weight:500;color:#6b7280;">(receives comments directed to Clinical)</span></label>
@@ -5878,13 +5882,32 @@
             const all = el.closest('.sub-row').querySelector('.sub-all');
             if (all) all.checked = false;
         }
+        function updateSubCount() {
+            const el = document.getElementById('esSubCount');
+            if (!el) return;
+            const rows = document.querySelectorAll('#esSubscribers .sub-row');
+            let filled = 0;
+            rows.forEach(r => { if ((r.querySelector('.sub-email').value || '').trim()) filled++; });
+            el.textContent = filled === 0 ? 'No subscribers yet'
+                : (filled === 1 ? '1 subscriber' : filled + ' subscribers');
+        }
         function addSubscriberRow(sub) {
             const wrap = document.getElementById('esSubscribers');
-            if (wrap) wrap.insertAdjacentHTML('beforeend', subscriberRowHtml(sub, true));
+            if (!wrap) return;
+            wrap.insertAdjacentHTML('beforeend', subscriberRowHtml(sub, true));
+            // Make it obvious a NEW row was added (rather than editing the old one).
+            const row = wrap.lastElementChild;
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const input = row.querySelector('.sub-email');
+                if (input) { input.focus(); input.addEventListener('input', updateSubCount); }
+            }
+            updateSubCount();
         }
         function removeSubRow(btn) {
             const row = btn.closest('.sub-row');
             if (row) row.remove();
+            updateSubCount();
         }
         async function loadEmailSettings() {
             try {
@@ -5898,6 +5921,8 @@
                     wrap.innerHTML = (d.subscribers && d.subscribers.length)
                         ? d.subscribers.map(s => subscriberRowHtml(s)).join('')
                         : subscriberRowHtml(null, true);
+                    wrap.querySelectorAll('.sub-email').forEach(i => i.addEventListener('input', updateSubCount));
+                    updateSubCount();
                 }
                 const an = document.getElementById('esAdminNotify');
                 if (an) an.value = (d.admin_notify || []).join('\n');
@@ -5914,9 +5939,10 @@
             msg.className = 'pw-msg';
             msg.textContent = 'Saving…';
             const subs = [];
+            let skippedEmpty = 0;
             document.querySelectorAll('#esSubscribers .sub-row').forEach(row => {
                 const email = row.querySelector('.sub-email').value.trim();
-                if (!email) return;
+                if (!email) { skippedEmpty++; return; }
                 const name = row.querySelector('.sub-name').value.trim();
                 const all = row.querySelector('.sub-all').checked;
                 const regions = all ? [] : Array.from(row.querySelectorAll('.sub-region:checked')).map(c => c.value);
@@ -5933,11 +5959,18 @@
                     esRegions = d.regions || esRegions;
                     esInspectors = d.inspectors || esInspectors;
                     const wrap = document.getElementById('esSubscribers');
-                    if (wrap) wrap.innerHTML = (d.subscribers && d.subscribers.length)
-                        ? d.subscribers.map(s => subscriberRowHtml(s)).join('')
-                        : subscriberRowHtml(null, true);
+                    if (wrap) {
+                        wrap.innerHTML = (d.subscribers && d.subscribers.length)
+                            ? d.subscribers.map(s => subscriberRowHtml(s)).join('')
+                            : subscriberRowHtml(null, true);
+                        wrap.querySelectorAll('.sub-email').forEach(i => i.addEventListener('input', updateSubCount));
+                        updateSubCount();
+                    }
                     document.getElementById('esAdminNotify').value = (d.admin_notify || []).join('\n');
-                    msg.textContent = 'Saved.'; msg.classList.add('ok');
+                    const n = (d.subscribers || []).length;
+                    msg.textContent = `Saved — ${n} subscriber${n === 1 ? '' : 's'}.`
+                        + (skippedEmpty ? ` (${skippedEmpty} empty row${skippedEmpty === 1 ? '' : 's'} ignored)` : '');
+                    msg.classList.add('ok');
                     loadNotificationSummary();   // keep the "who receives what" list in sync
                 } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
             } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
