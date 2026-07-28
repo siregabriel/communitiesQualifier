@@ -1526,6 +1526,15 @@
         .nsum-scoped{ background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
         .nsum-admin { background: #fef6e0; color: #92620a; border: 1px solid #f3d27a; }
         .nsum-route { background: #f3e8ff; color: #6b21a8; border: 1px solid #e0c9fb; }
+        .nsum-del { flex-shrink: 0; width: 30px; height: 30px; border: 1px solid #e2e8f0; background: #fff;
+            border-radius: 8px; color: #b42318; cursor: pointer; font-size: 12px; align-self: center;
+            display: flex; align-items: center; justify-content: center; transition: all .15s ease; }
+        .nsum-del:hover { background: #fdf3f1; border-color: #d13212; }
+        .nsum-lock { flex-shrink: 0; width: 30px; height: 30px; color: #c2cad6; font-size: 11px;
+            display: flex; align-items: center; justify-content: center; align-self: center; cursor: help; }
+        html[data-theme="dark"] .nsum-del { background: #1b2537; border-color: #33425c; color: #ff9d85; }
+        html[data-theme="dark"] .nsum-del:hover { background: rgba(209,50,18,.18); border-color: #ff9d85; }
+        html[data-theme="dark"] .nsum-lock { color: #5b6b83; }
         .nsum-warn { background: #fdf3f1; border: 1px solid #f7d3ca; border-radius: 10px;
             padding: 11px 13px; margin-top: 14px; font-size: 12.5px; color: #7a3227; line-height: 1.5; }
         html[data-theme="dark"] .nsum-row { border-top-color: #26324a; }
@@ -6073,6 +6082,27 @@
             box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
+        // Remove an address from every list it can be removed from, then refresh
+        // both the summary and the editable subscriber rows above it.
+        async function removeNotificationRecipient(email, label) {
+            if (!confirm(`Stop sending notifications to ${label || email}?\n\nThey will be removed from the subscriber and alert lists. You can add them back any time.`)) return;
+            try {
+                const r = await fetch('/api/settings/email/recipient', {
+                    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    await loadEmailSettings();       // refresh the editable rows
+                    await loadNotificationSummary(); // refresh this list
+                } else {
+                    alert(d.message || 'Could not remove that recipient.');
+                }
+            } catch (e) {
+                alert('Network error while removing the recipient.');
+            }
+        }
+
         // "Who receives what" — consolidated view of every outgoing notification.
         async function loadNotificationSummary() {
             const host = document.getElementById('notifySummary');
@@ -6095,6 +6125,11 @@
                     const tags = (p.items || []).map(it =>
                         `<span class="nsum-tag nsum-${escapeHtml(it.kind)}">${escapeHtml(it.label)}${
                             it.detail ? ` <small>· ${escapeHtml(it.detail)}</small>` : ''}</span>`).join('');
+                    const safeEmail = (p.email || '').replace(/'/g, "\\'");
+                    const action = p.removable
+                        ? `<button class="nsum-del" title="Stop sending to this address"
+                              onclick="removeNotificationRecipient('${safeEmail}', '${escapeHtml(p.name || p.email).replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i></button>`
+                        : `<span class="nsum-lock" title="Copied automatically as a region leader — manage this in Regions"><i class="fas fa-lock"></i></span>`;
                     return `<div class="nsum-row">
                         <div class="nsum-avatar">${escapeHtml(initials)}</div>
                         <div class="nsum-main">
@@ -6102,6 +6137,7 @@
                             ${p.name ? `<div class="nsum-email">${escapeHtml(p.email)}</div>` : ''}
                             <div class="nsum-tags">${tags}</div>
                         </div>
+                        ${action}
                     </div>`;
                 }).join('');
                 const miss = d.missing_email || [];

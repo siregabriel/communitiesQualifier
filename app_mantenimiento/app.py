@@ -2209,6 +2209,14 @@ def email_notification_summary():
     for addr in s.get('ops', []):
         add(addr, '', 'Ops comments', 'Inspection comments directed to Operations', 'route')
 
+    # A recipient can be removed from here when it came from a configurable list
+    # (subscribers / admin alerts / clinical / ops). Region leaders are copied
+    # automatically from their region, so those are managed in Regions instead.
+    for rec in people.values():
+        kinds = {i['kind'] for i in rec['items']}
+        rec['removable'] = bool(kinds - {'auto'})
+        rec['auto_only'] = kinds == {'auto'}
+
     rows = sorted(people.values(), key=lambda p: (p['name'] or p['email']).lower())
     # Leaders without an email on file can't be reached — surface that too.
     missing = []
@@ -2222,6 +2230,40 @@ def email_notification_summary():
                     missing.append({'name': nm, 'region': r.get('name')})
     return jsonify({'status': 'success', 'people': rows, 'missing_email': missing,
                     'email_enabled': bool(email_service.enabled)}), 200
+
+
+@app.route('/api/settings/email/recipient', methods=['DELETE'])
+@login_required
+def remove_email_recipient():
+    """Admin-only: stop sending to an address. Removes it from every
+    configurable list (inspection subscribers, admin alerts, Clinical, Ops).
+    Region leadership is NOT touched here — those addresses live on the region
+    and are managed in Regions."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    target = (data.get('email') or '').strip().lower()
+    if not target:
+        return jsonify({'status': 'error', 'message': 'Email is required'}), 400
+
+    s = settings_service.get_email_settings()
+    subs = [x for x in s['subscribers'] if (x.get('email') or '').lower() != target]
+    admin_notify = [a for a in s['admin_notify'] if a.lower() != target]
+    clinical = [a for a in s['clinical'] if a.lower() != target]
+    ops = [a for a in s['ops'] if a.lower() != target]
+
+    removed = (len(subs) != len(s['subscribers']) or len(admin_notify) != len(s['admin_notify'])
+               or len(clinical) != len(s['clinical']) or len(ops) != len(s['ops']))
+    if not removed:
+        return jsonify({'status': 'error',
+                        'message': 'That address is not in a list you can edit here. '
+                                   'Region leaders are managed in Regions.'}), 404
+
+    settings_service.set_email_settings(subscribers=subs, admin_notify=admin_notify,
+                                        clinical=clinical, ops=ops)
+    activity_service.log(session.get('user'), 'email_recipient_removed',
+                         f'Removed {target} from notification lists')
+    return jsonify({'status': 'success', 'message': f'{target} will no longer receive notifications.'}), 200
 
 
 @app.route('/api/admin/reset-inspections', methods=['POST'])
