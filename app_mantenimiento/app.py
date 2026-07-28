@@ -2232,6 +2232,45 @@ def email_notification_summary():
                     'email_enabled': bool(email_service.enabled)}), 200
 
 
+@app.route('/api/settings/email/subscriber', methods=['POST'])
+@login_required
+def add_email_subscriber():
+    """Admin-only: add ONE inspection-report subscriber, leaving every existing
+    one untouched. If the address is already subscribed, its scope is updated."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    import re as _re
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip()
+    if not email or not _re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        return jsonify({'status': 'error', 'message': 'Enter a valid email address.'}), 400
+
+    valid_ids = {r.get('id') for r in region_service.get_all_regions() if r.get('id') != 'unassigned'}
+    valid_names = set(leadership_names())
+    regions = [r for r in (data.get('regions') or []) if r in valid_ids]
+    inspectors = [n for n in (data.get('inspectors') or []) if n in valid_names]
+
+    current = settings_service.get_email_settings()['subscribers']
+    subs, replaced = [], False
+    for s in current:
+        if (s.get('email') or '').lower() == email.lower():
+            subs.append({'email': email, 'name': (data.get('name') or s.get('name') or '').strip(),
+                         'regions': regions, 'inspectors': inspectors})
+            replaced = True
+        else:
+            subs.append(s)
+    if not replaced:
+        subs.append({'email': email, 'name': (data.get('name') or '').strip(),
+                     'regions': regions, 'inspectors': inspectors})
+
+    saved = settings_service.set_email_settings(subscribers=subs)
+    activity_service.log(session.get('user'), 'email_subscriber_added',
+                         f'{"Updated" if replaced else "Added"} notification subscriber {email}')
+    return jsonify({'status': 'success', 'updated': replaced,
+                    'count': len(saved['subscribers']),
+                    'message': f'{email} {"updated" if replaced else "added"}.'}), 200
+
+
 @app.route('/api/settings/email/recipient', methods=['DELETE'])
 @login_required
 def remove_email_recipient():

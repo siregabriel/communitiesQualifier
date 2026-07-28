@@ -5726,10 +5726,6 @@
 
                     <div class="profile-stats">${statCards.join('')}</div>
 
-                    <div class="profile-section">
-                        <div class="profile-section-title"><i class="fas fa-clock-rotate-left"></i> Recent activity</div>
-                        <div class="activity-feed">${activityHtml}</div>
-                    </div>
 
                     <div class="profile-grid">
                         ${admin ? `
@@ -5815,9 +5811,9 @@
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;">Inspection report subscribers <span style="font-weight:500;color:#6b7280;">(region leaders always get their own region automatically)</span></label>
                             <div id="esSubscribers"></div>
                             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-                                <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()"><i class="fas fa-plus"></i> Add another subscriber</button>
+                                <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()"><i class="fas fa-plus"></i> Add subscriber</button>
                                 <span id="esSubCount" style="font-size:12.5px;font-weight:700;color:#64748b;"></span>
-                                <span style="font-size:12px;color:#9ca3af;">Adding creates a new entry — it never replaces the ones above.</span>
+                                <span style="font-size:12px;color:#9ca3af;">Added one at a time — each is saved on its own.</span>
                             </div>
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Notify when a new user is created</label>
                             <textarea id="esAdminNotify" class="pw-input" rows="3" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
@@ -5878,6 +5874,11 @@
                     <div class="chip-wrap">${regionChecks}</div>
                     ${inspChecks ? `<div class="scope-label" style="margin-top:14px;">By inspector</div><div class="chip-wrap">${inspChecks}</div>` : ''}
                 </div>
+                ${isNew ? `<div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <button class="btn btn-primary" type="button" onclick="saveSingleSubscriber(this)"><i class="fas fa-user-plus"></i> Add this subscriber</button>
+                    <button class="btn btn-secondary" type="button" onclick="removeSubRow(this)">Cancel</button>
+                    <span class="pw-msg sub-msg"></span>
+                </div>` : ''}
             </div>`;
         }
         // "All inspections" and the specific pills are mutually exclusive.
@@ -5891,6 +5892,41 @@
             const all = el.closest('.sub-row').querySelector('.sub-all');
             if (all) all.checked = false;
         }
+        // Save ONE subscriber immediately, without touching the others.
+        async function saveSingleSubscriber(btn) {
+            const row = btn.closest('.sub-row');
+            const msg = row.querySelector('.sub-msg');
+            const email = (row.querySelector('.sub-email').value || '').trim();
+            const name = (row.querySelector('.sub-name').value || '').trim();
+            const all = row.querySelector('.sub-all').checked;
+            const regions = all ? [] : Array.from(row.querySelectorAll('.sub-region:checked')).map(c => c.value);
+            const inspectors = all ? [] : Array.from(row.querySelectorAll('.sub-inspector:checked')).map(c => c.value);
+            msg.className = 'pw-msg sub-msg';
+            if (!email) {
+                msg.textContent = 'Enter an email address.'; msg.classList.add('error');
+                row.querySelector('.sub-email').focus(); return;
+            }
+            btn.disabled = true;
+            try {
+                const r = await fetch('/api/settings/email/subscriber', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, name, regions, inspectors })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    await loadEmailSettings();        // re-render saved rows
+                    await loadNotificationSummary();  // show them in "Who receives what"
+                    const es = document.getElementById('esMsg');
+                    if (es) { es.className = 'pw-msg ok'; es.textContent = d.message; }
+                } else {
+                    msg.textContent = d.message || 'Could not add subscriber.';
+                    msg.classList.add('error'); btn.disabled = false;
+                }
+            } catch (e) {
+                msg.textContent = 'Network error.'; msg.classList.add('error'); btn.disabled = false;
+            }
+        }
+
         function updateSubCount() {
             const el = document.getElementById('esSubCount');
             if (!el) return;
