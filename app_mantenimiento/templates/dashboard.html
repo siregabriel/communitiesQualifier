@@ -1510,6 +1510,35 @@
             }
         }
 
+        /* ===== Notification summary (who receives what) ===== */
+        .nsum-row { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid #eef1f6; align-items: flex-start; }
+        .nsum-row:first-of-type { border-top: none; }
+        .nsum-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; background: #e7edf7;
+            color: #00285c; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+        .nsum-main { flex: 1; min-width: 0; }
+        .nsum-name { font-size: 14px; font-weight: 700; color: #0f1e36; }
+        .nsum-email { font-size: 12px; color: #64748b; word-break: break-all; }
+        .nsum-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+        .nsum-tag { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+        .nsum-tag small { font-weight: 500; opacity: .85; }
+        .nsum-all   { background: #e6f5ee; color: #0f6b4a; border: 1px solid #b7e0cd; }
+        .nsum-auto  { background: #e7edf7; color: #00285c; border: 1px solid #c7d6f0; }
+        .nsum-scoped{ background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
+        .nsum-admin { background: #fef6e0; color: #92620a; border: 1px solid #f3d27a; }
+        .nsum-route { background: #f3e8ff; color: #6b21a8; border: 1px solid #e0c9fb; }
+        .nsum-warn { background: #fdf3f1; border: 1px solid #f7d3ca; border-radius: 10px;
+            padding: 11px 13px; margin-top: 14px; font-size: 12.5px; color: #7a3227; line-height: 1.5; }
+        html[data-theme="dark"] .nsum-row { border-top-color: #26324a; }
+        html[data-theme="dark"] .nsum-avatar { background: #26324a; color: #cfe0ff; }
+        html[data-theme="dark"] .nsum-name { color: #eef2f8; }
+        html[data-theme="dark"] .nsum-email { color: #9fb0c4; }
+        html[data-theme="dark"] .nsum-all { background: rgba(15,138,95,.18); color: #5fd6a3; border-color: rgba(15,138,95,.4); }
+        html[data-theme="dark"] .nsum-auto { background: rgba(31,111,229,.20); color: #9cc4ff; border-color: rgba(31,111,229,.4); }
+        html[data-theme="dark"] .nsum-scoped { background: rgba(99,102,241,.20); color: #b3b6ff; border-color: rgba(99,102,241,.4); }
+        html[data-theme="dark"] .nsum-admin { background: rgba(242,183,5,.18); color: #f2c94c; border-color: rgba(242,183,5,.4); }
+        html[data-theme="dark"] .nsum-route { background: rgba(147,51,234,.20); color: #d8b4fe; border-color: rgba(147,51,234,.4); }
+        html[data-theme="dark"] .nsum-warn { background: rgba(209,50,18,.12); border-color: rgba(209,50,18,.4); color: #f0b8ab; }
+
         /* ===== Danger zone (admin settings) ===== */
         .danger-zone { border: 1px solid #f3c6bb !important; }
         .danger-title { color: #b42318 !important; }
@@ -5789,6 +5818,14 @@
                             </div>
                             <div id="esNote" style="font-size:12px;color:#9ca3af;"></div>
                         </div>
+                    </div>
+                    <div class="profile-section">
+                        <div class="profile-section-title"><i class="fas fa-list-check"></i> Who receives what</div>
+                        <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
+                            Every address that receives email from Atlas Standards, and exactly which notifications it gets —
+                            including region leaders, who are copied on their own region automatically.
+                        </p>
+                        <div id="notifySummary"><div class="activity-empty">Loading…</div></div>
                     </div>` : ''}
                 </div>
             `;
@@ -5798,6 +5835,7 @@
                 onNewUserRoleChange();
                 loadManagedUsers();
                 loadEmailSettings();
+                loadNotificationSummary();
             }
         }
 
@@ -5900,6 +5938,7 @@
                         : subscriberRowHtml(null, true);
                     document.getElementById('esAdminNotify').value = (d.admin_notify || []).join('\n');
                     msg.textContent = 'Saved.'; msg.classList.add('ok');
+                    loadNotificationSummary();   // keep the "who receives what" list in sync
                 } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
             } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
         }
@@ -5999,6 +6038,53 @@
                 <button class="cred-dismiss" onclick="document.getElementById('${boxId}').style.display='none'">Done</button>
             `;
             box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // "Who receives what" — consolidated view of every outgoing notification.
+        async function loadNotificationSummary() {
+            const host = document.getElementById('notifySummary');
+            if (!host) return;
+            try {
+                const r = await fetch('/api/settings/email/summary');
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') {
+                    host.innerHTML = '<div class="activity-empty">Could not load the notification summary.</div>';
+                    return;
+                }
+                const people = d.people || [];
+                if (!people.length) {
+                    host.innerHTML = '<div class="activity-empty">No one is set to receive email yet. Add subscribers above, or give region leaders an email address.</div>';
+                    return;
+                }
+                const rows = people.map(p => {
+                    const initials = (p.name || p.email).split(/[\s@.]+/).filter(Boolean)
+                        .slice(0, 2).map(w => w[0].toUpperCase()).join('');
+                    const tags = (p.items || []).map(it =>
+                        `<span class="nsum-tag nsum-${escapeHtml(it.kind)}">${escapeHtml(it.label)}${
+                            it.detail ? ` <small>· ${escapeHtml(it.detail)}</small>` : ''}</span>`).join('');
+                    return `<div class="nsum-row">
+                        <div class="nsum-avatar">${escapeHtml(initials)}</div>
+                        <div class="nsum-main">
+                            <div class="nsum-name">${escapeHtml(p.name || p.email)}</div>
+                            ${p.name ? `<div class="nsum-email">${escapeHtml(p.email)}</div>` : ''}
+                            <div class="nsum-tags">${tags}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+                const miss = d.missing_email || [];
+                const warn = miss.length ? `<div class="nsum-warn"><b><i class="fas fa-triangle-exclamation"></i>
+                    ${miss.length} region leader${miss.length === 1 ? '' : 's'} without an email address</b> —
+                    they can't receive inspection reports or move-in emails. Add their address in Regions.
+                    <div style="margin-top:6px;">${miss.slice(0, 12).map(m =>
+                        `${escapeHtml(m.name)} <span style="opacity:.7">(${escapeHtml(m.region)})</span>`).join(' · ')}${
+                        miss.length > 12 ? ` <span style="opacity:.7">+${miss.length - 12} more</span>` : ''}</div></div>` : '';
+                const off = d.email_enabled ? '' : `<div class="nsum-warn" style="margin-top:10px;">
+                    <b><i class="fas fa-circle-info"></i> Email sending is currently disabled on this server.</b>
+                    These recipients are configured, but nothing will be sent until email is enabled.</div>`;
+                host.innerHTML = rows + warn + off;
+            } catch (e) {
+                host.innerHTML = '<div class="activity-empty">Could not load the notification summary.</div>';
+            }
         }
 
         async function adminResetInspections() {

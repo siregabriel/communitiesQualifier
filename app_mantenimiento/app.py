@@ -2146,6 +2146,84 @@ def admin_reset_password():
                     'password': password, 'emailed': emailed}), 200
 
 
+@app.route('/api/settings/email/summary', methods=['GET'])
+@login_required
+def email_notification_summary():
+    """Admin-only: a consolidated 'who receives what' view. Rolls up every
+    source of outgoing email — inspection subscribers, region leadership (who
+    are copied automatically on their own region), admin alerts, and the
+    Clinical/Ops routing lists — into one row per email address."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+
+    s = settings_service.get_email_settings()
+    regions = region_service.get_all_regions()
+    region_name = {r.get('id'): r.get('name', r.get('id')) for r in regions}
+    people = {}   # lowercase email -> record
+
+    def add(email, name, label, detail='', kind='info'):
+        addr = (email or '').strip()
+        if not addr:
+            return
+        key = addr.lower()
+        rec = people.setdefault(key, {'email': addr, 'name': (name or '').strip(), 'items': []})
+        if name and not rec['name']:
+            rec['name'] = name.strip()
+        rec['items'].append({'label': label, 'detail': detail, 'kind': kind})
+
+    # 1) Inspection report subscribers (explicitly configured)
+    for sub in s.get('subscribers', []):
+        regs = sub.get('regions') or []
+        insp = sub.get('inspectors') or []
+        if not regs and not insp:
+            add(sub['email'], sub.get('name'), 'Inspection reports',
+                'All inspections, every region', 'all')
+        else:
+            if regs:
+                add(sub['email'], sub.get('name'), 'Inspection reports',
+                    'Regions: ' + ', '.join(region_name.get(r, r) for r in regs), 'scoped')
+            if insp:
+                add(sub['email'], sub.get('name'), 'Inspection reports',
+                    'Inspectors: ' + ', '.join(insp), 'scoped')
+
+    # 2) Region leadership — always copied on their own region's inspections,
+    #    plus move-in reminders and completion summaries for their communities.
+    for r in regions:
+        if r.get('id') == 'unassigned':
+            continue
+        for leader in (r.get('leadership') or []):
+            addr = (leader.get('email') or '').strip()
+            if not addr:
+                continue
+            add(addr, leader.get('name'), 'Inspection reports',
+                f"{r.get('name')} region (automatic)", 'auto')
+            add(addr, leader.get('name'), 'Move-in emails',
+                f"Reminders and completion summaries — {r.get('name')}", 'auto')
+
+    # 3) Admin alerts
+    for addr in s.get('admin_notify', []):
+        add(addr, '', 'Admin alerts', 'New users, password reset requests, move-in summaries', 'admin')
+    # 4) Routed comments
+    for addr in s.get('clinical', []):
+        add(addr, '', 'Clinical comments', 'Inspection comments directed to Clinical', 'route')
+    for addr in s.get('ops', []):
+        add(addr, '', 'Ops comments', 'Inspection comments directed to Operations', 'route')
+
+    rows = sorted(people.values(), key=lambda p: (p['name'] or p['email']).lower())
+    # Leaders without an email on file can't be reached — surface that too.
+    missing = []
+    for r in regions:
+        if r.get('id') == 'unassigned':
+            continue
+        for leader in (r.get('leadership') or []):
+            if not (leader.get('email') or '').strip():
+                nm = (leader.get('name') or '').strip()
+                if nm and nm.lower() != 'open':
+                    missing.append({'name': nm, 'region': r.get('name')})
+    return jsonify({'status': 'success', 'people': rows, 'missing_email': missing,
+                    'email_enabled': bool(email_service.enabled)}), 200
+
+
 @app.route('/api/admin/reset-inspections', methods=['POST'])
 @login_required
 def admin_reset_inspections():
