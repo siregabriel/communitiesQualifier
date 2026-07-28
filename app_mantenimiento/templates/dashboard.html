@@ -1510,6 +1510,27 @@
             }
         }
 
+        /* ===== Danger zone (admin settings) ===== */
+        .danger-zone { border: 1px solid #f3c6bb !important; }
+        .danger-title { color: #b42318 !important; }
+        .danger-title i { color: #d13212 !important; }
+        .danger-box { background: #fdf3f1; border: 1px solid #f7d3ca; border-radius: 10px; padding: 16px 18px; }
+        .danger-head { font-size: 14px; font-weight: 800; color: #b42318; margin-bottom: 6px; }
+        .danger-text { font-size: 12.5px; line-height: 1.55; color: #7a3227; margin: 0 0 14px; }
+        .danger-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .danger-input { max-width: 210px; letter-spacing: .06em; font-weight: 700; }
+        .btn-danger-solid {
+            background: #b42318; color: #fff; border: none; border-radius: 8px;
+            padding: 11px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-danger-solid:hover { background: #931c13; }
+        html[data-theme="dark"] .danger-zone { border-color: rgba(209,50,18,.45) !important; }
+        html[data-theme="dark"] .danger-box { background: rgba(209,50,18,.12); border-color: rgba(209,50,18,.4); }
+        html[data-theme="dark"] .danger-head { color: #ff9d85; }
+        html[data-theme="dark"] .danger-text { color: #f0b8ab; }
+        html[data-theme="dark"] .danger-title { color: #ff9d85 !important; }
+
         /* ===== Move-In module ===== */
         .mi-phase { background:#fff; border:1px solid #d9dfe8; border-radius:12px; margin-bottom:16px; overflow:hidden; }
         .mi-phase-head { display:flex; justify-content:space-between; align-items:center;
@@ -5703,6 +5724,23 @@
                                 <div class="usermgmt-credential" id="resetPwResult" style="display:none;"></div>
                             </div>
                         </div>
+                        <div class="profile-section danger-zone">
+                            <div class="profile-section-title danger-title"><i class="fas fa-triangle-exclamation"></i> Danger zone</div>
+                            <div class="danger-box">
+                                <div class="danger-head">Reset inspection data</div>
+                                <p class="danger-text">
+                                    Permanently deletes <b>every submitted inspection</b>, so the app starts from zero.
+                                    Scores, action items and recent activity clear with them.
+                                    <br><b>Kept:</b> users, regions, communities, standards, survey types and move-ins.
+                                    A backup is saved on the server first.
+                                </p>
+                                <div class="danger-controls">
+                                    <input id="resetDataConfirm" class="pw-input danger-input" placeholder="Type RESET to confirm" autocomplete="off" maxlength="10">
+                                    <button class="btn btn-danger-solid" onclick="adminResetInspections()"><i class="fas fa-trash-can"></i> Reset inspection data</button>
+                                </div>
+                                <div class="pw-msg" id="resetDataMsg"></div>
+                            </div>
+                        </div>
                         ` : `
                         <div class="profile-section">
                             <div class="profile-section-title"><i class="fas fa-palette"></i> Display preferences</div>
@@ -5961,6 +5999,47 @@
                 <button class="cred-dismiss" onclick="document.getElementById('${boxId}').style.display='none'">Done</button>
             `;
             box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function adminResetInspections() {
+            const el = document.getElementById('resetDataConfirm');
+            const msg = document.getElementById('resetDataMsg');
+            const confirmText = (el.value || '').trim().toUpperCase();
+            msg.className = 'pw-msg';
+            if (confirmText !== 'RESET') {
+                msg.textContent = 'Type RESET in the box to confirm.';
+                msg.classList.add('error');
+                el.focus();
+                return;
+            }
+            const n = (allSubmissions || []).length;
+            if (!confirm(`This permanently deletes ${n} inspection${n === 1 ? '' : 's'} and cannot be undone from the app.\n\n` +
+                         `Scores, action items and recent activity will be cleared.\nUsers, regions, standards and move-ins are kept.\n\n` +
+                         `A backup is saved on the server. Continue?`)) {
+                return;
+            }
+            try {
+                const r = await fetch('/api/admin/reset-inspections', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ confirm: 'RESET' })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    el.value = '';
+                    msg.textContent = d.message || 'Inspection data cleared.';
+                    msg.classList.add('success');
+                    // Reload data so every view reflects the clean slate.
+                    await loadReports();
+                    if (typeof loadInspections === 'function') await loadInspections();
+                    setTimeout(() => showView('dashboard'), 600);
+                } else {
+                    msg.textContent = d.message || 'Could not reset inspection data.';
+                    msg.classList.add('error');
+                }
+            } catch (e) {
+                msg.textContent = 'Network error.';
+                msg.classList.add('error');
+            }
         }
 
         async function adminResetPassword() {

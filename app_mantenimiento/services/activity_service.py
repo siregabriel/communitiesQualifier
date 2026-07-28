@@ -67,6 +67,23 @@ class ActivityService(JsonFileBacked):
         except Exception:
             pass
 
+    def purge_types(self, types) -> int:
+        """Remove every logged event whose type is in `types`. Used when the
+        underlying records are deleted (e.g. an inspection data reset) so the
+        activity log doesn't point at things that no longer exist.
+        Returns how many events were removed."""
+        wanted = set(types or [])
+        if not wanted:
+            return 0
+        with self._lock:
+            self._ensure_fresh()
+            before = len(self.events)
+            self.events = [e for e in self.events if e.get('type') not in wanted]
+            removed = before - len(self.events)
+            if removed:
+                self._save()
+            return removed
+
     def get_for_user(self, username: str, limit: int = 20) -> list:
         """Most recent events for a user (newest first)."""
         self._ensure_fresh()

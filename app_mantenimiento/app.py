@@ -2146,6 +2146,53 @@ def admin_reset_password():
                     'password': password, 'emailed': emailed}), 200
 
 
+@app.route('/api/admin/reset-inspections', methods=['POST'])
+@login_required
+def admin_reset_inspections():
+    """Admin-only: wipe every submitted inspection so the app can go live with a
+    clean slate. Scores, action items and the dashboard's recent activity all
+    derive from these records, so they clear too. Users, regions, communities,
+    standards, survey types and move-ins are NOT touched.
+
+    A timestamped snapshot of the affected files is written to data/backups/
+    first, so the reset can be undone by restoring those files on the server.
+    Requires the caller to type the word RESET to confirm."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    if (data.get('confirm') or '').strip().upper() != 'RESET':
+        return jsonify({'status': 'error',
+                        'message': 'Type RESET to confirm this action.'}), 400
+    try:
+        import shutil
+        from datetime import datetime as _dt
+        stamp = _dt.now().strftime('%Y%m%d-%H%M%S')
+        backup_dir = os.path.join(DATA_FOLDER, 'backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        saved = []
+        for name in ('inspections.json', 'activity.json'):
+            src = os.path.join(DATA_FOLDER, name)
+            if os.path.exists(src):
+                dst = os.path.join(backup_dir, f'{name.rsplit(".", 1)[0]}-{stamp}.json')
+                shutil.copy2(src, dst)
+                saved.append(os.path.basename(dst))
+
+        removed = inspection_service.reset_all()
+        purged = activity_service.purge_types(['inspection_submitted'])
+
+        activity_service.log(session.get('user'), 'data_reset',
+                             f'Reset inspection data — {removed} inspections cleared')
+        app.logger.warning('INSPECTION DATA RESET by %s — %d submissions removed (backup: %s)',
+                           session.get('user'), removed, ', '.join(saved) or 'none')
+        return jsonify({'status': 'success', 'removed': removed,
+                        'activity_removed': purged, 'backups': saved,
+                        'message': f'{removed} inspection(s) cleared. Backup saved on the server.'}), 200
+    except Exception as e:
+        app.logger.error(f'Reset inspections failed: {str(e)}')
+        return jsonify({'status': 'error',
+                        'message': 'Internal server error during reset. Nothing was changed.'}), 500
+
+
 @app.route('/api/users/<username>', methods=['DELETE'])
 @login_required
 def delete_user(username):

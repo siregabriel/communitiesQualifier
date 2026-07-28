@@ -242,6 +242,16 @@ class InspectionService(JsonFileBacked):
         self._ensure_fresh()
         return self.submissions.copy()
 
+    def reset_all(self) -> int:
+        """Delete every submission and start fresh. Returns how many were removed.
+        Photo files are intentionally left on disk/S3 — only the records are cleared."""
+        with self._lock:
+            self._ensure_fresh()
+            count = len(self.submissions)
+            self.submissions = []
+            self.save_to_file()
+            return count
+
     def rename_community(self, old_name: str, new_name: str) -> int:
         """Rename a community on every historical submission.
         Returns the number of submissions updated."""

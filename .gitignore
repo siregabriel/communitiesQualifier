@@ -23,6 +23,8 @@ env/
 # Seed copies live in app_mantenimiento/data/seeds/ and ARE tracked.
 app_mantenimiento/data/*.json
 app_mantenimiento/data/.secret_key
+# Snapshots written before a data reset (contain real production data)
+app_mantenimiento/data/backups/
 
 # ---- Uploaded media (persists on the server) ----
 app_mantenimiento/static/uploads/
