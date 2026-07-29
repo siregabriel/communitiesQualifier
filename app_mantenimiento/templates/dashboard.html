@@ -1510,6 +1510,56 @@
             }
         }
 
+        /* ===== People (admin directory) ===== */
+        .ppl-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+        .ppl-search { flex: 1; min-width: 240px; }
+        .ppl-chips { display: flex; gap: 7px; flex-wrap: wrap; }
+        .ppl-chip { border: 1px solid #d9dfe8; background: #fff; color: #475569; border-radius: 999px;
+            padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .15s ease; }
+        .ppl-chip span { opacity: .6; font-weight: 600; }
+        .ppl-chip:hover { border-color: #1f6fe5; color: #1f6fe5; }
+        .ppl-chip.on { background: #00285c; border-color: #00285c; color: #fff; }
+        .ppl-chip.on span { opacity: .75; }
+        .ppl-list { background: #fff; border: 1px solid #d9dfe8; border-radius: 12px; overflow: hidden; }
+        .ppl-row { display: flex; gap: 13px; align-items: center; padding: 13px 16px; border-top: 1px solid #eef1f6; }
+        .ppl-row:first-child { border-top: none; }
+        .ppl-row:hover { background: #f8fafc; }
+        .ppl-avatar, .ppl-avatar-img { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; }
+        .ppl-avatar { color: #fff; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+        .ppl-avatar-img { object-fit: cover; }
+        .ppl-main { flex: 1; min-width: 0; }
+        .ppl-name { font-size: 14.5px; font-weight: 700; color: #0f1e36; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .ppl-sub { font-size: 12px; color: #94a3b8; margin-top: 1px; }
+        .ppl-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; font-size: 11.5px; color: #64748b; }
+        .ppl-meta i { opacity: .7; margin-right: 3px; }
+        .ppl-role { font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+        .pr-admin  { background: #fef6e0; color: #92620a; }
+        .pr-corp   { background: #e7edf7; color: #00285c; }
+        .pr-region { background: #eef2ff; color: #3730a3; }
+        .pr-staff  { background: #f1f5f9; color: #475569; }
+        .ppl-noemail { color: #b42318; font-weight: 600; }
+        .ppl-warn-tag { font-size: 10px; font-weight: 800; background: #fdeee9; color: #b42318; border: 1px solid #f7c4ba; padding: 1px 7px; border-radius: 6px; }
+        .ppl-info-tag { font-size: 10px; font-weight: 800; background: #eef4ff; color: #1e40af; border: 1px solid #d3e2fb; padding: 1px 7px; border-radius: 6px; }
+        .ppl-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .ppl-alert { background: #fdf3f1; border: 1px solid #f7d3ca; color: #7a3227; border-radius: 10px;
+            padding: 12px 14px; font-size: 12.5px; line-height: 1.5; margin-bottom: 12px; }
+        .ppl-alert-soft { background: #fff8ec; border-color: #f3d9a6; color: #7a5a13; }
+        @media (max-width: 640px) { .ppl-meta { gap: 8px; } .ppl-row { align-items: flex-start; } }
+        html[data-theme="dark"] .ppl-chip { background: #1b2537; border-color: #33425c; color: #c2cddd; }
+        html[data-theme="dark"] .ppl-chip.on { background: #1f6fe5; border-color: #1f6fe5; color: #fff; }
+        html[data-theme="dark"] .ppl-list { background: #161f2e; border-color: #2b3a52; }
+        html[data-theme="dark"] .ppl-row { border-top-color: #26324a; }
+        html[data-theme="dark"] .ppl-row:hover { background: rgba(255,255,255,.03); }
+        html[data-theme="dark"] .ppl-name { color: #eef2f8; }
+        html[data-theme="dark"] .ppl-sub, html[data-theme="dark"] .ppl-meta { color: #9fb0c4; }
+        html[data-theme="dark"] .pr-admin { background: rgba(242,183,5,.18); color: #f2c94c; }
+        html[data-theme="dark"] .pr-corp { background: rgba(31,111,229,.20); color: #9cc4ff; }
+        html[data-theme="dark"] .pr-region { background: rgba(99,102,241,.20); color: #b3b6ff; }
+        html[data-theme="dark"] .pr-staff { background: #1b2537; color: #c2cddd; }
+        html[data-theme="dark"] .ppl-noemail { color: #ff9d85; }
+        html[data-theme="dark"] .ppl-alert { background: rgba(209,50,18,.12); border-color: rgba(209,50,18,.4); color: #f0b8ab; }
+        html[data-theme="dark"] .ppl-alert-soft { background: rgba(242,183,5,.12); border-color: rgba(242,183,5,.35); color: #f2c94c; }
+
         /* ===== Corporate group card (Regions view) ===== */
         .region-card-corporate { border: 1.5px solid #c7d6f0 !important; }
         .corp-emblem { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
@@ -1785,6 +1835,10 @@
             <a href="#" class="nav-item" data-view="regions">
                 <i class="fas fa-sitemap" aria-hidden="true"></i>
                 <span>Regions</span>
+            </a>
+            <a href="#" class="nav-item" data-view="people" id="peopleNavItem" style="display:none;">
+                <i class="fas fa-users" aria-hidden="true"></i>
+                <span>People</span>
             </a>
             <a href="/questions/manage" class="nav-item" id="standardsLink">
                 <i class="fas fa-clipboard-check" aria-hidden="true"></i>
@@ -3345,6 +3399,10 @@
                     startVisitBtn.style.display = 'flex';
                 }
 
+                // People (user directory) is an admin-only area
+                const peopleNav = document.getElementById('peopleNavItem');
+                if (peopleNav && isAdmin) peopleNav.style.display = '';
+
                 // Show Question Manager button only for admin users
                 if (isAdmin) {
                     const qmBtn = document.getElementById('questionManagerBtn');
@@ -3385,7 +3443,7 @@
                 const params = new URLSearchParams(window.location.search);
                 const requested = params.get('view');
                 const requestedCommunity = params.get('community');
-                const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'reports', 'action-items', 'move-ins', 'calendar', 'resources', 'settings', 'region-detail'];
+                const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'people', 'reports', 'action-items', 'move-ins', 'calendar', 'resources', 'settings', 'region-detail'];
                 showView(validViews.includes(requested) ? requested : (requestedCommunity ? 'communities' : 'dashboard'));
                 updateDashboardNavBadge();
 
@@ -3504,6 +3562,11 @@
                             headerDesc.textContent = 'Regional Profiles & Leadership';
                             renderRegions();
                             maybeStartRegionsTour();
+                            break;
+                        case 'people':
+                            headerTitle.innerHTML = '<i class="fas fa-users"></i> People';
+                            headerDesc.textContent = 'Everyone with access to Atlas Standards';
+                            renderPeople();
                             break;
                         case 'action-items':
                             headerTitle.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Action Items';
@@ -5136,6 +5199,189 @@
             const key = (id || '').toLowerCase();
             if (!REGION_EMBLEMS.includes(key)) return '';
             return `<img class="region-emblem ${cls || ''}" src="/static/region-${key}.svg" alt="" style="width:${px}px;height:${px}px;flex-shrink:0;border-radius:${Math.round(px * 0.23)}px;">`;
+        }
+
+        // ===================== People (admin user directory) =====================
+        let peopleData = null;
+        let peopleFilter = { q: '', role: 'all' };
+
+        async function renderPeople() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '<div style="grid-column:1/-1;"><div class="activity-empty">Loading people…</div></div>';
+            try {
+                const r = await fetch('/api/people');
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') {
+                    gallery.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-users"></i><p>Could not load people.</p></div>';
+                    return;
+                }
+                peopleData = d;
+                drawPeople();
+            } catch (e) {
+                gallery.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-users"></i><p>Could not load people.</p></div>';
+            }
+        }
+
+        function peopleSetRole(role) { peopleFilter.role = role; drawPeople(); }
+        function peopleSearch(v) { peopleFilter.q = (v || '').toLowerCase(); drawPeople(); }
+
+        function drawPeople() {
+            const gallery = document.getElementById('gallery');
+            if (!peopleData) return;
+            const d = peopleData;
+            const roleMeta = {
+                admin:     { label: 'Administrator', cls: 'pr-admin',  icon: 'fa-shield-halved' },
+                corporate: { label: 'Corporate',     cls: 'pr-corp',   icon: 'fa-building-columns' },
+                regional:  { label: 'Regional',      cls: 'pr-region', icon: 'fa-sitemap' },
+                staff:     { label: 'Staff',         cls: 'pr-staff',  icon: 'fa-user' },
+            };
+            const list = d.people.filter(p => {
+                if (peopleFilter.role !== 'all' && p.role !== peopleFilter.role) return false;
+                if (!peopleFilter.q) return true;
+                return (p.name + ' ' + p.username + ' ' + (p.email || '') + ' ' + (p.scope || ''))
+                    .toLowerCase().includes(peopleFilter.q);
+            });
+            const chip = (key, label, n) =>
+                `<button class="ppl-chip ${peopleFilter.role === key ? 'on' : ''}" onclick="peopleSetRole('${key}')">${label}${n !== undefined ? ` <span>${n}</span>` : ''}</button>`;
+            const rows = list.map(p => {
+                const m = roleMeta[p.role] || roleMeta.staff;
+                const initials = (p.name || p.username).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+                const avatar = p.photo
+                    ? `<img class="ppl-avatar-img" src="/static/${escapeHtml(p.photo)}" alt="">`
+                    : `<div class="ppl-avatar" style="background:${avatarColor(p.name || p.username)};">${escapeHtml(initials)}</div>`;
+                const safeU = (p.username || '').replace(/'/g, "\\'");
+                return `<div class="ppl-row">
+                    ${avatar}
+                    <div class="ppl-main">
+                        <div class="ppl-name">${escapeHtml(p.name)}
+                            ${p.duplicate ? '<span class="ppl-warn-tag" title="Two entries share this login">duplicate login</span>' : ''}
+                            ${p.must_change ? '<span class="ppl-info-tag" title="Must set a new password at next sign-in">password reset</span>' : ''}
+                        </div>
+                        <div class="ppl-sub">@${escapeHtml(p.username)}${p.title ? ' · ' + escapeHtml(p.title) : ''}</div>
+                        <div class="ppl-meta">
+                            <span class="ppl-role ${m.cls}"><i class="fas ${m.icon}"></i> ${m.label}</span>
+                            <span class="ppl-scope"><i class="fas fa-location-dot"></i> ${escapeHtml(p.scope || '—')}</span>
+                            ${p.email ? `<span class="ppl-email"><i class="fas fa-envelope"></i> ${escapeHtml(p.email)}</span>`
+                                      : '<span class="ppl-noemail"><i class="fas fa-envelope"></i> no email</span>'}
+                            ${p.inspections ? `<span class="ppl-insp"><i class="fas fa-clipboard-check"></i> ${p.inspections} visit${p.inspections === 1 ? '' : 's'}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="ppl-actions">
+                        <button class="region-edit-btn" title="Edit" onclick="openPersonEdit('${safeU}')"><i class="fas fa-pen"></i></button>
+                        <button class="region-edit-btn" title="Reset password" onclick="peopleResetPassword('${safeU}')"><i class="fas fa-key"></i></button>
+                    </div>
+                </div>`;
+            }).join('') || '<div class="activity-empty">No one matches your search.</div>';
+
+            const warn = (d.conflicts && d.conflicts.length) ? `
+                <div class="ppl-alert"><b><i class="fas fa-triangle-exclamation"></i> ${d.conflicts.length} duplicate login${d.conflicts.length === 1 ? '' : 's'}</b> —
+                the same username appears twice, so those people would share one account.
+                <div style="margin-top:6px;">${d.conflicts.map(c => `${escapeHtml(c.name)} <span style="opacity:.75">(@${escapeHtml(c.username)} — ${c.where.map(escapeHtml).join(' + ')})</span>`).join(' · ')}</div></div>` : '';
+            const noEmail = (d.missing_email && d.missing_email.length) ? `
+                <div class="ppl-alert ppl-alert-soft"><b><i class="fas fa-envelope"></i> ${d.missing_email.length} without an email address</b> —
+                they can't receive inspection reports or move-in notifications. Add it with the pencil.</div>` : '';
+
+            gallery.innerHTML = `<div style="grid-column:1/-1;">
+                <div class="ppl-toolbar">
+                    <input class="pw-input ppl-search" placeholder="Search by name, username, email or region…"
+                           value="${escapeHtml(peopleFilter.q)}" oninput="peopleSearch(this.value)">
+                    <div class="ppl-chips">
+                        ${chip('all', 'All', d.people.length)}
+                        ${chip('admin', 'Admins', d.counts.admin || 0)}
+                        ${chip('corporate', 'Corporate', d.counts.corporate || 0)}
+                        ${chip('regional', 'Regional', d.counts.regional || 0)}
+                        ${chip('staff', 'Staff', d.counts.staff || 0)}
+                    </div>
+                </div>
+                ${warn}${noEmail}
+                <div class="ppl-list">${rows}</div>
+            </div>`;
+        }
+
+        function openPersonEdit(username) {
+            const p = (peopleData?.people || []).find(x => x.username === username);
+            if (!p) return;
+            const regionOpts = (peopleData.regions || []).map(r =>
+                `<option value="${escapeHtml(r.id)}" ${r.id === p.region_id ? 'selected' : ''}>${escapeHtml(r.name)}${r.kind === 'corporate' ? ' (company-wide)' : ''}</option>`).join('');
+            const isRoster = p.source === 'region';
+            const host = document.getElementById('personModal');
+            host.innerHTML = `
+                <div class="pm-overlay" onclick="closePersonModal()"></div>
+                <div class="pm-card" style="max-width:520px;">
+                    <button class="pm-close" onclick="closePersonModal()">&times;</button>
+                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Edit person</h2>
+                    <p style="font-size:12.5px;color:#64748b;margin-bottom:18px;">Login <b>@${escapeHtml(p.username)}</b> never changes, so their history stays intact.</p>
+                    <div style="display:grid;gap:12px;">
+                        <div><label class="mi-label">Full name</label>
+                            <input id="peName" class="pw-input" value="${escapeHtml(p.name)}" style="width:100%;"></div>
+                        <div><label class="mi-label">Email</label>
+                            <input id="peEmail" class="pw-input" type="email" value="${escapeHtml(p.email || '')}" placeholder="name@atlasseniorliving.com" style="width:100%;"></div>
+                        ${isRoster ? `
+                        <div><label class="mi-label">Title</label>
+                            <input id="peTitle" class="pw-input" value="${escapeHtml(p.title || '')}" placeholder="e.g. SRDO, VP Operations" style="width:100%;"></div>
+                        <div><label class="mi-label">Region / group</label>
+                            <select id="peRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
+                        ` : `
+                        <div><label class="mi-label">Role</label>
+                            <select id="peRole" class="pw-input" style="width:100%;">
+                                <option value="staff" ${p.role === 'staff' ? 'selected' : ''}>Staff — one community</option>
+                                <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>Administrator — full access</option>
+                            </select></div>
+                        <div><label class="mi-label">Community</label>
+                            <input id="peCommunity" class="pw-input" value="${escapeHtml(p.community || '')}" placeholder="Community name" style="width:100%;"></div>
+                        `}
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;">
+                        <button class="btn btn-primary" onclick="savePersonEdit('${(p.username || '').replace(/'/g, "\\'")}')"><i class="fas fa-floppy-disk"></i> Save</button>
+                        <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
+                        <span class="pw-msg" id="peMsg"></span>
+                    </div>
+                </div>`;
+            host.style.display = 'block';
+        }
+
+        async function savePersonEdit(username) {
+            const msg = document.getElementById('peMsg');
+            msg.className = 'pw-msg';
+            const body = {
+                name: (document.getElementById('peName').value || '').trim(),
+                email: (document.getElementById('peEmail').value || '').trim(),
+            };
+            const t = document.getElementById('peTitle');
+            const rg = document.getElementById('peRegion');
+            const rl = document.getElementById('peRole');
+            const cm = document.getElementById('peCommunity');
+            if (t) body.title = t.value.trim();
+            if (rg) body.region_id = rg.value;
+            if (rl) body.role = rl.value;
+            if (cm) body.community = cm.value.trim();
+            if (!body.name) { msg.textContent = 'Name is required.'; msg.classList.add('error'); return; }
+            try {
+                const r = await fetch(`/api/people/${encodeURIComponent(username)}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    closePersonModal();
+                    await renderPeople();
+                    await loadRegions();
+                } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
+            } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
+        }
+
+        async function peopleResetPassword(username) {
+            if (!confirm(`Reset the password for @${username}?\n\nThey'll get a temporary password and must choose a new one at next sign-in.`)) return;
+            try {
+                const r = await fetch('/api/admin/reset-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    alert(`Temporary password for ${d.display_name}:\n\n${d.password}\n\nCopy it now — it's shown only once.`);
+                    renderPeople();
+                } else { alert(d.message || 'Could not reset the password.'); }
+            } catch (e) { alert('Network error.'); }
         }
 
         function renderRegions() {

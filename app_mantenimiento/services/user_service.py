@@ -107,6 +107,42 @@ class UserService(JsonFileBacked):
             self._save()
             return True
 
+    def update(self, username: str, **fields) -> bool:
+        """Update editable profile fields on a stored user. Only the keys passed
+        in are touched; the username and password hash are never changed here."""
+        allowed = {'display_name', 'role', 'community', 'region_id', 'email'}
+        with self._lock:
+            self._ensure_fresh()
+            if username not in self.users:
+                return False
+            for key, value in fields.items():
+                if key in allowed:
+                    self.users[username][key] = value
+            self._save()
+            return True
+
+    def ensure(self, username: str, **fields) -> bool:
+        """Create the user record if it doesn't exist yet (used to migrate
+        built-in accounts into editable storage). Returns True if created."""
+        with self._lock:
+            self._ensure_fresh()
+            if username in self.users:
+                return False
+            rec = {
+                'display_name': fields.get('display_name') or username,
+                'role': fields.get('role', 'staff'),
+                'community': fields.get('community'),
+                'region_id': fields.get('region_id'),
+                'email': fields.get('email'),
+                'password_hash': fields.get('password_hash'),
+                'created_at': datetime.now().isoformat(),
+                'created_by': fields.get('created_by', 'system'),
+                'builtin': bool(fields.get('builtin')),
+            }
+            self.users[username] = rec
+            self._save()
+            return True
+
     def delete(self, username: str) -> bool:
         with self._lock:
             self._ensure_fresh()

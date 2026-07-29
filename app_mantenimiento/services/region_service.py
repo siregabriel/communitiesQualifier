@@ -172,17 +172,48 @@ class RegionService(JsonFileBacked):
         self._ensure_fresh()
         return next((r for r in self.regions if r.get('id') == region_id), None)
 
-    def add_leader(self, region_id: str, name: str, role: str, email: str = "") -> bool:
+    def add_leader(self, region_id: str, name: str, role: str, email: str = "",
+                   username: str = "") -> bool:
         region = self._get_region(region_id)
         if region is None:
             return False
-        region.setdefault('leadership', []).append({
+        entry = {
             'name': (name or '').strip(),
             'role': (role or '').strip(),
             'email': (email or '').strip()
-        })
+        }
+        # A permanent username decouples the login from the display name, so
+        # correcting someone's name never costs them their account or history.
+        if (username or '').strip():
+            entry['username'] = username.strip()
+        region.setdefault('leadership', []).append(entry)
         self.save_to_file()
         return True
+
+    def set_leader_username(self, region_id: str, index: int, username: str) -> bool:
+        """Pin a leader's login name (used when backfilling existing rosters)."""
+        region = self._get_region(region_id)
+        if region is None:
+            return False
+        leaders = region.get('leadership', [])
+        if not (0 <= index < len(leaders)):
+            return False
+        leaders[index]['username'] = (username or '').strip()
+        self.save_to_file()
+        return True
+
+    def find_leader_by_username(self, username: str):
+        """Locate a leader across all regions by their (stable) username.
+        Returns (region, index, leader) or (None, None, None)."""
+        self._ensure_fresh()
+        target = (username or '').strip().lower()
+        if not target:
+            return (None, None, None)
+        for region in self.regions:
+            for i, l in enumerate(region.get('leadership', [])):
+                if (l.get('username') or '').strip().lower() == target:
+                    return (region, i, l)
+        return (None, None, None)
 
     def update_leader(self, region_id: str, index: int, name: str, role: str, email: str = "") -> bool:
         region = self._get_region(region_id)
@@ -191,11 +222,15 @@ class RegionService(JsonFileBacked):
         leaders = region.get('leadership', [])
         if not isinstance(index, int) or index < 0 or index >= len(leaders):
             return False
+        existing_username = (leaders[index].get('username') or '').strip()
         leaders[index] = {
             'name': (name or '').strip(),
             'role': (role or '').strip(),
             'email': (email or '').strip()
         }
+        # Keep the login stable even when the display name changes.
+        if existing_username:
+            leaders[index]['username'] = existing_username
         self.save_to_file()
         return True
 

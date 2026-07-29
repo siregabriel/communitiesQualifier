@@ -9,6 +9,7 @@ from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import os
+import re
 from datetime import datetime
 import json
 from services.question_manager import QuestionManager
@@ -507,7 +508,9 @@ def get_regional_accounts():
             name = (leader.get('name') or '').strip()
             if not name or name.lower() == 'open':
                 continue
-            username = slugify_name(name)
+            # Prefer the pinned username so renaming a person never moves their
+            # account; fall back to the name slug for rosters not yet backfilled.
+            username = (leader.get('username') or '').strip() or slugify_name(name)
             if not username:
                 continue
             is_corp = region.get('kind') == CORPORATE_KIND
@@ -624,6 +627,47 @@ def resolve_account_context(username):
     return {'exists': False}
 
 
+def backfill_leader_usernames():
+    """Pin a permanent username on every region/corporate member that doesn't
+    have one yet. Existing rosters were keyed off the person's name, so this
+    freezes today's derived login before anyone can rename them."""
+    changed = 0
+    for region in region_service.get_all_regions():
+        if region.get('id') == 'unassigned':
+            continue
+        for i, leader in enumerate(region.get('leadership', [])):
+            if (leader.get('username') or '').strip():
+                continue
+            name = (leader.get('name') or '').strip()
+            if not name or name.lower() == 'open':
+                continue
+            uname = slugify_name(name)
+            if uname and region_service.set_leader_username(region.get('id'), i, uname):
+                changed += 1
+    return changed
+
+
+def migrate_builtin_users():
+    """Copy the built-in accounts (admin + community users defined in code) into
+    editable storage so they can be managed from the People view like everyone
+    else. Idempotent: only creates records that don't exist yet."""
+    created = 0
+    for username, info in USERS_DB.items():
+        if user_service.exists(username):
+            continue
+        community = info.get('community')
+        made = user_service.ensure(
+            username,
+            display_name=profile_service.get_display_name(username) or username,
+            role='admin' if community is None else 'staff',
+            community=community,
+            password_hash=generate_password_hash(info.get('password', '')),
+            created_by='system', builtin=True)
+        if made:
+            created += 1
+    return created
+
+
 def generate_unique_username(base):
     """Slug from a name, with a numeric suffix if it collides."""
     base = slugify_name(base) or 'user'
@@ -640,6 +684,17 @@ def generate_password(length=10):
     import secrets
     alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
     return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+# One-time (idempotent) data upkeep so every account is editable and stable.
+try:
+    _pinned = backfill_leader_usernames()
+    _migrated = migrate_builtin_users()
+    if _pinned or _migrated:
+        app.logger.info('People upkeep: pinned %d leader usernames, migrated %d built-in users',
+                        _pinned, _migrated)
+except Exception as _e:
+    app.logger.error(f'People upkeep failed: {_e}')
 
 
 def current_role():
@@ -2178,6 +2233,163 @@ def admin_reset_password():
                     'password': password, 'emailed': emailed}), 200
 
 
+@app.route('/api/people', methods=['GET'])
+@login_required
+def list_people():
+    """Admin-only: everyone with access to Atlas Standards, from all sources —
+    stored users (admins and community staff) and region/corporate members —
+    in one list with their role, scope, photo and activity."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+
+    regions = region_service.get_all_regions()
+    region_name = {r.get('id'): r.get('name', r.get('id')) for r in regions}
+
+    # Inspection counts per person (matched on the name shown on submissions).
+    counts, last_seen = {}, {}
+    for s in inspection_service.get_all_submissions():
+        key = (s.get('inspector_name') or s.get('username') or '').strip().lower()
+        if not key:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+        ts = s.get('submitted_at') or ''
+        if ts > last_seen.get(key, ''):
+            last_seen[key] = ts
+
+    def activity_for(name, username):
+        for k in ((name or '').strip().lower(), (username or '').strip().lower()):
+            if k in counts:
+                return counts[k], last_seen.get(k, '')
+        return 0, ''
+
+    people = []
+
+    # 1) Region + corporate members (their login comes from the roster)
+    for region in regions:
+        if region.get('id') == 'unassigned':
+            continue
+        is_corp = region.get('kind') == CORPORATE_KIND
+        for idx, leader in enumerate(region.get('leadership', [])):
+            name = (leader.get('name') or '').strip()
+            if not name or name.lower() == 'open':
+                continue
+            username = (leader.get('username') or '').strip() or slugify_name(name)
+            n, last = activity_for(name, username)
+            people.append({
+                'username': username, 'name': name,
+                'email': (leader.get('email') or '').strip(),
+                'title': (leader.get('role') or '').strip(),
+                'role': 'corporate' if is_corp else 'regional',
+                'scope': 'All communities' if is_corp else region_name.get(region.get('id'), ''),
+                'region_id': region.get('id'),
+                'source': 'region', 'index': idx,
+                'photo': profile_service.get_leader_photo(region.get('id', ''), name),
+                'inspections': n, 'last_visit': last,
+                'must_change': profile_service.get_must_change(username),
+            })
+
+    # 2) Stored users (admins, community staff, admin-created accounts)
+    for u in user_service.get_all():
+        username = u.get('username')
+        name = profile_service.get_display_name(username) or u.get('display_name') or username
+        n, last = activity_for(name, username)
+        role = u.get('role', 'staff')
+        people.append({
+            'username': username, 'name': name,
+            'email': (u.get('email') or '').strip(),
+            'title': '',
+            'role': role,
+            'scope': ('All communities' if role == 'admin'
+                      else (u.get('community') or region_name.get(u.get('region_id'), '') or '—')),
+            'region_id': u.get('region_id'),
+            'community': u.get('community'),
+            'source': 'user',
+            'photo': profile_service.get_photo(username),
+            'inspections': n, 'last_visit': last,
+            'must_change': profile_service.get_must_change(username),
+        })
+
+    people.sort(key=lambda p: ((p['name'] or p['username']).lower()))
+
+    # Two entries sharing a username would fight over the same login, so flag
+    # them for the admin instead of silently letting one win.
+    seen = {}
+    for p in people:
+        seen.setdefault(p['username'].lower(), []).append(p)
+    conflicts = []
+    for uname, group in seen.items():
+        if len(group) > 1:
+            for p in group:
+                p['duplicate'] = True
+            conflicts.append({'username': uname,
+                              'where': [g['scope'] or g['role'] for g in group],
+                              'name': group[0]['name']})
+
+    counts_by_role = {}
+    for p in people:
+        counts_by_role[p['role']] = counts_by_role.get(p['role'], 0) + 1
+    return jsonify({'status': 'success', 'people': people, 'counts': counts_by_role,
+                    'conflicts': conflicts,
+                    'missing_email': [p['username'] for p in people
+                                      if not p['email'] and p['role'] in ('regional', 'corporate')],
+                    'regions': [{'id': r.get('id'), 'name': r.get('name'), 'kind': r.get('kind')}
+                                for r in regions if r.get('id') != 'unassigned'],
+                    'communities': all_communities()}), 200
+
+
+@app.route('/api/people/<username>', methods=['PUT'])
+@login_required
+def update_person(username):
+    """Admin-only: edit a person's name, email, title, role and scope.
+    The username (their login) is never changed, so history stays intact."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=120)
+    email = InputSanitizer.sanitize_string(data.get('email', ''), max_length=160)
+    title = InputSanitizer.sanitize_string(data.get('title', ''), max_length=80)
+    if not name:
+        return jsonify({'status': 'error', 'message': 'Name is required'}), 400
+    if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        return jsonify({'status': 'error', 'message': 'Enter a valid email address'}), 400
+
+    # A roster member (region / corporate)?
+    region, index, leader = region_service.find_leader_by_username(username)
+    if leader is not None:
+        target_region = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50) or region.get('id')
+        old_name = leader.get('name', '')
+        if target_region != region.get('id'):
+            # Moving between regions/groups keeps the same login.
+            region_service.remove_leader(region.get('id'), index)
+            region_service.add_leader(target_region, name, title or leader.get('role', ''), email, username=username)
+        else:
+            region_service.update_leader(region.get('id'), index, name, title or leader.get('role', ''), email)
+        if old_name and old_name != name:
+            photo = profile_service.get_leader_photo(region.get('id'), old_name)
+            if photo:
+                profile_service.set_leader_photo(target_region, name, photo)
+        profile_service.set_display_name(username, name)
+        activity_service.log(session.get('user'), 'person_updated', f'Updated {name} ({username})')
+        return jsonify({'status': 'success', 'message': f'{name} updated.'}), 200
+
+    # A stored user?
+    if user_service.exists(username):
+        role = data.get('role') if data.get('role') in ('admin', 'staff', 'regional') else None
+        fields = {'display_name': name, 'email': email}
+        if role:
+            fields['role'] = role
+        if 'community' in data:
+            fields['community'] = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
+        if 'region_id' in data:
+            fields['region_id'] = InputSanitizer.sanitize_string(data.get('region_id') or '', max_length=50) or None
+        user_service.update(username, **fields)
+        profile_service.set_display_name(username, name)
+        activity_service.log(session.get('user'), 'person_updated', f'Updated {name} ({username})')
+        return jsonify({'status': 'success', 'message': f'{name} updated.'}), 200
+
+    return jsonify({'status': 'error', 'message': 'Person not found'}), 404
+
+
 @app.route('/api/settings/email/summary', methods=['GET'])
 @login_required
 def email_notification_summary():
@@ -3477,7 +3689,13 @@ def manage_region_leader():
                 return jsonify({'status': 'error', 'message': 'Leader name is required'}), 400
 
             if action == 'add':
-                if not region_service.add_leader(region_id, name, role, email):
+                # Pin a permanent login now, so later name edits never move it.
+                pinned = slugify_name(name)
+                if pinned and pinned not in get_regional_accounts() and not username_taken(pinned):
+                    pass          # free to use as-is
+                elif pinned:
+                    pinned = generate_unique_username(name)
+                if not region_service.add_leader(region_id, name, role, email, username=pinned):
                     return jsonify({'status': 'error', 'message': f'Unknown region: {region_id}'}), 400
                 activity_service.log(session.get('user'), 'leader_added', f'Added {name} ({role}) to {region_id}')
             else:
