@@ -5285,6 +5285,7 @@
                 <div class="ppl-toolbar">
                     <input class="pw-input ppl-search" placeholder="Search by name, username, email or region…"
                            value="${escapeHtml(peopleFilter.q)}" oninput="peopleSearch(this.value)">
+                    <button class="btn btn-primary" onclick="openAddPerson()"><i class="fas fa-user-plus"></i> Add person</button>
                     <div class="ppl-chips">
                         ${chip('all', 'All', d.people.length)}
                         ${chip('admin', 'Admins', d.counts.admin || 0)}
@@ -5296,6 +5297,113 @@
                 ${warn}${noEmail}
                 <div class="ppl-list">${rows}</div>
             </div>`;
+        }
+
+        function openAddPerson() {
+            if (!peopleData) return;
+            const regionOpts = (peopleData.regions || []).map(r =>
+                `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}${r.kind === 'corporate' ? ' (company-wide)' : ''}</option>`).join('');
+            const commOpts = (peopleData.communities || []).map(c =>
+                `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            const modal = document.getElementById('personModal');
+            const body = document.getElementById('personModalBody');
+            body.innerHTML = `
+                <div>
+                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Add person</h2>
+                    <p style="font-size:12.5px;color:#64748b;margin-bottom:18px;">Their login is created automatically, with a temporary password they'll change at first sign-in.</p>
+                    <div style="display:grid;gap:12px;">
+                        <div><label class="mi-label">Full name</label>
+                            <input id="apName" class="pw-input" placeholder="e.g. Michael Hamilton" style="width:100%;"></div>
+                        <div><label class="mi-label">Email <span style="font-weight:500;color:#94a3b8;">(sends them their login)</span></label>
+                            <input id="apEmail" class="pw-input" type="email" placeholder="name@atlasseniorliving.com" style="width:100%;"></div>
+                        <div><label class="mi-label">Role</label>
+                            <select id="apRole" class="pw-input" style="width:100%;" onchange="apOnRoleChange()">
+                                <option value="regional">Regional — one region</option>
+                                <option value="corporate">Corporate — company-wide</option>
+                                <option value="staff">Staff — one community</option>
+                                <option value="admin">Administrator — full access</option>
+                            </select></div>
+                        <div id="apTitleWrap"><label class="mi-label">Title</label>
+                            <input id="apTitle" class="pw-input" placeholder="e.g. SRDO, VP Operations" style="width:100%;"></div>
+                        <div id="apRegionWrap"><label class="mi-label">Region / group</label>
+                            <select id="apRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
+                        <div id="apCommunityWrap"><label class="mi-label">Community</label>
+                            <select id="apCommunity" class="pw-input" style="width:100%;"><option value="">— Select —</option>${commOpts}</select></div>
+                        <div id="apRoleNote" style="font-size:12px;color:#64748b;line-height:1.45;"></div>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="submitAddPerson()"><i class="fas fa-user-plus"></i> Create account</button>
+                        <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
+                        <span class="pw-msg" id="apMsg"></span>
+                    </div>
+                    <div id="apResult" class="usermgmt-credential" style="display:none;margin-top:16px;"></div>
+                </div>`;
+            modal.classList.add('show');
+            apOnRoleChange();
+        }
+
+        function apOnRoleChange() {
+            const role = document.getElementById('apRole')?.value;
+            const note = document.getElementById('apRoleNote');
+            if (!role || !note) return;
+            const onRoster = (role === 'regional' || role === 'corporate');
+            document.getElementById('apTitleWrap').style.display = onRoster ? '' : 'none';
+            document.getElementById('apRegionWrap').style.display = onRoster ? '' : 'none';
+            document.getElementById('apCommunityWrap').style.display = (role === 'staff') ? '' : 'none';
+            const sel = document.getElementById('apRegion');
+            if (sel) {
+                Array.from(sel.options).forEach(o => {
+                    const isCorp = o.textContent.includes('company-wide');
+                    o.hidden = (role === 'corporate') ? !isCorp : isCorp;
+                });
+                const first = Array.from(sel.options).find(o => !o.hidden);
+                if (sel.selectedOptions[0]?.hidden && first) sel.value = first.value;
+            }
+            note.textContent = {
+                staff: 'Can inspect and run move-ins for one community only.',
+                regional: 'Can inspect every community in their region.',
+                corporate: 'Company-wide access: can visit any community and see every region.',
+                admin: 'Full access, including standards, people and settings. Admins do not submit inspections.',
+            }[role] || '';
+        }
+
+        async function submitAddPerson() {
+            const msg = document.getElementById('apMsg');
+            msg.className = 'pw-msg';
+            const role = document.getElementById('apRole').value;
+            const body = {
+                name: (document.getElementById('apName').value || '').trim(),
+                email: (document.getElementById('apEmail').value || '').trim(),
+                role,
+                title: (document.getElementById('apTitle').value || '').trim(),
+            };
+            if (role === 'regional' || role === 'corporate') body.region_id = document.getElementById('apRegion').value;
+            if (role === 'staff') body.community = document.getElementById('apCommunity').value;
+            if (!body.name) { msg.textContent = 'Enter a name.'; msg.classList.add('error'); return; }
+            if (role === 'staff' && !body.community) { msg.textContent = 'Pick a community.'; msg.classList.add('error'); return; }
+            try {
+                const r = await fetch('/api/people', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    const box = document.getElementById('apResult');
+                    box.style.display = '';
+                    box.innerHTML = `
+                        <div class="cred-head"><i class="fas fa-circle-check"></i> ${escapeHtml(d.display_name)} added${d.emailed ? ' — login emailed' : ''}</div>
+                        <div class="cred-note">Copy these now — the password is shown only once. They'll set their own at first sign-in.</div>
+                        <div class="cred-row"><span class="cred-label">Username</span><code>${escapeHtml(d.username)}</code><button class="cred-copy" onclick="copyText('${d.username.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
+                        <div class="cred-row"><span class="cred-label">Password</span><code>${escapeHtml(d.password)}</code><button class="cred-copy" onclick="copyText('${d.password.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
+                        <button class="cred-dismiss" onclick="closePersonModal(); renderPeople(); loadRegions();">Done</button>`;
+                    msg.textContent = '';
+                    document.getElementById('apName').value = '';
+                    document.getElementById('apEmail').value = '';
+                    document.getElementById('apTitle').value = '';
+                } else {
+                    msg.textContent = d.message || 'Could not create the account.';
+                    msg.classList.add('error');
+                }
+            } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
         }
 
         function openPersonEdit(username) {

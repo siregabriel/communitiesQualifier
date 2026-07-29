@@ -2296,6 +2296,80 @@ def list_people():
                     'communities': all_communities()}), 200
 
 
+@app.route('/api/people', methods=['POST'])
+@login_required
+def create_person():
+    """Admin-only: add anyone — staff, regional, corporate or administrator —
+    from the People view. Creates their login, sets a temporary password they
+    must change at first sign-in, and emails it to them when we have an
+    address."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=120)
+    email = InputSanitizer.sanitize_string(data.get('email', ''), max_length=160)
+    title = InputSanitizer.sanitize_string(data.get('title', ''), max_length=80)
+    role = data.get('role') if data.get('role') in ('admin', 'staff', 'regional', 'corporate') else None
+    region_id = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
+    community = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
+
+    if not name:
+        return jsonify({'status': 'error', 'message': 'Name is required'}), 400
+    if not role:
+        return jsonify({'status': 'error', 'message': 'Pick a role'}), 400
+    if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        return jsonify({'status': 'error', 'message': 'Enter a valid email address'}), 400
+    if role == 'staff' and not community:
+        return jsonify({'status': 'error', 'message': 'Pick a community for staff'}), 400
+
+    username = generate_unique_username(name)
+    password = generate_password()
+    pw_hash = generate_password_hash(password)
+
+    if role in ('regional', 'corporate'):
+        dest = next((r for r in region_service.get_all_regions() if r.get('id') == region_id), None)
+        if not dest or dest.get('id') == 'unassigned':
+            return jsonify({'status': 'error', 'message': 'Pick the region or group'}), 400
+        is_corp = dest.get('kind') == CORPORATE_KIND
+        if role == 'corporate' and not is_corp:
+            return jsonify({'status': 'error', 'message': 'Corporate members go in the Corporate group.'}), 400
+        if role == 'regional' and is_corp:
+            return jsonify({'status': 'error', 'message': 'Pick a region — Corporate is company-wide.'}), 400
+        if not region_service.add_leader(region_id, name, title or '', email, username=username):
+            return jsonify({'status': 'error', 'message': 'Could not add this person'}), 400
+        profile_service.set_password_hash(username, pw_hash)
+        scope = dest.get('name')
+    else:
+        user_service.create(username, display_name=name, role=role, password_hash=pw_hash,
+                            community=community if role == 'staff' else None,
+                            region_id=None, created_by=session.get('user'), email=email or None)
+        scope = community if role == 'staff' else 'All communities'
+
+    profile_service.set_display_name(username, name)
+    profile_service.set_must_change(username, True)
+
+    emailed = False
+    if email and email_service.enabled:
+        try:
+            ok, _ = email_service.send_welcome(email, name, username, password, role.capitalize())
+            emailed = bool(ok)
+        except Exception as e:
+            app.logger.error(f'Welcome email failed: {e}')
+    try:
+        admin_notify = settings_service.get_email_settings().get('admin_notify', [])
+        if admin_notify:
+            email_service.send_new_user_alert(admin_notify, name, username, role.capitalize(),
+                                              session.get('user'))
+    except Exception:
+        pass
+
+    activity_service.log(session.get('user'), 'person_created',
+                         f'Added {name} ({username}) as {role}')
+    return jsonify({'status': 'success', 'username': username, 'password': password,
+                    'display_name': name, 'role': role, 'scope': scope, 'emailed': emailed,
+                    'message': f'{name} added.'}), 200
+
+
 @app.route('/api/people/<username>', methods=['PUT'])
 @login_required
 def update_person(username):
