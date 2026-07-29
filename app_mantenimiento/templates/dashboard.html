@@ -3618,12 +3618,13 @@
                 { target: '.nav-item[data-view="dashboard"]', title: 'Dashboard', text: 'Your at-a-glance overview: average score, communities that need attention, performance by region (click a region to drill into its communities), recent activity, and — on wide screens — a mini-calendar of what’s coming up.' },
                 { target: '#dashMainGrid', title: 'Rearrange your dashboard', text: 'On desktop, grab the ⠿ handle on any card (or KPI) to drag it into the order you like — your layout is saved on this device. Use “Reset layout” to put everything back.' },
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse every community, see its latest score and open action items, open a full report, and give each one a cover photo.' },
-                { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile." },
+                { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile. The Corporate group at the end holds company-wide members who can visit any community." },
+                { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically), change roles, reset passwords or remove access.' },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the inspection standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF.' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident’s move-in as a phased checklist — with required compliance items, attachments, printable binder pages, and automatic email reminders. Open it for its own walkthrough.' },
                 { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines inspections, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
-                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Create users, choose who receives which inspection emails (by region or inspector), and configure Clinical/Ops routing.' },
+                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which inspection emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to. People are managed in the People view.' },
                 { title: "You're all set", text: 'That’s the tour. Tap Help in the top bar to see it again whenever you want.' },
             ],
             staff: [
@@ -6202,32 +6203,11 @@
                         ${admin ? `
                         <div class="profile-section">
                             <div class="profile-section-title"><i class="fas fa-users-gear"></i> User management</div>
-                            <div class="usermgmt">
-                                <div class="usermgmt-form">
-                                    <input id="newUserName" class="pw-input" placeholder="Full name" maxlength="80">
-                                    <input id="newUserEmail" class="pw-input" type="email" placeholder="Email (sends them their login)" maxlength="120">
-                                    <select id="newUserRole" class="pw-input" onchange="onNewUserRoleChange()">
-                                        <option value="staff">Staff — one community</option>
-                                        <option value="admin">Administrator — full access</option>
-                                        <option value="regional">Regional — one region</option>
-                                    </select>
-                                    <select id="newUserCommunity" class="pw-input"></select>
-                                    <select id="newUserRegion" class="pw-input" style="display:none;"></select>
-                                    <button class="btn btn-primary" onclick="createUser()"><i class="fas fa-user-plus"></i> Create user</button>
-                                    <div class="pw-msg" id="createUserMsg"></div>
-                                </div>
-                                <div class="usermgmt-credential" id="createUserResult" style="display:none;"></div>
-                                <div class="usermgmt-list" id="managedUsersList"><div class="activity-empty">Loading…</div></div>
-                            </div>
-                        </div>
-                        <div class="profile-section">
-                            <div class="profile-section-title"><i class="fas fa-key"></i> Reset a user's password</div>
-                            <div class="usermgmt-form">
-                                <input id="resetUsername" class="pw-input" placeholder="Username to reset (e.g. keith.martin)" maxlength="80" autocomplete="off">
-                                <button class="btn btn-primary" onclick="adminResetPassword()"><i class="fas fa-rotate-right"></i> Reset to temporary password</button>
-                                <div class="pw-msg" id="resetPwMsg"></div>
-                                <div class="usermgmt-credential" id="resetPwResult" style="display:none;"></div>
-                            </div>
+                            <p style="font-size:13px;color:#64748b;line-height:1.55;margin:-4px 0 14px;">
+                                Adding people, changing roles, resetting passwords and removing access
+                                all live in one place now.
+                            </p>
+                            <button class="btn btn-primary" onclick="showView('people')"><i class="fas fa-users"></i> Open People</button>
                         </div>
                         <div class="profile-section danger-zone">
                             <div class="profile-section-title danger-title"><i class="fas fa-triangle-exclamation"></i> Danger zone</div>
@@ -6311,9 +6291,13 @@
             `;
 
             if (admin) {
-                populateUserFormOptions();
-                onNewUserRoleChange();
-                loadManagedUsers();
+                // User creation/listing moved to the People view; these only run
+                // if their (now optional) Settings elements are present.
+                if (document.getElementById('newUserName')) {
+                    populateUserFormOptions();
+                    onNewUserRoleChange();
+                }
+                if (document.getElementById('managedUsersList')) loadManagedUsers();
                 loadEmailSettings();
                 loadNotificationSummary();
             }

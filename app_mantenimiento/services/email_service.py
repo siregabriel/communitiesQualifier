@@ -317,12 +317,13 @@ and some checklist items are still open.</p>
   <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
   {role_line}
 </table>
-<p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Please sign in and change your password from your profile.</p>
+<p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
 {f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}"""
         text = (f"Hi {display_name}, an account was created for you on Atlas Standards.\n"
                 f"Username: {username}\nTemporary password: {password}\n"
                 + (f"Role: {role_label}\n" if role_label else "")
-                + f"Please sign in and change your password.\n" + (f"{login}\n" if login else ""))
+                + "Sign in with the temporary password above — you'll be asked to create your own password right away.\n"
+                + (f"{login}\n" if login else ""))
         return self._send([to_email], subject, self._shell("Welcome", body), text)
 
     def send_new_user_alert(self, admin_emails, display_name, username, role_label, created_by):

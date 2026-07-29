@@ -2101,6 +2101,9 @@ def create_user():
         created_by=session.get('user'),
         email=email,
     )
+    # Same rule as People > Add person: the temporary password must be replaced
+    # by one only they know, at first sign-in.
+    profile_service.set_must_change(username, True)
     try:
         activity_service.log(session.get('user'), 'user_created',
                              f'Created {role} account for {display_name}',
