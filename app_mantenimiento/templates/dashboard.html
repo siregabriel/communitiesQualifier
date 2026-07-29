@@ -5577,7 +5577,12 @@
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
-                    alert(`Temporary password for ${d.display_name}:\n\n${d.password}\n\nCopy it now — it's shown only once.`);
+                    const sent = d.emailed
+                        ? `\n\n✓ Emailed to ${d.email} — they can sign in without you sharing it.`
+                        : (d.email
+                            ? `\n\n⚠ Could not email it to ${d.email} — share it with them directly.`
+                            : `\n\n⚠ No email on file — share this with them directly. (Add their email with the pencil so future resets are emailed automatically.)`);
+                    alert(`Temporary password for ${d.display_name}:\n\n${d.password}\n\nThey'll be asked to set their own password at sign-in.${sent}`);
                     renderPeople();
                 } else { alert(d.message || 'Could not reset the password.'); }
             } catch (e) { alert('Network error.'); }

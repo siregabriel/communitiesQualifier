@@ -461,6 +461,9 @@ def get_regional_accounts():
                 'region_id': region.get('id'),
                 'region_name': region.get('name'),
                 'corporate': is_corp,
+                # Carried through so password resets and notifications can
+                # actually reach region/corporate members.
+                'email': (leader.get('email') or '').strip(),
                 # Corporate members work across the whole organization.
                 'communities': all_communities() if is_corp else list(region.get('communities', []))
             }
@@ -2181,18 +2184,19 @@ def admin_reset_password():
     profile_service.set_must_change(username, True)
     activity_service.log(session.get('user'), 'password_reset',
                          f"Reset password for {acct.get('display_name') or username}")
-    # Best-effort: also email the user their temp password if we have one on file.
+    # Email them the temporary password when we have an address on file.
     emailed = False
     if acct.get('email'):
         try:
-            ok, _ = email_service.send_welcome(acct['email'], acct.get('display_name') or username,
-                                               username, password, acct.get('context'))
+            ok, _ = email_service.send_password_reset(
+                acct['email'], acct.get('display_name') or username, username, password)
             emailed = bool(ok)
-        except Exception:
-            emailed = False
+        except Exception as e:
+            app.logger.error(f'Password-reset email failed: {e}')
     return jsonify({'status': 'success', 'username': username,
                     'display_name': acct.get('display_name') or username,
-                    'password': password, 'emailed': emailed}), 200
+                    'password': password, 'emailed': emailed,
+                    'email': acct.get('email') or ''}), 200
 
 
 @app.route('/api/people', methods=['GET'])

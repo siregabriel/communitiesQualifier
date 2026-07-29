@@ -326,6 +326,27 @@ and some checklist items are still open.</p>
                 + (f"{login}\n" if login else ""))
         return self._send([to_email], subject, self._shell("Welcome", body), text)
 
+    def send_password_reset(self, to_email, display_name, username, password):
+        """Send a user the temporary password an administrator just set."""
+        if not self.enabled or not _valid(to_email or ''):
+            return (False, 'no recipient / disabled')
+        login = self.app_base_url or ''
+        subject = "Your Atlas Standards password was reset"
+        body = f"""\
+<p style="font-size:14px;margin:0 0 14px">Hi {html.escape(display_name)}, an administrator reset your Atlas Standards password.</p>
+<table style="font-size:14px;border-collapse:collapse;margin-bottom:8px">
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:700">{html.escape(username)}</td></tr>
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
+</table>
+<p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
+{f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}
+<p style="font-size:12px;color:#9ca3af;margin:18px 0 0">If you didn't expect this, contact your administrator.</p>"""
+        text = (f"Hi {display_name}, an administrator reset your Atlas Standards password.\n"
+                f"Username: {username}\nTemporary password: {password}\n"
+                "Sign in with the temporary password above — you'll be asked to create your own password right away.\n"
+                + (f"{login}\n" if login else ""))
+        return self._send([to_email], subject, self._shell("Password reset", body), text)
+
     def send_new_user_alert(self, admin_emails, display_name, username, role_label, created_by):
         """Notify admins that a new account was created."""
         if not self.enabled:
