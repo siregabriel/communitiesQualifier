@@ -5316,20 +5316,20 @@
                             <input id="peName" class="pw-input" value="${escapeHtml(p.name)}" style="width:100%;"></div>
                         <div><label class="mi-label">Email</label>
                             <input id="peEmail" class="pw-input" type="email" value="${escapeHtml(p.email || '')}" placeholder="name@atlasseniorliving.com" style="width:100%;"></div>
-                        ${isRoster ? `
-                        <div><label class="mi-label">Title</label>
-                            <input id="peTitle" class="pw-input" value="${escapeHtml(p.title || '')}" placeholder="e.g. SRDO, VP Operations" style="width:100%;"></div>
-                        <div><label class="mi-label">Region / group</label>
-                            <select id="peRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
-                        ` : `
                         <div><label class="mi-label">Role</label>
-                            <select id="peRole" class="pw-input" style="width:100%;">
+                            <select id="peRole" class="pw-input" style="width:100%;" onchange="peOnRoleChange()">
                                 <option value="staff" ${p.role === 'staff' ? 'selected' : ''}>Staff — one community</option>
+                                <option value="regional" ${p.role === 'regional' ? 'selected' : ''}>Regional — one region</option>
+                                <option value="corporate" ${p.role === 'corporate' ? 'selected' : ''}>Corporate — company-wide</option>
                                 <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>Administrator — full access</option>
                             </select></div>
-                        <div><label class="mi-label">Community</label>
+                        <div id="peTitleWrap"><label class="mi-label">Title</label>
+                            <input id="peTitle" class="pw-input" value="${escapeHtml(p.title || '')}" placeholder="e.g. SRDO, VP Operations" style="width:100%;"></div>
+                        <div id="peRegionWrap"><label class="mi-label">Region / group</label>
+                            <select id="peRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
+                        <div id="peCommunityWrap"><label class="mi-label">Community</label>
                             <input id="peCommunity" class="pw-input" value="${escapeHtml(p.community || '')}" placeholder="Community name" style="width:100%;"></div>
-                        `}
+                        <div id="peRoleNote" style="font-size:12px;color:#64748b;line-height:1.45;"></div>
                     </div>
                     <div style="display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap;">
                         <button class="btn btn-primary" onclick="savePersonEdit('${(p.username || '').replace(/'/g, "\\'")}')"><i class="fas fa-floppy-disk"></i> Save</button>
@@ -5346,6 +5346,44 @@
                     </div>
                 </div>`;
             modal.classList.add('show');
+            peOnRoleChange();
+        }
+
+        // Show only the fields that make sense for the chosen role, and explain
+        // what changing it will do.
+        function peOnRoleChange() {
+            const role = document.getElementById('peRole')?.value;
+            const titleW = document.getElementById('peTitleWrap');
+            const regionW = document.getElementById('peRegionWrap');
+            const commW = document.getElementById('peCommunityWrap');
+            const note = document.getElementById('peRoleNote');
+            const regionSel = document.getElementById('peRegion');
+            if (!role || !note) return;
+            const onRoster = (role === 'regional' || role === 'corporate');
+            titleW.style.display = onRoster ? '' : 'none';
+            regionW.style.display = onRoster ? '' : 'none';
+            commW.style.display = (role === 'staff') ? '' : 'none';
+
+            // Corporate lives in the Corporate group; regional in a real region.
+            if (regionSel) {
+                const corpOpt = Array.from(regionSel.options).find(o => o.textContent.includes('company-wide'));
+                Array.from(regionSel.options).forEach(o => {
+                    const isCorp = o.textContent.includes('company-wide');
+                    o.hidden = (role === 'corporate') ? !isCorp : isCorp;
+                });
+                if (role === 'corporate' && corpOpt) regionSel.value = corpOpt.value;
+                else if (role === 'regional' && regionSel.selectedOptions[0]?.hidden) {
+                    const first = Array.from(regionSel.options).find(o => !o.hidden);
+                    if (first) regionSel.value = first.value;
+                }
+            }
+            const notes = {
+                staff: 'Can inspect and run move-ins for one community only.',
+                regional: 'Gets a regional login and can inspect every community in that region.',
+                corporate: 'Company-wide access: can visit any community and see every region.',
+                admin: 'Full access, including standards, people and settings. Admins do not submit inspections.',
+            };
+            note.textContent = notes[role] || '';
         }
 
         async function deletePerson(username, name) {
@@ -5374,10 +5412,12 @@
             const rg = document.getElementById('peRegion');
             const rl = document.getElementById('peRole');
             const cm = document.getElementById('peCommunity');
+            const role = rl ? rl.value : '';
+            if (role) body.role = role;
             if (t) body.title = t.value.trim();
-            if (rg) body.region_id = rg.value;
-            if (rl) body.role = rl.value;
-            if (cm) body.community = cm.value.trim();
+            // Only send the field that applies to the chosen role.
+            if (rg && (role === 'regional' || role === 'corporate')) body.region_id = rg.value;
+            if (cm && role === 'staff') body.community = cm.value.trim();
             if (!body.name) { msg.textContent = 'Name is required.'; msg.classList.add('error'); return; }
             try {
                 const r = await fetch(`/api/people/${encodeURIComponent(username)}`, {

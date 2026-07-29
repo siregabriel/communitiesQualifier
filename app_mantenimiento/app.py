@@ -2312,35 +2312,91 @@ def update_person(username):
     if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
         return jsonify({'status': 'error', 'message': 'Enter a valid email address'}), 400
 
-    # A roster member (region / corporate)?
+    requested_role = data.get('role') if data.get('role') in ('admin', 'staff', 'regional', 'corporate') else None
+    target_region = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
+    community = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
+
+    def preserve_password(user_rec):
+        """Carry an account's password across storage types so moving someone
+        between roles never changes how they sign in."""
+        existing = profile_service.get_password_hash(username)
+        if not existing and user_rec and user_rec.get('password_hash'):
+            profile_service.set_password_hash(username, user_rec['password_hash'])
+
     region, index, leader = region_service.find_leader_by_username(username)
+
+    # ---- Currently a roster member (regional / corporate) ----
     if leader is not None:
-        target_region = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50) or region.get('id')
+        current_region = region.get('id')
         old_name = leader.get('name', '')
-        if target_region != region.get('id'):
-            # Moving between regions/groups keeps the same login.
-            region_service.remove_leader(region.get('id'), index)
-            region_service.add_leader(target_region, name, title or leader.get('role', ''), email, username=username)
+        moving_off_roster = requested_role in ('admin', 'staff')
+
+        if moving_off_roster:
+            # Becomes a stored account; keep their login and password working.
+            region_service.remove_leader(current_region, index)
+            if not user_service.exists(username):
+                user_service.ensure(username, display_name=name, role=requested_role,
+                                    community=community if requested_role == 'staff' else None,
+                                    email=email, created_by=session.get('user'))
+            else:
+                user_service.update(username, display_name=name, role=requested_role,
+                                    community=community if requested_role == 'staff' else None,
+                                    email=email)
+            profile_service.set_display_name(username, name)
+            activity_service.log(session.get('user'), 'person_updated',
+                                 f'Changed {name} to {requested_role}')
+            return jsonify({'status': 'success', 'message': f'{name} is now {requested_role}.'}), 200
+
+        dest = target_region or current_region
+        if dest != current_region:
+            region_service.remove_leader(current_region, index)
+            region_service.add_leader(dest, name, title or leader.get('role', ''), email, username=username)
         else:
-            region_service.update_leader(region.get('id'), index, name, title or leader.get('role', ''), email)
+            region_service.update_leader(current_region, index, name, title or leader.get('role', ''), email)
         if old_name and old_name != name:
-            photo = profile_service.get_leader_photo(region.get('id'), old_name)
+            photo = profile_service.get_leader_photo(current_region, old_name)
             if photo:
-                profile_service.set_leader_photo(target_region, name, photo)
+                profile_service.set_leader_photo(dest, name, photo)
         profile_service.set_display_name(username, name)
         activity_service.log(session.get('user'), 'person_updated', f'Updated {name} ({username})')
         return jsonify({'status': 'success', 'message': f'{name} updated.'}), 200
 
-    # A stored user?
+    # ---- Currently a stored user (admin / staff) ----
     if user_service.exists(username):
-        role = data.get('role') if data.get('role') in ('admin', 'staff', 'regional') else None
+        rec = user_service.get(username) or {}
+
+        if requested_role in ('regional', 'corporate'):
+            # Moving onto a region/corporate roster. Keep the same login and
+            # password by pinning the username and copying the hash across.
+            if not target_region:
+                return jsonify({'status': 'error',
+                                'message': 'Pick the region or group for this person.'}), 400
+            dest = next((r for r in region_service.get_all_regions() if r.get('id') == target_region), None)
+            if not dest or dest.get('id') == 'unassigned':
+                return jsonify({'status': 'error', 'message': 'Unknown region or group'}), 400
+            is_corp_dest = dest.get('kind') == CORPORATE_KIND
+            if requested_role == 'corporate' and not is_corp_dest:
+                return jsonify({'status': 'error',
+                                'message': 'Corporate members must be placed in the Corporate group.'}), 400
+            if requested_role == 'regional' and is_corp_dest:
+                return jsonify({'status': 'error',
+                                'message': 'Pick a region — Corporate is company-wide.'}), 400
+            preserve_password(rec)
+            region_service.add_leader(target_region, name, title or '', email, username=username)
+            user_service.delete(username)
+            profile_service.set_display_name(username, name)
+            activity_service.log(session.get('user'), 'person_updated',
+                                 f'Moved {name} to {dest.get("name")} ({requested_role})')
+            return jsonify({'status': 'success',
+                            'message': f'{name} moved to {dest.get("name")}.'}), 200
+
         fields = {'display_name': name, 'email': email}
-        if role:
-            fields['role'] = role
-        if 'community' in data:
-            fields['community'] = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
-        if 'region_id' in data:
-            fields['region_id'] = InputSanitizer.sanitize_string(data.get('region_id') or '', max_length=50) or None
+        if requested_role:
+            fields['role'] = requested_role
+            if requested_role == 'admin':
+                fields['community'] = None
+        if 'community' in data and requested_role != 'admin':
+            fields['community'] = community
         user_service.update(username, **fields)
         profile_service.set_display_name(username, name)
         activity_service.log(session.get('user'), 'person_updated', f'Updated {name} ({username})')
