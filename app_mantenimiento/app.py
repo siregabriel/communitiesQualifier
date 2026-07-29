@@ -668,6 +668,21 @@ def current_role():
     return 'admin' if session.get('community') is None else 'staff'
 
 
+def is_native_admin():
+    """True only for real Administrator accounts. The admin accessory does NOT
+    count here — granting privileges is reserved for the main administrator."""
+    return current_role() == 'admin'
+
+
+def is_admin():
+    """True when the user may perform administrative actions — either because
+    they are an Administrator, or because the main administrator granted them
+    the admin accessory on top of their own role (e.g. a Corporate member)."""
+    if is_native_admin():
+        return True
+    return bool(session.get('admin_extra'))
+
+
 def all_communities():
     """Every community assigned to any region (org-wide scope)."""
     names = []
@@ -757,7 +772,7 @@ def require_admin(f):
     @login_required
     def decorated_function(*args, **kwargs):
         # Only admins may access admin routes
-        if current_role() != 'admin':
+        if not is_admin():
             # API endpoints must answer with JSON 403 so the frontend's fetch()
             # can surface the error, instead of silently redirecting to a page.
             if request.path.startswith('/api/'):
@@ -844,6 +859,8 @@ def api_login():
             session['region_id'] = account['region_id']
             session['display_name'] = account['display_name']
             session.permanent = True
+            # Administrator privileges granted on top of their role (accessory).
+            session['admin_extra'] = profile_service.get_admin_extra(username)
             # If an admin reset this account, force a password change before use.
             must_change = profile_service.get_must_change(username)
             session['must_change'] = bool(must_change)
@@ -951,7 +968,7 @@ def index():
         return redirect(url_for('login'))
 
     # Route by role
-    if current_role() == 'admin':
+    if is_admin():
         return redirect(url_for('dashboard'))
     else:
         # Staff and regional users start a visit via survey type selection
@@ -971,8 +988,10 @@ def report_form():
     - If no survey type in session, redirect to survey type selection
     - Admin users are redirected to dashboard (cannot submit inspections)
     """
-    # Admins cannot submit inspections
-    if current_role() == 'admin':
+    # Administrators don't submit inspections. Note this checks the *native*
+    # role: someone whose real role is Corporate/Regional keeps inspecting even
+    # when they also hold admin privileges.
+    if is_native_admin():
         return redirect(url_for('dashboard'))
 
     # Check if survey type is selected
@@ -1015,10 +1034,11 @@ def select_survey_type():
     User must select a survey type before starting an inspection
     Requires login - admin users are redirected to dashboard
     """
-    # Admins cannot submit inspections
-    if current_role() == 'admin':
+    # Native administrators don't submit inspections; Corporate/Regional users
+    # with admin privileges still do.
+    if is_native_admin():
         return redirect(url_for('dashboard'))
-    
+
     return render_template('select_survey_type.html',
                          community=session.get('community'),
                          username=session.get('user'))
@@ -2046,7 +2066,7 @@ def trigger_movein_reminders():
 @login_required
 def list_users():
     """Admin-only: list admin-created login accounts."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     return jsonify({'status': 'success', 'users': user_service.get_all()}), 200
 
@@ -2060,7 +2080,7 @@ def create_user():
     The username is generated from the name; a strong password is generated and
     returned ONCE (it is stored only as a hash).
     """
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
 
     data = request.get_json(silent=True) or {}
@@ -2146,7 +2166,7 @@ def create_user():
 @login_required
 def reset_user_password(username):
     """Admin-only: generate a new password for a created user (returned once)."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     if not user_service.exists(username):
         return jsonify({'status': 'error', 'message': 'User not found'}), 404
@@ -2168,7 +2188,7 @@ def admin_reset_password():
     """Admin-only: reset ANY account (admin/staff, created user, or regional)
     to a temporary password and force a change on next login. The temp password
     is returned once so the admin can share it with the user."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
     username = InputSanitizer.sanitize_username(data.get('username', ''))
@@ -2205,7 +2225,7 @@ def list_people():
     """Admin-only: everyone with access to Atlas Standards, from all sources —
     stored users (admins and community staff) and region/corporate members —
     in one list with their role, scope, photo and activity."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
 
     regions = region_service.get_all_regions()
@@ -2252,6 +2272,7 @@ def list_people():
                 'photo': profile_service.get_leader_photo(region.get('id', ''), name),
                 'inspections': n, 'last_visit': last,
                 'must_change': profile_service.get_must_change(username),
+                'admin_extra': profile_service.get_admin_extra(username),
             })
 
     # 2) Stored users (admins, community staff, admin-created accounts)
@@ -2273,6 +2294,7 @@ def list_people():
             'photo': profile_service.get_photo(username),
             'inspections': n, 'last_visit': last,
             'must_change': profile_service.get_must_change(username),
+            'admin_extra': profile_service.get_admin_extra(username),
         })
 
     people.sort(key=lambda p: ((p['name'] or p['username']).lower()))
@@ -2295,6 +2317,7 @@ def list_people():
     for p in people:
         counts_by_role[p['role']] = counts_by_role.get(p['role'], 0) + 1
     return jsonify({'status': 'success', 'people': people, 'counts': counts_by_role,
+                    'can_grant_admin': is_native_admin(),
                     'conflicts': conflicts,
                     'missing_email': [p['username'] for p in people
                                       if not p['email'] and p['role'] in ('regional', 'corporate')],
@@ -2310,7 +2333,7 @@ def create_person():
     from the People view. Creates their login, sets a temporary password they
     must change at first sign-in, and emails it to them when we have an
     address."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
     name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=120)
@@ -2382,7 +2405,7 @@ def create_person():
 def update_person(username):
     """Admin-only: edit a person's name, email, title, role and scope.
     The username (their login) is never changed, so history stays intact."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
     name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=120)
@@ -2486,13 +2509,50 @@ def update_person(username):
     return jsonify({'status': 'error', 'message': 'Person not found'}), 404
 
 
+@app.route('/api/people/<username>/admin-privileges', methods=['POST'])
+@login_required
+def set_admin_privileges(username):
+    """Grant or revoke administrator privileges on top of someone's own role.
+
+    Reserved for the main administrator: people who merely hold the accessory
+    cannot hand it out, which prevents privileges from spreading quietly."""
+    if not is_native_admin():
+        return jsonify({'status': 'error',
+                        'message': 'Only the main administrator can change admin privileges.'}), 403
+    data = request.get_json(silent=True) or {}
+    grant = bool(data.get('grant'))
+
+    if username == session.get('user'):
+        return jsonify({'status': 'error',
+                        'message': 'You cannot change your own privileges.'}), 400
+
+    acct = resolve_account_context(username)
+    if not acct.get('exists'):
+        return jsonify({'status': 'error', 'message': 'Person not found'}), 404
+
+    # Administrators already have everything; the accessory is for other roles.
+    rec = user_service.get(username) or {}
+    if rec.get('role') == 'admin':
+        return jsonify({'status': 'error',
+                        'message': 'This person is already an Administrator.'}), 400
+
+    profile_service.set_admin_extra(username, grant)
+    activity_service.log(session.get('user'),
+                         'admin_privileges_granted' if grant else 'admin_privileges_revoked',
+                         f'{"Granted" if grant else "Revoked"} admin privileges for '
+                         f'{acct.get("display_name") or username}')
+    return jsonify({'status': 'success', 'grant': grant,
+                    'message': f'{acct.get("display_name") or username} '
+                               f'{"now has" if grant else "no longer has"} admin privileges.'}), 200
+
+
 @app.route('/api/people/<username>', methods=['DELETE'])
 @login_required
 def delete_person(username):
     """Admin-only: remove someone's access. Roster members (region/corporate)
     come off their roster; stored users are deleted. Submitted inspections are
     never touched — they keep the inspector recorded on them."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     if username == session.get('user'):
         return jsonify({'status': 'error', 'message': 'You cannot remove your own account'}), 400
@@ -2524,7 +2584,7 @@ def email_notification_summary():
     source of outgoing email — inspection subscribers, region leadership (who
     are copied automatically on their own region), admin alerts, and the
     Clinical/Ops routing lists — into one row per email address."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
 
     s = settings_service.get_email_settings()
@@ -2608,7 +2668,7 @@ def email_notification_summary():
 def add_email_subscriber():
     """Admin-only: add ONE inspection-report subscriber, leaving every existing
     one untouched. If the address is already subscribed, its scope is updated."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     import re as _re
     data = request.get_json(silent=True) or {}
@@ -2649,7 +2709,7 @@ def remove_email_recipient():
     configurable list (inspection subscribers, admin alerts, Clinical, Ops).
     Region leadership is NOT touched here — those addresses live on the region
     and are managed in Regions."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
     target = (data.get('email') or '').strip().lower()
@@ -2687,7 +2747,7 @@ def admin_reset_inspections():
     A timestamped snapshot of the affected files is written to data/backups/
     first, so the reset can be undone by restoring those files on the server.
     Requires the caller to type the word RESET to confirm."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
     if (data.get('confirm') or '').strip().upper() != 'RESET':
@@ -2727,7 +2787,7 @@ def admin_reset_inspections():
 @login_required
 def delete_user(username):
     """Admin-only: remove a created user. Cannot remove yourself."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     if username == session.get('user'):
         return jsonify({'status': 'error', 'message': 'You cannot delete your own account'}), 400
@@ -2831,14 +2891,14 @@ def list_resources():
             'filename': r.get('filename') if r.get('kind') == 'file' else None,
             'created_at': r.get('created_at'),
         })
-    return jsonify({'status': 'success', 'resources': items, 'is_admin': current_role() == 'admin'}), 200
+    return jsonify({'status': 'success', 'resources': items, 'is_admin': is_admin()}), 200
 
 
 @app.route('/api/resources', methods=['POST'])
 @login_required
 def add_resource():
     """Admin-only: add a resource (an uploaded file or an external link)."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
 
     title = InputSanitizer.sanitize_string(request.form.get('title', ''), max_length=120).strip()
@@ -2877,7 +2937,7 @@ def add_resource():
 @login_required
 def delete_resource(resource_id):
     """Admin-only: remove a resource (and its file)."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     rec = resource_service.delete(resource_id)
     if not rec:
@@ -2891,7 +2951,7 @@ def delete_resource(resource_id):
 @login_required
 def attach_resource(resource_id):
     """Admin-only: attach a file or link to an existing (e.g. pending) resource."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     existing = resource_service.get(resource_id)
     if not existing:
@@ -2954,7 +3014,7 @@ def download_resource(resource_id):
 @login_required
 def get_email_settings():
     """Admin-only: read subscribers + admin-notify list + the regions to pick from."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     s = settings_service.get_email_settings()
     regions = [{'id': r.get('id'), 'name': r.get('name')}
@@ -2970,7 +3030,7 @@ def get_email_settings():
 @login_required
 def save_email_settings():
     """Admin-only: update subscribers + admin-notify list."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
     # Subscribers are managed individually (add / update / remove one at a time),
@@ -3020,7 +3080,12 @@ def get_user_info():
         'photo': profile_service.get_photo(username),
         'community': session.get('community'),
         'role': role,
-        'is_admin': role == 'admin',
+        # Unlocks the admin UI: true for Administrators AND for people granted
+        # admin privileges on top of their own role.
+        'is_admin': is_admin(),
+        'is_native_admin': is_native_admin(),
+        'admin_extra': bool(session.get('admin_extra')),
+        'can_inspect': not is_native_admin(),
         'region_id': region_id,
         'region_name': region_name,
         'communities': communities
@@ -3061,7 +3126,7 @@ def get_survey_types():
 @login_required
 def create_survey_type():
     """Admin-only: create a new survey type (a question group / checklist)."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
     name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=80).strip()
@@ -3082,7 +3147,7 @@ def create_survey_type():
 @login_required
 def update_survey_type(survey_type_id):
     """Admin-only: edit a survey type's name/description/icon/color."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
     st = survey_type_service.update_survey_type(
@@ -3101,7 +3166,7 @@ def update_survey_type(survey_type_id):
 @login_required
 def delete_survey_type(survey_type_id):
     """Admin-only: remove a survey type."""
-    if current_role() != 'admin':
+    if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     if survey_type_service.delete_survey_type(survey_type_id):
         return jsonify({'status': 'success'}), 200

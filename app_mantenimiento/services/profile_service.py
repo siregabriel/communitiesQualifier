@@ -81,6 +81,25 @@ class ProfileService(JsonFileBacked):
             self.profiles.setdefault(username, {})['password_hash'] = password_hash
             self._save()
 
+    # --- Administrator privileges granted on top of a person's normal role ---
+    def get_admin_extra(self, username: str) -> bool:
+        """True when this person has been granted administrator privileges in
+        addition to their own role (e.g. a Corporate member who also manages
+        standards and people). Only the main administrator can grant this."""
+        self._ensure_fresh()
+        return bool(self.profiles.get(username, {}).get('admin_extra'))
+
+    def set_admin_extra(self, username: str, value: bool) -> None:
+        with self._lock:
+            self._ensure_fresh()
+            self.profiles.setdefault(username, {})['admin_extra'] = bool(value)
+            self._save()
+
+    def admin_extra_usernames(self) -> list:
+        """Everyone currently holding the admin accessory."""
+        self._ensure_fresh()
+        return [u for u, p in self.profiles.items() if p.get('admin_extra')]
+
     # --- Force a password change on next login (after an admin reset) ---
     def get_must_change(self, username: str) -> bool:
         self._ensure_fresh()
