@@ -1510,11 +1510,12 @@
             }
         }
 
-        /* ===== Add leader: pick existing person ===== */
-        .al-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-        .al-tab { flex: 1; border: 1px solid #d9dfe8; background: #fff; color: #64748b; border-radius: 8px;
-            padding: 7px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
-        .al-tab.on { background: #00285c; border-color: #00285c; color: #fff; }
+        /* ===== Assign leader: pick an existing person (created in People) ===== */
+        .al-foot { font-size: 11.5px; color: #94a3b8; margin-top: 9px; text-align: center; }
+        .al-foot a { color: #1f6fe5; font-weight: 700; text-decoration: none; }
+        .al-foot a:hover { text-decoration: underline; }
+        html[data-theme="dark"] .al-foot { color: #8595ac; }
+        html[data-theme="dark"] .al-foot a { color: #7db0ff; }
         .al-search { width: 100%; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 8px;
             font-size: 13px; margin-bottom: 8px; }
         .al-results { max-height: 220px; overflow-y: auto; border: 1px solid #eef1f6; border-radius: 8px; }
@@ -1529,8 +1530,6 @@
         .al-from { font-size: 11px; color: #94a3b8; }
         .al-go { color: #c2cad6; font-size: 12px; flex-shrink: 0; }
         .al-item:hover .al-go { color: #1f6fe5; }
-        html[data-theme="dark"] .al-tab { background: #1b2537; border-color: #33425c; color: #c2cddd; }
-        html[data-theme="dark"] .al-tab.on { background: #1f6fe5; border-color: #1f6fe5; color: #fff; }
         html[data-theme="dark"] .al-search { background: #131d2c; border-color: #33425c; color: #e7edf6; }
         html[data-theme="dark"] .al-results { border-color: #2b3a52; }
         html[data-theme="dark"] .al-item { background: #161f2e; border-bottom-color: #26324a; }
@@ -5682,26 +5681,14 @@
 
                 const addLeaderHtml = (isAdmin && !isUnassigned) ? `
                     <div class="region-addleader" id="addLeader_${region.id}" style="display:none;">
-                        <div class="al-tabs">
-                            <button type="button" class="al-tab on" onclick="alSwitch('${region.id}','pick')">Existing person</button>
-                            <button type="button" class="al-tab" onclick="alSwitch('${region.id}','new')">Someone new</button>
-                        </div>
-                        <div id="alPick_${region.id}">
-                            <input class="al-search" id="alSearch_${region.id}" placeholder="Search people…"
-                                   oninput="alFilter('${region.id}', this.value)">
-                            <div class="al-results" id="alResults_${region.id}"><div class="activity-empty">Loading…</div></div>
-                        </div>
-                        <div id="alNew_${region.id}" style="display:none;">
-                            <input id="newLeaderName_${region.id}" placeholder="Name">
-                            <input id="newLeaderRole_${region.id}" placeholder="Role (e.g. RDO)">
-                            <input id="newLeaderEmail_${region.id}" placeholder="Email (optional)">
-                            <div class="region-leader-editform-actions">
-                                <button class="btn btn-primary" onclick="addLeader('${region.id}')">Add</button>
-                                <button class="btn btn-secondary" onclick="toggleAddLeader('${region.id}')">Cancel</button>
-                            </div>
+                        <input class="al-search" id="alSearch_${region.id}" placeholder="Search people…"
+                               oninput="alFilter('${region.id}', this.value)">
+                        <div class="al-results" id="alResults_${region.id}"><div class="activity-empty">Loading…</div></div>
+                        <div class="al-foot">
+                            Someone missing? Create them in <a href="#" onclick="event.preventDefault(); showView('people');">People</a>.
                         </div>
                     </div>
-                    <button class="region-addleader-btn" onclick="toggleAddLeader('${region.id}')"><i class="fas fa-user-plus"></i> Add leader</button>` : '';
+                    <button class="region-addleader-btn" onclick="toggleAddLeader('${region.id}')"><i class="fas fa-user-check"></i> Assign leader</button>` : '';
 
                 const commsHtml = comms.length
                     ? comms.map((name, idx) => {
@@ -5766,15 +5753,14 @@
                             <div class="region-leaders" ondragover="leaderDragOver(event)" ondragenter="leaderRegionDragEnter(event)" ondragleave="leaderRegionDragLeave(event)" ondrop="leaderDropOnRegion(event,'${region.id}')">${leadersHtml}</div>
                             ${isAdmin ? `
                             <div class="region-addleader" id="addLeader_${region.id}" style="display:none;">
-                                <input id="newLeaderName_${region.id}" placeholder="Name">
-                                <input id="newLeaderRole_${region.id}" placeholder="Title (e.g. VP Operations)">
-                                <input id="newLeaderEmail_${region.id}" placeholder="Email (optional)">
-                                <div class="region-leader-editform-actions">
-                                    <button class="btn btn-primary" onclick="addLeader('${region.id}')">Add</button>
-                                    <button class="btn btn-secondary" onclick="toggleAddLeader('${region.id}')">Cancel</button>
+                                <input class="al-search" id="alSearch_${region.id}" placeholder="Search people…"
+                                       oninput="alFilter('${region.id}', this.value)">
+                                <div class="al-results" id="alResults_${region.id}"><div class="activity-empty">Loading…</div></div>
+                                <div class="al-foot">
+                                    Someone missing? Create them in <a href="#" onclick="event.preventDefault(); showView('people');">People</a>.
                                 </div>
                             </div>
-                            <button class="region-addleader-btn" onclick="toggleAddLeader('${region.id}')"><i class="fas fa-user-plus"></i> Add member</button>` : ''}
+                            <button class="region-addleader-btn" onclick="toggleAddLeader('${region.id}')"><i class="fas fa-user-check"></i> Assign member</button>` : ''}
                             <div class="region-section-title">Communities</div>
                             <div class="corp-all-comms"><i class="fas fa-city"></i> All communities · every region</div>
                         </div>
@@ -5912,18 +5898,6 @@
             if (opening) alLoadPeople(regionId);
         }
 
-        function alSwitch(regionId, mode) {
-            const pick = document.getElementById('alPick_' + regionId);
-            const nw = document.getElementById('alNew_' + regionId);
-            if (!pick || !nw) return;
-            pick.style.display = mode === 'pick' ? '' : 'none';
-            nw.style.display = mode === 'new' ? '' : 'none';
-            const wrap = document.getElementById('addLeader_' + regionId);
-            wrap.querySelectorAll('.al-tab').forEach((b, i) => {
-                b.classList.toggle('on', (mode === 'pick') ? i === 0 : i === 1);
-            });
-        }
-
         async function alLoadPeople(regionId) {
             const host = document.getElementById('alResults_' + regionId);
             if (!host) return;
@@ -5954,7 +5928,9 @@
                 .filter(p => !q || (p.name + ' ' + p.username + ' ' + (p.scope || '')).toLowerCase().includes(q))
                 .slice(0, 40);
             if (!list.length) {
-                host.innerHTML = '<div class="activity-empty">No one else to add. Use “Someone new”.</div>';
+                host.innerHTML = q
+                    ? '<div class="activity-empty">No one matches that search.</div>'
+                    : '<div class="activity-empty">Everyone is already assigned. Create new people in the People view.</div>';
                 return;
             }
             host.innerHTML = list.map(p => {
@@ -5999,14 +5975,6 @@
                     renderRegions();
                 } else { alert(d.message || 'Could not move this person.'); }
             } catch (e) { alert('Network error.'); }
-        }
-        function addLeader(regionId) {
-            const g = id => (document.getElementById(id) || {}).value || '';
-            const name = g('newLeaderName_' + regionId).trim();
-            const role = g('newLeaderRole_' + regionId).trim();
-            const email = g('newLeaderEmail_' + regionId).trim();
-            if (!name) { alert('Leader name is required'); return; }
-            leaderAction({ action: 'add', region_id: regionId, name, role, email });
         }
 
         // ---- Drag & drop leaders between regions / reorder ----
