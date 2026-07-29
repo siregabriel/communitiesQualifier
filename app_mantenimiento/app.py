@@ -346,73 +346,14 @@ os.makedirs(AVATARS_FOLDER, exist_ok=True)
 # Sample user database - In production, use a real database
 # Format: {username: {'password_hash': hash, 'community': 'Community Name'}}
 USERS_DB = {
-    # Admin user
+    # Administrator. The per-community "userN" test accounts that used to live
+    # here were removed before launch: they all shared one weak password and
+    # nobody used them — real inspections are done by named regional and
+    # corporate accounts created from the Regions view.
     'admin': {
         'password': 'admin123',
         'community': None  # Admin can see all communities
     },
-    
-    # Test users - one per community (38 total)
-    # Georgia
-    'user1': {'password': 'test123', 'community': 'Kelley Place, Enterprise'},
-    'user2': {'password': 'test123', 'community': 'Madison Heights Enterprise, Enterprise'},
-    'user3': {'password': 'test123', 'community': 'Monark Grove Madison'},
-    'user4': {'password': 'test123', 'community': 'Monark Grove Greystone'},
-    'user5': {'password': 'test123', 'community': 'Legacy Ridge Trussville, Trussville'},
-    'user6': {'password': 'test123', 'community': 'Madison at The Range, Madison'},
-    'user7': {'password': 'test123', 'community': 'The Goldton at Athens'},
-    'user8': {'password': 'test123', 'community': 'The Goldton at Jones Farm'},
-    
-    # Florida
-    'user9': {'password': 'test123', 'community': 'Madison at Clermont, Clermont'},
-    'user10': {'password': 'test123', 'community': 'Madison at Ocoee, Ocoee'},
-    'user11': {'password': 'test123', 'community': 'Madison at Oviedo, Oviedo'},
-    'user12': {'password': 'test123', 'community': 'The Goldton at Venice, Venice'},
-    'user13': {'password': 'test123', 'community': 'The Goldton at St. Petersburg, St. Petersburg'},
-    'user14': {'password': 'test123', 'community': 'Lake Howard Heights, Winter Haven'},
-    'user15': {'password': 'test123', 'community': 'The Canopy At Beacon Woods'},
-    'user16': {'password': 'test123', 'community': 'The Goldton At Lake Nona'},
-    
-    # North Carolina
-    'user17': {'password': 'test123', 'community': 'Madison Heights Evans, Evans'},
-    'user18': {'password': 'test123', 'community': 'Legacy at Savannah Quarters, Pooler'},
-    'user19': {'password': 'test123', 'community': 'Legacy Reserve at Old Town, Columbus'},
-    'user20': {'password': 'test123', 'community': 'Legacy Ridge at Alpharetta, Alpharetta'},
-    'user21': {'password': 'test123', 'community': 'Legacy Ridge at Buckhead, Atlanta'},
-    'user22': {'password': 'test123', 'community': 'Legacy Ridge at Marietta, Marietta'},
-    'user23': {'password': 'test123', 'community': 'The Canopy at Westridge, McDonough'},
-    'user24': {'password': 'test123', 'community': 'The Overlook at Suwanee, Suwanee'},
-    
-    # Ohio
-    'user25': {'password': 'test123', 'community': 'Legacy Reserve at Fritz Farm, Lexington'},
-    
-    # Mississippi
-    'user26': {'password': 'test123', 'community': 'The Goldton at Southaven, Southaven'},
-    'user27': {'password': 'test123', 'community': 'The Goldton at Adelaide, Starkville'},
-    
-    # South Carolina
-    'user28': {'password': 'test123', 'community': 'Oakview Park, Greenville'},
-    'user29': {'password': 'test123', 'community': 'Spring Park, Travelers Rest'},
-    'user30': {'password': 'test123', 'community': 'Legacy Reserve Fairview Park, Simpsonville'},
-    'user31': {'password': 'test123', 'community': 'Wildcat Senior Living, Summerville'},
-    
-    # Tennessee
-    'user32': {'password': 'test123', 'community': 'The Goldton at Spring Hill, Spring Hill'},
-    
-    # Texas
-    'user33': {'password': 'test123', 'community': 'The Oscar at Georgetown'},
-    'user34': {'password': 'test123', 'community': 'The Oscar at Veramendi (June 2026)'},
-    
-    # Maryland
-    'user35': {'password': 'test123', 'community': 'Tribute at Black Hill'},
-    'user36': {'password': 'test123', 'community': 'Tribute at Melford'},
-    
-    # Virginia
-    'user37': {'password': 'test123', 'community': 'Tribute at One Loudoun'},
-    'user38': {'password': 'test123', 'community': 'Tribute at The Glen'},
-
-    # Transitioning in (DMV)
-    'user39': {'password': 'test123', 'community': 'The Goldton at Stuart'}
 }
 
 # List of all available communities
@@ -647,6 +588,23 @@ def backfill_leader_usernames():
     return changed
 
 
+def retire_removed_builtin_users():
+    """Delete stored copies of built-in accounts that no longer exist in code.
+
+    The per-community "userN" test logins were retired before launch (they all
+    shared one weak password). This removes their migrated records so they can't
+    be used, while leaving admin-created accounts untouched. Submitted
+    inspections are unaffected — they keep the inspector recorded on them."""
+    removed = 0
+    for u in user_service.get_all():
+        username = u.get('username')
+        rec = user_service.get(username) or {}
+        if rec.get('builtin') and username not in USERS_DB:
+            if user_service.delete(username):
+                removed += 1
+    return removed
+
+
 def migrate_builtin_users():
     """Copy the built-in accounts (admin + community users defined in code) into
     editable storage so they can be managed from the People view like everyone
@@ -690,9 +648,10 @@ def generate_password(length=10):
 try:
     _pinned = backfill_leader_usernames()
     _migrated = migrate_builtin_users()
-    if _pinned or _migrated:
-        app.logger.info('People upkeep: pinned %d leader usernames, migrated %d built-in users',
-                        _pinned, _migrated)
+    _retired = retire_removed_builtin_users()
+    if _pinned or _migrated or _retired:
+        app.logger.info('People upkeep: pinned %d leader usernames, migrated %d built-in users, '
+                        'retired %d obsolete test accounts', _pinned, _migrated, _retired)
 except Exception as _e:
     app.logger.error(f'People upkeep failed: {_e}')
 
