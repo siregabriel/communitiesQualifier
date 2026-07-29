@@ -252,6 +252,17 @@ REGIONS_FILE = os.path.join(DATA_FOLDER, 'regions.json')
 from services.region_service import RegionService
 region_service = RegionService(REGIONS_FILE)
 
+# Corporate: a non-geographic group whose members work across the whole
+# organization (they can visit any community and see every region). It lives
+# alongside the regions so it shows up in the Regions view, but it never owns
+# communities — its reach comes from regional_communities() below.
+CORPORATE_ID = 'corporate'
+CORPORATE_KIND = 'corporate'
+try:
+    region_service.ensure_group(CORPORATE_ID, 'Corporate', CORPORATE_KIND)
+except Exception as _e:            # never block startup over this
+    app.logger.error(f'Could not ensure Corporate group: {_e}')
+
 # Initialize ActivityService (audit log) and ProfileService (per-user photo)
 ACTIVITY_FILE = os.path.join(DATA_FOLDER, 'activity.json')
 from services.activity_service import ActivityService
@@ -499,12 +510,15 @@ def get_regional_accounts():
             username = slugify_name(name)
             if not username:
                 continue
+            is_corp = region.get('kind') == CORPORATE_KIND
             accounts[username] = {
                 'display_name': name,
                 'role': 'regional',
                 'region_id': region.get('id'),
                 'region_name': region.get('name'),
-                'communities': list(region.get('communities', []))
+                'corporate': is_corp,
+                # Corporate members work across the whole organization.
+                'communities': all_communities() if is_corp else list(region.get('communities', []))
             }
     return accounts
 
@@ -637,13 +651,31 @@ def current_role():
     return 'admin' if session.get('community') is None else 'staff'
 
 
+def all_communities():
+    """Every community assigned to any region (org-wide scope)."""
+    names = []
+    for r in region_service.get_all_regions():
+        for c in r.get('communities', []):
+            if c not in names:
+                names.append(c)
+    return names
+
+
 def regional_communities():
-    """Communities the current regional user may inspect (their region)."""
+    """Communities the current regional user may inspect.
+
+    Normally that's the communities of their own region. Members of a
+    corporate-style group are not tied to a geography, so they get the whole
+    organization — this single function is what gives Corporate its reach."""
     region_id = session.get('region_id')
     if not region_id:
         return []
     region = next((r for r in region_service.get_all_regions() if r.get('id') == region_id), None)
-    return list(region.get('communities', [])) if region else []
+    if not region:
+        return []
+    if region.get('kind') == CORPORATE_KIND:
+        return all_communities()
+    return list(region.get('communities', []))
 
 
 def region_for_community(community):
@@ -3253,6 +3285,10 @@ def assign_region_community():
             return jsonify({'status': 'error', 'message': 'community is required'}), 400
         if not region_id:
             return jsonify({'status': 'error', 'message': 'region_id is required'}), 400
+        if region_id == CORPORATE_ID:
+            return jsonify({'status': 'error',
+                            'message': 'Corporate is a company-wide group, not a region — '
+                                       'it does not own communities.'}), 400
 
         if not region_service.assign_community(community, region_id):
             return jsonify({'status': 'error', 'message': f'Unknown region: {region_id}'}), 400

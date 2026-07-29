@@ -54,6 +54,33 @@ class RegionService(JsonFileBacked):
         self._ensure_fresh()
         return copy.deepcopy(self.regions)
 
+    def ensure_group(self, group_id: str, name: str, kind: str) -> dict:
+        """Make sure a special (non-geographic) group exists — e.g. Corporate.
+        Groups hold leadership but never own communities; their access scope is
+        decided by `kind` (see app.regional_communities). Idempotent."""
+        with self._lock:
+            self._ensure_fresh()
+            for r in self.regions:
+                if r.get('id') == group_id:
+                    changed = False
+                    if r.get('kind') != kind:
+                        r['kind'] = kind
+                        changed = True
+                    if changed:
+                        self.save_to_file()
+                    return copy.deepcopy(r)
+            group = {'id': group_id, 'name': name, 'kind': kind,
+                     'leadership': [], 'communities': []}
+            # Keep "unassigned" last so the UI ordering stays sensible.
+            idx = len(self.regions)
+            for i, r in enumerate(self.regions):
+                if r.get('id') == 'unassigned':
+                    idx = i
+                    break
+            self.regions.insert(idx, group)
+            self.save_to_file()
+            return copy.deepcopy(group)
+
     def get_region_for_community(self, community: str):
         """Return the region dict that contains the given community, or None."""
         if not community:

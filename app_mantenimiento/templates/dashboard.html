@@ -1510,6 +1510,22 @@
             }
         }
 
+        /* ===== Corporate group card (Regions view) ===== */
+        .region-card-corporate { border: 1.5px solid #c7d6f0 !important; }
+        .corp-emblem { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+            background: rgba(255,255,255,.16); color: #fff; font-size: 15px;
+            display: flex; align-items: center; justify-content: center; }
+        .corp-note { display: flex; gap: 9px; align-items: flex-start; background: #eef4ff;
+            border: 1px solid #d3e2fb; border-radius: 10px; padding: 11px 13px;
+            font-size: 12.5px; line-height: 1.5; color: #1e40af; margin-bottom: 18px; }
+        .corp-note i { margin-top: 2px; }
+        .corp-all-comms { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+            color: #00285c; background: #f6f8fc; border: 1px dashed #c7d6f0;
+            border-radius: 9px; padding: 12px 14px; }
+        html[data-theme="dark"] .region-card-corporate { border-color: rgba(31,111,229,.45) !important; }
+        html[data-theme="dark"] .corp-note { background: rgba(31,111,229,.14); border-color: rgba(31,111,229,.35); color: #9cc4ff; }
+        html[data-theme="dark"] .corp-all-comms { background: #1b2537; border-color: #33425c; color: #cfe0ff; }
+
         /* ===== Notification summary (who receives what) ===== */
         .nsum-row { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid #eef1f6; align-items: flex-start; }
         .nsum-row:first-of-type { border-top: none; }
@@ -5165,6 +5181,7 @@
                 const scoreColor = avgScore === null ? '#94a3b8' : (avgScore >= 75 ? '#059669' : (avgScore >= 50 ? '#d97706' : '#dc2626'));
 
                 const isUnassigned = region.id === 'unassigned';
+                const isCorporate = region.kind === 'corporate';
                 const attrEsc = (v) => (v || '').replace(/"/g, '&quot;');
                 const leadersHtml = (region.leadership || []).length
                     ? region.leadership.map((l, i) => {
@@ -5269,6 +5286,43 @@
                             <i class="fas fa-plus"></i> Add
                         </button>
                     </div>` : '';
+
+                // Corporate is a company-wide group: it has members, but no
+                // communities of its own — its people work across every region.
+                if (isCorporate) {
+                    const memberCount = (region.leadership || []).length;
+                    return `
+                    <div class="region-card region-card-corporate">
+                        <div class="region-card-header" style="background: linear-gradient(135deg, #0f1e36 0%, #2b3a52 100%);">
+                            <span class="corp-emblem"><i class="fas fa-building-columns"></i></span>
+                            <h3>${region.name}</h3>
+                            ${isAdmin ? `<button class="region-rename-btn" title="Rename group" onclick="renameRegion('${region.id}')"><i class="fas fa-pen"></i></button>` : ''}
+                            <span class="region-count">${memberCount} ${memberCount === 1 ? 'member' : 'members'}</span>
+                        </div>
+                        <div class="region-card-body">
+                            <div class="corp-note">
+                                <i class="fas fa-globe"></i>
+                                <span><b>Company-wide access.</b> Members can visit any community and see every region.
+                                They receive notifications based on what's set in Settings.</span>
+                            </div>
+                            <div class="region-section-title">Members</div>
+                            <div class="region-leaders" ondragover="leaderDragOver(event)" ondragenter="leaderRegionDragEnter(event)" ondragleave="leaderRegionDragLeave(event)" ondrop="leaderDropOnRegion(event,'${region.id}')">${leadersHtml}</div>
+                            ${isAdmin ? `
+                            <div class="region-addleader" id="addLeader_${region.id}" style="display:none;">
+                                <input id="newLeaderName_${region.id}" placeholder="Name">
+                                <input id="newLeaderRole_${region.id}" placeholder="Title (e.g. VP Operations)">
+                                <input id="newLeaderEmail_${region.id}" placeholder="Email (optional)">
+                                <div class="region-leader-editform-actions">
+                                    <button class="btn btn-primary" onclick="addLeader('${region.id}')">Add</button>
+                                    <button class="btn btn-secondary" onclick="toggleAddLeader('${region.id}')">Cancel</button>
+                                </div>
+                            </div>
+                            <button class="region-addleader-btn" onclick="toggleAddLeader('${region.id}')"><i class="fas fa-user-plus"></i> Add member</button>` : ''}
+                            <div class="region-section-title">Communities</div>
+                            <div class="corp-all-comms"><i class="fas fa-city"></i> All communities · every region</div>
+                        </div>
+                    </div>`;
+                }
 
                 return `
                     <div class="region-card ${isUnassigned ? 'region-card-unassigned' : ''}">
@@ -5829,7 +5883,7 @@
                         </div>
                     </div>
                     <div class="profile-section">
-                        <div class="profile-section-title"><i class="fas fa-list-check"></i> Who receives what</div>
+                        <div class="profile-section-title"><i class="fas fa-list-check"></i>Notifications</div>
                         <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
                             Every address that receives email from Atlas Standards, and exactly which notifications it gets —
                             including region leaders, who are copied on their own region automatically.
