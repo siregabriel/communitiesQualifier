@@ -2349,6 +2349,37 @@ def update_person(username):
     return jsonify({'status': 'error', 'message': 'Person not found'}), 404
 
 
+@app.route('/api/people/<username>', methods=['DELETE'])
+@login_required
+def delete_person(username):
+    """Admin-only: remove someone's access. Roster members (region/corporate)
+    come off their roster; stored users are deleted. Submitted inspections are
+    never touched — they keep the inspector recorded on them."""
+    if current_role() != 'admin':
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    if username == session.get('user'):
+        return jsonify({'status': 'error', 'message': 'You cannot remove your own account'}), 400
+
+    region, index, leader = region_service.find_leader_by_username(username)
+    if leader is not None:
+        name = leader.get('name', username)
+        if not region_service.remove_leader(region.get('id'), index):
+            return jsonify({'status': 'error', 'message': 'Could not remove this person'}), 400
+        activity_service.log(session.get('user'), 'person_removed',
+                             f'Removed {name} from {region.get("name")}')
+        return jsonify({'status': 'success', 'message': f'{name} removed.'}), 200
+
+    if user_service.exists(username):
+        rec = user_service.get(username) or {}
+        name = rec.get('display_name') or username
+        if not user_service.delete(username):
+            return jsonify({'status': 'error', 'message': 'Could not remove this account'}), 400
+        activity_service.log(session.get('user'), 'person_removed', f'Removed account {username}')
+        return jsonify({'status': 'success', 'message': f'{name} removed.'}), 200
+
+    return jsonify({'status': 'error', 'message': 'Person not found'}), 404
+
+
 @app.route('/api/settings/email/summary', methods=['GET'])
 @login_required
 def email_notification_summary():
