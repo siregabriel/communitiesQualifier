@@ -1510,6 +1510,34 @@
             }
         }
 
+        /* ===== Add leader: pick existing person ===== */
+        .al-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+        .al-tab { flex: 1; border: 1px solid #d9dfe8; background: #fff; color: #64748b; border-radius: 8px;
+            padding: 7px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .al-tab.on { background: #00285c; border-color: #00285c; color: #fff; }
+        .al-search { width: 100%; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 8px;
+            font-size: 13px; margin-bottom: 8px; }
+        .al-results { max-height: 220px; overflow-y: auto; border: 1px solid #eef1f6; border-radius: 8px; }
+        .al-item { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+            background: #fff; border: none; border-bottom: 1px solid #f1f5f9; padding: 9px 11px; cursor: pointer; }
+        .al-item:last-child { border-bottom: none; }
+        .al-item:hover { background: #eef4ff; }
+        .al-av { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
+        .al-av-i { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800; }
+        .al-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .al-name { font-size: 13px; font-weight: 700; color: #0f1e36; }
+        .al-from { font-size: 11px; color: #94a3b8; }
+        .al-go { color: #c2cad6; font-size: 12px; flex-shrink: 0; }
+        .al-item:hover .al-go { color: #1f6fe5; }
+        html[data-theme="dark"] .al-tab { background: #1b2537; border-color: #33425c; color: #c2cddd; }
+        html[data-theme="dark"] .al-tab.on { background: #1f6fe5; border-color: #1f6fe5; color: #fff; }
+        html[data-theme="dark"] .al-search { background: #131d2c; border-color: #33425c; color: #e7edf6; }
+        html[data-theme="dark"] .al-results { border-color: #2b3a52; }
+        html[data-theme="dark"] .al-item { background: #161f2e; border-bottom-color: #26324a; }
+        html[data-theme="dark"] .al-item:hover { background: rgba(31,111,229,.16); }
+        html[data-theme="dark"] .al-name { color: #eef2f8; }
+        html[data-theme="dark"] .al-from { color: #9fb0c4; }
+
         /* ===== People (admin directory) ===== */
         .ppl-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
         .ppl-search { flex: 1; min-width: 240px; }
@@ -5654,12 +5682,23 @@
 
                 const addLeaderHtml = (isAdmin && !isUnassigned) ? `
                     <div class="region-addleader" id="addLeader_${region.id}" style="display:none;">
-                        <input id="newLeaderName_${region.id}" placeholder="Name">
-                        <input id="newLeaderRole_${region.id}" placeholder="Role (e.g. RDO)">
-                        <input id="newLeaderEmail_${region.id}" placeholder="Email (optional)">
-                        <div class="region-leader-editform-actions">
-                            <button class="btn btn-primary" onclick="addLeader('${region.id}')">Add</button>
-                            <button class="btn btn-secondary" onclick="toggleAddLeader('${region.id}')">Cancel</button>
+                        <div class="al-tabs">
+                            <button type="button" class="al-tab on" onclick="alSwitch('${region.id}','pick')">Existing person</button>
+                            <button type="button" class="al-tab" onclick="alSwitch('${region.id}','new')">Someone new</button>
+                        </div>
+                        <div id="alPick_${region.id}">
+                            <input class="al-search" id="alSearch_${region.id}" placeholder="Search people…"
+                                   oninput="alFilter('${region.id}', this.value)">
+                            <div class="al-results" id="alResults_${region.id}"><div class="activity-empty">Loading…</div></div>
+                        </div>
+                        <div id="alNew_${region.id}" style="display:none;">
+                            <input id="newLeaderName_${region.id}" placeholder="Name">
+                            <input id="newLeaderRole_${region.id}" placeholder="Role (e.g. RDO)">
+                            <input id="newLeaderEmail_${region.id}" placeholder="Email (optional)">
+                            <div class="region-leader-editform-actions">
+                                <button class="btn btn-primary" onclick="addLeader('${region.id}')">Add</button>
+                                <button class="btn btn-secondary" onclick="toggleAddLeader('${region.id}')">Cancel</button>
+                            </div>
                         </div>
                     </div>
                     <button class="region-addleader-btn" onclick="toggleAddLeader('${region.id}')"><i class="fas fa-user-plus"></i> Add leader</button>` : '';
@@ -5862,9 +5901,104 @@
                 leaderAction({ action: 'delete', region_id: regionId, index: index });
             }
         }
+        // --- Add leader: pick an existing person, or create a new one --------
+        let alPeopleCache = null;
+
         function toggleAddLeader(regionId) {
             const form = document.getElementById('addLeader_' + regionId);
-            if (form) form.style.display = (form.style.display === 'none' ? 'block' : 'none');
+            if (!form) return;
+            const opening = form.style.display === 'none';
+            form.style.display = opening ? 'block' : 'none';
+            if (opening) alLoadPeople(regionId);
+        }
+
+        function alSwitch(regionId, mode) {
+            const pick = document.getElementById('alPick_' + regionId);
+            const nw = document.getElementById('alNew_' + regionId);
+            if (!pick || !nw) return;
+            pick.style.display = mode === 'pick' ? '' : 'none';
+            nw.style.display = mode === 'new' ? '' : 'none';
+            const wrap = document.getElementById('addLeader_' + regionId);
+            wrap.querySelectorAll('.al-tab').forEach((b, i) => {
+                b.classList.toggle('on', (mode === 'pick') ? i === 0 : i === 1);
+            });
+        }
+
+        async function alLoadPeople(regionId) {
+            const host = document.getElementById('alResults_' + regionId);
+            if (!host) return;
+            try {
+                if (!alPeopleCache) {
+                    const r = await fetch('/api/people');
+                    const d = await r.json();
+                    if (!r.ok || d.status !== 'success') throw new Error();
+                    alPeopleCache = d.people;
+                }
+                alRenderResults(regionId, '');
+            } catch (e) {
+                host.innerHTML = '<div class="activity-empty">Could not load people.</div>';
+            }
+        }
+
+        function alFilter(regionId, q) { alRenderResults(regionId, (q || '').toLowerCase()); }
+
+        function alRenderResults(regionId, q) {
+            const host = document.getElementById('alResults_' + regionId);
+            if (!host || !alPeopleCache) return;
+            const region = (regions || []).find(r => r.id === regionId) || {};
+            const isCorpTarget = region.kind === 'corporate';
+            // Everyone except those already on this region's roster.
+            const already = new Set((region.leadership || []).map(l => (l.username || '').toLowerCase()));
+            const list = alPeopleCache
+                .filter(p => !already.has((p.username || '').toLowerCase()) && p.region_id !== regionId)
+                .filter(p => !q || (p.name + ' ' + p.username + ' ' + (p.scope || '')).toLowerCase().includes(q))
+                .slice(0, 40);
+            if (!list.length) {
+                host.innerHTML = '<div class="activity-empty">No one else to add. Use “Someone new”.</div>';
+                return;
+            }
+            host.innerHTML = list.map(p => {
+                const initials = (p.name || p.username).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+                const avatar = p.photo
+                    ? `<img class="al-av" src="/static/${escapeHtml(p.photo)}" alt="">`
+                    : `<span class="al-av al-av-i" style="background:${avatarColor(p.name || p.username)};">${escapeHtml(initials)}</span>`;
+                const safeU = (p.username || '').replace(/'/g, "\\'");
+                const safeN = escapeHtml(p.name).replace(/'/g, "\\'");
+                return `<button type="button" class="al-item" onclick="alAssign('${regionId}','${safeU}','${safeN}')">
+                    ${avatar}
+                    <span class="al-info">
+                        <span class="al-name">${escapeHtml(p.name)}</span>
+                        <span class="al-from">${escapeHtml(p.scope || p.role)}${p.title ? ' · ' + escapeHtml(p.title) : ''}</span>
+                    </span>
+                    <i class="fas fa-arrow-right-to-bracket al-go"></i>
+                </button>`;
+            }).join('');
+        }
+
+        async function alAssign(regionId, username, name) {
+            const region = (regions || []).find(r => r.id === regionId) || {};
+            const isCorpTarget = region.kind === 'corporate';
+            const person = (alPeopleCache || []).find(p => p.username === username) || {};
+            const from = person.scope || person.role || 'their current place';
+            if (!confirm(`Move ${name} to ${region.name}?\n\nThey're currently: ${from}.\nTheir login and password stay the same.`)) return;
+            try {
+                const r = await fetch(`/api/people/${encodeURIComponent(username)}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: person.name || name,
+                        email: person.email || '',
+                        title: person.title || '',
+                        role: isCorpTarget ? 'corporate' : 'regional',
+                        region_id: regionId,
+                    })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    alPeopleCache = null;      // roster changed
+                    await loadRegions();
+                    renderRegions();
+                } else { alert(d.message || 'Could not move this person.'); }
+            } catch (e) { alert('Network error.'); }
         }
         function addLeader(regionId) {
             const g = id => (document.getElementById(id) || {}).value || '';
