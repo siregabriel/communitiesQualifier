@@ -3534,7 +3534,9 @@
             // The header Help button only appears on screens with a tutorial it can
             // open (Dashboard overview, Regions). Move-Ins has its own in-page Help.
             const headerHelpBtn = document.getElementById('headerHelpBtn');
-            if (headerHelpBtn) headerHelpBtn.style.display = (view === 'dashboard' || view === 'regions') ? '' : 'none';
+            // Screens that have their own walkthrough show the Help button.
+            const tourViews = ['dashboard', 'regions', 'people', 'move-ins', 'calendar'];
+            if (headerHelpBtn) headerHelpBtn.style.display = tourViews.includes(view) ? '' : 'none';
 
             // Show loading indicator immediately
             showLoadingIndicator();
@@ -3606,7 +3608,7 @@
                         case 'people':
                             headerTitle.innerHTML = '<i class="fas fa-users"></i> People';
                             headerDesc.textContent = 'Everyone with access to Atlas Standards';
-                            renderPeople();
+                            renderPeople().then(() => maybeStartPeopleTour());
                             break;
                         case 'action-items':
                             headerTitle.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Action Items';
@@ -3659,12 +3661,12 @@
                 { target: '#dashMainGrid', title: 'Rearrange your dashboard', text: 'On desktop, grab the ⠿ handle on any card (or KPI) to drag it into the order you like — your layout is saved on this device. Use “Reset layout” to put everything back.' },
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse every community, see its latest score and open action items, open a full report, and give each one a cover photo.' },
                 { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile. The Corporate group at the end holds company-wide members who can visit any community." },
-                { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically), change roles, reset passwords or remove access.' },
+                { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Open it for its own walkthrough.' },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the inspection standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF.' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident’s move-in as a phased checklist — with required compliance items, attachments, printable binder pages, and automatic email reminders. Open it for its own walkthrough.' },
                 { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines inspections, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
-                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which inspection emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to. People are managed in the People view.' },
+                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which inspection emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to, flagging anyone missing an email. At the bottom, a Danger zone lets you wipe all inspections to start fresh (a backup is saved first). People are managed in the People view.' },
                 { title: "You're all set", text: 'That’s the tour. Tap Help in the top bar to see it again whenever you want.' },
             ],
             staff: [
@@ -3678,11 +3680,22 @@
                 { title: "You're all set", text: 'That’s it! Use the Help button in the top bar to replay this anytime.' },
             ],
         };
+        const PEOPLE_TOUR = [
+            { title: 'People', text: 'Everyone with access to Atlas Standards lives here — administrators, corporate, regionals and community staff — in one list. This is the only place accounts are created.' },
+            { target: '.ppl-toolbar .btn-primary', title: 'Add someone', text: 'Create an account for anyone. Pick their role and the form adapts: a region for Regional, the Corporate group for Corporate, or a community for Staff. Their username and a temporary password are generated automatically — and emailed to them if you add their address.' },
+            { target: '.ppl-chips', title: 'Find people fast', text: 'Filter by role, or search by name, username, email or region. Handy once the list grows.' },
+            { target: '.ppl-row', title: 'Everything at a glance', text: 'Each row shows their role, what they can reach, their email and how many visits they’ve done. Anyone missing an email is flagged — they can’t receive reports or reminders until you add it.' },
+            { target: '.ppl-actions', title: 'Edit or reset', text: 'The pencil edits their name, email and role — you can move someone between Staff, Regional, Corporate and Administrator, and their login and password stay the same. The key resets their password and emails it to them.' },
+            { title: 'Admin privileges', text: 'When you edit someone, the main administrator can tick “Also has administrator privileges”. That lets a Corporate or Regional person manage standards, people and settings while still doing visits. Only the main administrator can grant it, so privileges never spread on their own.' },
+            { title: 'That’s People', text: 'Use the Help button on this screen to replay this anytime.' },
+        ];
+
         const REGIONS_TOUR = [
             { title: 'Regions & Leadership', text: 'This is where you organize communities into regions and manage each region’s leaders.' },
             { target: '.region-card', title: 'A region', text: 'Each card is a region, with its own emblem — its communities, average score, and open action items. Click the region’s name to drill into how its communities are performing.' },
-            { target: '.region-leader', title: 'Leaders are logins', text: 'These are the region’s leaders. Each one automatically gets a login (username from their name, e.g. keith.martin) — so adding a leader here creates their regional account. Click a leader’s name to open their activity profile and ranking.' },
-            { target: '.region-addleader-btn', title: 'Add a leader / user', text: 'Add a new leader with their name and role. Their regional login is created automatically.' },
+            { target: '.region-leader', title: 'Leaders are logins', text: 'These are the region’s leaders, and each one has their own login. Click a leader’s name to open their activity profile and ranking.' },
+            { target: '.region-addleader-btn', title: 'Assign someone here', text: 'Pick a person who already exists and place them in this region — their login and password stay exactly the same. New people are created in the People view, so nobody ends up with two accounts.' },
+            { target: '.region-card-corporate', title: 'Corporate', text: 'A company-wide group rather than a geography: its members can visit any community and see every region. It never owns communities, so it doesn’t affect regional scores.' },
             { target: '.region-leader-actions', title: 'Edit, remove, photo', text: 'Edit a leader’s name or role, remove them, or add a profile photo.' },
             { target: '.region-leader', title: 'Drag to move between regions', text: 'Grab a leader’s row and drop it onto another region to move them — their account moves with them.' },
             { title: 'That’s Regions', text: 'Use the Help button on this screen to replay this anytime.' },
@@ -3710,6 +3723,7 @@
         function runTour(steps) { tourSteps = steps || []; tourIdx = 0; showTourStep(); }
         function startTour() { runTour(isAdmin ? TOUR_STEPS.admin : TOUR_STEPS.staff); }
         function startRegionsTour() { runTour(REGIONS_TOUR); }
+        function startPeopleTour() { runTour(PEOPLE_TOUR); }
         function startMoveInsTour() { runTour(MOVEINS_TOUR); }
         function startCalendarTour() { runTour(CALENDAR_TOUR); }
         function maybeStartCalendarTour() {
@@ -3719,9 +3733,15 @@
         }
         function contextHelp() {
             if (currentView === 'regions') startRegionsTour();
+            else if (currentView === 'people') startPeopleTour();
             else if (currentView === 'move-ins') startMoveInsTour();
             else if (currentView === 'calendar') startCalendarTour();
             else startTour();
+        }
+        function maybeStartPeopleTour() {
+            let seen = false;
+            try { seen = localStorage.getItem('atlasPeopleTourSeen_v1') === '1'; } catch (e) {}
+            if (!seen) { try { localStorage.setItem('atlasPeopleTourSeen_v1', '1'); } catch (e) {} setTimeout(startPeopleTour, 650); }
         }
         function maybeStartRegionsTour() {
             let seen = false;
