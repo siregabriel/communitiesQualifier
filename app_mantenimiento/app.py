@@ -1157,7 +1157,8 @@ def get_profile():
         username = session.get('user')
         community = session.get('community')
         role = current_role()
-        is_admin = role == 'admin'
+        # NOTE: don't shadow the module-level is_admin() helper.
+        has_admin_access = is_admin()
         role_label = {'admin': 'Administrator', 'regional': 'Regional', 'staff': 'Staff'}.get(role, 'Staff')
 
         # Inspection count from the source of truth (historical-safe)
@@ -1188,7 +1189,7 @@ def get_profile():
             'username': username,
             'display_name': profile_service.get_display_name(username) or session.get('display_name') or '',
             'community': display_community,
-            'is_admin': is_admin,
+            'is_admin': has_admin_access,
             'role': role_label,
             'photo': profile_service.get_photo(username),
             'last_active': activity_service.last_active(username),
@@ -1301,7 +1302,7 @@ def get_communities():
       - staff: only their assigned community
     """
     role = current_role()
-    if role == 'admin':
+    if is_admin():
         # Derive from the regional structure (union, de-duped) so renames and
         # additions made in the Regions view are reflected. Every community
         # lives in a region (including the Unassigned bucket), so this is the
@@ -1574,7 +1575,7 @@ def _movein_blockers(rec):
 def _movein_allowed_communities():
     """Communities the current user may see move-ins for, or None = all (admin)."""
     role = current_role()
-    if role == 'admin':
+    if is_admin():
         return None
     if role == 'regional':
         return set(regional_communities())
@@ -3302,9 +3303,11 @@ def get_questions():
                     'message': f'Invalid survey type: {survey_type_filter}'
                 }), 400
         
-        # Determine which questions to return, by role
+        # Determine which questions to return. Standards are configuration, so
+        # anyone with admin privileges (including the accessory) sees them all —
+        # otherwise they couldn't manage the very standards they're allowed to edit.
         role = current_role()
-        if role == 'admin':
+        if is_admin():
             if community_filter:
                 questions = question_manager.get_questions_for_community(community_filter)
             else:
@@ -3975,7 +3978,9 @@ def submit_inspection():
         #  - staff: their fixed community
         #  - regional: a community they pick (must be within their region)
         #  - admin: not allowed
-        if role == 'admin':
+        # Native Administrators don't submit inspections; Corporate/Regional
+        # users keep inspecting even when they hold admin privileges.
+        if is_native_admin():
             return jsonify({'status': 'error', 'message': 'Admin users cannot submit inspections'}), 400
         elif role == 'regional':
             community = InputSanitizer.sanitize_community_name(request.form.get('community', ''))
@@ -4240,9 +4245,9 @@ def get_inspections():
                     'message': f'Invalid survey type: {survey_type_filter}'
                 }), 400
         
-        # Determine which submissions to return, by role
+        # Determine which submissions to return, by role (admin privileges see all)
         role = current_role()
-        if role == 'admin':
+        if is_admin():
             if community_filter:
                 submissions = inspection_service.get_submissions_by_community(community_filter)
             else:
@@ -4306,7 +4311,7 @@ def _scoped_submissions_for_export():
     like the Reports view (admin = all, regional = their region, staff = their
     community), each enriched with a friendly inspector name."""
     role = current_role()
-    if role == 'admin':
+    if is_admin():
         submissions = inspection_service.get_all_submissions()
     elif role == 'regional':
         allowed = set(regional_communities())
