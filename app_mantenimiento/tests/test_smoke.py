@@ -52,6 +52,16 @@ def _as_role(c, role, region_id=None, community=None, name="tester"):
         s.permanent = True
 
 
+# Fabricated sessions leave a presence record behind (every request marks the
+# signed-in user as active), so drop them when the suite finishes.
+_FAKE_USERS = ("tester", "smoke.regional")
+
+
+def teardown_module(module):
+    for u in _FAKE_USERS:
+        A.presence_service.forget(u)
+
+
 def _a_community():
     """Pick a real community name from the seeded regions."""
     for reg in A.region_service.get_all_regions():
@@ -286,6 +296,48 @@ def test_fail_requires_a_comment():
         A.inspection_service.save_to_file()
 
 
+def test_login_is_recorded_and_shows_in_people():
+    """Signing in updates presence and surfaces in the People directory."""
+    c = _client()
+    r = c.post("/api/login", json={"username": "admin", "password": "admin123"},
+               headers=HDR)
+    assert r.status_code == 200
+
+    pres = A.presence_service.get("admin")
+    assert pres["last_login"], "the sign-in should be recorded"
+    assert pres["active"] is True, "just-signed-in counts as active"
+
+    me = next(p for p in c.get("/api/people").get_json()["people"]
+              if p["username"] == "admin")
+    assert me["online"] is True
+    assert me["last_login"]
+
+
+def test_activity_feed_is_admin_only():
+    c = _client()
+    _as_role(c, "regional", region_id="coastal")
+    assert c.get("/api/activity/live").status_code == 403
+
+    _as_admin(c)
+    d = c.get("/api/activity/live").get_json()
+    assert d["status"] == "success"
+    assert isinstance(d["events"], list) and isinstance(d["online"], list)
+
+
+def test_activity_digest_preview_builds():
+    """The digest can be built and previewed without sending anything."""
+    c = _client()
+    _as_admin(c)
+    r = c.post("/api/activity/digest", json={"preview": True, "hours": 24},
+               headers=HDR)
+    assert r.status_code == 200, r.get_data(as_text=True)
+    d = r.get_json()["digest"]
+    for key in ("signed_in", "visits", "addressed", "security",
+                "accounts", "never_signed_in"):
+        assert isinstance(d[key], list), f"{key} should be a list"
+    assert d["hours"] == 24
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0
@@ -296,5 +348,6 @@ if __name__ == "__main__":
         except Exception as e:  # noqa: BLE001
             failed += 1
             print(f"FAIL  {t.__name__}: {e}")
+    teardown_module(None)
     print(f"\n{len(tests) - failed}/{len(tests)} passed")
     sys.exit(1 if failed else 0)

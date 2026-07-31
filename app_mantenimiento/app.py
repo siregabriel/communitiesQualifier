@@ -111,6 +111,25 @@ def _csrf_origin_guard():
         return jsonify({'status': 'error', 'message': 'Cross-origin request blocked'}), 403
 
 
+@app.before_request
+def _track_presence():
+    """Note that the signed-in user is active. PresenceService throttles the
+    write to roughly once a minute per user, and swallows its own errors, so
+    this stays cheap and can never break a request. Static files and polling
+    endpoints are skipped so background refreshes don't fake activity."""
+    user = session.get('user')
+    if not user:
+        return
+    path = request.path
+    if path.startswith('/static/') or path in _PRESENCE_IGNORE:
+        return
+    presence_service.touch(user)
+
+
+# Endpoints the dashboard polls on a timer — hitting them isn't a sign of life.
+_PRESENCE_IGNORE = {'/api/activity/live', '/api/presence'}
+
+
 _MUST_CHANGE_ALLOW = {'/change-password', '/api/profile/password', '/logout',
                       '/api/user-info', '/login', '/api/login', '/api/forgot-password'}
 
@@ -151,9 +170,14 @@ _LOGIN_WINDOW = 300                    # 5 minutes
 _LOGIN_MAX_FAILS = 8                   # allowed failures per window
 
 
-def _login_throttle_key():
+def _client_ip():
+    """Caller's IP. Behind nginx the real address arrives in X-Forwarded-For."""
     ip = (request.headers.get('X-Forwarded-For', '') or request.remote_addr or '').split(',')[0].strip()
     return ip or 'unknown'
+
+
+def _login_throttle_key():
+    return _client_ip()
 
 
 def login_is_throttled():
@@ -272,6 +296,11 @@ activity_service = ActivityService(ACTIVITY_FILE)
 PROFILES_FILE = os.path.join(DATA_FOLDER, 'profiles.json')
 from services.profile_service import ProfileService
 profile_service = ProfileService(PROFILES_FILE)
+
+# Who signed in, and who is using the app right now (writes are throttled)
+PRESENCE_FILE = os.path.join(DATA_FOLDER, 'presence.json')
+from services.presence_service import PresenceService
+presence_service = PresenceService(PRESENCE_FILE)
 
 # Admin-created login accounts (persisted; survives restarts/deploys)
 USERS_FILE = os.path.join(DATA_FOLDER, 'users.json')
@@ -728,6 +757,25 @@ def region_leader_emails(community):
             if (l.get('email') or '').strip()]
 
 
+def alert_password_changed(username, changed_by=''):
+    """Tell the administrators that an account's password changed.
+
+    Security notices are worth sending but never worth failing the change
+    itself, so every error here is logged and swallowed."""
+    try:
+        admin_notify = settings_service.get_email_settings().get('admin_notify', [])
+        if not admin_notify:
+            return
+        email_service.send_password_changed_alert(
+            admin_notify,
+            resolve_display_name(username), username,
+            changed_by=changed_by,
+            when=datetime.now().strftime('%b %d, %Y %I:%M %p'),
+            ip=_client_ip() if not changed_by else '')
+    except Exception as e:
+        app.logger.error(f'Password-change alert failed: {e}')
+
+
 def leadership_names():
     """All distinct regional leadership names (people who perform inspections)."""
     names = set()
@@ -864,6 +912,11 @@ def api_login():
             # If an admin reset this account, force a password change before use.
             must_change = profile_service.get_must_change(username)
             session['must_change'] = bool(must_change)
+
+            # Record the sign-in for the People directory and the activity feed.
+            presence_service.record_login(username)
+            activity_service.log(username, 'login', 'Signed in',
+                                 meta={'ip': _client_ip()})
 
             return jsonify({
                 'status': 'success',
@@ -1253,6 +1306,7 @@ def change_password():
         profile_service.set_must_change(username, False)
         session['must_change'] = False
         activity_service.log(username, 'password_changed', 'Changed account password')
+        alert_password_changed(username)
         return jsonify({'status': 'success', 'message': 'Password updated successfully'}), 200
     except Exception as e:
         app.logger.error(f'Error changing password: {str(e)}')
@@ -1789,6 +1843,97 @@ def save_movein_template():
     return jsonify({'status': 'success', 'template': tmpl}), 200
 
 
+def build_activity_digest(hours=24):
+    """Summarize what happened in the app over the last `hours`.
+
+    Returns plain data (no email, no I/O beyond the log) so it can be rendered,
+    tested or previewed without sending anything."""
+    from datetime import timedelta as _timedelta
+    since_dt = datetime.now() - _timedelta(hours=hours)
+    since = since_dt.isoformat()
+    events = [e for e in activity_service.get_recent(limit=5000)
+              if e.get('timestamp', '') >= since]
+
+    def of_type(*types):
+        return [e for e in events if e.get('type') in types]
+
+    # Who signed in, and how many times each
+    signins = {}
+    for e in of_type('login'):
+        u = e.get('username')
+        signins[u] = signins.get(u, 0) + 1
+    signed_in = sorted(
+        ({'username': u, 'name': resolve_display_name(u) or u, 'count': n}
+         for u, n in signins.items()),
+        key=lambda x: (-x['count'], x['name'].lower()))
+
+    visits = [{'name': resolve_display_name(e.get('username')) or e.get('username'),
+               'detail': e.get('detail', ''),
+               'community': (e.get('meta') or {}).get('community', '')}
+              for e in of_type('inspection_submitted')]
+
+    addressed = [{'name': resolve_display_name(e.get('username')) or e.get('username'),
+                  'detail': e.get('detail', '')}
+                 for e in of_type('standard_addressed')]
+
+    security = [{'name': resolve_display_name(e.get('username')) or e.get('username'),
+                 'type': e.get('type'), 'detail': e.get('detail', '')}
+                for e in of_type('password_changed', 'password_reset',
+                                 'password_reset_requested')]
+
+    accounts = [{'name': resolve_display_name(e.get('username')) or e.get('username'),
+                 'type': e.get('type'), 'detail': e.get('detail', '')}
+                for e in of_type('user_created', 'person_created', 'person_updated',
+                                 'person_removed', 'admin_privileges_granted',
+                                 'admin_privileges_revoked')]
+
+    # People with an account who have never signed in at all.
+    never = []
+    try:
+        presence = presence_service.all()
+        for reg in region_service.get_all_regions():
+            for leader in (reg.get('leadership') or []):
+                u = (leader.get('username') or '').strip()
+                nm = (leader.get('name') or '').strip()
+                if u and nm.lower() != 'open' and not presence.get(u, {}).get('last_login'):
+                    never.append(nm or u)
+        for u in user_service.get_all():
+            uname = u.get('username')
+            if uname and not presence.get(uname, {}).get('last_login'):
+                never.append(u.get('display_name') or uname)
+    except Exception as e:
+        app.logger.error(f'Digest never-signed-in step failed: {e}')
+
+    return {
+        'since': since_dt.strftime('%b %d, %Y %I:%M %p'),
+        'hours': hours,
+        'signed_in': signed_in,
+        'visits': visits,
+        'addressed': addressed,
+        'security': security,
+        'accounts': accounts,
+        'never_signed_in': sorted(set(never)),
+        'total_events': len(events),
+    }
+
+
+def run_activity_digest(hours=24):
+    """Build and email the activity digest to the admin-notify list.
+    Returns (sent, detail, digest) so the cron script can report what happened."""
+    digest = build_activity_digest(hours=hours)
+    admin_notify = settings_service.get_email_settings().get('admin_notify', [])
+    if not admin_notify:
+        return (False, 'no admin recipients configured', digest)
+    if not email_service.enabled:
+        return (False, 'email disabled', digest)
+    try:
+        ok, detail = email_service.send_activity_digest(admin_notify, digest)
+        return (bool(ok), detail, digest)
+    except Exception as e:
+        app.logger.error(f'Activity digest failed: {e}')
+        return (False, str(e), digest)
+
+
 def run_movein_reminders(days_ahead=3, other_cap=6):
     """Email a reminder for every ACTIVE move-in whose target date is within
     `days_ahead` days and still has open checklist items. Recipients are the
@@ -2063,6 +2208,25 @@ def trigger_movein_reminders():
     return jsonify({'status': 'success', 'emails': result, 'count': len(result)}), 200
 
 
+@app.route('/api/activity/digest', methods=['POST'])
+@require_admin
+def trigger_activity_digest():
+    """Admin-only: send the daily activity digest now, or preview it without
+    sending (pass {"preview": true}) to see exactly what would go out."""
+    data = request.get_json(silent=True) or {}
+    try:
+        hours = max(1, min(int(data.get('hours', 24)), 168))
+    except (TypeError, ValueError):
+        hours = 24
+    if data.get('preview'):
+        return jsonify({'status': 'success', 'preview': True,
+                        'digest': build_activity_digest(hours=hours)}), 200
+    sent, detail, digest = run_activity_digest(hours=hours)
+    return jsonify({'status': 'success' if sent else 'error',
+                    'sent': sent, 'detail': str(detail),
+                    'digest': digest}), (200 if sent else 400)
+
+
 @app.route('/api/users', methods=['GET'])
 @login_required
 def list_users():
@@ -2205,6 +2369,8 @@ def admin_reset_password():
     profile_service.set_must_change(username, True)
     activity_service.log(session.get('user'), 'password_reset',
                          f"Reset password for {acct.get('display_name') or username}")
+    # Security notice to the administrators: someone else's password was reset.
+    alert_password_changed(username, changed_by=session.get('user') or 'an admin')
     # Email them the temporary password when we have an address on file.
     emailed = False
     if acct.get('email'):
@@ -2390,6 +2556,14 @@ def list_people():
             'admin_extra': profile_service.get_admin_extra(username),
         })
 
+    # Sign-in activity: who is using the app right now, who never has.
+    for p in people:
+        pres = presence_service.get(p['username'])
+        p['last_login'] = pres['last_login']
+        p['last_active'] = pres['last_seen']
+        p['logins'] = pres['logins']
+        p['online'] = pres['active']
+
     people.sort(key=lambda p: ((p['name'] or p['username']).lower()))
 
     # Two entries sharing a username would fight over the same login, so flag
@@ -2411,6 +2585,8 @@ def list_people():
         counts_by_role[p['role']] = counts_by_role.get(p['role'], 0) + 1
     return jsonify({'status': 'success', 'people': people, 'counts': counts_by_role,
                     'can_grant_admin': is_native_admin(),
+                    'online_now': sum(1 for p in people if p['online']),
+                    'never_signed_in': [p['username'] for p in people if not p['last_login']],
                     'conflicts': conflicts,
                     'missing_email': [p['username'] for p in people
                                       if not p['email'] and p['role'] in ('regional', 'corporate')],
@@ -2657,6 +2833,7 @@ def delete_person(username):
             return jsonify({'status': 'error', 'message': 'Could not remove this person'}), 400
         activity_service.log(session.get('user'), 'person_removed',
                              f'Removed {name} from {region.get("name")}')
+        presence_service.forget(username)
         return jsonify({'status': 'success', 'message': f'{name} removed.'}), 200
 
     if user_service.exists(username):
@@ -2665,9 +2842,37 @@ def delete_person(username):
         if not user_service.delete(username):
             return jsonify({'status': 'error', 'message': 'Could not remove this account'}), 400
         activity_service.log(session.get('user'), 'person_removed', f'Removed account {username}')
+        presence_service.forget(username)
         return jsonify({'status': 'success', 'message': f'{name} removed.'}), 200
 
     return jsonify({'status': 'error', 'message': 'Person not found'}), 404
+
+
+@app.route('/api/activity/live', methods=['GET'])
+@login_required
+def activity_live():
+    """Admin-only feed of what's happening in the app: who signed in, who
+    submitted a visit, what changed. Polled by the dashboard panel."""
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    try:
+        limit = max(1, min(int(request.args.get('limit', 25)), 100))
+    except (TypeError, ValueError):
+        limit = 25
+    events = []
+    for e in activity_service.get_recent(limit=limit):
+        events.append({
+            'id': e.get('id'),
+            'username': e.get('username'),
+            'name': resolve_display_name(e.get('username')) or e.get('username'),
+            'type': e.get('type'),
+            'detail': e.get('detail', ''),
+            'timestamp': e.get('timestamp'),
+            'community': (e.get('meta') or {}).get('community', ''),
+        })
+    online = [{'username': u, 'name': resolve_display_name(u) or u}
+              for u in presence_service.active_usernames()]
+    return jsonify({'status': 'success', 'events': events, 'online': online}), 200
 
 
 @app.route('/api/settings/email/summary', methods=['GET'])
@@ -2726,7 +2931,10 @@ def email_notification_summary():
 
     # 3) Admin alerts
     for addr in s.get('admin_notify', []):
-        add(addr, '', 'Admin alerts', 'New users, password reset requests, move-in summaries', 'admin')
+        add(addr, '', 'Admin alerts',
+            'New users, password changes and resets, move-in summaries', 'admin')
+        add(addr, '', 'Daily activity digest',
+            'Once a day: sign-ins, visits, items addressed, account changes', 'admin')
     # 4) Routed comments
     for addr in s.get('clinical', []):
         add(addr, '', 'Clinical comments', 'Inspection comments directed to Clinical', 'route')

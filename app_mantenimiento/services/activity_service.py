@@ -98,6 +98,22 @@ class ActivityService(JsonFileBacked):
             if e.get('username') == username and (event_type is None or e.get('type') == event_type)
         )
 
+    def get_recent(self, limit: int = 30, types=None, since: str = None) -> list:
+        """Most recent events across everyone (newest first).
+
+        `types` optionally narrows to specific event types; `since` returns only
+        events with a timestamp strictly greater than the one given (ISO string),
+        which is what the live feed uses to poll for what's new."""
+        self._ensure_fresh()
+        items = self.events
+        if types:
+            wanted = set(types)
+            items = [e for e in items if e.get('type') in wanted]
+        if since:
+            items = [e for e in items if e.get('timestamp', '') > since]
+        items = sorted(items, key=lambda e: e.get('timestamp', ''), reverse=True)
+        return items[:limit]
+
     def last_active(self, username: str):
         self._ensure_fresh()
         items = [e.get('timestamp') for e in self.events if e.get('username') == username]

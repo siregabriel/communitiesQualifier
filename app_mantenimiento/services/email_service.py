@@ -27,6 +27,11 @@ def _valid(addr):
     return bool(addr) and bool(_EMAIL_RE.match(addr.strip()))
 
 
+def _strip_tags(s):
+    """Turn a small HTML fragment into readable plain text for the text part."""
+    return html.unescape(re.sub(r'<[^>]+>', '', s or '')).strip()
+
+
 class EmailService:
     def __init__(self, mail_from=None, region=None,
                  extra_recipients=None, app_base_url=None, configuration_set=None):
@@ -410,6 +415,94 @@ and some checklist items are still open.</p>
                 + f"Requested: {requested_at}\n"
                 "Reset it from Settings > Reset a user's password, then share the temporary password.\n")
         return self._send(admin_emails, subject, self._shell("Password reset requested", body), text)
+
+    def send_password_changed_alert(self, admin_emails, display_name, username,
+                                    changed_by='', when='', ip=''):
+        """Security notice: an account's password changed.
+
+        Sent whether the user changed it themselves or an admin reset it, so
+        the administrator always has a trail of who touched which account."""
+        if not self.enabled:
+            return (False, 'disabled')
+        who = display_name or username
+        self_service = (not changed_by) or (changed_by == username)
+        how = ("The user changed it themselves."
+               if self_service else f"Reset by {changed_by}.")
+        subject = f"Password changed: {who}"
+        rows = [("Name", display_name or ''), ("Username", username), ("Changed", when or '')]
+        if not self_service:
+            rows.append(("Reset by", changed_by))
+        if ip:
+            rows.append(("From IP", ip))
+        table = "".join(
+            f"<tr><td style=\"color:#6b7280;padding:3px 12px 3px 0\">{html.escape(k)}</td>"
+            f"<td style=\"font-weight:600\">{html.escape(str(v))}</td></tr>"
+            for k, v in rows if v)
+        body = f"""\
+<p style="font-size:14px;margin:0 0 12px">The password for an account was changed. {html.escape(how)}</p>
+<table style="font-size:14px;border-collapse:collapse">{table}</table>
+<p style="font-size:12px;color:#9ca3af;margin:14px 0 0">If this wasn't expected, reset the
+account from <b>People</b> and ask the user to sign in again.</p>"""
+        text = (f"Password changed.\n{how}\n"
+                + "".join(f"{k}: {v}\n" for k, v in rows if v))
+        return self._send(admin_emails, subject,
+                          self._shell("Password changed", body), text)
+
+    def send_activity_digest(self, admin_emails, digest):
+        """Daily rundown for the administrator: who signed in, what was done,
+        and anything touching passwords or accounts."""
+        if not self.enabled:
+            return (False, 'disabled')
+
+        def section(title, rows, empty=None):
+            """One block of the digest. Skipped entirely when empty unless a
+            fallback line is given (used for the quiet-day message)."""
+            if not rows:
+                if not empty:
+                    return "", ""
+                return (f"<p style='font-size:13px;color:#6b7280;margin:0 0 14px'>{html.escape(empty)}</p>",
+                        f"{empty}\n")
+            lis = "".join(
+                f"<li style='margin:3px 0'>{r}</li>" for r in rows)
+            h = (f"<p style='font-size:12px;font-weight:700;text-transform:uppercase;"
+                 f"letter-spacing:.5px;color:#6b7280;margin:16px 0 6px'>{html.escape(title)}</p>"
+                 f"<ul style='font-size:14px;margin:0;padding-left:18px'>{lis}</ul>")
+            t = f"\n{title.upper()}\n" + "".join(f"  - {_strip_tags(r)}\n" for r in rows)
+            return h, t
+
+        signins = [f"<b>{html.escape(p['name'])}</b>"
+                   + (f" <span style='color:#6b7280'>({p['count']}x)</span>" if p['count'] > 1 else "")
+                   for p in digest['signed_in']]
+        visits = [f"<b>{html.escape(v['name'])}</b> — {html.escape(v['detail'] or v['community'])}"
+                  for v in digest['visits']]
+        addressed = [f"<b>{html.escape(a['name'])}</b> — {html.escape(a['detail'])}"
+                     for a in digest['addressed']]
+        security = [f"<b>{html.escape(s['name'])}</b> — {html.escape(s['detail'])}"
+                    for s in digest['security']]
+        accounts = [f"<b>{html.escape(a['name'])}</b> — {html.escape(a['detail'])}"
+                    for a in digest['accounts']]
+        never = [html.escape(n) for n in digest['never_signed_in']]
+
+        quiet = not any([signins, visits, addressed, security, accounts])
+        blocks = [
+            section("Signed in", signins,
+                    empty="No activity in the last 24 hours." if quiet else None),
+            section("Visits submitted", visits),
+            section("Marked as addressed", addressed),
+            section("Passwords", security),
+            section("Account changes", accounts),
+            section("Never signed in", never) if never else ("", ""),
+        ]
+        body_html = "".join(b[0] for b in blocks)
+        body_text = "".join(b[1] for b in blocks)
+
+        subject = (f"Atlas Standards — daily activity"
+                   + ("" if quiet else f" ({digest['total_events']} events)"))
+        header = (f"<p style='font-size:13px;color:#6b7280;margin:0 0 4px'>"
+                  f"Since {html.escape(digest['since'])}</p>")
+        return self._send(admin_emails, subject,
+                          self._shell("Daily activity", header + body_html),
+                          f"Atlas Standards — daily activity since {digest['since']}\n" + body_text)
 
     def send_directed_comments(self, recipients, route, submission, items):
         """Email the Clinical/Ops team the comments an inspector directed to them."""

@@ -1593,6 +1593,17 @@
         .pr-region { background: #eef2ff; color: #3730a3; }
         .pr-staff  { background: #f1f5f9; color: #475569; }
         .ppl-noemail { color: #b42318; font-weight: 600; }
+        /* Sign-in activity */
+        .ppl-online { color: #0f6b4a; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
+        .ppl-dot { width: 7px; height: 7px; border-radius: 50%; background: #0f8a5f;
+            box-shadow: 0 0 0 0 rgba(15,138,95,.55); animation: pplPulse 2s infinite; }
+        @keyframes pplPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(15,138,95,.5); }
+            70%  { box-shadow: 0 0 0 6px rgba(15,138,95,0); }
+            100% { box-shadow: 0 0 0 0 rgba(15,138,95,0); }
+        }
+        @media (prefers-reduced-motion: reduce) { .ppl-dot { animation: none; } }
+        .ppl-never { color: #92620a; font-weight: 600; }
         .ppl-warn-tag { font-size: 10px; font-weight: 800; background: #fdeee9; color: #b42318; border: 1px solid #f7c4ba; padding: 1px 7px; border-radius: 6px; }
         .ppl-admin-tag { font-size: 10px; font-weight: 800; background: #fef6e0; color: #92620a;
             border: 1px solid #f3d27a; padding: 1px 7px; border-radius: 6px; }
@@ -1625,6 +1636,8 @@
         html[data-theme="dark"] .pr-region { background: rgba(99,102,241,.20); color: #b3b6ff; }
         html[data-theme="dark"] .pr-staff { background: #1b2537; color: #c2cddd; }
         html[data-theme="dark"] .ppl-noemail { color: #ff9d85; }
+        html[data-theme="dark"] .ppl-online { color: #5fd6a3; }
+        html[data-theme="dark"] .ppl-never { color: #f2c94c; }
         html[data-theme="dark"] .ppl-alert { background: rgba(209,50,18,.12); border-color: rgba(209,50,18,.4); color: #f0b8ab; }
         html[data-theme="dark"] .ppl-alert-soft { background: rgba(242,183,5,.12); border-color: rgba(242,183,5,.35); color: #f2c94c; }
 
@@ -3697,9 +3710,10 @@
                 { title: 'Welcome to Atlas Standards', text: 'A quick tour of the basics. You can replay it anytime from the Help button in the top bar.' },
                 { target: '.nav-item[data-view="dashboard"]', title: 'Dashboard', text: 'Your at-a-glance overview: average score, communities that need attention, performance by region (click a region to drill into its communities), recent activity, and — on wide screens — a mini-calendar of what’s coming up.' },
                 { target: '#dashMainGrid', title: 'Rearrange your dashboard', text: 'On desktop, grab the ⠿ handle on any card (or KPI) to drag it into the order you like — your layout is saved on this device. Use “Reset layout” to put everything back.' },
+                { target: '[data-card="live"]', title: 'Live activity', text: 'Admin-only: who is signed in right now and what everyone has been doing — sign-ins, visits submitted, items marked as addressed, password and account changes. It refreshes on its own every 30 seconds. You also get a digest of all this by email once a day.' },
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse every community, see its latest score and open action items, open a full report, and give each one a cover photo.' },
                 { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile. The Corporate group at the end holds company-wide members who can visit any community." },
-                { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Open it for its own walkthrough.' },
+                { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Each row also shows sign-in activity: a green "Active now" while someone is using the app, when they last signed in, or "Never signed in" if they haven\'t started yet. Open it for its own walkthrough.' },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the inspection standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF — including any action items raised on visits.' },
                 { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything that needs follow-up: standards that failed, plus anything the inspector flagged during a visit (those show "Raised on visit" with their own priority and who it\'s for). Fixed something between visits? Use "Mark as addressed" on a failed standard to log the date, a note and a photo of the fix — the visit and the score stay exactly as they were, and it still clears for good once a later visit passes it. Flagged items are closed with "Mark as done".' },
@@ -4045,6 +4059,23 @@
                 .dash-muted { color: #9ca3af; font-weight: 500; font-size: 12px; }
                 .dash-muted-red { color: #d13212; }
                 .dash-empty { color: #6b7280; font-size: 13px; padding: 8px 0; }
+                /* Live activity feed */
+                .live-online { font-size: 11px; font-weight: 700; color: #0f6b4a; display: inline-flex;
+                    align-items: center; gap: 5px; margin-left: 8px; vertical-align: middle; }
+                .live-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0;
+                    border-top: 1px solid #f1f5f9; }
+                .live-row:first-child { border-top: 0; }
+                .live-icon { width: 18px; text-align: center; flex-shrink: 0; font-size: 12px; margin-top: 2px; }
+                .live-main { flex: 1; min-width: 0; }
+                .live-text { font-size: 13px; color: #0f1e36; line-height: 1.4; }
+                .live-detail { font-size: 11.5px; color: #64748b; margin-top: 1px;
+                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .live-time { font-size: 11px; color: #9ca3af; flex-shrink: 0; white-space: nowrap; margin-top: 2px; }
+                html[data-theme="dark"] .live-row { border-top-color: #26324a; }
+                html[data-theme="dark"] .live-text { color: #eef2f8; }
+                html[data-theme="dark"] .live-detail { color: #9fb0c4; }
+                html[data-theme="dark"] .live-time { color: #7e8ea3; }
+                html[data-theme="dark"] .live-online { color: #5fd6a3; }
                 .dash-row-name-flex { display: flex; align-items: center; gap: 6px; }
                 .dash-row-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
                 .dash-new-badge { flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #0f8a5f;
@@ -4080,6 +4111,10 @@
                         <div class="dash-card" data-card="region"><h3><i class="fas fa-sitemap"></i> Performance by region</h3>${regionHtml}</div>
                         <div class="dash-card" data-card="weakest"><h3><i class="fas fa-clipboard-check"></i> Weakest standards</h3>${weakestHtml}</div>
                         <div class="dash-card" data-card="recent"><h3><i class="fas fa-clock-rotate-left"></i> Recent activity</h3>${recentHtml}</div>
+                        ${isAdmin ? `<div class="dash-card" data-card="live">
+                            <h3><i class="fas fa-satellite-dish"></i> Live activity <span id="liveOnlineChip"></span></h3>
+                            <div id="liveFeed"><div class="dash-empty">Loading…</div></div>
+                        </div>` : ''}
                     </div>
                     <div class="dash-grid dash-only-mobile">
                         <div class="dash-card"><h3><i class="fas fa-calendar-days"></i> This month</h3>${dashMiniCalendarHtml()}</div>
@@ -4093,6 +4128,85 @@
               </div>
             </div>`;
             setupDashLayout();
+            startLiveActivity();
+        }
+
+        // ===================== Live activity feed (admin only) =====================
+        // Polls the audit log so the admin can see who is in the app and what
+        // they're doing. The timer is cleared whenever the panel leaves the DOM,
+        // so we never poll in the background from another view.
+        let _liveTimer = null;
+
+        // How each event type reads in the feed. Anything not listed falls back
+        // to a neutral icon and its own detail text.
+        const LIVE_EVENTS = {
+            login:                  { icon: 'fa-right-to-bracket', color: '#0f8a5f', verb: 'signed in' },
+            inspection_submitted:   { icon: 'fa-clipboard-check',  color: '#1f6fe5', verb: 'submitted a visit' },
+            standard_addressed:     { icon: 'fa-wrench',           color: '#0f8a5f', verb: 'marked a standard as addressed' },
+            standard_reopened:      { icon: 'fa-rotate-left',      color: '#92620a', verb: 'reopened a standard' },
+            password_changed:       { icon: 'fa-key',              color: '#92620a', verb: 'changed their password' },
+            password_reset:         { icon: 'fa-key',              color: '#d13212', verb: 'reset a password' },
+            password_reset_requested: { icon: 'fa-key',            color: '#d13212', verb: 'requested a password reset' },
+            user_created:           { icon: 'fa-user-plus',        color: '#1f6fe5', verb: 'created an account' },
+            person_created:         { icon: 'fa-user-plus',        color: '#1f6fe5', verb: 'added a person' },
+            person_updated:         { icon: 'fa-user-pen',         color: '#64748b', verb: 'updated a person' },
+            person_removed:         { icon: 'fa-user-minus',       color: '#d13212', verb: 'removed a person' },
+            movein_created:         { icon: 'fa-house-circle-check', color: '#1f6fe5', verb: 'started a move-in' },
+            question_created:       { icon: 'fa-circle-plus',      color: '#1f6fe5', verb: 'added a standard' },
+            question_updated:       { icon: 'fa-pen',              color: '#64748b', verb: 'edited a standard' },
+            question_deleted:       { icon: 'fa-trash',            color: '#d13212', verb: 'deleted a standard' },
+            data_reset:             { icon: 'fa-triangle-exclamation', color: '#d13212', verb: 'reset inspection data' },
+        };
+
+        async function loadLiveActivity() {
+            const feed = document.getElementById('liveFeed');
+            if (!feed) { stopLiveActivity(); return; }
+            try {
+                const r = await fetch('/api/activity/live?limit=12');
+                if (!r.ok) throw new Error('feed unavailable');
+                const d = await r.json();
+
+                const chip = document.getElementById('liveOnlineChip');
+                if (chip) {
+                    chip.innerHTML = d.online && d.online.length
+                        ? `<span class="live-online"><span class="ppl-dot"></span> ${d.online.length} online</span>`
+                        : '';
+                    chip.title = (d.online || []).map(o => o.name).join(', ');
+                }
+
+                feed.innerHTML = (d.events || []).length
+                    ? d.events.map(e => {
+                        const meta = LIVE_EVENTS[e.type] || { icon: 'fa-circle-dot', color: '#64748b', verb: e.type.replace(/_/g, ' ') };
+                        const where = e.community ? ` · ${escapeHtml(e.community)}` : '';
+                        return `<div class="live-row">
+                            <span class="live-icon" style="color:${meta.color}"><i class="fas ${meta.icon}"></i></span>
+                            <div class="live-main">
+                                <div class="live-text"><b>${escapeHtml(e.name || e.username)}</b> ${escapeHtml(meta.verb)}${where}</div>
+                                ${e.detail ? `<div class="live-detail">${escapeHtml(e.detail)}</div>` : ''}
+                            </div>
+                            <span class="live-time">${timeAgo(e.timestamp)}</span>
+                        </div>`;
+                    }).join('')
+                    : '<div class="dash-empty">Nothing yet today.</div>';
+            } catch (err) {
+                feed.innerHTML = '<div class="dash-empty">Could not load the activity feed.</div>';
+            }
+        }
+
+        function startLiveActivity() {
+            stopLiveActivity();
+            if (!document.getElementById('liveFeed')) return;
+            loadLiveActivity();
+            _liveTimer = setInterval(() => {
+                // The dashboard may have been replaced by another view.
+                if (!document.getElementById('liveFeed')) { stopLiveActivity(); return; }
+                if (document.hidden) return;   // don't poll a background tab
+                loadLiveActivity();
+            }, 30000);
+        }
+
+        function stopLiveActivity() {
+            if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
         }
 
         // ===================== Draggable dashboard grid (desktop only) =====================
@@ -5490,6 +5604,13 @@
                     ? `<img class="ppl-avatar-img" src="/static/${escapeHtml(p.photo)}" alt="">`
                     : `<div class="ppl-avatar" style="background:${avatarColor(p.name || p.username)};">${escapeHtml(initials)}</div>`;
                 const safeU = (p.username || '').replace(/'/g, "\\'");
+                // Sign-in activity: green dot while they're in the app, otherwise
+                // when they last signed in — or a nudge if they never have.
+                const seenChip = p.online
+                    ? '<span class="ppl-online"><span class="ppl-dot"></span> Active now</span>'
+                    : (p.last_login
+                        ? `<span class="ppl-seen"><i class="fas fa-right-to-bracket"></i> Last sign-in ${timeAgo(p.last_login)}</span>`
+                        : '<span class="ppl-never"><i class="fas fa-hourglass-start"></i> Never signed in</span>');
                 return `<div class="ppl-row">
                     ${avatar}
                     <div class="ppl-main">
@@ -5505,6 +5626,7 @@
                             ${p.email ? `<span class="ppl-email"><i class="fas fa-envelope"></i> ${escapeHtml(p.email)}</span>`
                                       : '<span class="ppl-noemail"><i class="fas fa-envelope"></i> no email</span>'}
                             ${p.inspections ? `<span class="ppl-insp"><i class="fas fa-clipboard-check"></i> ${p.inspections} visit${p.inspections === 1 ? '' : 's'}</span>` : ''}
+                            ${seenChip}
                         </div>
                     </div>
                     <div class="ppl-actions">
@@ -5534,6 +5656,7 @@
                         ${chip('regional', 'Regional', d.counts.regional || 0)}
                         ${chip('staff', 'Staff', d.counts.staff || 0)}
                     </div>
+                    ${d.online_now ? `<span class="ppl-online" style="font-size:12px;"><span class="ppl-dot"></span> ${d.online_now} in the app now</span>` : ''}
                 </div>
                 ${warn}${noEmail}
                 <div class="ppl-list">${rows}</div>
