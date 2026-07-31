@@ -235,6 +235,57 @@ def test_addressing_a_failed_standard_keeps_the_verdict_and_score():
         A.inspection_service.save_to_file()
 
 
+def test_fail_requires_a_comment():
+    """A Fail with no comment is rejected; the same Fail with one goes through."""
+    import json as _json
+    # Admins can't submit inspections, so run this as a regional in a real region.
+    region_id, comm = None, None
+    for reg in A.region_service.get_all_regions():
+        for entry in reg.get("communities", []):
+            name = entry if isinstance(entry, str) else entry.get("name")
+            if name:
+                region_id, comm = reg.get("id"), name
+                break
+        if comm:
+            break
+    assert comm, "no seeded community to test with"
+
+    survey_type_id = A.survey_type_service.get_all_survey_types()[0]["id"]
+
+    c = _client()
+    _as_role(c, "regional", region_id=region_id, name="smoke.regional")
+    with c.session_transaction() as s:
+        s["survey_type_id"] = survey_type_id
+
+    def post(description):
+        return c.post("/api/inspections", headers=HDR, data={
+            "community": comm,
+            "responses": _json.dumps([{
+                "question_id": "smoke_q2",
+                "question_text": "Smoke test standard",
+                "condition": "Fail",
+                "description": description,
+            }]),
+        }, content_type="multipart/form-data")
+
+    before = {s["id"] for s in A.inspection_service.get_all_submissions()}
+    r = post("   ")
+    assert r.status_code == 400, "an empty Fail comment must be rejected"
+    assert "comment" in r.get_json()["message"].lower()
+
+    r = post("Handrail loose by room 204")
+    assert r.status_code in (200, 201), r.get_data(as_text=True)
+    try:
+        after = A.inspection_service.get_all_submissions()
+        new = [s for s in after if s["id"] not in before]
+        assert len(new) == 1
+        assert new[0]["responses"][0]["description"] == "Handrail loose by room 204"
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") in before]
+        A.inspection_service.save_to_file()
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

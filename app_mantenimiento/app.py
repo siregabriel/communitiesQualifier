@@ -4165,7 +4165,17 @@ def submit_inspection():
             # Get optional fields
             question_text = sanitized_response.get('question_text', '')
             description = sanitized_response.get('description', '')
-            
+
+            # A Fail must explain what was found — the follow-up depends on it.
+            # The form enforces this too; this is the backstop.
+            if condition == 'Fail' and not description.strip():
+                label = question_text or question_id
+                return jsonify({
+                    'status': 'error',
+                    'message': f'"{label}" is marked Fail — please add a comment describing what you found.'
+                }), 400
+
+
             # Handle optional photo upload
             photo_path = None
             photo_field_name = f'photo_{idx}'

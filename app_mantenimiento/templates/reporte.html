@@ -690,6 +690,29 @@
             display: block;
         }
 
+        /* Shown only once an item is marked Fail — the comment becomes required. */
+        .comments-req {
+            display: none;
+            margin-left: 8px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #fee2e2;
+            color: #b42318;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            vertical-align: middle;
+        }
+        .comments-req.show { display: inline-block; }
+        textarea.comments-invalid {
+            border-color: #d13212 !important;
+            background: #fff5f4;
+            box-shadow: 0 0 0 3px rgba(209, 50, 18, .12);
+        }
+        html[data-theme="dark"] .comments-req { background: rgba(209,50,18,.22); color: #ff9c8a; }
+        html[data-theme="dark"] textarea.comments-invalid { background: rgba(209,50,18,.10); }
+
         .evidence-label {
             color: #111827;
             font-size: 14px;
@@ -1189,7 +1212,7 @@
         const FORM_TOUR = [
             { title: 'How to run an inspection', text: 'Go item by item — here’s what each part does. You can replay this from Help anytime.' },
             { target: '.guideline-info-btn', title: 'See the standard', text: "Tap the info icon to see exactly what's required to pass this item." },
-            { target: '.condition-rating', title: 'Pass or Fail', text: 'Mark each item Pass or Fail with this toggle.' },
+            { target: '.condition-rating', title: 'Pass or Fail', text: 'Mark each item Pass or Fail with this toggle. If you mark Fail, the Comments box below becomes required — describe what you found so whoever fixes it knows where to start.' },
             { target: 'select[id^="route_"]', title: 'Comment & route it', text: 'Add a comment, and optionally direct it to Clinical or Ops so the right team is notified.' },
             { target: '.file-upload-label', title: 'Add a photo', text: 'Attach a photo as evidence when needed.' },
             { target: '#actionItemsSection', title: 'Anything else you spotted', text: 'Saw something that isn’t one of the standards? Add it here with + Add action item — say what it is, who should handle it (Maintenance, Nursing, Dietary…) and how urgent it is. It goes to the Action Items list and into the summary email, and it never affects the score.' },
@@ -1323,7 +1346,7 @@
             const passDiv = document.createElement('label');
             passDiv.className = 'radio-button';
             passDiv.innerHTML = `
-                <input type="radio" name="condition_${question.id}" value="Pass" onchange="updateProgress()">
+                <input type="radio" name="condition_${question.id}" value="Pass" onchange="onConditionChange('${question.id}')">
                 <span class="radio-label pass">
                     <span class="rating-icon"><i class="fas fa-check"></i></span>
                     Pass
@@ -1335,7 +1358,7 @@
             const failDiv = document.createElement('label');
             failDiv.className = 'radio-button';
             failDiv.innerHTML = `
-                <input type="radio" name="condition_${question.id}" value="Fail" onchange="updateProgress()">
+                <input type="radio" name="condition_${question.id}" value="Fail" onchange="onConditionChange('${question.id}')">
                 <span class="radio-label fail">
                     <span class="rating-icon"><i class="fas fa-xmark"></i></span>
                     Fail
@@ -1345,17 +1368,22 @@
             
             section.appendChild(conditionRating);
             
-            // Comments label
+            // Comments label. Turns into a required field once the item is
+            // marked Fail — whoever fixes it later needs to know what was found.
             const commentsLabel = document.createElement('div');
             commentsLabel.className = 'comments-label';
-            commentsLabel.textContent = 'Comments';
+            commentsLabel.id = `commentsLabel_${question.id}`;
+            commentsLabel.innerHTML = 'Comments <span class="comments-req" id="commentsReq_' + question.id + '">Required for a Fail</span>';
             section.appendChild(commentsLabel);
-            
+
             // Comments textarea
             const commentsTextarea = document.createElement('textarea');
             commentsTextarea.id = `description_${question.id}`;
             commentsTextarea.name = `description_${question.id}`;
             commentsTextarea.placeholder = 'Add your comments here...';
+            commentsTextarea.addEventListener('input', () => {
+                commentsTextarea.classList.remove('comments-invalid');
+            });
             commentsTextarea.style.width = '100%';
             commentsTextarea.style.minHeight = '80px';
             commentsTextarea.style.padding = '12px';
@@ -1416,6 +1444,23 @@
                 evidenceContent.classList.add('show');
                 dropdown.classList.add('open');
             }
+        }
+
+        // A Fail without a comment leaves the next person guessing, so the
+        // Comments box becomes required as soon as Fail is picked.
+        function onConditionChange(questionId) {
+            const picked = document.querySelector(`input[name="condition_${questionId}"]:checked`);
+            const isFail = !!picked && picked.value === 'Fail';
+            const req = document.getElementById(`commentsReq_${questionId}`);
+            const box = document.getElementById(`description_${questionId}`);
+            if (req) req.classList.toggle('show', isFail);
+            if (box) {
+                box.placeholder = isFail
+                    ? 'What did you find? Be specific so it can be fixed.'
+                    : 'Add your comments here...';
+                if (!isFail) box.classList.remove('comments-invalid');
+            }
+            updateProgress();
         }
 
         function updateProgress() {
@@ -1498,18 +1543,24 @@
             // Collect responses from all questions
             const responses = [];
             let responseIndex = 0;
-            
+            const missingComment = [];
+
             for (const question of questions) {
                 // Get condition rating
                 const conditionInput = document.querySelector(`input[name="condition_${question.id}"]:checked`);
-                
+
                 // Skip unanswered questions (partial submission allowed)
                 if (!conditionInput) {
                     continue;
                 }
-                
+
                 const condition = conditionInput.value;
                 const description = document.getElementById(`description_${question.id}`)?.value || '';
+
+                // Every Fail must say what was found.
+                if (condition === 'Fail' && !description.trim()) {
+                    missingComment.push(question);
+                }
                 const routeTo = document.getElementById(`route_${question.id}`)?.value || '';
 
                 // Create response object
@@ -1528,6 +1579,23 @@
             // Validate at least one question was answered
             if (responses.length === 0) {
                 alert('Please answer at least one question before submitting.');
+                return;
+            }
+
+            // Flag every Fail that has no comment, then jump to the first one.
+            if (missingComment.length) {
+                missingComment.forEach(q => {
+                    const box = document.getElementById(`description_${q.id}`);
+                    if (box) box.classList.add('comments-invalid');
+                });
+                const first = document.getElementById(`description_${missingComment[0].id}`);
+                if (first) {
+                    first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => first.focus({ preventScroll: true }), 350);
+                }
+                alert(missingComment.length === 1
+                    ? 'Please add a comment explaining the Fail on "' + missingComment[0].text + '".'
+                    : `Please add a comment on the ${missingComment.length} items marked Fail. Whoever fixes them needs to know what you found.`);
                 return;
             }
             
