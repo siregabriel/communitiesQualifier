@@ -191,6 +191,50 @@ def test_community_rename_updates_moveins_and_cover():
         c.delete(f"/api/moveins/{mid}", headers=HDR)
 
 
+def test_addressing_a_failed_standard_keeps_the_verdict_and_score():
+    """Regression: marking a failed standard as addressed records the follow-up
+    but must never rewrite the visit — the item stays 'Fail'."""
+    c = _client()
+    _as_admin(c)
+    sub = A.inspection_service.create_submission(
+        username="admin", community=_a_community(),
+        inspector_name="Smoke Test",
+        responses=[{
+            "question_id": "smoke_q1",
+            "question_text": "Smoke test standard",
+            "condition": "Fail",
+            "description": "seeded by the test suite",
+            "answered_at": "2026-07-31T09:00:00",
+        }])
+    sid = sub["id"]
+    url = f"/api/action-items/{sid}/standard/smoke_q1/resolve"
+    try:
+        r = c.post(url, json={"resolved": True, "note": "Fixed same day"},
+                   headers=HDR)
+        assert r.status_code == 200, r.get_data(as_text=True)
+        resp = r.get_json()["response"]
+        assert resp["condition"] == "Fail", "the verdict must not change"
+        assert resp["addressed"] is True
+        assert resp["addressed_note"] == "Fixed same day"
+        assert resp["addressed_by"] == "admin"
+
+        # Reopening clears the follow-up, still without touching the verdict.
+        r = c.post(url, json={"resolved": False}, headers=HDR)
+        assert r.status_code == 200
+        resp = r.get_json()["response"]
+        assert resp["addressed"] is False
+        assert resp["condition"] == "Fail"
+        assert "addressed_note" not in resp
+
+        # Unknown standard on a real visit is a 404, not a silent success.
+        assert c.post(f"/api/action-items/{sid}/standard/nope/resolve",
+                      json={"resolved": True}, headers=HDR).status_code == 404
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") != sid]
+        A.inspection_service.save_to_file()
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

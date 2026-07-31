@@ -84,6 +84,36 @@ class InspectionService(JsonFileBacked):
             })
         return out
 
+    def resolve_response(self, submission_id: str, question_id: str, username: str,
+                         note: str = '', photo: str = '', resolved: bool = True) -> Optional[Dict]:
+        """Record that a failed standard has been addressed between visits.
+
+        The response's own verdict (Pass/Fail) is never changed — the visit stays
+        a faithful record of what was found, and the score is untouched. We only
+        attach follow-up information alongside it."""
+        with self._lock:
+            self._ensure_fresh()
+            for sub in self.submissions:
+                if sub.get('id') != submission_id:
+                    continue
+                for resp in sub.get('responses', []):
+                    if resp.get('question_id') != question_id:
+                        continue
+                    if resolved:
+                        resp['addressed'] = True
+                        resp['addressed_at'] = datetime.now().isoformat()
+                        resp['addressed_by'] = (username or '').strip()
+                        resp['addressed_note'] = (note or '').strip()[:500]
+                        if photo:
+                            resp['addressed_photo'] = photo
+                    else:
+                        resp['addressed'] = False
+                        for k in ('addressed_at', 'addressed_by', 'addressed_note', 'addressed_photo'):
+                            resp.pop(k, None)
+                    self.save_to_file()
+                    return resp
+            return None
+
     def resolve_action_item(self, submission_id: str, item_id: str, username: str,
                             note: str = '', resolved: bool = True) -> Optional[Dict]:
         """Mark a manual action item as done (or reopen it). The original

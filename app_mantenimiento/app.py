@@ -2220,6 +2220,63 @@ def admin_reset_password():
                     'email': acct.get('email') or ''}), 200
 
 
+@app.route('/api/action-items/<submission_id>/standard/<question_id>/resolve', methods=['POST'])
+@login_required
+def resolve_failed_standard(submission_id, question_id):
+    """Mark a failed standard as addressed between visits.
+
+    This never edits the inspection: the item still reads Fail and the score is
+    unchanged. It records who fixed it, when, an optional note and a photo of
+    the fix, so the team has a follow-up trail without rewriting history. A
+    later visit that passes the standard still clears it the usual way."""
+    sub = next((s for s in inspection_service.get_all_submissions()
+                if s.get('id') == submission_id), None)
+    if not sub:
+        return jsonify({'status': 'error', 'message': 'Inspection not found'}), 404
+    if not is_admin():
+        allowed = set(regional_communities()) if current_role() == 'regional' else {session.get('community')}
+        if sub.get('community') not in allowed:
+            return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+
+    # Accepts JSON, or multipart when a photo of the fix is attached.
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        resolved = (request.form.get('resolved', 'true').lower() != 'false')
+        note = InputSanitizer.sanitize_description(request.form.get('note', ''))
+    else:
+        data = request.get_json(silent=True) or {}
+        resolved = bool(data.get('resolved', True))
+        note = InputSanitizer.sanitize_description(data.get('note', ''))
+
+    # Photo of the fix. Same handler as inspection photos, so it lands in S3
+    # when S3 is configured and on disk otherwise.
+    photo_path = ''
+    if resolved and 'photo' in request.files:
+        f = request.files['photo']
+        if f and f.filename:
+            is_valid, error_message = file_upload_handler.validate_file(f)
+            if not is_valid:
+                return jsonify({'status': 'error', 'message': error_message}), 400
+            try:
+                photo_path = file_upload_handler.save_file(
+                    f, session.get('user', 'user'), sub.get('community', ''))
+            except Exception as e:
+                app.logger.error(f'Fix photo upload failed: {e}')
+
+    resp = inspection_service.resolve_response(
+        submission_id, question_id, session.get('user'),
+        note=note, photo=photo_path, resolved=resolved)
+    if resp is None:
+        return jsonify({'status': 'error', 'message': 'Standard not found on this visit'}), 404
+
+    activity_service.log(session.get('user'),
+                         'standard_addressed' if resolved else 'standard_reopened',
+                         f'{"Marked addressed" if resolved else "Reopened"}: '
+                         f'{resp.get("question_text", "")[:60]} at {sub.get("community")}',
+                         meta={'community': sub.get('community')})
+    return jsonify({'status': 'success', 'response': resp,
+                    'message': 'Marked as addressed.' if resolved else 'Reopened.'}), 200
+
+
 @app.route('/api/action-items/<submission_id>/<item_id>/resolve', methods=['POST'])
 @login_required
 def resolve_action_item(submission_id, item_id):
@@ -4342,6 +4399,10 @@ def get_inspections():
                     r = dict(resp)
                     if r.get('photo_path'):
                         r['photo_url'] = file_upload_handler.generate_presigned_url(r['photo_path'])
+                    # Photo of the fix, uploaded when a failed standard is marked
+                    # as addressed between visits.
+                    if r.get('addressed_photo'):
+                        r['addressed_photo_url'] = file_upload_handler.generate_presigned_url(r['addressed_photo'])
                     new_responses.append(r)
                 new_sub['responses'] = new_responses
             enriched.append(new_sub)
@@ -4402,11 +4463,27 @@ def _export_rows():
             rows.append([community, region_name, survey_name, inspector, submitted, '', '', ''])
             continue
         for r in responses:
+            comment = (r.get('description', '') or '').replace('\r', ' ').replace('\n', ' ')
+            # A failed standard can be marked as addressed between visits. The
+            # result stays "Fail" (the visit is a faithful record); we only note
+            # the follow-up alongside it.
+            if r.get('addressed'):
+                when = (r.get('addressed_at') or '')[:10]
+                who = r.get('addressed_by') or ''
+                fix = (r.get('addressed_note') or '').replace('\r', ' ').replace('\n', ' ')
+                tag = 'Addressed'
+                if when:
+                    tag += f" {when}"
+                if who:
+                    tag += f" by {who}"
+                comment = f"{comment} · {tag}".strip(' ·')
+                if fix:
+                    comment += f" — {fix}"
             rows.append([
                 community, region_name, survey_name, inspector, submitted,
                 r.get('question_text', '') or '',
                 r.get('condition', '') or '',
-                (r.get('description', '') or '').replace('\r', ' ').replace('\n', ' '),
+                comment,
             ])
         # Ad-hoc action items raised on the visit. They're follow-up tasks, not
         # standards, so the Result column marks them as such (they never score).
@@ -4438,6 +4515,7 @@ def _export_summary():
     subs = _scoped_submissions_for_export()
     total_visits = len(subs)
     passes = fails = total_responses = 0
+    fails_addressed = 0
     actions_total = actions_open = 0
     by_type = {}        # survey_type_id -> count of responses
     performers = {}     # inspector -> {visits, last}
@@ -4455,6 +4533,11 @@ def _export_summary():
                 passes += 1
             elif cond == 'Fail':
                 fails += 1
+                # Failures fixed between visits still count as failures here —
+                # the score is a record of the visit — but we report them so the
+                # follow-up work is visible.
+                if r.get('addressed'):
+                    fails_addressed += 1
             if stid:
                 by_type[stid] = by_type.get(stid, 0) + 1
         name = sub.get('inspector_name') or 'Unknown'
@@ -4476,6 +4559,7 @@ def _export_summary():
         'total_visits': total_visits,
         'total_responses': total_responses,
         'passes': passes, 'fails': fails, 'pass_rate': pass_rate,
+        'fails_addressed': fails_addressed,
         'actions_total': actions_total, 'actions_open': actions_open,
         'by_survey_type': by_survey_type,
         'top_performers': top_performers,
@@ -4500,6 +4584,7 @@ def export_reports_csv():
     writer.writerow(['Total responses', s['total_responses']])
     writer.writerow(['Pass', s['passes']])
     writer.writerow(['Fail', s['fails']])
+    writer.writerow(['Fail — addressed since the visit', s['fails_addressed']])
     writer.writerow(['Pass rate', f"{s['pass_rate']}%"])
     writer.writerow(['Action items raised', s['actions_total']])
     writer.writerow(['Action items still open', s['actions_open']])
@@ -4551,7 +4636,9 @@ def export_reports_xlsx():
     summ['A2'].font = Font(italic=True, color='6B7280')
 
     kpis = [('Total visits', s['total_visits']), ('Total responses', s['total_responses']),
-            ('Pass', s['passes']), ('Fail', s['fails']), ('Pass rate', f"{s['pass_rate']}%"),
+            ('Pass', s['passes']), ('Fail', s['fails']),
+            ('Fail — addressed since the visit', s['fails_addressed']),
+            ('Pass rate', f"{s['pass_rate']}%"),
             ('Action items raised', s['actions_total']), ('Action items still open', s['actions_open'])]
     row = 4
     for label, val in kpis:
@@ -4676,7 +4763,10 @@ def export_reports_pdf():
     ], [
         Paragraph(str(summ['total_visits']), cell), Paragraph(str(summ['total_responses']), cell),
         Paragraph(f"<font color='#0f8a5f'>{summ['passes']}</font>", cell),
-        Paragraph(f"<font color='#d13212'>{summ['fails']}</font>", cell),
+        Paragraph(
+            f"<font color='#d13212'>{summ['fails']}</font>"
+            + (f" <font color='#6b7280' size='8'>({summ['fails_addressed']} addressed)</font>"
+               if summ.get('fails_addressed') else ''), cell),
         Paragraph(f"{summ['pass_rate']}%", cell),
         Paragraph(f"{summ['actions_total']} <font color='#6b7280' size='8'>({summ['actions_open']} open)</font>", cell),
     ]]

@@ -1557,7 +1557,13 @@
         html[data-theme="dark"] .badge-manual { background: rgba(31,111,229,.20) !important; color: #9cc4ff !important; }
         html[data-theme="dark"] .ai-resolve-btn,
         html[data-theme="dark"] .ai-resolved { background: rgba(15,138,95,.16); border-color: rgba(15,138,95,.4); color: #5fd6a3; }
+        .ai-resolved-hint { font-weight: 500; color: #6b8a7d; margin-top: 6px; font-size: 11.5px; line-height: 1.45; }
+        .ai-fix-photo { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
+            font-size: 12px; font-weight: 700; color: #0f6b4a; text-decoration: none; }
+        .ai-fix-photo:hover { text-decoration: underline; }
         html[data-theme="dark"] .ai-resolved-note { color: #9fc9b8; }
+        html[data-theme="dark"] .ai-resolved-hint { color: #86a99b; }
+        html[data-theme="dark"] .ai-fix-photo { color: #5fd6a3; }
 
         /* ===== People (admin directory) ===== */
         .ppl-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
@@ -2377,6 +2383,7 @@
 
             return responses.filter(response =>
                 actionConditions.includes(response.condition)
+                && !(response.addressed || response.addressed_at)
             ).length;
         }
 
@@ -2469,11 +2476,15 @@
                     continue;
                 }
                 
-                if (actionConditions.includes(inspection.condition)) {
+                // A failed standard that has been marked as addressed between
+                // visits is no longer open work. The verdict (and therefore the
+                // score) stays untouched — only the open count drops.
+                if (actionConditions.includes(inspection.condition)
+                    && !(inspection.addressed || inspection.addressed_at)) {
                     count++;
                 }
             }
-            
+
             return count;
         }
 
@@ -3691,7 +3702,7 @@
                 { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Open it for its own walkthrough.' },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the inspection standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF — including any action items raised on visits.' },
-                { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything that needs follow-up: standards that failed, plus anything the inspector flagged during a visit (those show "Raised on visit" with their own priority and who it\'s for). Failed standards clear themselves when the next visit passes them; flagged items are closed with "Mark as done", where you can note what was fixed.' },
+                { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything that needs follow-up: standards that failed, plus anything the inspector flagged during a visit (those show "Raised on visit" with their own priority and who it\'s for). Fixed something between visits? Use "Mark as addressed" on a failed standard to log the date, a note and a photo of the fix — the visit and the score stay exactly as they were, and it still clears for good once a later visit passes it. Flagged items are closed with "Mark as done".' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident’s move-in as a phased checklist — with required compliance items, attachments, printable binder pages, and automatic email reminders. Open it for its own walkthrough.' },
                 { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines inspections, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
                 { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which inspection emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to, flagging anyone missing an email. At the bottom, a Danger zone lets you wipe all inspections to start fresh (a backup is saved first). People are managed in the People view.' },
@@ -4295,8 +4306,9 @@
             // Sort: unresolved first, then by priority (failed standards are high).
             const prio = { high: 1, medium: 2, low: 3 };
             const rank = it => it.type === 'manual-action' ? (prio[it.priority] || 2) : 1;
+            const closed = it => it.type === 'manual-action' ? !!it.resolved : !!it.addressed;
             actionItems.sort((a, b) =>
-                (a.resolved === b.resolved ? 0 : (a.resolved ? 1 : -1)) || rank(a) - rank(b));
+                (closed(a) === closed(b) ? 0 : (closed(a) ? 1 : -1)) || rank(a) - rank(b));
 
             gallery.innerHTML = actionItems.map(item => {
                 const manual = item.type === 'manual-action';
@@ -4312,8 +4324,9 @@
                 const imageInner = hasPhoto
                     ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
                     : `<i class="fas ${iconClass}"></i>`;
+                const isClosed = manual ? !!item.resolved : !!item.addressed;
                 const imageClass = (hasPhoto ? 'card-image' : 'card-image card-image-themed')
-                    + (item.resolved ? ' ai-done-img' : '');
+                    + (isClosed ? ' ai-done-img' : '');
 
                 const typeBadge = manual
                     ? `<div class="card-badge badge-manual"><i class="fas fa-hand-point-right"></i> Raised on visit</div>`
@@ -4322,19 +4335,36 @@
                 const assigned = manual && item.assignedTo
                     ? `<div class="card-location"><i class="fas fa-user-gear card-emoji"></i> ${escapeHtml(item.assignedTo)}</div>` : '';
 
-                // Resolve control (ad-hoc items only — failed standards clear
-                // themselves when the next visit passes them).
-                const resolveUi = manual ? (item.resolved
-                    ? `<div class="ai-resolved">
-                           <i class="fas fa-circle-check"></i> Done${item.resolvedBy ? ' by ' + escapeHtml(item.resolvedBy) : ''}
-                           ${item.resolutionNote ? `<div class="ai-resolved-note">${escapeHtml(item.resolutionNote)}</div>` : ''}
-                           <button class="ai-reopen" onclick="reopenActionItem('${item.submissionId}','${item.itemId}')">Reopen</button>
-                       </div>`
-                    : `<button class="ai-resolve-btn" onclick="resolveActionItem('${item.submissionId}','${item.itemId}')">
-                           <i class="fas fa-check"></i> Mark as done</button>`) : '';
+                // Follow-up control. Ad-hoc items are closed with "Mark as done";
+                // failed standards can be marked "addressed" between visits (which
+                // never changes the visit or the score), and still clear on their
+                // own once a later visit passes them.
+                let resolveUi = '';
+                if (manual) {
+                    resolveUi = item.resolved
+                        ? `<div class="ai-resolved">
+                               <i class="fas fa-circle-check"></i> Done${item.resolvedBy ? ' by ' + escapeHtml(item.resolvedBy) : ''}
+                               ${item.resolutionNote ? `<div class="ai-resolved-note">${escapeHtml(item.resolutionNote)}</div>` : ''}
+                               <button class="ai-reopen" onclick="reopenActionItem('${item.submissionId}','${item.itemId}')">Reopen</button>
+                           </div>`
+                        : `<button class="ai-resolve-btn" onclick="resolveActionItem('${item.submissionId}','${item.itemId}')">
+                               <i class="fas fa-check"></i> Mark as done</button>`;
+                } else {
+                    const qid = (item.questionId || '').replace(/'/g, "\\'");
+                    resolveUi = item.addressed
+                        ? `<div class="ai-resolved">
+                               <i class="fas fa-circle-check"></i> Addressed${item.addressedAt ? ' ' + formatDate(item.addressedAt) : ''}${item.addressedBy ? ' by ' + escapeHtml(item.addressedBy) : ''}
+                               ${item.addressedNote ? `<div class="ai-resolved-note">${escapeHtml(item.addressedNote)}</div>` : ''}
+                               ${item.addressedPhoto ? `<a class="ai-fix-photo" href="${photoUrl(item.addressedPhoto)}" target="_blank"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                               <div class="ai-resolved-hint">Still counts as failed on this visit — it clears when a later visit passes it.</div>
+                               <button class="ai-reopen" onclick="reopenStandard('${item.submissionId}','${qid}')">Reopen</button>
+                           </div>`
+                        : `<button class="ai-resolve-btn" onclick="addressStandard('${item.submissionId}','${qid}')">
+                               <i class="fas fa-wrench"></i> Mark as addressed</button>`;
+                }
 
                 return `
-                    <div class="card ${item.resolved ? 'ai-done' : ''}">
+                    <div class="card ${isClosed ? 'ai-done' : ''}">
                         <div class="${imageClass}">${imageInner}</div>
                         <div class="card-content">
                             <div class="card-badge ${priorityClass}" style="margin-bottom: 8px;">${priorityText}</div>
@@ -4349,6 +4379,76 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // ----- Failed standards: record that they were addressed between visits -----
+        function addressStandard(submissionId, questionId) {
+            const host = document.getElementById('personModal');
+            const body = document.getElementById('personModalBody');
+            body.innerHTML = `
+                <div>
+                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Mark as addressed</h2>
+                    <p style="font-size:12.5px;color:#64748b;line-height:1.5;margin-bottom:18px;">
+                        Records that this was fixed, without changing the inspection or the score.
+                        It still shows as failed on that visit, and clears for good when a later visit passes it.
+                    </p>
+                    <div style="display:grid;gap:12px;">
+                        <div><label class="mi-label">What was fixed? <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
+                            <textarea id="asNote" class="pw-input" rows="3" style="width:100%;resize:vertical;"
+                                      placeholder="e.g. Handrail re-anchored and tested"></textarea></div>
+                        <div><label class="mi-label">Photo of the fix <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
+                            <input id="asPhoto" type="file" accept="image/*" class="pw-input" style="width:100%;"></div>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;">
+                        <button class="btn btn-primary" onclick="submitAddressStandard('${submissionId}','${questionId}')">
+                            <i class="fas fa-check"></i> Mark as addressed</button>
+                        <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
+                        <span class="pw-msg" id="asMsg"></span>
+                    </div>
+                </div>`;
+            host.classList.add('show');
+        }
+
+        async function submitAddressStandard(submissionId, questionId) {
+            const msg = document.getElementById('asMsg');
+            msg.className = 'pw-msg';
+            const note = (document.getElementById('asNote').value || '').trim();
+            const fileEl = document.getElementById('asPhoto');
+            const file = fileEl && fileEl.files && fileEl.files[0];
+            try {
+                let r;
+                if (file) {
+                    const fd = new FormData();
+                    fd.append('resolved', 'true');
+                    fd.append('note', note);
+                    fd.append('photo', file);
+                    r = await fetch(`/api/action-items/${encodeURIComponent(submissionId)}/standard/${encodeURIComponent(questionId)}/resolve`,
+                        { method: 'POST', body: fd });
+                } else {
+                    r = await fetch(`/api/action-items/${encodeURIComponent(submissionId)}/standard/${encodeURIComponent(questionId)}/resolve`,
+                        { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ resolved: true, note }) });
+                }
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    closePersonModal();
+                    await loadInspections();
+                    renderActionItems();
+                } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
+            } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
+        }
+
+        async function reopenStandard(submissionId, questionId) {
+            if (!confirm('Reopen this item? It will show as still needing attention.')) return;
+            try {
+                const r = await fetch(`/api/action-items/${encodeURIComponent(submissionId)}/standard/${encodeURIComponent(questionId)}/resolve`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resolved: false })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') { await loadInspections(); renderActionItems(); }
+                else { alert(d.message || 'Could not reopen.'); }
+            } catch (e) { alert('Network error.'); }
         }
 
         async function resolveActionItem(submissionId, itemId) {
@@ -7333,10 +7433,19 @@
                         submission.responses.forEach(response => {
                             allInspections.push({
                                 type: 'inspection',
+                                questionId: response.question_id,
+                                submissionId: submission.id,
                                 questionText: response.question_text,
                                 condition: response.condition,
                                 description: response.description,
                                 photoPath: response.photo_url || response.photo_path,
+                                // Follow-up recorded between visits (the verdict
+                                // above is never changed).
+                                addressed: !!response.addressed,
+                                addressedAt: response.addressed_at || '',
+                                addressedBy: response.addressed_by || '',
+                                addressedNote: response.addressed_note || '',
+                                addressedPhoto: response.addressed_photo_url || response.addressed_photo || '',
                                 username: submission.username,
                                 community: submission.community,
                                 surveyTypeId: submission.survey_type_id, // Add survey type ID
@@ -7701,6 +7810,13 @@
                             </div>
                             ${response.description ? `
                                 <div class="response-description">${response.description}</div>
+                            ` : ''}
+                            ${response.addressed ? `
+                                <div class="ai-resolved" style="margin-top:8px;">
+                                    <i class="fas fa-circle-check"></i> Addressed${response.addressed_at ? ' ' + formatDate(response.addressed_at) : ''}${response.addressed_by ? ' by ' + escapeHtml(response.addressed_by) : ''}
+                                    ${response.addressed_note ? `<div class="ai-resolved-note">${escapeHtml(response.addressed_note)}</div>` : ''}
+                                    ${(response.addressed_photo_url || response.addressed_photo) ? `<a class="ai-fix-photo" href="${photoUrl(response.addressed_photo_url || response.addressed_photo)}" target="_blank"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                                </div>
                             ` : ''}
                             ${(response.photo_url || response.photo_path) ? `
                                 <div class="response-photo">
