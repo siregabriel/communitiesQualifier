@@ -134,6 +134,29 @@ class EmailService:
             f"<ul style='margin:0;padding-left:18px;color:#1f2937;font-size:14px'>{fail_rows}</ul>"
         ) if fails else "<p style='color:#0f8a5f;font-size:14px;margin:14px 0'>All items passed.</p>"
 
+        # Ad-hoc action items raised during the visit (not standards, no score
+        # impact) — surfaced so the right team sees them without digging.
+        manual = [i for i in (submission.get('action_items') or []) if not i.get('resolved')]
+        if manual:
+            pr_color = {'high': '#b42318', 'medium': '#92620a', 'low': '#475569'}
+            rows = ''.join(
+                f"<li style='margin:6px 0'>"
+                f"<b style='color:{pr_color.get(i.get('priority'), '#92620a')}'>"
+                f"[{esc((i.get('priority') or 'medium').upper())}]</b> {esc(i.get('text'))}"
+                + (f"<br><span style='color:#6b7280;font-size:13px'>For: {esc(i.get('assigned_to'))}</span>"
+                   if i.get('assigned_to') else "")
+                + "</li>"
+                for i in manual)
+            action_block = (
+                f"<h3 style='font-size:15px;color:#d97706;margin:18px 0 6px'>"
+                f"Action items raised on this visit ({len(manual)})</h3>"
+                f"<ul style='margin:0;padding-left:18px;color:#1f2937;font-size:14px'>{rows}</ul>"
+                f"<p style='color:#9ca3af;font-size:12px;margin:6px 0 0'>"
+                f"These are follow-up tasks noted by the inspector — they don't affect the score.</p>"
+            )
+        else:
+            action_block = ""
+
         button = (
             f"<a href='{esc(link)}' style='display:inline-block;background:#00285c;color:#fff;"
             f"text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;"
@@ -172,6 +195,7 @@ class EmailService:
       {survey_row}
     </table>
     {fail_block}
+    {action_block}
     <div style="margin-top:20px">{button}</div>
   </div>
   <div style="color:#9ca3af;font-size:11px;text-align:center;padding:14px">

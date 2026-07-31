@@ -54,9 +54,60 @@ class InspectionService(JsonFileBacked):
         self.load_from_file()
         self._mark_loaded()
     
+    # Action items raised by hand during a visit (not tied to a standard).
+    ACTION_PRIORITIES = ('high', 'medium', 'low')
+
+    @staticmethod
+    def _clean_manual_items(items) -> List[Dict]:
+        """Validate the ad-hoc action items captured at the end of a visit.
+        These are follow-up tasks, not standards, so they never affect scoring."""
+        out = []
+        for it in (items or []):
+            if not isinstance(it, dict):
+                continue
+            text = (it.get('text') or '').strip()
+            if not text:
+                continue
+            priority = (it.get('priority') or 'medium').strip().lower()
+            if priority not in InspectionService.ACTION_PRIORITIES:
+                priority = 'medium'
+            out.append({
+                'id': f"act_{int(time.time() * 1000)}_{random.randint(1000, 9999)}",
+                'text': text[:500],
+                'assigned_to': (it.get('assigned_to') or '').strip()[:80],
+                'priority': priority,
+                'photo': (it.get('photo') or '').strip(),
+                'resolved': False,
+                'resolved_at': '',
+                'resolved_by': '',
+                'resolution_note': '',
+            })
+        return out
+
+    def resolve_action_item(self, submission_id: str, item_id: str, username: str,
+                            note: str = '', resolved: bool = True) -> Optional[Dict]:
+        """Mark a manual action item as done (or reopen it). The original
+        inspection record is never altered — we only track the follow-up."""
+        with self._lock:
+            self._ensure_fresh()
+            for sub in self.submissions:
+                if sub.get('id') != submission_id:
+                    continue
+                for item in sub.get('action_items', []):
+                    if item.get('id') != item_id:
+                        continue
+                    item['resolved'] = bool(resolved)
+                    item['resolved_at'] = datetime.now().isoformat() if resolved else ''
+                    item['resolved_by'] = (username or '').strip() if resolved else ''
+                    item['resolution_note'] = (note or '').strip()[:500] if resolved else ''
+                    self.save_to_file()
+                    return item
+            return None
+
     def create_submission(self, username: str, community: str,
                          responses: List[Dict], survey_type_id: Optional[str] = None,
-                         inspector_name: Optional[str] = None) -> Dict:
+                         inspector_name: Optional[str] = None,
+                         action_items: Optional[List[Dict]] = None) -> Dict:
         """
         Create new inspection submission.
         
@@ -101,7 +152,9 @@ class InspectionService(JsonFileBacked):
             'inspector_name': (inspector_name or username).strip(),
             'community': community.strip(),
             'submitted_at': datetime.now().isoformat(),
-            'responses': validated_responses
+            'responses': validated_responses,
+            # Follow-up tasks raised by the inspector; excluded from scoring.
+            'action_items': self._clean_manual_items(action_items),
         }
 
         # Add survey_type_id if provided (backward compatibility)

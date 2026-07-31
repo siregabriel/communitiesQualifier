@@ -1537,6 +1537,28 @@
         html[data-theme="dark"] .al-name { color: #eef2f8; }
         html[data-theme="dark"] .al-from { color: #9fb0c4; }
 
+        /* ===== Ad-hoc action items (raised during a visit) ===== */
+        .badge-warn { background: #fef6e0 !important; color: #92620a !important; }
+        .badge-low { background: #f1f5f9 !important; color: #475569 !important; }
+        .badge-manual { background: #eef4ff !important; color: #1e40af !important; }
+        .ai-resolve-btn { width: 100%; margin-top: 12px; padding: 10px; border: 1px solid #b7e0cd;
+            background: #e6f5ee; color: #0f6b4a; border-radius: 8px; font-size: 13px;
+            font-weight: 700; cursor: pointer; }
+        .ai-resolve-btn:hover { background: #d5efe3; }
+        .ai-resolved { margin-top: 12px; padding: 10px 12px; background: #e6f5ee; border: 1px solid #b7e0cd;
+            border-radius: 8px; font-size: 12.5px; font-weight: 700; color: #0f6b4a; }
+        .ai-resolved-note { font-weight: 500; color: #46705f; margin-top: 4px; font-size: 12px; }
+        .ai-reopen { margin-top: 8px; background: none; border: none; color: #1f6fe5;
+            font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; }
+        .card.ai-done { opacity: .72; }
+        .ai-done-img { filter: grayscale(1); }
+        html[data-theme="dark"] .badge-warn { background: rgba(242,183,5,.18) !important; color: #f2c94c !important; }
+        html[data-theme="dark"] .badge-low { background: #1b2537 !important; color: #c2cddd !important; }
+        html[data-theme="dark"] .badge-manual { background: rgba(31,111,229,.20) !important; color: #9cc4ff !important; }
+        html[data-theme="dark"] .ai-resolve-btn,
+        html[data-theme="dark"] .ai-resolved { background: rgba(15,138,95,.16); border-color: rgba(15,138,95,.4); color: #5fd6a3; }
+        html[data-theme="dark"] .ai-resolved-note { color: #9fc9b8; }
+
         /* ===== People (admin directory) ===== */
         .ppl-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
         .ppl-search { flex: 1; min-width: 240px; }
@@ -3106,10 +3128,15 @@
                         );
                         
                         const latestSubmission = sortedSubmissions[0];
-                        
-                        // Calculate score and action items
+
+                        // Score comes only from the standards (Pass/Fail).
                         const score = calculateCommunityScore(latestSubmission.responses);
-                        const actionItems = countActionItems(latestSubmission.responses);
+                        // Open work = failed standards + unresolved ad-hoc items.
+                        // The ad-hoc ones are tasks, so they count here but never
+                        // change the score.
+                        const openManual = (latestSubmission.action_items || [])
+                            .filter(i => !i.resolved).length;
+                        const actionItems = countActionItems(latestSubmission.responses) + openManual;
                         
                         communityData.push({
                             name: communityName,
@@ -3663,7 +3690,8 @@
                 { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile. The Corporate group at the end holds company-wide members who can visit any community." },
                 { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Open it for its own walkthrough.' },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the inspection standards, their pass criteria, and survey types (the question groups each team uses).' },
-                { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF.' },
+                { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF — including any action items raised on visits.' },
+                { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything that needs follow-up: standards that failed, plus anything the inspector flagged during a visit (those show "Raised on visit" with their own priority and who it\'s for). Failed standards clear themselves when the next visit passes them; flagged items are closed with "Mark as done", where you can note what was fixed.' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident’s move-in as a phased checklist — with required compliance items, attachments, printable binder pages, and automatic email reminders. Open it for its own walkthrough.' },
                 { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines inspections, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
                 { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which inspection emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to, flagging anyone missing an email. At the bottom, a Danger zone lets you wipe all inspections to start fresh (a backup is saved first). People are managed in the People view.' },
@@ -3677,6 +3705,7 @@
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Follow new resident move-ins for your community as a step-by-step checklist. Open it for its own quick walkthrough.' },
                 { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'See inspections and move-in dates for your community on a monthly calendar.' },
                 { title: 'Tip: the info icon', text: "On every inspection item, tap the info icon to see exactly what's required to pass. You can also add a comment and direct it to Clinical or Ops." },
+                { title: 'Flag anything else you see', text: 'At the end of a visit there’s an "Additional action items" section. Use + Add action item for anything that isn’t one of the standards — say what it is, who should handle it and how urgent. It reaches the right team without affecting the community’s score.' },
                 { title: "You're all set", text: 'That’s it! Use the Help button in the top bar to replay this anytime.' },
             ],
         };
@@ -4248,8 +4277,9 @@
             const gallery = document.getElementById('gallery');
             gallery.classList.add('gallery-compact');
 
-            // Filter for action items
-            const actionConditions = ['Fail'];
+            // Action items come from two places: standards that failed, and
+            // items the inspector raised by hand during the visit.
+            const actionConditions = ['Fail', 'Action'];
             let actionItems = allInspections.filter(item => actionConditions.includes(item.condition));
             
             // Apply survey type filter if active
@@ -4262,39 +4292,88 @@
                 return;
             }
             
-            // Group by priority (Fail = High Priority)
-            const priorityOrder = { 'Fail': 1 };
-            actionItems.sort((a, b) => (priorityOrder[a.condition] || 99) - (priorityOrder[b.condition] || 99));
-            
-            gallery.innerHTML = actionItems.map(item => {
-                const badgeClass = getBadgeClass(item.condition);
-                const badgeIcon = getBadgeIcon(item.condition);
-                // Show the real inspection photo when present; otherwise a themed
-                // header with an icon relevant to the standard (no blank box).
-                const hasPhoto = !!item.photoPath;
-                const imageInner = hasPhoto
-                    ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${standardIcon(item.questionText)}'}));">`
-                    : `<i class="fas ${standardIcon(item.questionText)}"></i>`;
-                const imageClass = hasPhoto ? 'card-image' : 'card-image card-image-themed';
+            // Sort: unresolved first, then by priority (failed standards are high).
+            const prio = { high: 1, medium: 2, low: 3 };
+            const rank = it => it.type === 'manual-action' ? (prio[it.priority] || 2) : 1;
+            actionItems.sort((a, b) =>
+                (a.resolved === b.resolved ? 0 : (a.resolved ? 1 : -1)) || rank(a) - rank(b));
 
-                // Priority badge (Fail = high priority action item)
-                const priorityClass = 'badge-fail';
-                const priorityText = 'HIGH PRIORITY';
+            gallery.innerHTML = actionItems.map(item => {
+                const manual = item.type === 'manual-action';
+
+                // Priority badge — real levels for ad-hoc items; a failed standard
+                // is always high priority.
+                const pr = manual ? (item.priority || 'medium') : 'high';
+                const priorityClass = pr === 'high' ? 'badge-fail' : (pr === 'medium' ? 'badge-warn' : 'badge-low');
+                const priorityText = pr === 'high' ? 'HIGH PRIORITY' : (pr === 'medium' ? 'MEDIUM' : 'LOW');
+
+                const hasPhoto = !!item.photoPath;
+                const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
+                const imageInner = hasPhoto
+                    ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
+                    : `<i class="fas ${iconClass}"></i>`;
+                const imageClass = (hasPhoto ? 'card-image' : 'card-image card-image-themed')
+                    + (item.resolved ? ' ai-done-img' : '');
+
+                const typeBadge = manual
+                    ? `<div class="card-badge badge-manual"><i class="fas fa-hand-point-right"></i> Raised on visit</div>`
+                    : `<div class="card-badge ${getBadgeClass(item.condition)}">${getBadgeIcon(item.condition)} ${item.condition}</div>`;
+
+                const assigned = manual && item.assignedTo
+                    ? `<div class="card-location"><i class="fas fa-user-gear card-emoji"></i> ${escapeHtml(item.assignedTo)}</div>` : '';
+
+                // Resolve control (ad-hoc items only — failed standards clear
+                // themselves when the next visit passes them).
+                const resolveUi = manual ? (item.resolved
+                    ? `<div class="ai-resolved">
+                           <i class="fas fa-circle-check"></i> Done${item.resolvedBy ? ' by ' + escapeHtml(item.resolvedBy) : ''}
+                           ${item.resolutionNote ? `<div class="ai-resolved-note">${escapeHtml(item.resolutionNote)}</div>` : ''}
+                           <button class="ai-reopen" onclick="reopenActionItem('${item.submissionId}','${item.itemId}')">Reopen</button>
+                       </div>`
+                    : `<button class="ai-resolve-btn" onclick="resolveActionItem('${item.submissionId}','${item.itemId}')">
+                           <i class="fas fa-check"></i> Mark as done</button>`) : '';
 
                 return `
-                    <div class="card">
+                    <div class="card ${item.resolved ? 'ai-done' : ''}">
                         <div class="${imageClass}">${imageInner}</div>
                         <div class="card-content">
                             <div class="card-badge ${priorityClass}" style="margin-bottom: 8px;">${priorityText}</div>
-                            <div class="card-title"><i class="fas fa-circle-question card-emoji"></i> ${item.questionText}</div>
-                            <div class="card-badge ${badgeClass}">${badgeIcon} ${item.condition}</div>
-                            <div class="card-description">${item.description || 'No description provided'}</div>
-                            <div class="card-location"><i class="fas fa-user card-emoji"></i> ${item.username} | <i class="fas fa-building card-emoji"></i> ${item.community}</div>
+                            <div class="card-title"><i class="fas ${manual ? 'fa-triangle-exclamation' : 'fa-circle-question'} card-emoji"></i> ${escapeHtml(item.questionText)}</div>
+                            ${typeBadge}
+                            ${manual ? '' : `<div class="card-description">${item.description || 'No description provided'}</div>`}
+                            ${assigned}
+                            <div class="card-location"><i class="fas fa-user card-emoji"></i> ${escapeHtml(item.username)} | <i class="fas fa-building card-emoji"></i> ${escapeHtml(item.community)}</div>
                             <div class="card-timestamp"><i class="fas fa-clock card-emoji"></i> ${item.timestamp}</div>
+                            ${resolveUi}
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        async function resolveActionItem(submissionId, itemId) {
+            const note = prompt('Mark this as done.\n\nOptional: what was fixed?');
+            if (note === null) return;   // cancelled
+            await sendActionItemResolution(submissionId, itemId, true, note);
+        }
+
+        async function reopenActionItem(submissionId, itemId) {
+            if (!confirm('Reopen this action item?')) return;
+            await sendActionItemResolution(submissionId, itemId, false, '');
+        }
+
+        async function sendActionItemResolution(submissionId, itemId, resolved, note) {
+            try {
+                const r = await fetch(`/api/action-items/${encodeURIComponent(submissionId)}/${encodeURIComponent(itemId)}/resolve`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resolved, note })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    await loadInspections();
+                    renderActionItems();
+                } else { alert(d.message || 'Could not update this action item.'); }
+            } catch (e) { alert('Network error.'); }
         }
 
         // ============================================================
@@ -7262,6 +7341,30 @@
                                 community: submission.community,
                                 surveyTypeId: submission.survey_type_id, // Add survey type ID
                                 timestamp: formatTimestamp(response.answered_at),
+                                submittedAt: submission.submitted_at
+                            });
+                        });
+                        // Ad-hoc action items raised during the visit. They aren't
+                        // standards, so they carry no Pass/Fail and never score.
+                        (submission.action_items || []).forEach(item => {
+                            allInspections.push({
+                                type: 'manual-action',
+                                itemId: item.id,
+                                submissionId: submission.id,
+                                questionText: item.text,
+                                condition: 'Action',
+                                description: item.assigned_to ? `Assigned to ${item.assigned_to}` : '',
+                                assignedTo: item.assigned_to || '',
+                                priority: item.priority || 'medium',
+                                resolved: !!item.resolved,
+                                resolvedAt: item.resolved_at || '',
+                                resolvedBy: item.resolved_by || '',
+                                resolutionNote: item.resolution_note || '',
+                                photoPath: null,
+                                username: submission.username,
+                                community: submission.community,
+                                surveyTypeId: submission.survey_type_id,
+                                timestamp: formatTimestamp(submission.submitted_at),
                                 submittedAt: submission.submitted_at
                             });
                         });

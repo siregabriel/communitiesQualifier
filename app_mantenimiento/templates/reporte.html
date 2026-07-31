@@ -778,6 +778,42 @@
             }
         }
 
+        /* ===== Additional action items (ad-hoc, not tied to a standard) ===== */
+        .ai-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+            padding: 20px; margin-top: 24px; }
+        .ai-head h3 { font-size: 16px; font-weight: 800; color: #0f1e36; display: flex;
+            align-items: center; gap: 8px; margin-bottom: 4px; }
+        .ai-head h3 i { color: #d97706; }
+        .ai-head p { font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 14px; }
+        .ai-item { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px;
+            margin-bottom: 12px; background: #f8fafc; }
+        .ai-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .ai-row .ai-num { font-size: 12px; font-weight: 800; color: #94a3b8; flex: 1; }
+        .ai-del { border: 1px solid #e2e8f0; background: #fff; color: #b42318; width: 32px;
+            height: 32px; border-radius: 8px; cursor: pointer; flex-shrink: 0; font-size: 12px; }
+        .ai-item textarea { width: 100%; min-height: 70px; padding: 11px 13px; font-size: 16px;
+            border: 1.5px solid #e2e8f0; border-radius: 8px; resize: vertical; font-family: inherit; }
+        .ai-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .ai-fields label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px; }
+        .ai-fields select { width: 100%; padding: 11px 12px; font-size: 16px;
+            border: 1.5px solid #e2e8f0; border-radius: 8px; background: #fff; }
+        .ai-add { width: 100%; padding: 14px; border: 1.5px dashed #c7d6f0; background: #f8fbff;
+            color: #1f6fe5; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .ai-add:hover { background: #eef4ff; border-color: #1f6fe5; }
+        @media (max-width: 480px) {
+            .ai-fields { grid-template-columns: 1fr; }
+            .ai-section { padding: 16px; }
+        }
+        html[data-theme="dark"] .ai-section { background: #161f2e; border-color: #2b3a52; }
+        html[data-theme="dark"] .ai-head h3 { color: #eef2f8; }
+        html[data-theme="dark"] .ai-head p, html[data-theme="dark"] .ai-fields label { color: #9fb0c4; }
+        html[data-theme="dark"] .ai-item { background: #1b2537; border-color: #2b3a52; }
+        html[data-theme="dark"] .ai-item textarea,
+        html[data-theme="dark"] .ai-fields select { background: #131d2c; border-color: #33425c; color: #e7edf6; }
+        html[data-theme="dark"] .ai-del { background: #1b2537; border-color: #33425c; color: #ff9d85; }
+        html[data-theme="dark"] .ai-add { background: rgba(31,111,229,.12); border-color: #3b4d6b; color: #9cc4ff; }
+
         /* Standard title row + mobile info button for the guideline */
         .question-title-row { display: flex; align-items: flex-start; gap: 10px; }
         .question-title-row .question-title { flex: 1; }
@@ -954,6 +990,20 @@
 
             <div id="questionsContainer">
                 <!-- Questions will be dynamically loaded here -->
+            </div>
+
+            <!-- Anything worth flagging that isn't one of the standards above -->
+            <div class="ai-section" id="actionItemsSection">
+                <div class="ai-head">
+                    <div>
+                        <h3><i class="fas fa-triangle-exclamation"></i> Additional action items</h3>
+                        <p>Anything that needs attention but isn't one of the standards above. These don't affect the score.</p>
+                    </div>
+                </div>
+                <div id="aiList"></div>
+                <button type="button" class="ai-add" onclick="addActionItem()">
+                    <i class="fas fa-plus"></i> Add action item
+                </button>
             </div>
 
             <button type="submit">Submit Inspection</button>
@@ -1142,6 +1192,7 @@
             { target: '.condition-rating', title: 'Pass or Fail', text: 'Mark each item Pass or Fail with this toggle.' },
             { target: 'select[id^="route_"]', title: 'Comment & route it', text: 'Add a comment, and optionally direct it to Clinical or Ops so the right team is notified.' },
             { target: '.file-upload-label', title: 'Add a photo', text: 'Attach a photo as evidence when needed.' },
+            { target: '#actionItemsSection', title: 'Anything else you spotted', text: 'Saw something that isn’t one of the standards? Add it here with + Add action item — say what it is, who should handle it (Maintenance, Nursing, Dietary…) and how urgent it is. It goes to the Action Items list and into the summary email, and it never affects the score.' },
             { target: 'button[type="submit"]', title: 'Submit', text: "When you've answered everything, submit. A summary email goes out automatically." },
             { title: "You're ready", text: 'That’s it. Use the Help button at the top to replay this anytime.' },
         ];
@@ -1485,6 +1536,9 @@
             formData.append('responses', JSON.stringify(responses));
             // Regional users submit for a chosen community (staff ignore this server-side)
             formData.append('community', selectedCommunity || userCommunity || '');
+            // Ad-hoc action items (follow-up tasks, not standards)
+            const manualItems = collectActionItems();
+            if (manualItems.length) formData.append('action_items', JSON.stringify(manualItems));
             
             // Attach photo files
             let photoIndex = 0;
@@ -1530,6 +1584,74 @@
                 submitBtn.textContent = 'Submit Inspection';
             }
         });
+
+        // ===== Additional action items (raised by hand, not tied to a standard) =====
+        const AI_DEPARTMENTS = ['Nursing / Wellness', 'Dietary', 'Maintenance', 'Housekeeping',
+                                'Lifestyles', 'Business Office', 'Executive Director', 'Clinical', 'Operations (Ops)'];
+        let aiCounter = 0;
+
+        function addActionItem() {
+            aiCounter++;
+            const list = document.getElementById('aiList');
+            const row = document.createElement('div');
+            row.className = 'ai-item';
+            row.dataset.ai = aiCounter;
+            row.innerHTML = `
+                <div class="ai-row">
+                    <span class="ai-num">Item ${list.children.length + 1}</span>
+                    <button type="button" class="ai-del" title="Remove" onclick="removeActionItem(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                <textarea class="ai-text" placeholder="What needs attention? Be specific — e.g. 'Handrail loose in the east hallway near room 112'"></textarea>
+                <div class="ai-fields">
+                    <div>
+                        <label>Who should handle it?</label>
+                        <select class="ai-assignee">
+                            <option value="">— Select —</option>
+                            ${AI_DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Priority</label>
+                        <select class="ai-priority">
+                            <option value="high">High — needs attention now</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="low">Low — when you can</option>
+                        </select>
+                    </div>
+                </div>`;
+            list.appendChild(row);
+            row.querySelector('.ai-text').focus();
+            renumberActionItems();
+        }
+
+        function removeActionItem(btn) {
+            const row = btn.closest('.ai-item');
+            if (row) row.remove();
+            renumberActionItems();
+        }
+
+        function renumberActionItems() {
+            document.querySelectorAll('#aiList .ai-item').forEach((el, i) => {
+                const n = el.querySelector('.ai-num');
+                if (n) n.textContent = `Item ${i + 1}`;
+            });
+        }
+
+        function collectActionItems() {
+            const out = [];
+            document.querySelectorAll('#aiList .ai-item').forEach(el => {
+                const text = (el.querySelector('.ai-text').value || '').trim();
+                if (!text) return;   // blank rows are simply ignored
+                out.push({
+                    text,
+                    assigned_to: el.querySelector('.ai-assignee').value || '',
+                    priority: el.querySelector('.ai-priority').value || 'medium',
+                });
+            });
+            return out;
+        }
 
         function logout() {
             if (confirm('Logout?')) window.location.href = '/logout';

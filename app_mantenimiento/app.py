@@ -2220,6 +2220,41 @@ def admin_reset_password():
                     'email': acct.get('email') or ''}), 200
 
 
+@app.route('/api/action-items/<submission_id>/<item_id>/resolve', methods=['POST'])
+@login_required
+def resolve_action_item(submission_id, item_id):
+    """Mark a manual action item as done (or reopen it), with an optional note.
+
+    The inspection itself is never edited — a submitted visit stays a faithful
+    record of what was seen that day. We only track the follow-up on top of it."""
+    data = request.get_json(silent=True) or {}
+    resolved = bool(data.get('resolved', True))
+    note = InputSanitizer.sanitize_description(data.get('note', ''))
+
+    # Respect the same scoping used everywhere else: you can only touch items
+    # for communities you're allowed to see.
+    sub = next((s for s in inspection_service.get_all_submissions()
+                if s.get('id') == submission_id), None)
+    if not sub:
+        return jsonify({'status': 'error', 'message': 'Inspection not found'}), 404
+    if not is_admin():
+        allowed = set(regional_communities()) if current_role() == 'regional' else {session.get('community')}
+        if sub.get('community') not in allowed:
+            return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+
+    item = inspection_service.resolve_action_item(
+        submission_id, item_id, session.get('user'), note=note, resolved=resolved)
+    if item is None:
+        return jsonify({'status': 'error', 'message': 'Action item not found'}), 404
+
+    activity_service.log(session.get('user'),
+                         'action_item_resolved' if resolved else 'action_item_reopened',
+                         f'{"Resolved" if resolved else "Reopened"} action item at {sub.get("community")}',
+                         meta={'community': sub.get('community')})
+    return jsonify({'status': 'success', 'item': item,
+                    'message': 'Marked as done.' if resolved else 'Reopened.'}), 200
+
+
 @app.route('/api/people', methods=['GET'])
 @login_required
 def list_people():
@@ -4128,12 +4163,33 @@ def submit_inspection():
         
         # Create submission using InspectionService
         try:
+            # Ad-hoc action items raised at the end of the visit. They're
+            # follow-up tasks (not standards), so they never affect the score.
+            manual_items = []
+            try:
+                raw_items = request.form.get('action_items')
+                if raw_items:
+                    parsed = json.loads(raw_items)
+                    if isinstance(parsed, list):
+                        for it in parsed[:20]:
+                            if not isinstance(it, dict):
+                                continue
+                            manual_items.append({
+                                'text': InputSanitizer.sanitize_description(it.get('text', '')),
+                                'assigned_to': InputSanitizer.sanitize_string(it.get('assigned_to', ''), max_length=80),
+                                'priority': InputSanitizer.sanitize_string(it.get('priority', 'medium'), max_length=10),
+                                'photo': '',
+                            })
+            except (json.JSONDecodeError, TypeError) as e:
+                app.logger.warning(f'Ignoring malformed action_items: {e}')
+
             submission = inspection_service.create_submission(
                 username=username,
                 community=community,
                 responses=processed_responses,
                 survey_type_id=survey_type_id,
-                inspector_name=(session.get('display_name') or resolve_display_name(username))
+                inspector_name=(session.get('display_name') or resolve_display_name(username)),
+                action_items=manual_items
             )
             
             # Clear survey type from session after successful submission
@@ -4352,6 +4408,23 @@ def _export_rows():
                 r.get('condition', '') or '',
                 (r.get('description', '') or '').replace('\r', ' ').replace('\n', ' '),
             ])
+        # Ad-hoc action items raised on the visit. They're follow-up tasks, not
+        # standards, so the Result column marks them as such (they never score).
+        for it in (sub.get('action_items') or []):
+            status = 'Done' if it.get('resolved') else 'Open'
+            note = (it.get('resolution_note') or '').replace('\r', ' ').replace('\n', ' ')
+            detail = []
+            if it.get('assigned_to'):
+                detail.append(f"For: {it['assigned_to']}")
+            detail.append(status)
+            if status == 'Done' and note:
+                detail.append(f"Fix: {note}")
+            rows.append([
+                community, region_name, survey_name, inspector, submitted,
+                (it.get('text', '') or '').replace('\r', ' ').replace('\n', ' '),
+                f"Action item — {(it.get('priority') or 'medium').capitalize()}",
+                ' · '.join(detail),
+            ])
     return rows
 
 
@@ -4365,11 +4438,16 @@ def _export_summary():
     subs = _scoped_submissions_for_export()
     total_visits = len(subs)
     passes = fails = total_responses = 0
+    actions_total = actions_open = 0
     by_type = {}        # survey_type_id -> count of responses
     performers = {}     # inspector -> {visits, last}
     for sub in subs:
         stid = sub.get('survey_type_id')
         responses = sub.get('responses') or []
+        for it in (sub.get('action_items') or []):
+            actions_total += 1
+            if not it.get('resolved'):
+                actions_open += 1
         for r in responses:
             total_responses += 1
             cond = (r.get('condition') or '')
@@ -4398,6 +4476,7 @@ def _export_summary():
         'total_visits': total_visits,
         'total_responses': total_responses,
         'passes': passes, 'fails': fails, 'pass_rate': pass_rate,
+        'actions_total': actions_total, 'actions_open': actions_open,
         'by_survey_type': by_survey_type,
         'top_performers': top_performers,
     }
@@ -4422,6 +4501,8 @@ def export_reports_csv():
     writer.writerow(['Pass', s['passes']])
     writer.writerow(['Fail', s['fails']])
     writer.writerow(['Pass rate', f"{s['pass_rate']}%"])
+    writer.writerow(['Action items raised', s['actions_total']])
+    writer.writerow(['Action items still open', s['actions_open']])
     writer.writerow([])
     writer.writerow(['Survey type', 'Responses'])
     for name, count in s['by_survey_type']:
@@ -4470,7 +4551,8 @@ def export_reports_xlsx():
     summ['A2'].font = Font(italic=True, color='6B7280')
 
     kpis = [('Total visits', s['total_visits']), ('Total responses', s['total_responses']),
-            ('Pass', s['passes']), ('Fail', s['fails']), ('Pass rate', f"{s['pass_rate']}%")]
+            ('Pass', s['passes']), ('Fail', s['fails']), ('Pass rate', f"{s['pass_rate']}%"),
+            ('Action items raised', s['actions_total']), ('Action items still open', s['actions_open'])]
     row = 4
     for label, val in kpis:
         summ.cell(row=row, column=1, value=label).font = label_font
@@ -4590,14 +4672,15 @@ def export_reports_pdf():
     kpi_data = [[
         Paragraph('<b>Total visits</b>', cell), Paragraph('<b>Total responses</b>', cell),
         Paragraph('<b>Pass</b>', cell), Paragraph('<b>Fail</b>', cell),
-        Paragraph('<b>Pass rate</b>', cell),
+        Paragraph('<b>Pass rate</b>', cell), Paragraph('<b>Action items</b>', cell),
     ], [
         Paragraph(str(summ['total_visits']), cell), Paragraph(str(summ['total_responses']), cell),
         Paragraph(f"<font color='#0f8a5f'>{summ['passes']}</font>", cell),
         Paragraph(f"<font color='#d13212'>{summ['fails']}</font>", cell),
         Paragraph(f"{summ['pass_rate']}%", cell),
+        Paragraph(f"{summ['actions_total']} <font color='#6b7280' size='8'>({summ['actions_open']} open)</font>", cell),
     ]]
-    kpi_tbl = Table(kpi_data, colWidths=[1.6 * inch] * 5)
+    kpi_tbl = Table(kpi_data, colWidths=[1.33 * inch] * 6)
     kpi_tbl.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#d9dfe8')),
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eef2f7')),
