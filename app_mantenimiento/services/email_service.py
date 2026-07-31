@@ -318,7 +318,7 @@ and some checklist items are still open.</p>
         if not to:
             return (False, 'no valid recipients')
         try:
-            self._send_email(
+            resp = self._send_email(
                 Source=self.mail_from,
                 Destination={'ToAddresses': to},
                 Message={
@@ -327,9 +327,18 @@ and some checklist items are still open.</p>
                              'Text': {'Data': text_body, 'Charset': 'UTF-8'}},
                 },
             )
-            return (True, f'sent to {len(to)}')
+            # SES accepting a message only means it left our side. When it never
+            # reaches the inbox the recipient's mail server is the next place to
+            # look, and the MessageId is what lets an admin trace it there — so
+            # always record it.
+            message_id = (resp or {}).get('MessageId', '')
+            logger.info('Email accepted by SES | id=%s | from=%s | to=%s | subject=%s',
+                        message_id, self.mail_from, ', '.join(to), subject)
+            return (True, f'sent to {len(to)} (SES id {message_id})' if message_id
+                          else f'sent to {len(to)}')
         except Exception as e:
-            logger.error(f'Email send failed: {e}')
+            logger.error('Email send failed | to=%s | subject=%s | %s',
+                         ', '.join(to), subject, e)
             return (False, str(e))
 
     def send_welcome(self, to_email, display_name, username, password, role_label=None):

@@ -353,6 +353,14 @@ email_service = EmailService(
     app_base_url=os.environ.get('APP_BASE_URL'),
     configuration_set=os.environ.get('SES_CONFIGURATION_SET'),
 )
+# Keep the mail log at INFO so every send is recorded in journalctl with its
+# SES MessageId. Delivery problems almost always live at the recipient's mail
+# server, and that id is the only way to trace a message there after the fact.
+import logging as _logging
+_logging.getLogger('services.email_service').setLevel(_logging.INFO)
+if not _logging.getLogger().handlers:
+    _logging.basicConfig(level=_logging.INFO,
+                         format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 app.logger.info('Email: SES enabled' if email_service.enabled
                 else 'Email: disabled (set MAIL_FROM to enable)')
 
@@ -2367,22 +2375,39 @@ def admin_reset_password():
     # works uniformly for admin/staff, created users and regional leaders.
     profile_service.set_password_hash(username, generate_password_hash(password))
     profile_service.set_must_change(username, True)
-    activity_service.log(session.get('user'), 'password_reset',
-                         f"Reset password for {acct.get('display_name') or username}")
     # Security notice to the administrators: someone else's password was reset.
     alert_password_changed(username, changed_by=session.get('user') or 'an admin')
+
     # Email them the temporary password when we have an address on file.
+    # Whether it actually went out matters as much as the reset itself, so we
+    # keep the reason and record it in the audit log instead of dropping it.
     emailed = False
-    if acct.get('email'):
+    reason = ''
+    if not acct.get('email'):
+        reason = 'no email address on file'
+    else:
         try:
-            ok, _ = email_service.send_password_reset(
+            ok, detail = email_service.send_password_reset(
                 acct['email'], acct.get('display_name') or username, username, password)
             emailed = bool(ok)
+            if not emailed:
+                reason = str(detail)
+                app.logger.error('Password-reset email to %s not sent: %s',
+                                 acct['email'], detail)
         except Exception as e:
+            reason = str(e)
             app.logger.error(f'Password-reset email failed: {e}')
+
+    who = acct.get('display_name') or username
+    activity_service.log(
+        session.get('user'), 'password_reset',
+        f"Reset password for {who} — "
+        + (f"emailed to {acct['email']}" if emailed else f"NOT emailed ({reason})"))
+
     return jsonify({'status': 'success', 'username': username,
-                    'display_name': acct.get('display_name') or username,
+                    'display_name': who,
                     'password': password, 'emailed': emailed,
+                    'reason': reason,
                     'email': acct.get('email') or ''}), 200
 
 
