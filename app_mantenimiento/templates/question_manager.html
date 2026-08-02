@@ -706,6 +706,24 @@
         .tour-skip { background: none; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 4px; }
         .tour-btn { background: #00285c; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
         .tour-btn-ghost { background: #fff; color: #475569; border: 1px solid #d9dfe8; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        /* Phone: the card becomes a scrollable sheet with the actions pinned. */
+        @media (max-width: 640px) {
+            .tour-card {
+                width: auto; max-width: none; padding: 16px 18px 14px; border-radius: 16px;
+                max-height: min(52vh, 400px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+            .tour-card h3 { font-size: 16px; margin: 5px 0 7px; }
+            .tour-card p { font-size: 13.5px; line-height: 1.5; }
+            .tour-actions {
+                position: sticky; bottom: -14px; margin-top: 14px;
+                padding: 10px 0 4px; background: #fff;
+                box-shadow: 0 -8px 10px -8px rgba(15,23,42,.18);
+            }
+            .tour-btn, .tour-btn-ghost { padding: 11px 18px; font-size: 13.5px; }
+            .tour-skip { padding: 10px 4px; }
+        }
+        html[data-theme="dark"] .tour-actions { background: #161f2e; }
 
         .modal-content {
             background: #fff;
@@ -2067,6 +2085,78 @@
             sTour = SURVEY_TYPES_TOUR; sIdx = 0; sTourKey = 'atlasSurveyTypesTourSeen_v1';
             setTimeout(sTourShow, 150);
         }
+        // ---- Shared tour positioning helpers (see dashboard.html) ----
+        function _tourIsMobile() { return window.matchMedia('(max-width: 640px)').matches; }
+
+        /* An element pushed off-canvas still has an offsetParent, so check the
+           rect against the viewport before pointing at it. */
+        function _tourVisible(el) {
+            if (!el || el.offsetParent === null) return false;
+            const r = el.getBoundingClientRect();
+            if (r.width < 2 || r.height < 2) return false;
+            return r.right > 4 && r.left < window.innerWidth - 4;
+        }
+
+        /* Wait for the scroll animation to settle before measuring. */
+        function _tourAfterScroll(el, cb) {
+            let last = null, frames = 0;
+            const tick = () => {
+                const top = el.getBoundingClientRect().top;
+                if (last !== null && Math.abs(top - last) < 0.5) return cb();
+                last = top;
+                if (++frames > 40) return cb();
+                requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }
+
+        /* Place the card using its real measured size; on a phone it becomes a
+           sheet on whichever side of the highlight has room. */
+        function positionTourCard(r) {
+            const card = document.getElementById('tourCard');
+            card.style.transform = 'none';
+            card.style.maxHeight = '';
+            const margin = 12, vw = window.innerWidth, vh = window.innerHeight;
+            const box = card.getBoundingClientRect();
+            const cardW = box.width, cardH = box.height;
+            const bottomInset = _tourIsMobile() ? 92 : 0;
+
+            if (_tourIsMobile()) {
+                card.style.left = margin + 'px';
+                card.style.right = margin + 'px';
+                card.style.width = 'auto';
+                const roomBelow = vh - bottomInset - r.bottom - margin * 2;
+                const roomAbove = r.top - margin * 2;
+                let top;
+                if (roomBelow >= cardH) {
+                    top = r.bottom + margin;
+                } else if (roomAbove >= cardH) {
+                    top = r.top - cardH - margin;
+                } else {
+                    // Neither side fits: use the roomier one and let the card
+                    // scroll, so it never covers the highlight.
+                    const h = Math.max(140, Math.max(roomBelow, roomAbove));
+                    card.style.maxHeight = h + 'px';
+                    top = roomBelow >= roomAbove ? r.bottom + margin
+                                                 : Math.max(margin, r.top - h - margin);
+                }
+                const finalH = card.getBoundingClientRect().height;
+                const maxTop = Math.max(margin, vh - bottomInset - finalH - margin);
+                card.style.top = Math.max(margin, Math.min(top, maxTop)) + 'px';
+                return;
+            }
+
+            let left = r.right + 16;
+            if (left + cardW > vw - margin) {
+                left = Math.max(margin, Math.min(r.left, vw - cardW - margin));
+                card.style.left = left + 'px';
+                card.style.top = Math.max(margin, Math.min(r.bottom + 12, vh - cardH - margin)) + 'px';
+            } else {
+                card.style.left = left + 'px';
+                card.style.top = Math.max(margin, Math.min(r.top, vh - cardH - margin)) + 'px';
+            }
+        }
+
         function sTourShow() {
             const step = sTour[sIdx];
             if (!step) { endStandardsTour(); return; }
@@ -2074,6 +2164,8 @@
             const card = document.getElementById('tourCard');
             const blocker = document.getElementById('tourBlocker');
             blocker.style.display = 'block'; card.style.display = 'block';
+            card.style.right = 'auto'; card.style.width = ''; card.style.transform = 'none';
+            card.scrollTop = 0;
             card.classList.remove('tour-animate'); void card.offsetWidth; card.classList.add('tour-animate');
             document.getElementById('tourProgress').textContent = (sIdx + 1) + ' / ' + sTour.length;
             document.getElementById('tourTitle').textContent = step.title;
@@ -2081,20 +2173,16 @@
             document.getElementById('tourPrev').style.visibility = sIdx === 0 ? 'hidden' : 'visible';
             document.getElementById('tourNext').textContent = (sIdx === sTour.length - 1) ? 'Done' : 'Next';
             const el = step.target ? document.querySelector(step.target) : null;
-            if (el && el.offsetParent !== null) {
+            if (_tourVisible(el)) {
                 el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                setTimeout(() => {
+                _tourAfterScroll(el, () => {
                     const r = el.getBoundingClientRect();
                     ring.style.display = 'block';
                     ring.style.top = (r.top - 6) + 'px'; ring.style.left = (r.left - 6) + 'px';
                     ring.style.width = (r.width + 12) + 'px'; ring.style.height = (r.height + 12) + 'px';
                     blocker.style.background = 'transparent';
-                    const vw = window.innerWidth, vh = window.innerHeight, cardW = 320;
-                    card.style.transform = 'none';
-                    let left = r.right + 16;
-                    if (left + cardW > vw - 12) { left = Math.max(12, Math.min(r.left, vw - cardW - 12)); card.style.left = left + 'px'; card.style.top = Math.min(r.bottom + 12, vh - 230) + 'px'; }
-                    else { card.style.left = left + 'px'; card.style.top = Math.max(12, Math.min(r.top, vh - 230)) + 'px'; }
-                }, 220);
+                    positionTourCard(r);
+                });
             } else {
                 ring.style.display = 'none';
                 blocker.style.background = 'rgba(15,23,42,.6)';
@@ -2114,9 +2202,32 @@
             try { seen = localStorage.getItem('atlasStandardsTourSeen_v1') === '1'; } catch (e) {}
             if (!seen) setTimeout(startStandardsTour, 900);
         });
+        /* Reposition on resize/rotate without replaying the step. */
+        let _tourResizeT = null;
+        function _tourReposition() {
+            const card = document.getElementById('tourCard');
+            if (!card || card.style.display !== 'block') return;
+            const step = sTour[sIdx];
+            const el = step && step.target ? document.querySelector(step.target) : null;
+            const ring = document.getElementById('tourRing');
+            if (!_tourVisible(el)) {
+                ring.style.display = 'none';
+                card.style.right = 'auto'; card.style.width = '';
+                card.style.transform = 'translate(-50%,-50%)';
+                card.style.top = '50%'; card.style.left = '50%';
+                return;
+            }
+            const r = el.getBoundingClientRect();
+            ring.style.display = 'block';
+            ring.style.top = (r.top - 6) + 'px'; ring.style.left = (r.left - 6) + 'px';
+            ring.style.width = (r.width + 12) + 'px'; ring.style.height = (r.height + 12) + 'px';
+            positionTourCard(r);
+        }
         window.addEventListener('resize', () => {
-            if (document.getElementById('tourCard') && document.getElementById('tourCard').style.display === 'block') sTourShow();
+            clearTimeout(_tourResizeT);
+            _tourResizeT = setTimeout(_tourReposition, 150);
         });
+        window.addEventListener('orientationchange', () => setTimeout(_tourReposition, 350));
     </script>
     <script>
         function _updateThemeIcon() {

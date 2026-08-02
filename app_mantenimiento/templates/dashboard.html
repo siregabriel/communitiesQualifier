@@ -1154,6 +1154,26 @@
         @keyframes tourCardGlow { 0% { box-shadow: 0 24px 56px rgba(2,32,80,.32), 0 0 0 0 rgba(31,111,229,0); } 32% { box-shadow: 0 24px 56px rgba(2,32,80,.32), 0 0 0 4px rgba(31,111,229,.16); } 100% { box-shadow: 0 24px 56px rgba(2,32,80,.32), 0 0 0 0 rgba(31,111,229,0); } }
         @keyframes tourShine { 0% { left: -75%; opacity: 0; } 14% { opacity: 1; } 100% { left: 130%; opacity: 0; } }
         @media (prefers-reduced-motion: reduce) { .tour-card.tour-animate { animation: tourCardIn .2s ease both; } .tour-card.tour-animate::after { animation: none; } }
+        /* On a phone the card becomes a sheet: full width inside the margins,
+           never taller than half the screen, and scrollable when the text is
+           long. The actions stay pinned so Next is always reachable. */
+        @media (max-width: 640px) {
+            .tour-card {
+                width: auto; max-width: none; padding: 16px 18px 14px; border-radius: 16px;
+                max-height: min(52vh, 400px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+            .tour-card h3 { font-size: 16px; margin: 5px 0 7px; }
+            .tour-card p { font-size: 13.5px; line-height: 1.5; }
+            .tour-actions {
+                position: sticky; bottom: -14px; margin-top: 14px;
+                padding: 10px 0 4px; background: #fff;
+                box-shadow: 0 -8px 10px -8px rgba(15,23,42,.18);
+            }
+            .tour-btn, .tour-btn-ghost { padding: 11px 18px; font-size: 13.5px; }
+            .tour-skip { padding: 10px 4px; }
+        }
+        html[data-theme="dark"] .tour-actions { background: #161f2e; }
         .tour-progress { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
         .tour-card h3 { font-size: 17px; font-weight: 800; color: #0f1e36; margin: 6px 0 8px; }
         .tour-card p { font-size: 14px; line-height: 1.55; color: #475569; margin: 0; }
@@ -3807,6 +3827,54 @@
             try { seen = localStorage.getItem('atlasMoveInsTourSeen_v3') === '1'; } catch (e) {}
             if (!seen) { try { localStorage.setItem('atlasMoveInsTourSeen_v3', '1'); } catch (e) {} setTimeout(startMoveInsTour, 650); }
         }
+        // ---- Tour helpers ----------------------------------------------------
+        function _tourIsMobile() { return window.matchMedia('(max-width: 640px)').matches; }
+
+        // Height reserved at the bottom of the screen for the mobile tab bar
+        // (plus the raised New Visit button and the iPhone home indicator).
+        function _tourBottomInset() { return _tourIsMobile() ? 92 : 0; }
+
+        /* Is this element actually on screen? On mobile the sidebar is pushed
+           off-canvas with translateX(-100%) rather than hidden, so it still has
+           an offsetParent and a box — pointing at it would draw the ring outside
+           the viewport. Checking the rect against the viewport catches that. */
+        function _tourVisible(el) {
+            if (!el || el.offsetParent === null) return false;
+            const r = el.getBoundingClientRect();
+            if (r.width < 2 || r.height < 2) return false;
+            return r.right > 4 && r.left < window.innerWidth - 4;
+        }
+
+        /* Resolve a step's target for the current screen. Most steps point at
+           the sidebar; on a phone that's off-canvas, so fall back to the
+           equivalent bottom tab-bar item when one exists. */
+        function _tourResolveTarget(selector) {
+            if (!selector) return null;
+            const el = document.querySelector(selector);
+            if (_tourVisible(el)) return el;
+            const m = /\[data-view="([^"]+)"\]/.exec(selector);
+            if (m) {
+                const tab = document.querySelector(`.mtab-item[data-view="${m[1]}"]`);
+                if (_tourVisible(tab)) return tab;
+            }
+            return null;
+        }
+
+        /* Run cb once the element has stopped moving. scrollIntoView is animated
+           and takes longer on a phone than a fixed timeout can predict, so we
+           wait for the position to settle instead of guessing. */
+        function _tourAfterScroll(el, cb) {
+            let last = null, frames = 0;
+            const tick = () => {
+                const top = el.getBoundingClientRect().top;
+                if (last !== null && Math.abs(top - last) < 0.5) return cb();
+                last = top;
+                if (++frames > 40) return cb();   // ~650ms ceiling
+                requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }
+
         function showTourStep() {
             const step = tourSteps[tourIdx];
             if (!step) { endTour(); return; }
@@ -3815,6 +3883,12 @@
             const blocker = document.getElementById('tourBlocker');
             blocker.style.display = 'block';
             card.style.display = 'block';
+            // Clear whatever the previous step set, so each step positions from
+            // a clean slate (a leftover `right` would fight the next layout).
+            card.style.right = 'auto';
+            card.style.width = '';
+            card.style.transform = 'none';
+            card.scrollTop = 0;
             // Elegant entrance shimmer — restart the animation on every step
             card.classList.remove('tour-animate');
             void card.offsetWidth;
@@ -3824,10 +3898,10 @@
             document.getElementById('tourText').textContent = step.text;
             document.getElementById('tourPrev').style.visibility = tourIdx === 0 ? 'hidden' : 'visible';
             document.getElementById('tourNext').textContent = (tourIdx === tourSteps.length - 1) ? 'Done' : 'Next';
-            const el = step.target ? document.querySelector(step.target) : null;
-            if (el && el.offsetParent !== null) {
+            const el = _tourResolveTarget(step.target);
+            if (el) {
                 el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                setTimeout(() => {
+                _tourAfterScroll(el, () => {
                     const r = el.getBoundingClientRect();
                     ring.style.display = 'block';
                     ring.style.top = (r.top - 6) + 'px';
@@ -3836,8 +3910,10 @@
                     ring.style.height = (r.height + 12) + 'px';
                     blocker.style.background = 'transparent';
                     positionTourCard(r);
-                }, 220);
+                });
             } else {
+                // No usable anchor on this screen — center the card and dim
+                // everything, so the step still reads well.
                 ring.style.display = 'none';
                 blocker.style.background = 'rgba(15,23,42,.6)';
                 card.style.transform = 'translate(-50%, -50%)';
@@ -3845,18 +3921,56 @@
                 card.style.left = '50%';
             }
         }
+
         function positionTourCard(r) {
             const card = document.getElementById('tourCard');
             card.style.transform = 'none';
-            const cardW = 320, margin = 16, vw = window.innerWidth, vh = window.innerHeight;
-            let left = r.right + margin;
-            if (left + cardW > vw - 12) {
-                left = Math.max(12, Math.min(r.left, vw - cardW - 12));
+            card.style.maxHeight = '';        // drop any cap a previous step set
+            const margin = 12;
+            const vw = window.innerWidth, vh = window.innerHeight;
+            // Measure the card instead of assuming a size: on a phone it's as
+            // wide as the screen and its height depends entirely on the text.
+            const box = card.getBoundingClientRect();
+            const cardW = box.width, cardH = box.height;
+            const bottomInset = _tourBottomInset();
+
+            if (_tourIsMobile()) {
+                // Full-width sheet, placed on whichever side of the highlight
+                // has room so it never covers what it's pointing at.
+                card.style.left = margin + 'px';
+                card.style.right = margin + 'px';
+                card.style.width = 'auto';
+                const roomBelow = vh - bottomInset - r.bottom - margin * 2;
+                const roomAbove = r.top - margin * 2;
+                let top;
+                if (roomBelow >= cardH) {
+                    top = r.bottom + margin;
+                } else if (roomAbove >= cardH) {
+                    top = r.top - cardH - margin;
+                } else {
+                    // Neither side fits the whole card. Take the roomier side and
+                    // cap the height there — the card scrolls, so the highlight
+                    // stays visible instead of being covered.
+                    const h = Math.max(140, Math.max(roomBelow, roomAbove));
+                    card.style.maxHeight = h + 'px';
+                    top = roomBelow >= roomAbove ? r.bottom + margin
+                                                 : Math.max(margin, r.top - h - margin);
+                }
+                const finalH = card.getBoundingClientRect().height;
+                const maxTop = Math.max(margin, vh - bottomInset - finalH - margin);
+                card.style.top = Math.max(margin, Math.min(top, maxTop)) + 'px';
+                return;
+            }
+
+            // Desktop: prefer the right of the target, otherwise below it.
+            let left = r.right + 16;
+            if (left + cardW > vw - margin) {
+                left = Math.max(margin, Math.min(r.left, vw - cardW - margin));
                 card.style.left = left + 'px';
-                card.style.top = Math.min(r.bottom + 12, vh - 230) + 'px';
+                card.style.top = Math.max(margin, Math.min(r.bottom + 12, vh - cardH - margin)) + 'px';
             } else {
                 card.style.left = left + 'px';
-                card.style.top = Math.max(12, Math.min(r.top, vh - 230)) + 'px';
+                card.style.top = Math.max(margin, Math.min(r.top, vh - cardH - margin)) + 'px';
             }
         }
         function tourNext() { if (tourIdx >= tourSteps.length - 1) endTour(); else { tourIdx++; showTourStep(); } }
@@ -3872,8 +3986,39 @@
             try { seen = localStorage.getItem('atlasTourSeen_v1') === '1'; } catch (e) {}
             if (!seen) setTimeout(startTour, 900);
         }
+        /* Reposition on resize/rotate — but never replay the step. On a phone the
+           address bar collapsing fires resize constantly, and re-running the step
+           would restart the shimmer and re-scroll the page under the user. */
+        let _tourResizeT = null;
+        function _tourReposition() {
+            const card = document.getElementById('tourCard');
+            if (!card || card.style.display !== 'block') return;
+            const step = tourSteps[tourIdx];
+            const el = _tourResolveTarget(step && step.target);
+            const ring = document.getElementById('tourRing');
+            if (!el) {
+                ring.style.display = 'none';
+                card.style.right = 'auto';
+                card.style.width = '';
+                card.style.transform = 'translate(-50%, -50%)';
+                card.style.top = '50%';
+                card.style.left = '50%';
+                return;
+            }
+            const r = el.getBoundingClientRect();
+            ring.style.display = 'block';
+            ring.style.top = (r.top - 6) + 'px';
+            ring.style.left = (r.left - 6) + 'px';
+            ring.style.width = (r.width + 12) + 'px';
+            ring.style.height = (r.height + 12) + 'px';
+            positionTourCard(r);
+        }
         window.addEventListener('resize', () => {
-            if (document.getElementById('tourCard').style.display === 'block') showTourStep();
+            clearTimeout(_tourResizeT);
+            _tourResizeT = setTimeout(_tourReposition, 150);
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(_tourReposition, 350);
         });
 
         // Count of inspections newer than the last dashboard visit; drives the
