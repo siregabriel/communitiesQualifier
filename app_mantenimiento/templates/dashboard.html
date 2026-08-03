@@ -1487,10 +1487,29 @@
 
             .header-actions {
                 width: 100%;
+                flex-wrap: wrap;
+                justify-content: center;
             }
 
+            /* Buttons share the row but are never squeezed below their label.
+               `flex: 1` (basis 0) forced every button to the same width, so a
+               long one like "Question Manager" got crushed and its text broke
+               mid-word. Basing the flex on the content fixes that everywhere. */
             .btn {
-                flex: 1;
+                flex: 1 1 auto;
+                min-width: 0;
+                white-space: nowrap;
+            }
+
+            /* Icon-only buttons stay compact instead of stretching. */
+            #themeToggleBtn {
+                flex: 0 0 auto;
+                padding: 11px 15px;
+            }
+
+            /* The longest label gets its own full-width row. */
+            #questionManagerBtn {
+                flex: 1 0 100%;
             }
 
             .filter-section {
