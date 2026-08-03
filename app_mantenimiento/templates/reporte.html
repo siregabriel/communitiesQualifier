@@ -1650,9 +1650,67 @@
             return div.innerHTML;
         }
 
+        /* ===== Submit chime (phones and tablets only) =====
+           A short two-note confirmation, synthesized with Web Audio so there's
+           no file to download or cache.
+
+           The timing matters: browsers only allow sound that starts from a user
+           gesture, and our confirmation arrives after `await fetch(...)`, by
+           which point the tap is long over. So the audio context is created and
+           unlocked synchronously when the button is pressed, and reused to play
+           the notes once the server answers.
+
+           On iPhone the ringer switch still wins — if the phone is silenced,
+           nothing plays. That's the browser honoring the user's choice, and
+           there's no way (nor reason) to override it. */
+        let _audioCtx = null;
+
+        function _chimeAllowed() { return window.matchMedia('(max-width: 768px)').matches; }
+
+        function primeSubmitChime() {
+            if (!_chimeAllowed()) return;
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;                       // very old browser: skip silently
+            try {
+                if (!_audioCtx) _audioCtx = new Ctx();
+                if (_audioCtx.state === 'suspended') _audioCtx.resume();
+                // Playing one silent frame is what actually unlocks audio on iOS.
+                const src = _audioCtx.createBufferSource();
+                src.buffer = _audioCtx.createBuffer(1, 1, 22050);
+                src.connect(_audioCtx.destination);
+                src.start(0);
+            } catch (e) { _audioCtx = null; }
+        }
+
+        function playSubmitChime() {
+            if (!_audioCtx) return;
+            try {
+                if (_audioCtx.state === 'suspended') _audioCtx.resume();
+                const now = _audioCtx.currentTime;
+                // A5 then E6 — reads as "done" without sounding like a game.
+                [{ f: 880, at: 0 }, { f: 1318.51, at: 0.13 }].forEach(n => {
+                    const osc = _audioCtx.createOscillator();
+                    const gain = _audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = n.f;
+                    const t = now + n.at;
+                    // Ramps instead of hard starts, so there's no click.
+                    gain.gain.setValueAtTime(0.0001, t);
+                    gain.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.30);
+                    osc.connect(gain);
+                    gain.connect(_audioCtx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.34);
+                });
+            } catch (e) { /* a missing chime must never affect the submission */ }
+        }
+
         document.getElementById('reportForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+            // Must run inside the gesture, before any await.
+            primeSubmitChime();
+
             // Collect responses from all questions
             const responses = [];
             let responseIndex = 0;
@@ -1741,6 +1799,7 @@
                 });
                 
                 if (response.ok) {
+                    playSubmitChime();
                     // Show the full-screen confirmation
                     const txt = document.getElementById('successText');
                     if (txt) {
