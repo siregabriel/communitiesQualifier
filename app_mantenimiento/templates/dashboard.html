@@ -7101,21 +7101,11 @@
             const msg = document.getElementById('esMsg');
             msg.className = 'pw-msg';
             msg.textContent = 'Saving…';
-            const subs = [];
-            let skippedEmpty = 0;
-            document.querySelectorAll('#esSubscribers .sub-row').forEach(row => {
-                const email = row.querySelector('.sub-email').value.trim();
-                if (!email) { skippedEmpty++; return; }
-                const name = row.querySelector('.sub-name').value.trim();
-                const all = row.querySelector('.sub-all').checked;
-                const regions = all ? [] : Array.from(row.querySelectorAll('.sub-region:checked')).map(c => c.value);
-                const inspectors = all ? [] : Array.from(row.querySelectorAll('.sub-inspector:checked')).map(c => c.value);
-                subs.push({ email, name, regions, inspectors });
-            });
             try {
                 // NOTE: subscribers are deliberately NOT sent here. They are added,
                 // updated and removed one at a time, so saving these fields can
-                // never drop an existing subscriber.
+                // never drop an existing subscriber. This button only owns the
+                // admin-alert, Clinical, Ops and Sales lists.
                 const r = await fetch('/api/settings/email', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ admin_notify: document.getElementById('esAdminNotify').value, clinical: document.getElementById('esClinical').value, ops: document.getElementById('esOps').value, sales: document.getElementById('esSales').value })
@@ -7132,10 +7122,21 @@
                         wrap.querySelectorAll('.sub-email').forEach(i => i.addEventListener('input', updateSubCount));
                         updateSubCount();
                     }
+                    // Show back exactly what was stored. Invalid addresses are
+                    // dropped server-side, so this is also how you spot a typo.
                     document.getElementById('esAdminNotify').value = (d.admin_notify || []).join('\n');
-                    const n = (d.subscribers || []).length;
-                    msg.textContent = `Saved — ${n} subscriber${n === 1 ? '' : 's'}.`
-                        + (skippedEmpty ? ` (${skippedEmpty} empty row${skippedEmpty === 1 ? '' : 's'} ignored)` : '');
+                    document.getElementById('esClinical').value = (d.clinical || []).join('\n');
+                    document.getElementById('esOps').value = (d.ops || []).join('\n');
+                    document.getElementById('esSales').value = (d.sales || []).join('\n');
+                    // Report the lists this button actually owns — the subscriber
+                    // list above is managed separately, one at a time.
+                    const saved = [['Admin alerts', d.admin_notify], ['Clinical', d.clinical],
+                                   ['Ops', d.ops], ['Sales', d.sales]]
+                        .filter(([, v]) => (v || []).length)
+                        .map(([k, v]) => `${k} ${v.length}`);
+                    msg.textContent = saved.length
+                        ? `Saved — ${saved.join(' · ')}.`
+                        : 'Saved — no recipients set.';
                     msg.classList.add('ok');
                     loadNotificationSummary();   // keep the "who receives what" list in sync
                 } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
