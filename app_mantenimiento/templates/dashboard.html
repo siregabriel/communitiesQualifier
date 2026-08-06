@@ -56,10 +56,15 @@
         /* Base surfaces */
         html[data-theme="dark"] body { background: #0b1220 !important; color: var(--text); }
         html[data-theme="dark"] .main-content {
+            background: linear-gradient(180deg, #0b1220 0%, #0c1424 42%, #0e1728 100%) !important;
+        }
+        /* Deeper, less saturated blobs: the light-mode colours read as muddy
+           smears over a near-black page. */
+        html[data-theme="dark"] .main-content::before {
             background:
-                radial-gradient(1100px 520px at 15% -10%, rgba(31,111,229,.10), transparent 60%),
-                radial-gradient(950px 500px at 105% -5%, rgba(30,64,120,.16), transparent 55%),
-                linear-gradient(180deg, #0b1220 0%, #0c1424 42%, #0e1728 100%) !important;
+                radial-gradient(closest-side circle at 18% 12%, rgba(31,111,229,.20), transparent 70%),
+                radial-gradient(closest-side circle at 82% 8%,  rgba(30,64,120,.26), transparent 70%),
+                radial-gradient(closest-side circle at 55% 58%, rgba(88,60,180,.18), transparent 70%);
         }
         /* The external theme.css paints the sidebar as a LIGHT theme with !important
            (incl. `.sidebar * { color:#1f2937 !important }`, which hits the label spans
@@ -289,13 +294,50 @@
             flex: 1;
             padding: 40px 20px;
             overflow-y: auto;
-            /* Soft blue-to-white wash behind the content (AWS-style). Fixed so it
-               stays put while the content scrolls; white cards pop against it. */
-            background:
-                radial-gradient(1100px 520px at 15% -10%, rgba(31,111,229,.12), transparent 60%),
-                radial-gradient(950px 500px at 105% -5%, rgba(99,179,237,.12), transparent 55%),
-                linear-gradient(180deg, #eaf2fc 0%, #f4f8fd 28%, #ffffff 62%);
+            /* Static base wash. The animated colour lives in ::before so this
+               layer never repaints while the page scrolls. */
+            background: linear-gradient(180deg, #eaf2fc 0%, #f4f8fd 28%, #ffffff 62%);
             background-attachment: fixed;
+        }
+
+        /* ===== Ambient gradient =====
+           Three soft colour blobs that drift and shift hue on a slow loop.
+           Only transform and filter animate, both of which the GPU handles on
+           its own layer, so scrolling and typing stay smooth and the phone
+           isn't repainting the page 60 times a second.
+
+           It sits at z-index 0 — above .main-content's own background, below
+           .dashboard-container (z-index 1) — and starts past the sidebar so it
+           never tints the navigation. */
+        .main-content::before {
+            content: '';
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 260px;
+            z-index: 0;
+            pointer-events: none;
+            will-change: transform, filter;
+            background:
+                radial-gradient(closest-side circle at 18% 12%, rgba(31,111,229,.16), transparent 70%),
+                radial-gradient(closest-side circle at 82% 8%,  rgba(99,179,237,.16), transparent 70%),
+                radial-gradient(closest-side circle at 55% 58%, rgba(139,92,246,.11), transparent 70%);
+            animation: ambientDrift 16s ease-in-out infinite alternate,
+                       ambientTint  16s ease-in-out infinite alternate;
+        }
+        .dashboard-container { position: relative; z-index: 1; }
+
+        @keyframes ambientDrift {
+            from { transform: translate3d(-6%, -3%, 0) scale(1); }
+            to   { transform: translate3d( 7%,  5%, 0) scale(1.18); }
+        }
+        @keyframes ambientTint {
+            from { filter: hue-rotate(-40deg) saturate(1.15); }
+            to   { filter: hue-rotate(60deg)  saturate(1.30); }
+        }
+
+        /* Some people turn on "reduce motion" because movement makes them
+           dizzy or ill. Honour it: keep the colour, drop the animation. */
+        @media (prefers-reduced-motion: reduce) {
+            .main-content::before { animation: none; }
         }
 
         .mobile-menu-toggle {
@@ -1459,6 +1501,13 @@
                 margin-left: 0;
                 padding-bottom: 104px; /* clear the mobile bottom tab bar + raised New Visit button */
                 overflow-x: hidden;    /* never scroll sideways on mobile */
+            }
+            /* No sidebar to avoid here, so the ambient layer spans the screen.
+               A longer cycle keeps it calm on a small display and easier on
+               the battery. */
+            .main-content::before {
+                left: 0;
+                animation-duration: 24s;
             }
             html, body { overflow-x: hidden; max-width: 100%; }
             /* KPIs: force two shrink-to-fit columns so the row can't exceed the
