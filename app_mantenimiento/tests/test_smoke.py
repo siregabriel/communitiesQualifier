@@ -338,6 +338,78 @@ def test_activity_digest_preview_builds():
     assert d["hours"] == 24
 
 
+def test_sales_is_a_full_routing_destination():
+    """Sales must behave exactly like Clinical and Ops: storable recipients, an
+    accepted route on a response, and its own row in 'Who receives what'."""
+    c = _client()
+    _as_admin(c)
+    before = A.settings_service.get_email_settings()
+    try:
+        r = c.post("/api/settings/email", headers=HDR, json={
+            "admin_notify": "\n".join(before["admin_notify"]),
+            "clinical": "\n".join(before["clinical"]),
+            "ops": "\n".join(before["ops"]),
+            "sales": "sales.team@example.com",
+        })
+        assert r.status_code == 200, r.get_data(as_text=True)
+        assert r.get_json()["sales"] == ["sales.team@example.com"]
+
+        # The service resolves it like any other route.
+        assert A.settings_service.recipients_for_route("sales") == ["sales.team@example.com"]
+        assert A.settings_service.recipients_for_route("nonsense") == []
+
+        # And it shows up in the consolidated recipient view.
+        summary = c.get("/api/settings/email/summary").get_json()
+        row = next(p for p in summary["people"]
+                   if p["email"].lower() == "sales.team@example.com")
+        assert any("Sales" in i["label"] for i in row["items"]), row["items"]
+    finally:
+        A.settings_service.set_email_settings(
+            subscribers=before["subscribers"], admin_notify=before["admin_notify"],
+            clinical=before["clinical"], ops=before["ops"], sales=before["sales"])
+
+
+def test_response_accepts_sales_route():
+    """A visit response directed to Sales keeps that routing when stored."""
+    import json as _json
+    region_id, comm = None, None
+    for reg in A.region_service.get_all_regions():
+        for entry in reg.get("communities", []):
+            name = entry if isinstance(entry, str) else entry.get("name")
+            if name:
+                region_id, comm = reg.get("id"), name
+                break
+        if comm:
+            break
+    survey_type_id = A.survey_type_service.get_all_survey_types()[0]["id"]
+
+    c = _client()
+    _as_role(c, "regional", region_id=region_id, name="smoke.regional")
+    with c.session_transaction() as s:
+        s["survey_type_id"] = survey_type_id
+
+    before = {s["id"] for s in A.inspection_service.get_all_submissions()}
+    r = c.post("/api/inspections", headers=HDR, data={
+        "community": comm,
+        "responses": _json.dumps([{
+            "question_id": "smoke_q3",
+            "question_text": "Tour path is show ready",
+            "condition": "Fail",
+            "description": "Front entrance needs attention before tours",
+            "route_to": "sales",
+        }]),
+    }, content_type="multipart/form-data")
+    assert r.status_code in (200, 201), r.get_data(as_text=True)
+    try:
+        new = [s for s in A.inspection_service.get_all_submissions()
+               if s["id"] not in before]
+        assert new[0]["responses"][0]["route_to"] == "sales"
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") in before]
+        A.inspection_service.save_to_file()
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

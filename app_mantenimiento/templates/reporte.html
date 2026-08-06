@@ -6,11 +6,11 @@
     <title>Maintenance Report</title>
     
     <!-- PWA Meta Tags -->
-    <meta name="description" content="Questionnaire-based inspection system for assisted living communities">
+    <meta name="description" content="Questionnaire-based visit system for assisted living communities">
     <meta name="theme-color" content="#4CAF50">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Inspections">
+    <meta name="apple-mobile-web-app-title" content="Atlas Standards">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     
@@ -578,6 +578,17 @@
             border: 1.5px solid #e4ebf5;
         }
 
+        /* Available, but visually a footnote rather than a call to action. */
+        .success-btn-quiet {
+            background: none;
+            color: #6b7280;
+            font-weight: 600 !important;
+            font-size: 13px !important;
+            padding: 8px 12px !important;
+            box-shadow: none;
+        }
+        .success-btn-quiet:hover { color: #0f1e36; }
+
         .loading-message {
             background: linear-gradient(135deg, #dbeafe, #eff6ff);
             color: #1e40af;
@@ -953,8 +964,8 @@
     <div class="container">
         <div class="header">
             <div class="header-left">
-                <h1><i class="fas fa-clipboard-check"></i> Inspection</h1>
-                <p>Complete inspection questionnaire</p>
+                <h1><i class="fas fa-clipboard-check"></i> Visit</h1>
+                <p>Complete visit questionnaire</p>
                 <div class="user-info" id="userInfo">Loading...</div>
                 {% if survey_type %}
                 <div class="survey-type-badge" id="surveyTypeBadge" data-color="{{ survey_type.color }}">
@@ -987,13 +998,18 @@
         <div class="success-screen" id="successScreen" role="dialog" aria-modal="true" aria-labelledby="successTitle">
             <div class="success-card">
                 <div class="success-check"><i class="fas fa-check"></i></div>
-                <h2 id="successTitle">Survey submitted!</h2>
-                <p id="successText">Your inspection has been sent successfully. Thank you for completing it.</p>
+                <h2 id="successTitle">Visit submitted!</h2>
+                <p id="successText">Your visit has been sent successfully. Thank you for completing it.</p>
                 <div class="success-actions">
-                    <button class="success-btn-primary" onclick="window.location.href='/select-survey-type'">
-                        <i class="fas fa-plus"></i> Start a new inspection
+                    <button class="success-btn-primary" onclick="window.location.href='/dashboard'">
+                        <i class="fas fa-house"></i> Back to home
                     </button>
-                    <button class="success-btn-secondary" onclick="window.location.href='/logout'">
+                    <button class="success-btn-secondary" onclick="window.location.href='/select-survey-type'">
+                        <i class="fas fa-plus"></i> Start another visit
+                    </button>
+                    <!-- Logging out is rarely what someone wants right after finishing,
+                         so it stays available but stops occupying a primary button. -->
+                    <button class="success-btn-quiet" onclick="window.location.href='/logout'">
                         <i class="fas fa-sign-out-alt"></i> Log out
                     </button>
                 </div>
@@ -1011,7 +1027,7 @@
             </select>
         </div>
         <div class="loading-message" id="communityPrompt" style="display:none;">
-            Select a community above to load its inspection.
+            Select a community above to load its visit.
         </div>
         {% endif %}
 
@@ -1022,7 +1038,7 @@
         <form id="reportForm" style="display: none;">
             <!-- Progress Bar -->
             <div class="progress-bar-container" id="progressContainer">
-                <div class="progress-title">Inspection Progress</div>
+                <div class="progress-title">Visit Progress</div>
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill" style="width: 0%;">0%</div>
                 </div>
@@ -1047,7 +1063,7 @@
                 </button>
             </div>
 
-            <button type="submit">Submit Inspection</button>
+            <button type="submit">Submit Visit</button>
         </form>
     </div>
 
@@ -1228,10 +1244,10 @@
 
         // ===== Guided tour for the inspection form =====
         const FORM_TOUR = [
-            { title: 'How to run an inspection', text: 'Go item by item — here’s what each part does. You can replay this from Help anytime.' },
+            { title: 'How to run a visit', text: 'Go item by item — here’s what each part does. You can replay this from Help anytime.' },
             { target: '.guideline-info-btn', title: 'See the standard', text: "Tap the info icon to see exactly what's required to pass this item." },
             { target: '.condition-rating', title: 'Pass or Fail', text: 'Mark each item Pass or Fail with this toggle. If you mark Fail, the Comments box below becomes required — describe what you found so whoever fixes it knows where to start.' },
-            { target: 'select[id^="route_"]', title: 'Comment & route it', text: 'Add a comment, and optionally direct it to Clinical or Ops so the right team is notified.' },
+            { target: 'select[id^="route_"]', title: 'Comment & route it', text: 'Add a comment, and optionally direct it to Clinical, Ops or Sales so the right team is notified.' },
             { target: '.file-upload-label', title: 'Add a photo', text: 'Attach a photo as evidence when needed.' },
             { target: '#actionItemsSection', title: 'Anything else you spotted', text: 'Saw something that isn’t one of the standards? Add it here with + Add action item — say what it is, who should handle it (Maintenance, Nursing, Dietary…) and how urgent it is. It goes to the Action Items list and into the summary email, and it never affects the score.' },
             { target: 'button[type="submit"]', title: 'Submit', text: "When you've answered everything, submit. A summary email goes out automatically." },
@@ -1516,6 +1532,7 @@
                     <option value="">— No one specific —</option>
                     <option value="clinical">Clinical</option>
                     <option value="ops">Operations (Ops)</option>
+                    <option value="sales">Sales</option>
                 </select>`;
             section.appendChild(routeWrap);
             
@@ -1805,29 +1822,30 @@
                     if (txt) {
                         const visited = selectedCommunity || userCommunity;
                         txt.textContent = visited
-                            ? `Your inspection for ${visited} has been sent successfully. Thank you for completing it.`
-                            : 'Your inspection has been sent successfully. Thank you for completing it.';
+                            ? `Your visit to ${visited} has been sent successfully. Thank you for completing it.`
+                            : 'Your visit has been sent successfully. Thank you for completing it.';
                     }
                     document.getElementById('successScreen').classList.add('show');
                     document.body.style.overflow = 'hidden';
                     window.scrollTo({ top: 0 });
                 } else {
                     const errorData = await response.json();
-                    alert('Error submitting inspection: ' + (errorData.message || 'Unknown error'));
+                    alert('Error submitting visit: ' + (errorData.message || 'Unknown error'));
                 }
             } catch (error) {
-                console.error('Error submitting inspection:', error);
+                console.error('Error submitting visit:', error);
                 alert('Error: ' + error.message);
             } finally {
                 const submitBtn = document.querySelector('button[type="submit"]');
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit Inspection';
+                submitBtn.textContent = 'Submit Visit';
             }
         });
 
         // ===== Additional action items (raised by hand, not tied to a standard) =====
         const AI_DEPARTMENTS = ['Nursing / Wellness', 'Dietary', 'Maintenance', 'Housekeeping',
-                                'Lifestyles', 'Business Office', 'Executive Director', 'Clinical', 'Operations (Ops)'];
+                                'Lifestyles', 'Business Office', 'Executive Director', 'Sales',
+                                'Clinical', 'Operations (Ops)'];
         let aiCounter = 0;
 
         function addActionItem() {

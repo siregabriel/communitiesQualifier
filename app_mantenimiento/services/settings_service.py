@@ -83,10 +83,11 @@ class SettingsService(JsonFileBacked):
             'admin_notify': clean_emails(email.get('admin_notify', [])),
             'clinical': clean_emails(email.get('clinical', [])),
             'ops': clean_emails(email.get('ops', [])),
+            'sales': clean_emails(email.get('sales', [])),
         }
 
     def set_email_settings(self, subscribers=None, admin_notify=None,
-                           clinical=None, ops=None) -> dict:
+                           clinical=None, ops=None, sales=None) -> dict:
         with self._lock:
             self._ensure_fresh()
             email = self.data.get('email', {}) if isinstance(self.data.get('email'), dict) else {}
@@ -99,14 +100,21 @@ class SettingsService(JsonFileBacked):
                 email['clinical'] = clean_emails(clinical)
             if ops is not None:
                 email['ops'] = clean_emails(ops)
+            if sales is not None:
+                email['sales'] = clean_emails(sales)
             self.data['email'] = email
             self._save()
             return self.get_email_settings()
 
+    # Company-level teams a comment can be directed to from a visit.
+    ROUTES = ('clinical', 'ops', 'sales')
+    ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations (Ops)', 'sales': 'Sales'}
+
     def recipients_for_route(self, route) -> list:
-        """Company-level Clinical / Ops recipient lists."""
-        s = self.get_email_settings()
-        return s.get('clinical', []) if route == 'clinical' else (s.get('ops', []) if route == 'ops' else [])
+        """Recipient list for one of the company-level teams (see ROUTES)."""
+        if route not in self.ROUTES:
+            return []
+        return self.get_email_settings().get(route, [])
 
     def recipients_for_inspection(self, region_id, inspector_name=None) -> list:
         """Subscriber emails whose scope covers this inspection.

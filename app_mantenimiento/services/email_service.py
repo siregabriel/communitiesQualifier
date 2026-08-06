@@ -90,11 +90,11 @@ class EmailService:
         score_txt = f"{score}%" if score is not None else "N/A"
         link = self.report_link(community)
 
-        subject = f"Inspection — {community}: {score_txt} ({passed}/{total} pass)"
+        subject = f"Visit — {community}: {score_txt} ({passed}/{total} pass)"
 
         # Plain text
         lines = [
-            f"Inspection submitted for {community}",
+            f"Visit submitted for {community}",
             f"Inspector: {inspector}",
             f"Date: {when}",
         ]
@@ -513,11 +513,14 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                           self._shell("Daily activity", header + body_html),
                           f"Atlas Standards — daily activity since {digest['since']}\n" + body_text)
 
+    # Company-level teams a comment can be directed to during a visit.
+    ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations', 'sales': 'Sales'}
+
     def send_directed_comments(self, recipients, route, submission, items):
-        """Email the Clinical/Ops team the comments an inspector directed to them."""
+        """Email a company-level team the comments an inspector directed to them."""
         if not self.enabled:
             return (False, 'disabled')
-        label = 'Clinical' if route == 'clinical' else 'Operations'
+        label = self.ROUTE_LABELS.get(route, route.title())
         community = submission.get('community', 'a community')
         inspector = submission.get('inspector_name') or submission.get('username') or 'Unknown'
         when = (submission.get('submitted_at') or '')[:10]
@@ -534,7 +537,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                   f"background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;"
                   f"border-radius:8px;font-size:14px'>View full report</a></div>") if link else ""
         body = (f"<p style='font-size:14px;margin:0 0 12px'>{esc(inspector)} directed the following "
-                f"{label.lower()} item(s) to your team during an inspection of <strong>{esc(community)}</strong>"
+                f"{label.lower()} item(s) to your team during a visit to <strong>{esc(community)}</strong>"
                 f"{(' on ' + esc(when)) if when else ''}.</p>"
                 f"<ul style='margin:0;padding-left:18px;font-size:14px;color:#1f2937'>{rows}</ul>{button}")
         subject = f"{label} follow-up — {community} ({len(items)})"

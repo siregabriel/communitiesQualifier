@@ -2960,11 +2960,12 @@ def email_notification_summary():
             'New users, password changes and resets, move-in summaries', 'admin')
         add(addr, '', 'Daily activity digest',
             'Once a day: sign-ins, visits, items addressed, account changes', 'admin')
-    # 4) Routed comments
-    for addr in s.get('clinical', []):
-        add(addr, '', 'Clinical comments', 'Inspection comments directed to Clinical', 'route')
-    for addr in s.get('ops', []):
-        add(addr, '', 'Ops comments', 'Inspection comments directed to Operations', 'route')
+    # 4) Routed comments — one configurable list per company-level team
+    for route in settings_service.ROUTES:
+        label = settings_service.ROUTE_LABELS[route]
+        for addr in s.get(route, []):
+            add(addr, '', f'{label} comments',
+                f'Visit comments directed to {label}', 'route')
 
     # A recipient can be removed from here when it came from a configurable list
     # (subscribers / admin alerts / clinical / ops). Region leaders are copied
@@ -3045,18 +3046,18 @@ def remove_email_recipient():
     s = settings_service.get_email_settings()
     subs = [x for x in s['subscribers'] if (x.get('email') or '').lower() != target]
     admin_notify = [a for a in s['admin_notify'] if a.lower() != target]
-    clinical = [a for a in s['clinical'] if a.lower() != target]
-    ops = [a for a in s['ops'] if a.lower() != target]
+    routed = {r: [a for a in s[r] if a.lower() != target]
+              for r in settings_service.ROUTES}
 
     removed = (len(subs) != len(s['subscribers']) or len(admin_notify) != len(s['admin_notify'])
-               or len(clinical) != len(s['clinical']) or len(ops) != len(s['ops']))
+               or any(len(routed[r]) != len(s[r]) for r in settings_service.ROUTES))
     if not removed:
         return jsonify({'status': 'error',
                         'message': 'That address is not in a list you can edit here. '
                                    'Region leaders are managed in Regions.'}), 404
 
     settings_service.set_email_settings(subscribers=subs, admin_notify=admin_notify,
-                                        clinical=clinical, ops=ops)
+                                        **routed)
     activity_service.log(session.get('user'), 'email_recipient_removed',
                          f'Removed {target} from notification lists')
     return jsonify({'status': 'success', 'message': f'{target} will no longer receive notifications.'}), 200
@@ -3348,7 +3349,7 @@ def get_email_settings():
     return jsonify({'status': 'success', 'subscribers': s['subscribers'],
                     'admin_notify': s['admin_notify'], 'regions': regions,
                     'inspectors': leadership_names(),
-                    'clinical': s['clinical'], 'ops': s['ops'],
+                    'clinical': s['clinical'], 'ops': s['ops'], 'sales': s['sales'],
                     'email_enabled': email_service.enabled}), 200
 
 
@@ -3376,7 +3377,8 @@ def save_email_settings():
                          'regions': regions, 'inspectors': inspectors})
     saved = settings_service.set_email_settings(
         subscribers=subs, admin_notify=data.get('admin_notify', ''),
-        clinical=data.get('clinical', ''), ops=data.get('ops', ''))
+        clinical=data.get('clinical', ''), ops=data.get('ops', ''),
+        sales=data.get('sales', ''))
     regions = [{'id': r.get('id'), 'name': r.get('name')}
                for r in region_service.get_all_regions() if r.get('id') != 'unassigned']
     return jsonify({'status': 'success', 'regions': regions, 'inspectors': leadership_names(), **saved}), 200
@@ -4445,7 +4447,7 @@ def submit_inspection():
             
             # Optional routing of this item's comment to Clinical / Ops
             route_to = (response.get('route_to') or '').strip().lower()
-            if route_to not in ('clinical', 'ops'):
+            if route_to not in settings_service.ROUTES:
                 route_to = None
 
             # Create response object
@@ -4536,8 +4538,8 @@ def submit_inspection():
                         criteria_map['t:' + q['text'].strip().lower()] = crit
                 email_service.send_inspection_report(submission, recipients, survey_name, criteria_map)
 
-                # Route any item-level comments directed to Clinical / Ops
-                for route in ('clinical', 'ops'):
+                # Route any item-level comments directed to a company-level team
+                for route in settings_service.ROUTES:
                     items = [r for r in submission.get('responses', [])
                              if r.get('route_to') == route and (r.get('description') or '').strip()]
                     if items:

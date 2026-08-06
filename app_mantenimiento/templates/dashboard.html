@@ -6,11 +6,11 @@
     <title>Admin Dashboard</title>
     
     <!-- PWA Meta Tags -->
-    <meta name="description" content="Questionnaire-based inspection system for assisted living communities">
+    <meta name="description" content="Questionnaire-based visit system for assisted living communities">
     <meta name="theme-color" content="#4CAF50">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Inspections">
+    <meta name="apple-mobile-web-app-title" content="Atlas Standards">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/atlas-globe-1.png">
     
@@ -2027,7 +2027,7 @@
                 <div class="filter-buttons">
                     <button class="filter-btn active" data-type="all" onclick="filterByType('all')"><i class="fas fa-layer-group"></i> All</button>
                     <button class="filter-btn" data-type="maintenance" onclick="filterByType('maintenance')"><i class="fas fa-screwdriver-wrench"></i> Maintenance Reports</button>
-                    <button class="filter-btn" data-type="inspection" onclick="filterByType('inspection')"><i class="fas fa-clipboard-list"></i> Inspections</button>
+                    <button class="filter-btn" data-type="inspection" onclick="filterByType('inspection')"><i class="fas fa-clipboard-list"></i> Visits</button>
                 </div>
             </div>
 
@@ -2150,7 +2150,7 @@
     <div class="modal-overlay" id="inspectionModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2><i class="fas fa-clipboard-list"></i> Inspection Details</h2>
+                <h2><i class="fas fa-clipboard-list"></i> Visit Details</h2>
                 <button class="modal-close" onclick="closeInspectionModal()" aria-label="Close modal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -2643,7 +2643,7 @@
                     if (!photoMap.has(photoPath)) {
                         photoMap.set(photoPath, {
                             path: photoPath,
-                            alt: inspection.question_text || inspection.questionText || 'Inspection photo',
+                            alt: inspection.question_text || inspection.questionText || 'Visit photo',
                             timestamp: inspection.submitted_at || inspection.timestamp || ''
                         });
                     }
@@ -2895,7 +2895,7 @@
                 return `<div class="pm-rank-chip ${cls}">${icon} ${ordinal(r.pos)} <span class="pm-rank-lbl">${label} · of ${r.total}</span></div>`;
             }
             const rankBlock = (p.rank && (p.rank.visits.pos || p.rank.pass_rate.pos))
-                ? `<div class="pm-rank">${rankChip(p.rank.visits, 'most inspections')}${rankChip(p.rank.pass_rate, 'best pass rate')}</div>` : '';
+                ? `<div class="pm-rank">${rankChip(p.rank.visits, 'most visits')}${rankChip(p.rank.pass_rate, 'best pass rate')}</div>` : '';
             const avatar = p.photo
                 ? `<img src="/static/${p.photo}" alt="" class="pp-avatar-img">`
                 : `<div class="pp-avatar-fallback" style="background:${avatarColor(name)}">${profileInitials(name)}</div>`;
@@ -2904,7 +2904,7 @@
                 `<div class="pp-bar-row"><span class="pp-bar-lbl">${m.label}</span><div class="pp-bar"><div class="pp-bar-fill" style="width:${Math.round(m.visits / maxV * 100)}%"></div></div><span class="pp-bar-val">${m.visits}</span></div>`).join('');
             const openComm = c => `closePersonModal();openSlidePanel('${(c || '').replace(/'/g, "\\'")}')`;
             const comms = p.communities.length ? p.communities.map(c =>
-                `<div class="pp-row" onclick="${openComm(c.name)}"><span class="pp-row-name">${escapeHtml(c.name)}</span><span class="pp-row-meta">${c.visits} visit${c.visits !== 1 ? 's' : ''} · <b style="color:${sc(c.avg_score)}">${c.avg_score == null ? 'N/A' : c.avg_score + '%'}</b></span></div>`).join('') : '<div class="no-data">No inspections yet.</div>';
+                `<div class="pp-row" onclick="${openComm(c.name)}"><span class="pp-row-name">${escapeHtml(c.name)}</span><span class="pp-row-meta">${c.visits} visit${c.visits !== 1 ? 's' : ''} · <b style="color:${sc(c.avg_score)}">${c.avg_score == null ? 'N/A' : c.avg_score + '%'}</b></span></div>`).join('') : '<div class="no-data">No visits yet.</div>';
             const weak = p.weakest.length ? p.weakest.map(w =>
                 `<div class="pp-row"><span class="pp-row-name">${escapeHtml(w.question)}</span><span class="pp-pill">${w.fails} fail${w.fails !== 1 ? 's' : ''}</span></div>`).join('') : '<div class="no-data">No failed items.</div>';
             const recent = p.recent.length ? p.recent.map(x =>
@@ -2929,7 +2929,7 @@
                 <div class="pp-section"><h4>Activity · last 6 months</h4>${bars}</div>
                 <div class="pp-section"><h4>Communities covered</h4>${comms}</div>
                 <div class="pp-section"><h4>Most-failed standards</h4>${weak}</div>
-                <div class="pp-section"><h4>Recent inspections</h4>${recent}</div>`;
+                <div class="pp-section"><h4>Recent visits</h4>${recent}</div>`;
         }
 
         // Render Panel Content
@@ -3681,7 +3681,7 @@
                             break;
                         case 'my-visits':
                             headerTitle.innerHTML = '<i class="fas fa-clipboard-list"></i> My Visits';
-                            headerDesc.textContent = 'Your Inspection Submissions';
+                            headerDesc.textContent = 'Your Visit Submissions';
                             renderMyVisits();
                             break;
                         case 'communities':
@@ -3712,7 +3712,7 @@
                             break;
                         case 'calendar':
                             headerTitle.innerHTML = '<i class="fas fa-calendar-days"></i> Calendar';
-                            headerDesc.textContent = 'Inspections & move-in schedule';
+                            headerDesc.textContent = 'Visits & move-in schedule';
                             renderCalendar();
                             break;
                         case 'region-detail':
@@ -3753,22 +3753,22 @@
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse every community, see its latest score and open action items, open a full report, and give each one a cover photo.' },
                 { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile. The Corporate group at the end holds company-wide members who can visit any community." },
                 { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Each row also shows sign-in activity: a green "Active now" while someone is using the app, when they last signed in, or "Never signed in" if they haven\'t started yet. Open it for its own walkthrough.' },
-                { target: '#standardsLink', title: 'Standards', text: 'Create and edit the inspection standards, their pass criteria, and survey types (the question groups each team uses).' },
+                { target: '#standardsLink', title: 'Standards', text: 'Create and edit the visit standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF — including any action items raised on visits.' },
                 { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything that needs follow-up: standards that failed, plus anything the inspector flagged during a visit (those show "Raised on visit" with their own priority and who it\'s for). Fixed something between visits? Use "Mark as addressed" on a failed standard to log the date, a note and a photo of the fix — the visit and the score stay exactly as they were, and it still clears for good once a later visit passes it. Flagged items are closed with "Mark as done".' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident’s move-in as a phased checklist — with required compliance items, attachments, printable binder pages, and automatic email reminders. Open it for its own walkthrough.' },
-                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines inspections, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
-                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which inspection emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to, flagging anyone missing an email. At the bottom, a Danger zone lets you wipe all inspections to start fresh (a backup is saved first). People are managed in the People view.' },
+                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines visits, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
+                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which visit emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to, flagging anyone missing an email. At the bottom, a Danger zone lets you wipe all visits to start fresh (a backup is saved first). People are managed in the People view.' },
                 { title: "You're all set", text: 'That’s the tour. Tap Help in the top bar to see it again whenever you want.' },
             ],
             staff: [
-                { title: 'Welcome to Atlas Standards', text: 'A quick tour of how to run your inspections. Replay it anytime from Help.' },
-                { target: '#startVisitBtn', title: 'Start a visit', text: 'Tap here to begin a new inspection — pick the community and survey type, then go item by item marking Pass or Fail.' },
-                { target: '.nav-item[data-view="my-visits"]', title: 'My Visits', text: "See the inspections you've submitted, with their scores and dates." },
+                { title: 'Welcome to Atlas Standards', text: 'A quick tour of how to run your visits. Replay it anytime from Help.' },
+                { target: '#startVisitBtn', title: 'Start a visit', text: 'Tap here to begin a new visit — pick the community and survey type, then go item by item marking Pass or Fail.' },
+                { target: '.nav-item[data-view="my-visits"]', title: 'My Visits', text: "See the visits you've submitted, with their scores and dates." },
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse communities and open a report to review results.' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Follow new resident move-ins for your community as a step-by-step checklist. Open it for its own quick walkthrough.' },
-                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'See inspections and move-in dates for your community on a monthly calendar.' },
-                { title: 'Tip: the info icon', text: "On every inspection item, tap the info icon to see exactly what's required to pass. You can also add a comment and direct it to Clinical or Ops." },
+                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'See visits and move-in dates for your community on a monthly calendar.' },
+                { title: 'Tip: the info icon', text: "On every visit item, tap the info icon to see exactly what's required to pass. You can also add a comment and direct it to Clinical, Ops or Sales." },
                 { title: 'Flag anything else you see', text: 'At the end of a visit there’s an "Additional action items" section. Use + Add action item for anything that isn’t one of the standards — say what it is, who should handle it and how urgent. It reaches the right team without affecting the community’s score.' },
                 { title: "You're all set", text: 'That’s it! Use the Help button in the top bar to replay this anytime.' },
             ],
@@ -3807,7 +3807,7 @@
         const CALENDAR_TOUR = [
             { title: 'Calendar', text: 'A monthly view of everything scheduled — inspections, move-in dates, and follow-up reminders, all in one place.' },
             { target: '.cal-month', title: 'Browse months', text: 'Move between months with the arrows, or jump back to the current month with “Today”.' },
-            { target: '.cal-legend', title: 'Three kinds of events', text: 'Blue dots are inspections, amber are move-in dates, and teal are move-in follow-ups (Day 5 and 1–2 weeks).' },
+            { target: '.cal-legend', title: 'Three kinds of events', text: 'Blue dots are visits, amber are move-in dates, and teal are move-in follow-ups (Day 5 and 1–2 weeks).' },
             { target: '#calFilterBar', title: 'Filter the view', text: 'Narrow the calendar to a region or a single community to focus on just what matters to you.' },
             { target: '#gallery .cal-cell.cal-has', title: 'Open a day', text: 'Click any day with events to see the full detail below — each item links straight to its inspection or move-in.' },
             { title: 'That’s the Calendar', text: 'Use the Help button on this screen to replay this anytime.' },
@@ -4076,7 +4076,7 @@
                 { val: avgScore === null ? 'N/A' : avgScore + '%', lbl: 'Average score', color: scoreColor(avgScore) },
                 { val: `${visitedThisMonth}/${totalComms}`, lbl: 'Visited this month', color: 'var(--kpi-navy)' },
                 { val: totalActions, lbl: 'Open action items', color: totalActions > 0 ? '#d13212' : '#0f8a5f' },
-                { val: inspectionsThisMonth, lbl: 'Inspections this month', color: 'var(--kpi-navy)' },
+                { val: inspectionsThisMonth, lbl: 'Visits this month', color: 'var(--kpi-navy)' },
             ];
             const kpiHtml = kpis.map(k =>
                 `<div class="kpi" data-kpi="${k.lbl}"><div class="kpi-val" style="color:${k.color}">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`
@@ -4158,7 +4158,7 @@
                     <div class="dash-row-sub">${escapeHtml(nm)} · ${escapeHtml(formatDate(s.submitted_at))}</div></div>
                     <span class="dash-score" style="color:${scoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span>
                     <i class="fas fa-chevron-right dash-chev"></i></div>`;
-            }).join('') : '<div class="dash-empty">No inspections recorded yet.</div>';
+            }).join('') : '<div class="dash-empty">No visits recorded yet.</div>';
             // Mark everything currently shown as "seen" (a few seconds after the
             // badges paint, so they're visible this visit but gone on the next one).
             if (recent.length) {
@@ -4319,7 +4319,7 @@
             question_created:       { icon: 'fa-circle-plus',      color: '#1f6fe5', verb: 'added a standard' },
             question_updated:       { icon: 'fa-pen',              color: '#64748b', verb: 'edited a standard' },
             question_deleted:       { icon: 'fa-trash',            color: '#d13212', verb: 'deleted a standard' },
-            data_reset:             { icon: 'fa-triangle-exclamation', color: '#d13212', verb: 'reset inspection data' },
+            data_reset:             { icon: 'fa-triangle-exclamation', color: '#d13212', verb: 'reset visit data' },
         };
 
         async function loadLiveActivity() {
@@ -4489,8 +4489,8 @@
 
             if (visits.length === 0) {
                 const message = isAdmin
-                    ? 'No inspections submitted yet by any user'
-                    : 'No visits yet. Start your first inspection!';
+                    ? 'No visits submitted yet by any user'
+                    : 'No visits yet. Start your first one!';
                 gallery.innerHTML = `<div class="empty-state"><i class="fas fa-clipboard"></i><p>${message}</p></div>`;
                 return;
             }
@@ -4511,7 +4511,7 @@
                 const safeComm = (v.community || '').replace(/'/g, "\\'");
 
                 return `
-                    <div class="visit-row" onclick="openSlidePanel('${safeComm}')" title="View inspection details">
+                    <div class="visit-row" onclick="openSlidePanel('${safeComm}')" title="View visit details">
                         <div class="visit-main">
                             <div class="visit-community">${v.community || 'Unknown community'}</div>
                             <div class="visit-meta">
@@ -4600,7 +4600,7 @@
                 const hasPhoto = !!item.photoPath;
                 const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
                 const imageInner = hasPhoto
-                    ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
+                    ? `<img src="${photoUrl(item.photoPath)}" alt="Visit photo" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
                     : `<i class="fas ${iconClass}"></i>`;
                 const isClosed = manual ? !!item.resolved : !!item.addressed;
                 const imageClass = (hasPhoto ? 'card-image' : 'card-image card-image-themed')
@@ -5264,7 +5264,7 @@
                     const score = calculateCommunityScore(s.responses || []);
                     const nm = s.inspector_name || s.username || '—';
                     const safe = (s.community || '').replace(/'/g, "\\'");
-                    rows.push(`<div class="cal-row" onclick="openSlidePanel('${safe}')"><span class="cal-dot cal-dot-insp"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(s.community || 'Unknown')}</div><div class="cal-row-sub">Inspection · ${escapeHtml(nm)}</div></div><span class="cal-row-score" style="color:${_calScoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span></div>`);
+                    rows.push(`<div class="cal-row" onclick="openSlidePanel('${safe}')"><span class="cal-dot cal-dot-insp"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(s.community || 'Unknown')}</div><div class="cal-row-sub">Visit · ${escapeHtml(nm)}</div></div><span class="cal-row-score" style="color:${_calScoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span></div>`);
                 });
                 mv.forEach(m => {
                     rows.push(`<div class="cal-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${m.id}'),250)"><span class="cal-dot cal-dot-mv"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(m.resident_name)}</div><div class="cal-row-sub">Move-in · ${escapeHtml(m.community)}${m.blockers ? ` · <span style="color:#b42318;font-weight:700;">${m.blockers} required pending</span>` : ''}</div></div><span class="cal-row-score" style="color:#d97706;"><i class="fas fa-house-circle-check"></i></span></div>`);
@@ -5295,7 +5295,7 @@
                     <button class="btn btn-secondary" onclick="calToday()" style="margin-left:8px;">Today</button>
                     <button class="btn btn-secondary" onclick="startCalendarTour()" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
                     <div class="cal-legend" style="margin-left:auto;">
-                        <span><span class="cal-dot cal-dot-insp"></span> Inspections</span>
+                        <span><span class="cal-dot cal-dot-insp"></span> Visits</span>
                         <span><span class="cal-dot cal-dot-mv"></span> Move-ins</span>
                         <span><span class="cal-dot cal-dot-fup"></span> Follow-ups</span>
                     </div>
@@ -5488,7 +5488,7 @@
                 <div class="res-form" id="resForm" style="display:none;">
                     <div class="res-form-heading" id="resFormHeading">Add a new resource</div>
                     <div id="resNewFields" style="display:grid; gap:10px;">
-                        <input id="resTitle" class="pw-input" placeholder="Title (e.g. Inspection Guidelines)" maxlength="120">
+                        <input id="resTitle" class="pw-input" placeholder="Title (e.g. Visit Guidelines)" maxlength="120">
                         <input id="resDesc" class="pw-input" placeholder="Short description (optional)" maxlength="400">
                     </div>
                     <select id="resKind" class="pw-input" onchange="onResourceKindChange()">
@@ -5806,7 +5806,7 @@
                 <div style="margin-top:6px;">${d.conflicts.map(c => `${escapeHtml(c.name)} <span style="opacity:.75">(@${escapeHtml(c.username)} — ${c.where.map(escapeHtml).join(' + ')})</span>`).join(' · ')}</div></div>` : '';
             const noEmail = (d.missing_email && d.missing_email.length) ? `
                 <div class="ppl-alert ppl-alert-soft"><b><i class="fas fa-envelope"></i> ${d.missing_email.length} without an email address</b> —
-                they can't receive inspection reports or move-in notifications. Add it with the pencil.</div>` : '';
+                they can't receive visit reports or move-in notifications. Add it with the pencil.</div>` : '';
 
             gallery.innerHTML = `<div style="grid-column:1/-1;">
                 <div class="ppl-toolbar">
@@ -5891,7 +5891,7 @@
                 staff: 'Can inspect and run move-ins for one community only.',
                 regional: 'Can inspect every community in their region.',
                 corporate: 'Company-wide access: can visit any community and see every region.',
-                admin: 'Full access, including standards, people and settings. Admins do not submit inspections.',
+                admin: 'Full access, including standards, people and settings. Admins do not submit visits.',
             }[role] || '';
         }
 
@@ -5989,7 +5989,7 @@
                             : `<button class="btn-danger-solid" onclick="deletePerson('${(p.username || '').replace(/'/g, "\\'")}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
                                    <i class="fas fa-user-slash"></i> Remove this person</button>
                                <div style="font-size:11.5px;color:#94a3b8;margin-top:7px;line-height:1.45;">
-                                   Removes their access${isRoster ? ' and takes them off the roster' : ''}. Inspections they already submitted are kept.</div>`}
+                                   Removes their access${isRoster ? ' and takes them off the roster' : ''}. Visits they already submitted are kept.</div>`}
                     </div>
                 </div>`;
             modal.classList.add('show');
@@ -6028,13 +6028,13 @@
                 staff: 'Can inspect and run move-ins for one community only.',
                 regional: 'Gets a regional login and can inspect every community in that region.',
                 corporate: 'Company-wide access: can visit any community and see every region.',
-                admin: 'Full access, including standards, people and settings. Admins do not submit inspections.',
+                admin: 'Full access, including standards, people and settings. Admins do not submit visits.',
             };
             note.textContent = notes[role] || '';
         }
 
         async function deletePerson(username, name) {
-            if (!confirm(`Remove ${name} (@${username})?\n\nThey will lose access to Atlas Standards.\nInspections they already submitted are kept.`)) return;
+            if (!confirm(`Remove ${name} (@${username})?\n\nThey will lose access to Atlas Standards.\nVisits they already submitted are kept.`)) return;
             try {
                 const r = await fetch(`/api/people/${encodeURIComponent(username)}`, { method: 'DELETE' });
                 const d = await r.json();
@@ -6600,7 +6600,7 @@
 
         // ---- Profile helpers ----
         const ACTIVITY_META = {
-            inspection_submitted: { icon: 'fa-clipboard-check', label: 'Inspection submitted' },
+            inspection_submitted: { icon: 'fa-clipboard-check', label: 'Visit submitted' },
             question_created:     { icon: 'fa-circle-plus',     label: 'Question created' },
             question_updated:     { icon: 'fa-pen',             label: 'Question edited' },
             question_deleted:     { icon: 'fa-trash',           label: 'Question deleted' },
@@ -6776,7 +6776,7 @@
                 : `<div class="activity-avatar-initials" style="background:${avatarColor(username)};">${profileInitials(displayName)}</div>`;
 
             const statCards = [];
-            statCards.push(`<div class="profile-stat profile-stat-clickable" onclick="showView('my-visits')" title="View my visits"><div class="profile-stat-value">${stats.inspections}</div><div class="profile-stat-label">Inspections</div></div>`);
+            statCards.push(`<div class="profile-stat profile-stat-clickable" onclick="showView('my-visits')" title="View my visits"><div class="profile-stat-value">${stats.inspections}</div><div class="profile-stat-label">Visits</div></div>`);
             if (admin) {
                 statCards.push(`<div class="profile-stat"><div class="profile-stat-value">${stats.questions_created}</div><div class="profile-stat-label">Questions created</div></div>`);
                 statCards.push(`<div class="profile-stat"><div class="profile-stat-value">${stats.questions_edited}</div><div class="profile-stat-label">Questions edited</div></div>`);
@@ -6791,7 +6791,7 @@
                     const safeComm = community.replace(/'/g, "\\'");
                     return `
                         <div class="activity-item ${clickable ? 'activity-clickable' : ''}"
-                             ${clickable ? `onclick="openSlidePanel('${safeComm}')" title="View this inspection"` : ''}>
+                             ${clickable ? `onclick="openSlidePanel('${safeComm}')" title="View this visit"` : ''}>
                             <div class="activity-avatar">${feedAvatar}</div>
                             <div class="activity-body">
                                 <div class="activity-label"><i class="fas ${meta.icon}"></i> ${meta.label}</div>
@@ -6848,16 +6848,16 @@
                         <div class="profile-section danger-zone">
                             <div class="profile-section-title danger-title"><i class="fas fa-triangle-exclamation"></i> Danger zone</div>
                             <div class="danger-box">
-                                <div class="danger-head">Reset inspection data</div>
+                                <div class="danger-head">Reset visit data</div>
                                 <p class="danger-text">
-                                    Permanently deletes <b>every submitted inspection</b>, so the app starts from zero.
+                                    Permanently deletes <b>every submitted visit</b>, so the app starts from zero.
                                     Scores, action items and recent activity clear with them.
                                     <br><b>Kept:</b> users, regions, communities, standards, survey types and move-ins.
                                     A backup is saved on the server first.
                                 </p>
                                 <div class="danger-controls">
                                     <input id="resetDataConfirm" class="pw-input danger-input" placeholder="Type RESET to confirm" autocomplete="off" maxlength="10">
-                                    <button class="btn btn-danger-solid" onclick="adminResetInspections()"><i class="fas fa-trash-can"></i> Reset inspection data</button>
+                                    <button class="btn btn-danger-solid" onclick="adminResetInspections()"><i class="fas fa-trash-can"></i> Reset visit data</button>
                                 </div>
                                 <div class="pw-msg" id="resetDataMsg"></div>
                             </div>
@@ -6895,7 +6895,7 @@
                           .scope-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;}
                         </style>
                         <div style="display:grid; gap:12px;">
-                            <label style="font-size:13px;font-weight:700;color:#0f1e36;">Inspection report subscribers <span style="font-weight:500;color:#6b7280;">(region leaders always get their own region automatically)</span></label>
+                            <label style="font-size:13px;font-weight:700;color:#0f1e36;">Visit report subscribers <span style="font-weight:500;color:#6b7280;">(region leaders always get their own region automatically)</span></label>
                             <div id="esSubscribers"></div>
                             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
                                 <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()"><i class="fas fa-plus"></i> Add subscriber</button>
@@ -6908,6 +6908,8 @@
                             <textarea id="esClinical" class="pw-input" rows="2" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
                             <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Operations (Ops) team <span style="font-weight:500;color:#6b7280;">(receives comments directed to Ops)</span></label>
                             <textarea id="esOps" class="pw-input" rows="2" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
+                            <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Sales team <span style="font-weight:500;color:#6b7280;">(receives comments directed to Sales)</span></label>
+                            <textarea id="esSales" class="pw-input" rows="2" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
                             <div style="display:flex;gap:8px;align-items:center;">
                                 <button class="btn btn-primary" onclick="saveEmailSettings()"><i class="fas fa-floppy-disk"></i> Save</button>
                                 <span class="pw-msg" id="esMsg"></span>
@@ -6945,7 +6947,7 @@
             sub = sub || { email: '', name: '', regions: [], inspectors: [] };
             const subRegions = sub.regions || [];
             const subInsp = sub.inspectors || [];
-            // New rows start with "All inspections" OFF so the options are visible.
+            // New rows start with "All visits" OFF so the options are visible.
             const all = isNew ? false : (subRegions.length === 0 && subInsp.length === 0);
             const regionChecks = esRegions.map(r =>
                 `<label class="chip"><input type="checkbox" class="sub-region" value="${escapeHtml(r.id)}" onchange="onScopeToggle(this)" ${subRegions.includes(r.id) ? 'checked' : ''}><span>${escapeHtml(r.name)}</span></label>`
@@ -6959,7 +6961,7 @@
                     <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;min-width:160px;">
                     <button class="res-del" type="button" title="${isNew ? 'Discard' : 'Remove this subscriber'}" onclick="${isNew ? 'removeSubRow(this)' : 'deleteSavedSubscriber(this)'}"><i class="fas fa-trash"></i></button>
                 </div>
-                <label class="chip" style="margin-top:14px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}><span><i class="fas fa-globe" style="margin-right:5px;"></i>All inspections</span></label>
+                <label class="chip" style="margin-top:14px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}><span><i class="fas fa-globe" style="margin-right:5px;"></i>All visits</span></label>
                 <div class="sub-detail" style="margin-top:14px;border-top:1px solid #eef1f6;padding-top:14px;">
                     <div class="scope-label">By region</div>
                     <div class="chip-wrap">${regionChecks}</div>
@@ -6973,7 +6975,7 @@
                 </div>
             </div>`;
         }
-        // "All inspections" and the specific pills are mutually exclusive.
+        // "All visits" and the specific pills are mutually exclusive.
         function onSubAllChange(chk) {
             if (!chk.checked) return;
             const row = chk.closest('.sub-row');
@@ -7089,6 +7091,8 @@
                 if (cl) cl.value = (d.clinical || []).join('\n');
                 const op = document.getElementById('esOps');
                 if (op) op.value = (d.ops || []).join('\n');
+                const sl = document.getElementById('esSales');
+                if (sl) sl.value = (d.sales || []).join('\n');
                 const note = document.getElementById('esNote');
                 if (note && !d.email_enabled) note.textContent = 'Email sending is not configured on the server yet (MAIL_FROM unset).';
             } catch (e) { console.error('email settings load:', e); }
@@ -7114,7 +7118,7 @@
                 // never drop an existing subscriber.
                 const r = await fetch('/api/settings/email', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ admin_notify: document.getElementById('esAdminNotify').value, clinical: document.getElementById('esClinical').value, ops: document.getElementById('esOps').value })
+                    body: JSON.stringify({ admin_notify: document.getElementById('esAdminNotify').value, clinical: document.getElementById('esClinical').value, ops: document.getElementById('esOps').value, sales: document.getElementById('esSales').value })
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
@@ -7296,7 +7300,7 @@
                 const miss = d.missing_email || [];
                 const warn = miss.length ? `<div class="nsum-warn"><b><i class="fas fa-triangle-exclamation"></i>
                     ${miss.length} region leader${miss.length === 1 ? '' : 's'} without an email address</b> —
-                    they can't receive inspection reports or move-in emails. Add their address in Regions.
+                    they can't receive visit reports or move-in emails. Add their address in Regions.
                     <div style="margin-top:6px;">${miss.slice(0, 12).map(m =>
                         `${escapeHtml(m.name)} <span style="opacity:.7">(${escapeHtml(m.region)})</span>`).join(' · ')}${
                         miss.length > 12 ? ` <span style="opacity:.7">+${miss.length - 12} more</span>` : ''}</div></div>` : '';
@@ -7321,7 +7325,7 @@
                 return;
             }
             const n = (allSubmissions || []).length;
-            if (!confirm(`This permanently deletes ${n} inspection${n === 1 ? '' : 's'} and cannot be undone from the app.\n\n` +
+            if (!confirm(`This permanently deletes ${n} visit${n === 1 ? '' : 's'} and cannot be undone from the app.\n\n` +
                          `Scores, action items and recent activity will be cleared.\nUsers, regions, standards and move-ins are kept.\n\n` +
                          `A backup is saved on the server. Continue?`)) {
                 return;
@@ -7334,14 +7338,14 @@
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
                     el.value = '';
-                    msg.textContent = d.message || 'Inspection data cleared.';
+                    msg.textContent = d.message || 'Visit data cleared.';
                     msg.classList.add('success');
                     // Reload data so every view reflects the clean slate.
                     await loadReports();
                     if (typeof loadInspections === 'function') await loadInspections();
                     setTimeout(() => showView('dashboard'), 600);
                 } else {
-                    msg.textContent = d.message || 'Could not reset inspection data.';
+                    msg.textContent = d.message || 'Could not reset visit data.';
                     msg.classList.add('error');
                 }
             } catch (e) {
@@ -7513,7 +7517,7 @@
                     <!-- Summary Cards -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
                         <div style="background: #00285c; color: white; padding: 24px; border-radius: 10px;">
-                            <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Total Inspections</div>
+                            <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Total Visits</div>
                             <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${totalInspections}</div>
                         </div>
                         <div style="background: #0f8a5f; color: white; padding: 24px; border-radius: 10px;">
@@ -7674,14 +7678,14 @@
                     ${valueHtml}
                 </div>`;
             const visits = (data.by_visits || []).map((p, i) =>
-                row(p, i, `<span class="lb-val">${p.visits}</span>`)).join('') || '<div class="lb-empty">No inspections yet.</div>';
+                row(p, i, `<span class="lb-val">${p.visits}</span>`)).join('') || '<div class="lb-empty">No visits yet.</div>';
             const passes = (data.by_pass_rate || []).map((p, i) =>
-                row(p, i, `<span class="lb-val" style="color:${sc(p.pass_rate)}">${p.pass_rate}%</span>`)).join('') || '<div class="lb-empty">No inspections yet.</div>';
+                row(p, i, `<span class="lb-val" style="color:${sc(p.pass_rate)}">${p.pass_rate}%</span>`)).join('') || '<div class="lb-empty">No visits yet.</div>';
 
             host.innerHTML = `
                 <div class="lb-grid">
                     <div class="lb-card">
-                        <h3><i class="fas fa-ranking-star"></i> Most inspections</h3>
+                        <h3><i class="fas fa-ranking-star"></i> Most visits</h3>
                         ${visits}
                     </div>
                     <div class="lb-card">
@@ -7863,7 +7867,7 @@
                 } else {
                     // Render inspection response card
                     const photoHtml = item.photoPath 
-                        ? `<img src="${photoUrl(item.photoPath)}" alt="Inspection photo" onerror="this.style.display='none'">`
+                        ? `<img src="${photoUrl(item.photoPath)}" alt="Visit photo" onerror="this.style.display='none'">`
                         : '<i class="fas fa-clipboard-check"></i>';
                     
                     return `
@@ -7990,7 +7994,7 @@
                 // Fetch all inspections
                 const response = await fetch('/api/inspections');
                 if (!response.ok) {
-                    alert('Failed to load inspection details');
+                    alert('Failed to load visit details');
                     return;
                 }
                 
@@ -8003,7 +8007,7 @@
                     );
                     
                     if (communitySubmissions.length === 0) {
-                        alert('No inspection data found for this community');
+                        alert('No visit data found for this community');
                         return;
                     }
                     
@@ -8017,7 +8021,7 @@
                 }
             } catch (error) {
                 console.error('Error loading inspection details:', error);
-                alert('Error loading inspection details');
+                alert('Error loading visit details');
             }
         }
 
@@ -8078,7 +8082,7 @@
                 </div>
                 
                 <div class="responses-section">
-                    <div class="section-title"><i class="fas fa-clipboard-list"></i> Inspection Responses</div>
+                    <div class="section-title"><i class="fas fa-clipboard-list"></i> Visit Responses</div>
             `;
             
             // Add each response
@@ -8128,7 +8132,7 @@
                 photos.forEach(photoPath => {
                     modalContent += `
                         <div class="photo-item">
-                            <img src="${photoUrl(photoPath)}" alt="Inspection photo" onerror="this.parentElement.style.display='none'">
+                            <img src="${photoUrl(photoPath)}" alt="Visit photo" onerror="this.parentElement.style.display='none'">
                         </div>
                     `;
                 });
