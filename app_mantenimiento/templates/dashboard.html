@@ -62,9 +62,9 @@
            smears over a near-black page. */
         html[data-theme="dark"] .main-content::before {
             background:
-                radial-gradient(closest-side circle at 18% 12%, rgba(31,111,229,.20), transparent 70%),
-                radial-gradient(closest-side circle at 82% 8%,  rgba(30,64,120,.26), transparent 70%),
-                radial-gradient(closest-side circle at 55% 58%, rgba(88,60,180,.18), transparent 70%);
+                radial-gradient(1000px 700px at 15% 8%, rgba(31,111,229,.26), transparent 65%),
+                radial-gradient(900px 640px at 85% 2%,  rgba(30,64,120,.34), transparent 65%),
+                radial-gradient(850px 600px at 55% 55%, rgba(88,60,180,.24), transparent 65%);
         }
         /* The external theme.css paints the sidebar as a LIGHT theme with !important
            (incl. `.sidebar * { color:#1f2937 !important }`, which hits the label spans
@@ -316,10 +316,14 @@
             z-index: 0;
             pointer-events: none;
             will-change: transform, filter;
+            /* Explicit radii, not closest-side: on a viewport-sized layer a blob
+               near the top edge would get a radius of a few dozen pixels and
+               vanish. These are deliberately larger than the screen so the
+               colour reads as an atmosphere rather than three visible circles. */
             background:
-                radial-gradient(closest-side circle at 18% 12%, rgba(31,111,229,.16), transparent 70%),
-                radial-gradient(closest-side circle at 82% 8%,  rgba(99,179,237,.16), transparent 70%),
-                radial-gradient(closest-side circle at 55% 58%, rgba(139,92,246,.11), transparent 70%);
+                radial-gradient(1000px 700px at 15% 8%,  rgba(31,111,229,.22), transparent 65%),
+                radial-gradient(900px 640px at 85% 2%,   rgba(99,179,237,.22), transparent 65%),
+                radial-gradient(850px 600px at 55% 55%,  rgba(139,92,246,.15), transparent 65%);
             animation: ambientDrift 16s ease-in-out infinite alternate,
                        ambientTint  16s ease-in-out infinite alternate;
         }
