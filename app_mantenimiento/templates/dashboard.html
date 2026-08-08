@@ -4888,14 +4888,19 @@
                 // own once a later visit passes them.
                 let resolveUi = '';
                 if (manual) {
-                    resolveUi = item.resolved
+                    // Same rule as a failed standard: the community reports
+                    // progress by commenting, a regional closes it out.
+                    const closeUi = item.resolved
                         ? `<div class="ai-resolved">
                                <i class="fas fa-circle-check"></i> Done${item.resolvedBy ? ' by ' + escapeHtml(item.resolvedBy) : ''}
                                ${item.resolutionNote ? `<div class="ai-resolved-note">${escapeHtml(item.resolutionNote)}</div>` : ''}
-                               <button class="ai-reopen" onclick="reopenActionItem('${item.submissionId}','${item.itemId}')">Reopen</button>
+                               ${canVerifyFixes ? `<button class="ai-reopen" onclick="reopenActionItem('${item.submissionId}','${item.itemId}')">Reopen</button>` : ''}
                            </div>`
-                        : `<button class="ai-resolve-btn" onclick="resolveActionItem('${item.submissionId}','${item.itemId}')">
-                               <i class="fas fa-check"></i> Mark as done</button>`;
+                        : (canVerifyFixes
+                            ? `<button class="ai-resolve-btn" onclick="resolveActionItem('${item.submissionId}','${item.itemId}')">
+                                   <i class="fas fa-check"></i> Mark as done</button>`
+                            : `<div class="ai-await">A regional will review and close this out.</div>`);
+                    resolveUi = closeUi + commentsUi(item, null, item.itemId);
                 } else {
                     const qid = (item.questionId || '').replace(/'/g, "\\'");
                     // Closing an item is leadership's call; a community reports
@@ -4912,7 +4917,7 @@
                             ? `<button class="ai-resolve-btn" onclick="addressStandard('${item.submissionId}','${qid}')">
                                    <i class="fas fa-wrench"></i> Mark as addressed</button>`
                             : `<div class="ai-await">A regional will review and close this out.</div>`);
-                    resolveUi = closeUi + commentsUi(item, qid);
+                    resolveUi = closeUi + commentsUi(item, qid, null);
                 }
 
                 return `
@@ -4937,7 +4942,7 @@
            The community's channel: an ED reports that something is fixed and
            attaches a photo; leadership replies or asks for more. Nothing here
            changes the verdict or the score — closing the item is separate. */
-        function commentsUi(item, qid) {
+        function commentsUi(item, qid, itemId) {
             const list = (item.comments || []).map(c => {
                 const photo = c.photo_url || c.photo;
                 const mine = c.username === currentUsername;
@@ -4946,7 +4951,7 @@
                         <b>${escapeHtml(c.author || c.username || '')}</b>
                         <span>${timeAgo(c.at)}</span>
                         ${(mine || isAdmin) ? `<button class="cm-del" title="Delete this comment"
-                            onclick="deleteComment('${item.submissionId}','${qid}','${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
+                            onclick="deleteComment('${item.submissionId}','${qid || ''}','${c.id}','${itemId || ''}')"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                     ${c.text ? `<div class="cm-text">${escapeHtml(c.text)}</div>` : ''}
                     ${photo ? `<a class="cm-photo" href="${photoUrl(photo)}" target="_blank"><i class="fas fa-image"></i> Photo</a>` : ''}
@@ -4955,13 +4960,20 @@
             const n = (item.comments || []).length;
             return `<div class="cm-wrap">
                 ${n ? `<div class="cm-list">${list}</div>` : ''}
-                <button class="cm-add" onclick="openCommentBox('${item.submissionId}','${qid}')">
+                <button class="cm-add" onclick="openCommentBox('${item.submissionId}','${qid || ''}','${itemId || ''}')">
                     <i class="fas fa-comment-dots"></i> ${n ? 'Add a comment' : 'Comment on this'}
                 </button>
             </div>`;
         }
 
-        function openCommentBox(submissionId, questionId) {
+        function commentUrl(submissionId, questionId, itemId) {
+            const base = `/api/action-items/${encodeURIComponent(submissionId)}`;
+            return itemId
+                ? `${base}/item/${encodeURIComponent(itemId)}/comments`
+                : `${base}/standard/${encodeURIComponent(questionId)}/comments`;
+        }
+
+        function openCommentBox(submissionId, questionId, itemId) {
             const host = document.getElementById('personModal');
             const body = document.getElementById('personModalBody');
             body.innerHTML = `
@@ -4979,7 +4991,7 @@
                             <input id="cmPhoto" type="file" accept="image/*" class="pw-input" style="width:100%;"></div>
                     </div>
                     <div style="display:flex;gap:10px;align-items:center;margin-top:20px;">
-                        <button class="btn btn-primary" onclick="submitComment('${submissionId}','${questionId}')">
+                        <button class="btn btn-primary" onclick="submitComment('${submissionId}','${questionId}','${itemId || ''}')">
                             <i class="fas fa-paper-plane"></i> Post comment</button>
                         <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
                         <span class="pw-msg" id="cmMsg"></span>
@@ -4988,7 +5000,7 @@
             host.classList.add('show');
         }
 
-        async function submitComment(submissionId, questionId) {
+        async function submitComment(submissionId, questionId, itemId) {
             const msg = document.getElementById('cmMsg');
             msg.className = 'pw-msg';
             const text = (document.getElementById('cmText').value || '').trim();
@@ -4998,7 +5010,7 @@
                 msg.textContent = 'Write something or attach a photo.'; msg.classList.add('error'); return;
             }
             msg.textContent = 'Posting…';
-            const url = `/api/action-items/${encodeURIComponent(submissionId)}/standard/${encodeURIComponent(questionId)}/comments`;
+            const url = commentUrl(submissionId, questionId, itemId);
             try {
                 let r;
                 if (file) {
@@ -5020,11 +5032,11 @@
             } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
         }
 
-        async function deleteComment(submissionId, questionId, commentId) {
+        async function deleteComment(submissionId, questionId, commentId, itemId) {
             if (!confirm('Delete this comment?')) return;
             try {
                 const r = await fetch(
-                    `/api/action-items/${encodeURIComponent(submissionId)}/standard/${encodeURIComponent(questionId)}/comments/${encodeURIComponent(commentId)}`,
+                    `${commentUrl(submissionId, questionId, itemId)}/${encodeURIComponent(commentId)}`,
                     { method: 'DELETE' });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') { await loadInspections(); renderActionItems(); }
@@ -8153,6 +8165,7 @@
                                 resolvedAt: item.resolved_at || '',
                                 resolvedBy: item.resolved_by || '',
                                 resolutionNote: item.resolution_note || '',
+                                comments: item.comments || [],
                                 photoPath: null,
                                 username: submission.username,
                                 community: submission.community,

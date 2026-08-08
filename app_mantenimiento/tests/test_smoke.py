@@ -576,6 +576,59 @@ def test_community_history_is_scoped_and_adds_up():
         A.presence_service.forget("smoke.other")
 
 
+def test_one_rule_for_both_kinds_of_item():
+    """The community reports, leadership closes — with no exception for the
+    items raised by hand during a visit."""
+    comm = _a_community()
+    sub = A.inspection_service.create_submission(
+        username="admin", community=comm, inspector_name="Smoke Test",
+        responses=[{
+            "question_id": "smoke_q8", "question_text": "Welcome sign in lobby",
+            "condition": "Fail", "description": "No sign",
+            "answered_at": "2026-08-08T09:00:00",
+        }],
+        action_items=[{"text": "Sandwich boards keep falling over",
+                       "assigned_to": "Maintenance", "priority": "high"}])
+    sid = sub["id"]
+    item_id = sub["action_items"][0]["id"]
+    try:
+        ed = _client()
+        _as_role(ed, "staff", community=comm, name="smoke.ed")
+
+        # It can comment on both kinds of item...
+        for url in (f"/api/action-items/{sid}/standard/smoke_q8/comments",
+                    f"/api/action-items/{sid}/item/{item_id}/comments"):
+            r = ed.post(url, json={"text": "Handled today"}, headers=HDR)
+            assert r.status_code == 201, f"{url}: {r.get_data(as_text=True)}"
+
+        # ...and close neither.
+        assert ed.post(f"/api/action-items/{sid}/standard/smoke_q8/resolve",
+                       json={"resolved": True}, headers=HDR).status_code == 403
+        r = ed.post(f"/api/action-items/{sid}/{item_id}/resolve",
+                    json={"resolved": True}, headers=HDR)
+        assert r.status_code == 403, "a community must not close an ad-hoc item either"
+        assert "comment" in r.get_json()["message"].lower()
+
+        stored = next(s for s in A.inspection_service.get_all_submissions() if s["id"] == sid)
+        assert len(stored["responses"][0]["comments"]) == 1
+        assert len(stored["action_items"][0]["comments"]) == 1
+        assert not stored["action_items"][0].get("resolved"), "still open until leadership closes it"
+
+        # Leadership closes both.
+        boss = _client()
+        _as_admin(boss)
+        assert boss.post(f"/api/action-items/{sid}/standard/smoke_q8/resolve",
+                         json={"resolved": True}, headers=HDR).status_code == 200
+        assert boss.post(f"/api/action-items/{sid}/{item_id}/resolve",
+                         json={"resolved": True, "note": "Verified"},
+                         headers=HDR).status_code == 200
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") != sid]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.ed")
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

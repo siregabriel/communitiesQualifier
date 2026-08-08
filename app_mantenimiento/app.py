@@ -2648,6 +2648,104 @@ def add_standard_comment(submission_id, question_id):
     return jsonify({'status': 'success', 'comment': comment}), 201
 
 
+@app.route('/api/action-items/<submission_id>/item/<item_id>/comments', methods=['POST'])
+@login_required
+def add_item_comment(submission_id, item_id):
+    """Comment on an item the inspector raised by hand. Same contract as the
+    standards thread, so the community has one way to report progress."""
+    sub = next((s for s in inspection_service.get_all_submissions()
+                if s.get('id') == submission_id), None)
+    if not sub:
+        return jsonify({'status': 'error', 'message': 'Visit not found'}), 404
+    if not _can_see_community(sub.get('community')):
+        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        text = InputSanitizer.sanitize_description(request.form.get('text', ''))
+    else:
+        text = InputSanitizer.sanitize_description((request.get_json(silent=True) or {}).get('text', ''))
+
+    photo_path = ''
+    if 'photo' in request.files:
+        f = request.files['photo']
+        if f and f.filename:
+            is_valid, error_message = file_upload_handler.validate_file(f)
+            if not is_valid:
+                return jsonify({'status': 'error', 'message': error_message}), 400
+            try:
+                photo_path = file_upload_handler.save_file(
+                    f, session.get('user', 'user'), sub.get('community', ''))
+            except Exception as e:
+                app.logger.error(f'Comment photo upload failed: {e}')
+
+    if not text.strip() and not photo_path:
+        return jsonify({'status': 'error', 'message': 'Write a comment or attach a photo.'}), 400
+
+    comment = inspection_service.add_item_comment(
+        submission_id, item_id, session.get('user'),
+        resolve_display_name(session.get('user')), text, photo_path)
+    if comment is None:
+        return jsonify({'status': 'error', 'message': 'Item not found on this visit'}), 404
+
+    if photo_path and file_upload_handler.use_s3:
+        comment = {**comment, 'photo_url': file_upload_handler.generate_presigned_url(photo_path)}
+
+    item_text = next((i.get('text', '') for i in (sub.get('action_items') or [])
+                      if i.get('id') == item_id), '')
+    activity_service.log(session.get('user'), 'standard_commented',
+                         f"Commented on {item_text[:60]} at {sub.get('community')}",
+                         meta={'community': sub.get('community')})
+    try:
+        notify_item_comment(sub, item_text, comment)
+    except Exception as e:
+        app.logger.error(f'Comment notification failed: {e}')
+
+    return jsonify({'status': 'success', 'comment': comment}), 201
+
+
+@app.route('/api/action-items/<submission_id>/item/<item_id>/comments/<comment_id>',
+           methods=['DELETE'])
+@login_required
+def delete_item_comment(submission_id, item_id, comment_id):
+    """Delete a comment on an ad-hoc item. Authors and admins only."""
+    sub = next((s for s in inspection_service.get_all_submissions()
+                if s.get('id') == submission_id), None)
+    if not sub:
+        return jsonify({'status': 'error', 'message': 'Visit not found'}), 404
+    if not _can_see_community(sub.get('community')):
+        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+    ok = inspection_service.delete_item_comment(submission_id, item_id, comment_id,
+                                                session.get('user'), is_admin())
+    if not ok:
+        return jsonify({'status': 'error', 'message': 'You can only delete your own comments.'}), 403
+    return jsonify({'status': 'success'}), 200
+
+
+def notify_item_comment(sub, item_text, comment):
+    """Same audience as a comment on a standard: whoever is on the other side."""
+    if not email_service.enabled:
+        return
+    author = session.get('user')
+    recipients = []
+    inspector = sub.get('username')
+    if inspector and inspector != author:
+        acct = resolve_account_context(inspector)
+        if acct.get('email'):
+            recipients.append(acct['email'])
+    for addr in region_leader_emails(sub.get('community', '')):
+        if addr not in recipients:
+            recipients.append(addr)
+    for addr in community_account_emails(sub.get('community', ''), exclude_username=author):
+        if addr not in recipients:
+            recipients.append(addr)
+    if not recipients:
+        return
+    email_service.send_standard_comment(
+        recipients, sub.get('community', ''), item_text,
+        comment.get('author', ''), comment.get('text', ''),
+        bool(comment.get('photo')))
+
+
 @app.route('/api/action-items/<submission_id>/standard/<question_id>/comments/<comment_id>',
            methods=['DELETE'])
 @login_required
@@ -2771,20 +2869,27 @@ def resolve_failed_standard(submission_id, question_id):
 def resolve_action_item(submission_id, item_id):
     """Mark a manual action item as done (or reopen it), with an optional note.
 
-    The inspection itself is never edited — a submitted visit stays a faithful
-    record of what was seen that day. We only track the follow-up on top of it."""
+    The visit itself is never edited — it stays a faithful record of what was
+    seen that day. We only track the follow-up on top of it.
+
+    Closing is leadership's call, the same as for a failed standard. These items
+    don't affect the score, so the reason isn't integrity — it's that people
+    should only have to remember one rule: the community reports, a regional
+    closes. An exception here would be one more thing to explain."""
     data = request.get_json(silent=True) or {}
     resolved = bool(data.get('resolved', True))
     note = InputSanitizer.sanitize_description(data.get('note', ''))
 
-    # Respect the same scoping used everywhere else: you can only touch items
-    # for communities you're allowed to see.
     sub = next((s for s in inspection_service.get_all_submissions()
                 if s.get('id') == submission_id), None)
     if not sub:
-        return jsonify({'status': 'error', 'message': 'Inspection not found'}), 404
+        return jsonify({'status': 'error', 'message': 'Visit not found'}), 404
+    if not can_verify_fixes():
+        return jsonify({'status': 'error',
+                        'message': 'Only a regional, corporate or admin can close an item. '
+                                   'Add a comment to report that it is done.'}), 403
     if not is_admin():
-        allowed = set(regional_communities()) if current_role() == 'regional' else {session.get('community')}
+        allowed = set(regional_communities())
         if sub.get('community') not in allowed:
             return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
 
@@ -5009,6 +5114,15 @@ def get_inspections():
                             for c in r['comments']]
                     new_responses.append(r)
                 new_sub['responses'] = new_responses
+                # Ad-hoc items carry comment photos too.
+                if isinstance(sub.get('action_items'), list):
+                    new_sub['action_items'] = [
+                        ({**it, 'comments': [
+                            ({**c, 'photo_url': file_upload_handler.generate_presigned_url(c['photo'])}
+                             if c.get('photo') else c)
+                            for c in it['comments']]}
+                         if it.get('comments') else it)
+                        for it in sub['action_items']]
             enriched.append(new_sub)
 
         return jsonify({

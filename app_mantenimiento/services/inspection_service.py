@@ -146,6 +146,59 @@ class InspectionService(JsonFileBacked):
                     return comment
             return None
 
+    def add_item_comment(self, submission_id: str, item_id: str, username: str,
+                         display_name: str, text: str, photo: str = '') -> Optional[Dict]:
+        """Same conversation, on an item raised by hand during the visit.
+
+        These don't affect the score, but the rule people are asked to remember
+        should be one rule: the community reports, leadership closes. Splitting
+        it by item type would just be something else to explain."""
+        text = (text or '').strip()
+        if not text and not photo:
+            return None
+        with self._lock:
+            self._ensure_fresh()
+            for sub in self.submissions:
+                if sub.get('id') != submission_id:
+                    continue
+                for item in sub.get('action_items', []):
+                    if item.get('id') != item_id:
+                        continue
+                    comment = {
+                        'id': f"cm_{int(time.time() * 1000)}_{random.randint(1000, 9999)}",
+                        'username': (username or '').strip(),
+                        'author': (display_name or username or '').strip(),
+                        'text': text[:1000],
+                        'photo': (photo or '').strip(),
+                        'at': datetime.now().isoformat(),
+                    }
+                    item.setdefault('comments', []).append(comment)
+                    self.save_to_file()
+                    return comment
+            return None
+
+    def delete_item_comment(self, submission_id: str, item_id: str,
+                            comment_id: str, username: str, is_admin: bool = False) -> bool:
+        """Remove a comment from an ad-hoc item. Authors and admins only."""
+        with self._lock:
+            self._ensure_fresh()
+            for sub in self.submissions:
+                if sub.get('id') != submission_id:
+                    continue
+                for item in sub.get('action_items', []):
+                    if item.get('id') != item_id:
+                        continue
+                    comments = item.get('comments') or []
+                    for i, c in enumerate(comments):
+                        if c.get('id') != comment_id:
+                            continue
+                        if not is_admin and c.get('username') != username:
+                            return False
+                        comments.pop(i)
+                        self.save_to_file()
+                        return True
+            return False
+
     def delete_comment(self, submission_id: str, question_id: str,
                        comment_id: str, username: str, is_admin: bool = False) -> bool:
         """Remove a comment. Authors can delete their own; admins any."""
