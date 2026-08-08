@@ -884,6 +884,17 @@
             stroke: #ef4444;
         }
 
+        /* Recovered portion: drawn to the current score in a paler tone, with
+           the solid arc stopping at the visit's own score on top of it. */
+        .progress-recovered {
+            fill: none;
+            stroke: #9fe1cb;
+            stroke-width: 8;
+            stroke-dasharray: 283;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        html[data-theme="dark"] .progress-recovered { stroke: rgba(29,158,117,.45); }
+
         .progress-value {
             position: absolute;
             top: 50%;
@@ -3555,6 +3566,9 @@
                 
                 // Calculate stroke offset - full circle (283) when N/A
                 const strokeDashoffset = score !== 'N/A' ? Math.round(283 - (283 * score / 100)) : 283;
+                // Where the solid arc stops when part of the score was recovered.
+                const visitOffset = typeof community.visitScore === 'number'
+                    ? Math.round(283 - (283 * community.visitScore / 100)) : strokeDashoffset;
                 
                 const actionClass = community.actionItems > 0 ? 'has-actions' : '';
                 const hasData = community.score !== null;
@@ -3595,8 +3609,10 @@
                             <div class="circular-progress">
                                 <svg viewBox="0 0 100 100">
                                     <circle class="progress-bg" cx="50" cy="50" r="45"></circle>
-                                    <circle class="progress-bar ${progressClass}" cx="50" cy="50" r="45" 
-                                            style="stroke-dashoffset: ${strokeDashoffset}"></circle>
+                                    ${community.fixedSinceVisit ? `<circle class="progress-recovered" cx="50" cy="50" r="45"
+                                            style="stroke-dashoffset: ${strokeDashoffset}"></circle>` : ''}
+                                    <circle class="progress-bar ${progressClass}" cx="50" cy="50" r="45"
+                                            style="stroke-dashoffset: ${community.fixedSinceVisit ? visitOffset : strokeDashoffset}"></circle>
                                 </svg>
                                 <div class="progress-value ${scoreClass}">${score}${score !== 'N/A' ? '%' : ''}</div>
                             </div>
