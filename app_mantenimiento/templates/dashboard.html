@@ -1702,6 +1702,15 @@
         /* Small line under a community's score, shown only when fixes have been
            verified since the visit — otherwise the two numbers are identical
            and saying so twice is noise. */
+        .rc-ed { margin-left: 8px; font-size: 11px; font-weight: 600; color: #1f4f9e;
+            background: #eef4ff; border: 1px solid #d3e2fb; padding: 1px 7px; border-radius: 6px;
+            white-space: nowrap; }
+        .rc-ed i { opacity: .7; margin-right: 3px; }
+        .rc-noed { margin-left: 8px; font-size: 10px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .4px; color: #b42318; background: #fdeee9; border: 1px solid #f7c4ba;
+            padding: 1px 7px; border-radius: 6px; white-space: nowrap; }
+        html[data-theme="dark"] .rc-ed { background: rgba(31,111,229,.16); border-color: rgba(31,111,229,.4); color: #9cc4ff; }
+        html[data-theme="dark"] .rc-noed { background: rgba(209,50,18,.16); border-color: rgba(209,50,18,.4); color: #f0b8ab; }
         .score-note { text-align: center; font-size: 11px; color: #64748b; margin-top: -6px;
             margin-bottom: 10px; line-height: 1.4; }
         html[data-theme="dark"] .score-note { color: #9fb0c4; }
@@ -2359,6 +2368,8 @@
         let currentTypeFilter = 'all';
         let currentConditionFilter = 'all';
         let currentSurveyTypeFilter = 'all'; // Add survey type filter
+        // community name -> the accounts that run it day to day (its ED)
+        let communityDirectors = {};
         // Which slice of action items to show. Defaults to what is still open
         // on each community's most recent visit — the rest is history.
         let aiScope = 'open';
@@ -5997,6 +6008,7 @@
                     const data = await response.json();
                     if (data.status === 'success' && Array.isArray(data.regions)) {
                         regions = data.regions;
+                        communityDirectors = data.directors || {};
                     }
                 }
             } catch (error) {
@@ -6185,7 +6197,7 @@
                         ${chip('admin', 'Admins', d.counts.admin || 0)}
                         ${chip('corporate', 'Corporate', d.counts.corporate || 0)}
                         ${chip('regional', 'Regional', d.counts.regional || 0)}
-                        ${chip('staff', 'Staff', d.counts.staff || 0)}
+                        ${chip('staff', 'Community', d.counts.staff || 0)}
                     </div>
                     ${d.online_now ? `<span class="ppl-online" style="font-size:12px;"><span class="ppl-dot"></span> ${d.online_now} in the app now</span>` : ''}
                 </div>
@@ -6484,6 +6496,18 @@
             } catch (e) { alert('Network error.'); }
         }
 
+        /* Who runs this community, or a visible gap when nobody does.
+           Turnover is high and an unassigned community silently stops getting
+           its findings email, so the absence has to be as loud as the name. */
+        function directorTag(community) {
+            const eds = communityDirectors[community] || [];
+            if (!eds.length) {
+                return '<span class="rc-noed" title="No community director assigned — this community receives no findings email">no director</span>';
+            }
+            const names = eds.map(e => escapeHtml(e.name)).join(', ');
+            return `<span class="rc-ed" title="Community director"><i class="fas fa-user-tie"></i> ${names}</span>`;
+        }
+
         function renderRegions() {
             const gallery = document.getElementById('gallery');
 
@@ -6602,7 +6626,7 @@
                             const opts = regions.map(r =>
                                 `<option value="${r.id}" ${r.id === region.id ? 'selected' : ''}>${r.name}</option>`).join('');
                             return `<li id="comm_${rowId}">
-                                <span class="region-comm-name">${name}</span>
+                                <span class="region-comm-name">${name}${directorTag(name)}</span>
                                 <span class="region-comm-actions">
                                     <select class="region-move-select" title="Move to region"
                                             onchange="moveCommunity('${safe}', this.value)">${opts}</select>
@@ -6618,7 +6642,7 @@
                                 <button class="btn btn-secondary" onclick="renderRegions()">Cancel</button>
                             </li>`;
                         }
-                        return `<li><span class="region-comm-name">${name}</span><span class="region-comm-score">${sc}</span></li>`;
+                        return `<li><span class="region-comm-name">${name}${directorTag(name)}</span><span class="region-comm-score">${sc}</span></li>`;
                       }).join('')
                     : '<li class="region-empty-note">No communities</li>';
 

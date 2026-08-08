@@ -4257,9 +4257,29 @@ def get_regions():
                 for leader in region.get('leadership', [])
             ]
             enriched.append(r)
+
+        # Who runs each community day to day. Sent alongside the regions so the
+        # view can show it — and, more usefully, show where nobody is assigned.
+        # A community without an account stops receiving its findings email, and
+        # that failure is silent, so it needs to be visible somewhere.
+        directors = {}
+        for u in user_service.get_all():
+            if u.get('role') != 'staff':
+                continue
+            comm = (u.get('community') or '').strip()
+            if not comm:
+                continue
+            directors.setdefault(comm, []).append({
+                'username': u.get('username'),
+                'name': profile_service.get_display_name(u.get('username'))
+                        or u.get('display_name') or u.get('username'),
+                'email': (u.get('email') or '').strip(),
+            })
+
         return jsonify({
             'status': 'success',
-            'regions': enriched
+            'regions': enriched,
+            'directors': directors
         }), 200
     except Exception as e:
         app.logger.error(f'Error retrieving regions: {str(e)}')
