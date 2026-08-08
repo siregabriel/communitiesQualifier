@@ -3977,7 +3977,7 @@
                 { target: '[data-card="live"]', title: 'Live activity', text: 'Admin-only: who is signed in right now and what everyone has been doing — sign-ins, visits submitted, items marked as addressed, password and account changes. It refreshes on its own every 30 seconds. You also get a digest of all this by email once a day.' },
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Every community with its current score and open items. Open one and you get its latest visit in full, then its history: every past visit, and — most useful — which standards keep coming back. Anything marked "recurring" has failed three times or more.' },
                 { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile. The Corporate group at the end holds company-wide members who can visit any community." },
-                { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Each row also shows sign-in activity: a green "Active now" while someone is using the app, when they last signed in, or "Never signed in" if they haven\'t started yet. Open it for its own walkthrough.' },
+                { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and Executive Directors. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Each row also shows sign-in activity: a green "Active now" while someone is using the app, when they last signed in, or "Never signed in" if they haven\'t started yet. Open it for its own walkthrough.' },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the visit standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF — including any action items raised on visits.' },
                 { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything needing follow-up. It opens on what\'s still outstanding from each community\'s latest visit — use the chips to reach items already addressed or from earlier visits. When a community comments that something is fixed, you get an email; review it and use "Mark as addressed" to close it out. That\'s what lifts their current score, so the sign-off is yours, not theirs.' },
@@ -6130,7 +6130,7 @@
                 admin:     { label: 'Administrator', cls: 'pr-admin',  icon: 'fa-shield-halved' },
                 corporate: { label: 'Corporate',     cls: 'pr-corp',   icon: 'fa-building-columns' },
                 regional:  { label: 'Regional',      cls: 'pr-region', icon: 'fa-sitemap' },
-                staff:     { label: 'Staff',         cls: 'pr-staff',  icon: 'fa-user' },
+                staff:     { label: 'Executive Director', cls: 'pr-staff',  icon: 'fa-user-tie' },
             };
             const list = d.people.filter(p => {
                 if (peopleFilter.role !== 'all' && p.role !== peopleFilter.role) return false;
@@ -6197,7 +6197,7 @@
                         ${chip('admin', 'Admins', d.counts.admin || 0)}
                         ${chip('corporate', 'Corporate', d.counts.corporate || 0)}
                         ${chip('regional', 'Regional', d.counts.regional || 0)}
-                        ${chip('staff', 'Community', d.counts.staff || 0)}
+                        ${chip('staff', 'Directors', d.counts.staff || 0)}
                     </div>
                     ${d.online_now ? `<span class="ppl-online" style="font-size:12px;"><span class="ppl-dot"></span> ${d.online_now} in the app now</span>` : ''}
                 </div>
@@ -6227,7 +6227,7 @@
                             <select id="apRole" class="pw-input" style="width:100%;" onchange="apOnRoleChange()">
                                 <option value="regional">Regional — one region</option>
                                 <option value="corporate">Corporate — company-wide</option>
-                                <option value="staff">Community director — one community</option>
+                                <option value="staff">Executive Director — one community</option>
                                 <option value="admin">Administrator — full access</option>
                             </select></div>
                         <div id="apTitleWrap"><label class="mi-label">Title</label>
@@ -6333,7 +6333,7 @@
                             <input id="peEmail" class="pw-input" type="email" value="${escapeHtml(p.email || '')}" placeholder="name@atlasseniorliving.com" style="width:100%;"></div>
                         <div><label class="mi-label">Role</label>
                             <select id="peRole" class="pw-input" style="width:100%;" onchange="peOnRoleChange()">
-                                <option value="staff" ${p.role === 'staff' ? 'selected' : ''}>Community director — one community</option>
+                                <option value="staff" ${p.role === 'staff' ? 'selected' : ''}>Executive Director — one community</option>
                                 <option value="regional" ${p.role === 'regional' ? 'selected' : ''}>Regional — one region</option>
                                 <option value="corporate" ${p.role === 'corporate' ? 'selected' : ''}>Corporate — company-wide</option>
                                 <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>Administrator — full access</option>
@@ -6502,10 +6502,10 @@
         function directorTag(community) {
             const eds = communityDirectors[community] || [];
             if (!eds.length) {
-                return '<span class="rc-noed" title="No community director assigned — this community receives no findings email">no director</span>';
+                return '<span class="rc-noed" title="No Executive Director assigned — this community receives no findings email">no ED</span>';
             }
             const names = eds.map(e => escapeHtml(e.name)).join(', ');
-            return `<span class="rc-ed" title="Community director"><i class="fas fa-user-tie"></i> ${names}</span>`;
+            return `<span class="rc-ed" title="Executive Director"><i class="fas fa-user-tie"></i> ${names}</span>`;
         }
 
         function renderRegions() {
