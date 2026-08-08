@@ -765,6 +765,25 @@ def region_for_community(community):
     return None
 
 
+def community_account_emails(community, exclude_username=None):
+    """Email addresses of the accounts that belong to a community itself —
+    in practice its Executive Director. Empty until those accounts exist, so
+    this is safe to call before anyone is onboarded."""
+    community = (community or '').strip()
+    if not community:
+        return []
+    out = []
+    for u in user_service.get_all():
+        if u.get('role') != 'staff' or (u.get('community') or '').strip() != community:
+            continue
+        if exclude_username and u.get('username') == exclude_username:
+            continue
+        addr = (u.get('email') or '').strip()
+        if addr and addr not in out:
+            out.append(addr)
+    return out
+
+
 def region_leader_emails(community):
     """Email addresses of the leadership for the region that owns this community."""
     r = region_for_community(community)
@@ -2521,19 +2540,29 @@ def delete_standard_comment(submission_id, question_id, comment_id):
 
 
 def notify_comment(sub, question_id, comment):
-    """Email the inspector (and the region's leaders) that a community replied
-    on one of their findings. Best-effort: never blocks the comment."""
+    """Tell everyone on the other side of the conversation.
+
+    A comment travels both ways: when the community reports a fix, the
+    inspector and the region's leaders hear about it; when leadership replies
+    or asks for more, the community hears about it. Without the second half an
+    Executive Director would have to keep checking the app to notice a
+    question, which nobody does. Best-effort: never blocks the comment."""
     if not email_service.enabled:
         return
     standard = next((r.get('question_text', '') for r in sub.get('responses', [])
                      if r.get('question_id') == question_id), '')
+    author = session.get('user')
     recipients = []
     inspector = sub.get('username')
-    if inspector and inspector != session.get('user'):
+    if inspector and inspector != author:
         acct = resolve_account_context(inspector)
         if acct.get('email'):
             recipients.append(acct['email'])
     for addr in region_leader_emails(sub.get('community', '')):
+        if addr not in recipients:
+            recipients.append(addr)
+    # The community's own account, unless they are the one who just wrote.
+    for addr in community_account_emails(sub.get('community', ''), exclude_username=author):
         if addr not in recipients:
             recipients.append(addr)
     if not recipients:
@@ -4679,6 +4708,20 @@ def submit_inspection():
                     if q.get('text'):
                         criteria_map['t:' + q['text'].strip().lower()] = crit
                 email_service.send_inspection_report(submission, recipients, survey_name, criteria_map)
+
+                # The community gets its own, narrower email: what was found
+                # here and what to do about it — no score, no comparisons.
+                ed_emails = community_account_emails(community)
+                if ed_emails:
+                    failed = [r for r in (submission.get('responses') or [])
+                              if r.get('condition') == 'Fail']
+                    open_items = [i for i in (submission.get('action_items') or [])
+                                  if not i.get('resolved')]
+                    email_service.send_community_findings(
+                        ed_emails, community,
+                        submission.get('inspector_name') or submission.get('username') or '',
+                        (submission.get('submitted_at') or '')[:10],
+                        failed, open_items, criteria_map)
 
                 # Route any item-level comments directed to a company-level team
                 for route in settings_service.ROUTES:

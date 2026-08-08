@@ -516,6 +516,109 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
     # Company-level teams a comment can be directed to during a visit.
     ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations', 'sales': 'Sales'}
 
+    def send_community_findings(self, recipients, community, inspector, when,
+                                failed_items, action_items, criteria_map=None):
+        """What the community itself needs after a visit.
+
+        Deliberately not the leadership report: no score, no pass counts, no
+        comparison with anyone else. Just what was found here and what to do
+        about it. An Executive Director opening this on a phone should be able
+        to act without decoding a scorecard."""
+        if not self.enabled:
+            return (False, 'disabled')
+
+        def esc(s):
+            return html.escape(str(s or ''))
+
+        link = self.report_link(community)
+        button = (f"<div style='margin-top:20px'><a href='{esc(link)}' "
+                  f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                  f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
+                  f"Open in Atlas Standards</a></div>") if link else ""
+
+        total = len(failed_items) + len(action_items)
+        if not total:
+            subject = f"Visit complete — {community}: nothing outstanding"
+            body = (f"<p style='font-size:14px;margin:0 0 12px'>{esc(inspector)} visited "
+                    f"<b>{esc(community)}</b>{(' on ' + esc(when)) if when else ''}.</p>"
+                    f"<p style='font-size:15px;color:#0f8a5f;font-weight:700;margin:0'>"
+                    f"Everything passed — nothing needs your attention.</p>{button}")
+            text = (f"{inspector} visited {community}{(' on ' + when) if when else ''}.\n"
+                    "Everything passed — nothing needs your attention.\n")
+            return self._send(recipients, subject, self._shell("Visit complete", body), text)
+
+        def crit_html(item):
+            crit = self._criteria_for(item, criteria_map)
+            if not crit:
+                return ''
+            lis = ''.join(f"<li style='margin:2px 0'>{esc(c)}</li>" for c in crit)
+            return (f"<div style='font-size:12px;color:#6b7280;margin:6px 0 2px'>To pass, must include:</div>"
+                    f"<ul style='margin:0;padding-left:16px;color:#475569;font-size:12.5px'>{lis}</ul>")
+
+        std_rows = ''.join(
+            f"<li style='margin:14px 0'>"
+            f"<b style='font-size:14px;color:#0f1e36'>{esc(i.get('question_text', 'Item'))}</b>"
+            + (f"<div style='font-size:13px;color:#475569;margin-top:3px'>{esc(i.get('description'))}</div>"
+               if i.get('description') else "")
+            + crit_html(i) + "</li>"
+            for i in failed_items)
+
+        pr_color = {'high': '#b42318', 'medium': '#92620a', 'low': '#475569'}
+        act_rows = ''.join(
+            f"<li style='margin:10px 0'>"
+            f"<b style='color:{pr_color.get(i.get('priority'), '#92620a')};font-size:12px'>"
+            f"[{esc((i.get('priority') or 'medium').upper())}]</b> "
+            f"<span style='font-size:14px;color:#0f1e36'>{esc(i.get('text'))}</span>"
+            + (f"<div style='font-size:12.5px;color:#6b7280;margin-top:2px'>For: {esc(i.get('assigned_to'))}</div>"
+               if i.get('assigned_to') else "")
+            + "</li>"
+            for i in action_items)
+
+        blocks = ''
+        if failed_items:
+            blocks += (f"<h3 style='font-size:15px;color:#d13212;margin:20px 0 4px'>"
+                       f"Standards that need attention ({len(failed_items)})</h3>"
+                       f"<ul style='margin:0;padding-left:18px'>{std_rows}</ul>")
+        if action_items:
+            blocks += (f"<h3 style='font-size:15px;color:#d97706;margin:20px 0 4px'>"
+                       f"Other items flagged ({len(action_items)})</h3>"
+                       f"<ul style='margin:0;padding-left:18px'>{act_rows}</ul>")
+
+        subject = f"Action needed — {community}: {total} item{'s' if total != 1 else ''}"
+        body = (f"<p style='font-size:14px;margin:0 0 4px'>{esc(inspector)} visited "
+                f"<b>{esc(community)}</b>{(' on ' + esc(when)) if when else ''}. "
+                f"Here's what needs attention.</p>"
+                f"{blocks}"
+                f"<div style='margin-top:22px;padding:12px 14px;background:#f6f9ff;"
+                f"border-left:3px solid #cfe0fb;font-size:13px;color:#1f2937'>"
+                f"<b>What to do next.</b> As each one is handled, open it in Atlas Standards "
+                f"and add a comment saying what was done — a photo helps. Your regional will "
+                f"review it and close it out.</div>{button}")
+
+        text_lines = [f"{inspector} visited {community}{(' on ' + when) if when else ''}.",
+                      "Here's what needs attention.", ""]
+        if failed_items:
+            text_lines.append(f"STANDARDS THAT NEED ATTENTION ({len(failed_items)})")
+            for i in failed_items:
+                text_lines.append(f"  - {i.get('question_text', 'Item')}"
+                                  + (f": {i.get('description')}" if i.get('description') else ""))
+                for c in self._criteria_for(i, criteria_map):
+                    text_lines.append(f"      to pass: {c}")
+            text_lines.append("")
+        if action_items:
+            text_lines.append(f"OTHER ITEMS FLAGGED ({len(action_items)})")
+            for i in action_items:
+                text_lines.append(f"  - [{(i.get('priority') or 'medium').upper()}] {i.get('text')}"
+                                  + (f" (for: {i.get('assigned_to')})" if i.get('assigned_to') else ""))
+            text_lines.append("")
+        text_lines.append("As each one is handled, comment on it in Atlas Standards — a photo "
+                          "helps. Your regional will review and close it out.")
+        if link:
+            text_lines += ["", f"Open: {link}"]
+
+        return self._send(recipients, subject,
+                          self._shell("What needs attention", body), "\n".join(text_lines))
+
     def send_standard_comment(self, recipients, community, standard,
                               author, text, has_photo=False):
         """Tell the inspector that someone commented on one of their findings —
