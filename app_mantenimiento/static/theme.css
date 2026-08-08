@@ -644,7 +644,15 @@ textarea:focus {
     font-size: 13px;
 }
 .region-comm-list li:first-child { border-top: none; }
-.region-comm-name { color: var(--ink); }
+/* The name carries the Executive Director tag, so it has to be allowed to
+   shrink and wrap. Without min-width:0 a flex item refuses to go below its
+   content width and pushes the edit/delete buttons outside the card. */
+.region-comm-name {
+    color: var(--ink);
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 .region-comm-score { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
 .region-empty-note { color: var(--muted); font-size: 13px; font-style: italic; }
 
