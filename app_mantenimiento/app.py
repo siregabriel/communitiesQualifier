@@ -793,6 +793,18 @@ def community_account_emails(community, exclude_username=None):
     return out
 
 
+def role_label_for(role, community=None):
+    """How a role reads to a person, not how it's stored.
+
+    One place for this on purpose: the label was being built separately in each
+    email, so fixing one left the others saying "Staff"."""
+    if role == 'staff':
+        return f"Executive Director · {community}" if community else 'Executive Director'
+    return {'admin': 'Administrator',
+            'regional': 'Regional',
+            'corporate': 'Corporate'}.get(role, (role or '').capitalize())
+
+
 def send_community_handover(community, recipients):
     """Bring a new community account up to speed on what is already open.
 
@@ -2394,9 +2406,7 @@ def create_user():
     # Emails (best-effort; never block account creation):
     #  - welcome the new user with their login (if an email was given)
     #  - alert the configured admin-notify list
-    # For a community account the community itself is the meaningful label.
-    role_label = ({'admin': 'Administrator', 'regional': 'Regional'}.get(role)
-                  or (community if role == 'staff' and community else role.capitalize()))
+    role_label = role_label_for(role, community)
     emailed = False
     if email_service.enabled:
         try:
@@ -3078,18 +3088,16 @@ def create_person():
     emailed = False
     if email and email_service.enabled:
         try:
-            # "Staff" means nothing to an Executive Director. Name the community
-            # instead, so the person can see at a glance that they were assigned
-            # to the right place.
-            role_label = community if role == 'staff' and community else role.capitalize()
-            ok, _ = email_service.send_welcome(email, name, username, password, role_label)
+            ok, _ = email_service.send_welcome(email, name, username, password,
+                                               role_label_for(role, community))
             emailed = bool(ok)
         except Exception as e:
             app.logger.error(f'Welcome email failed: {e}')
     try:
         admin_notify = settings_service.get_email_settings().get('admin_notify', [])
         if admin_notify:
-            email_service.send_new_user_alert(admin_notify, name, username, role.capitalize(),
+            email_service.send_new_user_alert(admin_notify, name, username,
+                                              role_label_for(role, community),
                                               session.get('user'))
     except Exception:
         pass
