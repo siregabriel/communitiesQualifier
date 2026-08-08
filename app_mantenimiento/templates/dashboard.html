@@ -1650,6 +1650,38 @@
         html[data-theme="dark"] .ai-resolve-btn,
         html[data-theme="dark"] .ai-resolved { background: rgba(15,138,95,.16); border-color: rgba(15,138,95,.4); color: #5fd6a3; }
         .ai-resolved-hint { font-weight: 500; color: #6b8a7d; margin-top: 6px; font-size: 11.5px; line-height: 1.45; }
+        /* Comment thread on a failed standard */
+        /* Small line under a community's score, shown only when fixes have been
+           verified since the visit — otherwise the two numbers are identical
+           and saying so twice is noise. */
+        .score-note { text-align: center; font-size: 11px; color: #64748b; margin-top: -6px;
+            margin-bottom: 10px; line-height: 1.4; }
+        html[data-theme="dark"] .score-note { color: #9fb0c4; }
+        .ai-await { margin-top: 12px; padding: 9px 12px; background: #f6f8fb; border: 1px dashed #d9dfe8;
+            border-radius: 8px; font-size: 12px; color: #64748b; text-align: center; }
+        .cm-wrap { margin-top: 10px; }
+        .cm-list { border-top: 1px solid #eef2f7; padding-top: 8px; }
+        .cm { padding: 7px 0; border-bottom: 1px solid #f4f7fb; }
+        .cm:last-child { border-bottom: 0; }
+        .cm-head { display: flex; align-items: baseline; gap: 7px; font-size: 11.5px; }
+        .cm-head b { color: #0f1e36; font-size: 12px; }
+        .cm-head span { color: #94a3b8; }
+        .cm-del { margin-left: auto; background: none; border: none; color: #b0bac7;
+            cursor: pointer; font-size: 11px; padding: 2px 4px; }
+        .cm-del:hover { color: #d13212; }
+        .cm-text { font-size: 12.5px; color: #475569; line-height: 1.45; margin-top: 2px; }
+        .cm-photo { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px;
+            font-size: 11.5px; font-weight: 700; color: #1f6fe5; text-decoration: none; }
+        .cm-add { width: 100%; margin-top: 9px; padding: 9px; border: 1px solid #d9e3f2;
+            background: #f7faff; color: #1f4f9e; border-radius: 8px; font-size: 12.5px;
+            font-weight: 700; cursor: pointer; }
+        .cm-add:hover { background: #eef4ff; }
+        html[data-theme="dark"] .ai-await { background: #131d2c; border-color: #33425c; color: #9fb0c4; }
+        html[data-theme="dark"] .cm-list { border-top-color: #26324a; }
+        html[data-theme="dark"] .cm { border-bottom-color: #1e2940; }
+        html[data-theme="dark"] .cm-head b { color: #eef2f8; }
+        html[data-theme="dark"] .cm-text { color: #9fb0c4; }
+        html[data-theme="dark"] .cm-add { background: rgba(31,111,229,.12); border-color: rgba(31,111,229,.35); color: #9cc4ff; }
         .ai-fix-photo { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
             font-size: 12px; font-weight: 700; color: #0f6b4a; text-decoration: none; }
         .ai-fix-photo:hover { text-decoration: underline; }
@@ -2312,6 +2344,7 @@
             renderCommunityCards();
         }
         let isAdmin = false;
+        let canVerifyFixes = false;   // may close out a failed standard
         let currentUsername = '';
         let currentUserCommunity = '';
 
@@ -2368,27 +2401,36 @@
         });
 
         // Score Calculation Function
-        function calculateCommunityScore(responses) {
-            if (!responses || responses.length === 0) {
-                return null;
-            }
-            
-            const scoreMap = {
-                'Pass': 100,
-                'Fail': 0
-            };
+        /* Two numbers, deliberately.
 
-            let totalScore = 0;
-            let count = 0;
-            
-            responses.forEach(response => {
-                if (scoreMap.hasOwnProperty(response.condition)) {
-                    totalScore += scoreMap[response.condition];
-                    count++;
+           The VISIT score is what the inspector found that day. It never moves,
+           so history stays comparable and nobody can rewrite a past result.
+
+           The CURRENT score counts failures that a regional has since verified
+           as fixed. It answers "how is this community doing now?" without
+           waiting for another visit. Only verified fixes count — a community
+           commenting that something is done does not move it. */
+        function calculateCommunityScore(responses) {
+            return scoreBoth(responses).visit;
+        }
+
+        function scoreBoth(responses) {
+            if (!responses || responses.length === 0) return { visit: null, current: null, fixed: 0 };
+            let passed = 0, failed = 0, fixed = 0;
+            responses.forEach(r => {
+                if (r.condition === 'Pass') passed++;
+                else if (r.condition === 'Fail') {
+                    failed++;
+                    if (r.addressed || r.addressed_at) fixed++;
                 }
             });
-            
-            return count > 0 ? Math.round(totalScore / count) : null;
+            const total = passed + failed;
+            if (!total) return { visit: null, current: null, fixed: 0 };
+            return {
+                visit: Math.round(passed / total * 100),
+                current: Math.round((passed + fixed) / total * 100),
+                fixed,
+            };
         }
 
         // Load Survey Types
@@ -3246,19 +3288,25 @@
                         const latestSubmission = sortedSubmissions[0];
 
                         // Score comes only from the standards (Pass/Fail).
-                        const score = calculateCommunityScore(latestSubmission.responses);
+                        // `score` is what the community stands at today (verified
+                        // fixes counted); `visitScore` is the untouched record of
+                        // the visit itself.
+                        const sc = scoreBoth(latestSubmission.responses);
+                        const score = sc.current;
                         // Open work = failed standards + unresolved ad-hoc items.
                         // The ad-hoc ones are tasks, so they count here but never
                         // change the score.
                         const openManual = (latestSubmission.action_items || [])
                             .filter(i => !i.resolved).length;
                         const actionItems = countActionItems(latestSubmission.responses) + openManual;
-                        
+
                         communityData.push({
                             name: communityName,
                             lastVisit: formatDate(latestSubmission.submitted_at),
                             lastVisitTs: new Date(latestSubmission.submitted_at).getTime() || 0,
                             score: score,
+                            visitScore: sc.visit,
+                            fixedSinceVisit: sc.fixed,
                             actionItems: actionItems,
                             photoUrl: getCommunityPhoto(communityName)
                         });
@@ -3446,7 +3494,13 @@
                                 </svg>
                                 <div class="progress-value ${scoreClass}">${score}${score !== 'N/A' ? '%' : ''}</div>
                             </div>
-                            
+                            ${community.fixedSinceVisit
+                                ? `<div class="score-note" title="The big number counts fixes a regional has verified since the visit">
+                                       ${community.visitScore}% at the visit ·
+                                       ${community.fixedSinceVisit} fixed since
+                                   </div>`
+                                : ''}
+
                             <div class="action-items ${actionClass}">
                                 <i class="fas ${community.actionItems > 0 ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
                                 <span>${community.actionItems} Open Action${community.actionItems !== 1 ? 's' : ''}</span>
@@ -3545,6 +3599,7 @@
                 currentUsername = data.username;
                 currentUserCommunity = data.community;
                 isAdmin = data.is_admin;
+                canVerifyFixes = !!data.can_verify_fixes;
                 
                 // Update both user info displays (prefer the display name)
                 const displayName = data.display_name || data.username;
@@ -4682,16 +4737,21 @@
                                <i class="fas fa-check"></i> Mark as done</button>`;
                 } else {
                     const qid = (item.questionId || '').replace(/'/g, "\\'");
-                    resolveUi = item.addressed
+                    // Closing an item is leadership's call; a community reports
+                    // the fix through the comment thread instead.
+                    const closeUi = item.addressed
                         ? `<div class="ai-resolved">
                                <i class="fas fa-circle-check"></i> Addressed${item.addressedAt ? ' ' + formatDate(item.addressedAt) : ''}${item.addressedBy ? ' by ' + escapeHtml(item.addressedBy) : ''}
                                ${item.addressedNote ? `<div class="ai-resolved-note">${escapeHtml(item.addressedNote)}</div>` : ''}
                                ${item.addressedPhoto ? `<a class="ai-fix-photo" href="${photoUrl(item.addressedPhoto)}" target="_blank"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
                                <div class="ai-resolved-hint">Still counts as failed on this visit — it clears when a later visit passes it.</div>
-                               <button class="ai-reopen" onclick="reopenStandard('${item.submissionId}','${qid}')">Reopen</button>
+                               ${canVerifyFixes ? `<button class="ai-reopen" onclick="reopenStandard('${item.submissionId}','${qid}')">Reopen</button>` : ''}
                            </div>`
-                        : `<button class="ai-resolve-btn" onclick="addressStandard('${item.submissionId}','${qid}')">
-                               <i class="fas fa-wrench"></i> Mark as addressed</button>`;
+                        : (canVerifyFixes
+                            ? `<button class="ai-resolve-btn" onclick="addressStandard('${item.submissionId}','${qid}')">
+                                   <i class="fas fa-wrench"></i> Mark as addressed</button>`
+                            : `<div class="ai-await">A regional will review and close this out.</div>`);
+                    resolveUi = closeUi + commentsUi(item, qid);
                 }
 
                 return `
@@ -4710,6 +4770,105 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        /* ----- Comments on a failed standard -----
+           The community's channel: an ED reports that something is fixed and
+           attaches a photo; leadership replies or asks for more. Nothing here
+           changes the verdict or the score — closing the item is separate. */
+        function commentsUi(item, qid) {
+            const list = (item.comments || []).map(c => {
+                const photo = c.photo_url || c.photo;
+                const mine = c.username === currentUsername;
+                return `<div class="cm">
+                    <div class="cm-head">
+                        <b>${escapeHtml(c.author || c.username || '')}</b>
+                        <span>${timeAgo(c.at)}</span>
+                        ${(mine || isAdmin) ? `<button class="cm-del" title="Delete this comment"
+                            onclick="deleteComment('${item.submissionId}','${qid}','${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
+                    </div>
+                    ${c.text ? `<div class="cm-text">${escapeHtml(c.text)}</div>` : ''}
+                    ${photo ? `<a class="cm-photo" href="${photoUrl(photo)}" target="_blank"><i class="fas fa-image"></i> Photo</a>` : ''}
+                </div>`;
+            }).join('');
+            const n = (item.comments || []).length;
+            return `<div class="cm-wrap">
+                ${n ? `<div class="cm-list">${list}</div>` : ''}
+                <button class="cm-add" onclick="openCommentBox('${item.submissionId}','${qid}')">
+                    <i class="fas fa-comment-dots"></i> ${n ? 'Add a comment' : 'Comment on this'}
+                </button>
+            </div>`;
+        }
+
+        function openCommentBox(submissionId, questionId) {
+            const host = document.getElementById('personModal');
+            const body = document.getElementById('personModalBody');
+            body.innerHTML = `
+                <div>
+                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Add a comment</h2>
+                    <p style="font-size:12.5px;color:#64748b;line-height:1.5;margin-bottom:18px;">
+                        Use this to report what's been done, or to ask for more detail. It doesn't
+                        change the result of the visit — a regional closes the item out.
+                    </p>
+                    <div style="display:grid;gap:12px;">
+                        <div><label class="mi-label">Comment</label>
+                            <textarea id="cmText" class="pw-input" rows="4" style="width:100%;resize:vertical;"
+                                      placeholder="e.g. New sign ordered, arriving next week"></textarea></div>
+                        <div><label class="mi-label">Photo <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
+                            <input id="cmPhoto" type="file" accept="image/*" class="pw-input" style="width:100%;"></div>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;">
+                        <button class="btn btn-primary" onclick="submitComment('${submissionId}','${questionId}')">
+                            <i class="fas fa-paper-plane"></i> Post comment</button>
+                        <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
+                        <span class="pw-msg" id="cmMsg"></span>
+                    </div>
+                </div>`;
+            host.classList.add('show');
+        }
+
+        async function submitComment(submissionId, questionId) {
+            const msg = document.getElementById('cmMsg');
+            msg.className = 'pw-msg';
+            const text = (document.getElementById('cmText').value || '').trim();
+            const fileEl = document.getElementById('cmPhoto');
+            const file = fileEl && fileEl.files && fileEl.files[0];
+            if (!text && !file) {
+                msg.textContent = 'Write something or attach a photo.'; msg.classList.add('error'); return;
+            }
+            msg.textContent = 'Posting…';
+            const url = `/api/action-items/${encodeURIComponent(submissionId)}/standard/${encodeURIComponent(questionId)}/comments`;
+            try {
+                let r;
+                if (file) {
+                    const fd = new FormData();
+                    fd.append('text', text);
+                    fd.append('photo', file);
+                    r = await fetch(url, { method: 'POST', body: fd });
+                } else {
+                    r = await fetch(url, { method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text }) });
+                }
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    closePersonModal();
+                    await loadInspections();
+                    renderActionItems();
+                } else { msg.textContent = d.message || 'Could not post.'; msg.classList.add('error'); }
+            } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
+        }
+
+        async function deleteComment(submissionId, questionId, commentId) {
+            if (!confirm('Delete this comment?')) return;
+            try {
+                const r = await fetch(
+                    `/api/action-items/${encodeURIComponent(submissionId)}/standard/${encodeURIComponent(questionId)}/comments/${encodeURIComponent(commentId)}`,
+                    { method: 'DELETE' });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') { await loadInspections(); renderActionItems(); }
+                else { alert(d.message || 'Could not delete the comment.'); }
+            } catch (e) { alert('Network error.'); }
         }
 
         // ----- Failed standards: record that they were addressed between visits -----
@@ -7791,6 +7950,7 @@
                                 addressedBy: response.addressed_by || '',
                                 addressedNote: response.addressed_note || '',
                                 addressedPhoto: response.addressed_photo_url || response.addressed_photo || '',
+                                comments: response.comments || [],
                                 username: submission.username,
                                 community: submission.community,
                                 surveyTypeId: submission.survey_type_id, // Add survey type ID

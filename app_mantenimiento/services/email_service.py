@@ -516,6 +516,33 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
     # Company-level teams a comment can be directed to during a visit.
     ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations', 'sales': 'Sales'}
 
+    def send_standard_comment(self, recipients, community, standard,
+                              author, text, has_photo=False):
+        """Tell the inspector that someone commented on one of their findings —
+        usually the community reporting that it has been fixed."""
+        if not self.enabled:
+            return (False, 'disabled')
+        subject = f"New comment — {community}: {standard[:60]}"
+        photo_line = ("<p style='font-size:13px;color:#6b7280;margin:8px 0 0'>"
+                      "A photo was attached — open the item to see it.</p>") if has_photo else ""
+        link = self.report_link(community)
+        button = (f"<div style='margin-top:18px'><a href='{html.escape(link)}' "
+                  f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                  f"font-weight:700;padding:11px 20px;border-radius:8px;font-size:14px'>"
+                  f"Review the item</a></div>") if link else ""
+        body = (f"<p style='font-size:14px;margin:0 0 4px'><b>{html.escape(author)}</b> commented on"
+                f" <b>{html.escape(standard)}</b> at {html.escape(community)}.</p>"
+                f"<blockquote style='margin:12px 0;padding:10px 14px;border-left:3px solid #cfe0fb;"
+                f"background:#f6f9ff;font-size:14px;color:#1f2937'>{html.escape(text)}</blockquote>"
+                f"{photo_line}"
+                f"<p style='font-size:12.5px;color:#6b7280;margin:14px 0 0'>The item is still open. "
+                f"Once you're satisfied it's resolved, mark it as addressed.</p>{button}")
+        text_body = (f"{author} commented on {standard} at {community}:\n\n  {text}\n"
+                     + ("\n(a photo was attached)\n" if has_photo else "")
+                     + "\nThe item is still open until a regional marks it as addressed.\n"
+                     + (f"\nReview it: {link}\n" if link else ""))
+        return self._send(recipients, subject, self._shell("New comment", body), text_body)
+
     def send_directed_comments(self, recipients, route, submission, items):
         """Email a company-level team the comments an inspector directed to them."""
         if not self.enabled:

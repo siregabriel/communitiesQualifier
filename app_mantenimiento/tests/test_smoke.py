@@ -410,6 +410,102 @@ def test_response_accepts_sales_route():
         A.inspection_service.save_to_file()
 
 
+def _seed_failed_visit(community, qid="smoke_q4"):
+    """A submitted visit with one failed standard, for the follow-up tests."""
+    return A.inspection_service.create_submission(
+        username="admin", community=community, inspector_name="Smoke Test",
+        responses=[{
+            "question_id": qid, "question_text": "Welcome sign in lobby",
+            "condition": "Fail", "description": "No sign in the lobby",
+            "answered_at": "2026-08-06T09:00:00",
+        }])
+
+
+def test_community_account_can_comment_but_not_close():
+    """The heart of the agreed model: an Executive Director reports the fix,
+    leadership verifies it. A community must never close its own item."""
+    comm = _a_community()
+    sub = _seed_failed_visit(comm)
+    sid = sub["id"]
+    base = f"/api/action-items/{sid}/standard/smoke_q4"
+    try:
+        ed = _client()
+        _as_role(ed, "staff", community=comm, name="smoke.ed")
+
+        # It can comment...
+        r = ed.post(f"{base}/comments", json={"text": "New sign ordered, arrives Friday"},
+                    headers=HDR)
+        assert r.status_code == 201, r.get_data(as_text=True)
+        assert r.get_json()["comment"]["text"] == "New sign ordered, arrives Friday"
+
+        # ...but it cannot mark the item as addressed.
+        r = ed.post(f"{base}/resolve", json={"resolved": True}, headers=HDR)
+        assert r.status_code == 403, "a community account must not close its own item"
+        assert "regional" in r.get_json()["message"].lower()
+
+        # The comment is stored on the response, and the verdict is untouched.
+        stored = next(s for s in A.inspection_service.get_all_submissions() if s["id"] == sid)
+        resp = stored["responses"][0]
+        assert len(resp["comments"]) == 1
+        assert resp["condition"] == "Fail" and not resp.get("addressed")
+
+        # A regional reviewing it can close it out.
+        boss = _client()
+        _as_admin(boss)
+        r = boss.post(f"{base}/resolve", json={"resolved": True, "note": "Verified on site"},
+                      headers=HDR)
+        assert r.status_code == 200, r.get_data(as_text=True)
+        assert r.get_json()["response"]["addressed"] is True
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") != sid]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.ed")
+
+
+def test_comment_authorship_and_scope():
+    """Comments are scoped to the community, and only the author (or an admin)
+    can delete one."""
+    comm = _a_community()
+    sub = _seed_failed_visit(comm, qid="smoke_q5")
+    sid = sub["id"]
+    base = f"/api/action-items/{sid}/standard/smoke_q5"
+    try:
+        ed = _client()
+        _as_role(ed, "staff", community=comm, name="smoke.ed")
+        cid = ed.post(f"{base}/comments", json={"text": "Fixed"}, headers=HDR).get_json()["comment"]["id"]
+
+        # Someone from another community cannot see or comment on it.
+        outsider = _client()
+        _as_role(outsider, "staff", community="Some Other Place", name="smoke.other")
+        assert outsider.post(f"{base}/comments", json={"text": "nope"},
+                             headers=HDR).status_code == 403
+        assert outsider.delete(f"{base}/comments/{cid}", headers=HDR).status_code == 403
+
+        # An empty comment is refused rather than stored blank.
+        assert ed.post(f"{base}/comments", json={"text": "   "}, headers=HDR).status_code == 400
+
+        # The author can delete their own.
+        assert ed.delete(f"{base}/comments/{cid}", headers=HDR).status_code == 200
+        stored = next(s for s in A.inspection_service.get_all_submissions() if s["id"] == sid)
+        assert stored["responses"][0].get("comments") == []
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") != sid]
+        A.inspection_service.save_to_file()
+        for u in ("smoke.ed", "smoke.other"):
+            A.presence_service.forget(u)
+
+
+def test_leaderboard_hidden_from_community_accounts():
+    c = _client()
+    _as_role(c, "staff", community=_a_community(), name="smoke.ed")
+    assert c.get("/api/leaderboard").status_code == 403
+    _as_admin(c)
+    assert c.get("/api/leaderboard").status_code == 200
+    A.presence_service.forget("smoke.ed")
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

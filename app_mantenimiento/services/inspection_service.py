@@ -114,6 +114,60 @@ class InspectionService(JsonFileBacked):
                     return resp
             return None
 
+    def add_comment(self, submission_id: str, question_id: str, username: str,
+                    display_name: str, text: str, photo: str = '') -> Optional[Dict]:
+        """Append a comment to a failed standard.
+
+        Comments are the community's channel: an Executive Director reports that
+        something is fixed and attaches a photo, and leadership replies or asks
+        for more. None of this touches the verdict or the score — closing the
+        item stays a separate, deliberate act by a regional."""
+        text = (text or '').strip()
+        if not text and not photo:
+            return None
+        with self._lock:
+            self._ensure_fresh()
+            for sub in self.submissions:
+                if sub.get('id') != submission_id:
+                    continue
+                for resp in sub.get('responses', []):
+                    if resp.get('question_id') != question_id:
+                        continue
+                    comment = {
+                        'id': f"cm_{int(time.time() * 1000)}_{random.randint(1000, 9999)}",
+                        'username': (username or '').strip(),
+                        'author': (display_name or username or '').strip(),
+                        'text': text[:1000],
+                        'photo': (photo or '').strip(),
+                        'at': datetime.now().isoformat(),
+                    }
+                    resp.setdefault('comments', []).append(comment)
+                    self.save_to_file()
+                    return comment
+            return None
+
+    def delete_comment(self, submission_id: str, question_id: str,
+                       comment_id: str, username: str, is_admin: bool = False) -> bool:
+        """Remove a comment. Authors can delete their own; admins any."""
+        with self._lock:
+            self._ensure_fresh()
+            for sub in self.submissions:
+                if sub.get('id') != submission_id:
+                    continue
+                for resp in sub.get('responses', []):
+                    if resp.get('question_id') != question_id:
+                        continue
+                    comments = resp.get('comments') or []
+                    for i, c in enumerate(comments):
+                        if c.get('id') != comment_id:
+                            continue
+                        if not is_admin and c.get('username') != username:
+                            return False
+                        comments.pop(i)
+                        self.save_to_file()
+                        return True
+            return False
+
     def resolve_action_item(self, submission_id: str, item_id: str, username: str,
                             note: str = '', resolved: bool = True) -> Optional[Dict]:
         """Mark a manual action item as done (or reopen it). The original

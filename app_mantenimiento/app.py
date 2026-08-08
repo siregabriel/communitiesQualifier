@@ -720,6 +720,16 @@ def is_admin():
     return bool(session.get('admin_extra'))
 
 
+def can_verify_fixes():
+    """Who may close out a failed standard.
+
+    Community-level accounts (Executive Directors) report a fix by commenting;
+    a regional, corporate member or admin reviews it and marks it addressed.
+    Keeping those two apart is what makes the current score trustworthy — a
+    community can never raise its own number."""
+    return is_admin() or current_role() == 'regional'
+
+
 def all_communities():
     """Every community assigned to any region (org-wide scope)."""
     names = []
@@ -1254,6 +1264,9 @@ def get_profile():
             'display_name': profile_service.get_display_name(username) or session.get('display_name') or '',
             'community': display_community,
             'is_admin': has_admin_access,
+            # Whether this user may close out a failed standard. Community
+            # accounts report fixes by commenting; leadership verifies them.
+            'can_verify_fixes': can_verify_fixes(),
             'role': role_label,
             'photo': profile_service.get_photo(username),
             'last_active': activity_service.last_active(username),
@@ -1577,8 +1590,14 @@ def person_profile():
 @app.route('/api/leaderboard')
 @login_required
 def leaderboard():
-    """Global team leaderboard: top by number of inspections and by pass rate.
-    Cross-region by design (visible to everyone) to encourage competition."""
+    """Team leaderboard: top by number of visits and by pass rate.
+
+    Cross-region by design, to encourage competition among the people who do
+    the visits. Community-level accounts (Executive Directors) are deliberately
+    excluded: they only ever see their own community, and a company-wide
+    ranking of regionals is not theirs to browse."""
+    if not (is_admin() or current_role() == 'regional'):
+        return jsonify({'status': 'error', 'message': 'Not available for this account'}), 403
     agg = {}
     for s in inspection_service.get_all_submissions():
         key = s.get('inspector_name') or resolve_display_name(s.get('username', '')) or s.get('username', '?')
@@ -2414,21 +2433,141 @@ def admin_reset_password():
                     'email': acct.get('email') or ''}), 200
 
 
+def _can_see_community(community):
+    """Everyone sees their own scope: admins everywhere, regional/corporate
+    across their communities, a community account only its own."""
+    if is_admin():
+        return True
+    if current_role() == 'regional':
+        return community in set(regional_communities())
+    return community == session.get('community')
+
+
+@app.route('/api/action-items/<submission_id>/standard/<question_id>/comments', methods=['POST'])
+@login_required
+def add_standard_comment(submission_id, question_id):
+    """Post a comment on a failed standard, optionally with a photo.
+
+    This is how a community reports that something has been fixed. It never
+    changes the verdict or the score — a regional still has to review it and
+    mark the item as addressed."""
+    sub = next((s for s in inspection_service.get_all_submissions()
+                if s.get('id') == submission_id), None)
+    if not sub:
+        return jsonify({'status': 'error', 'message': 'Visit not found'}), 404
+    if not _can_see_community(sub.get('community')):
+        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        text = InputSanitizer.sanitize_description(request.form.get('text', ''))
+    else:
+        text = InputSanitizer.sanitize_description((request.get_json(silent=True) or {}).get('text', ''))
+
+    photo_path = ''
+    if 'photo' in request.files:
+        f = request.files['photo']
+        if f and f.filename:
+            is_valid, error_message = file_upload_handler.validate_file(f)
+            if not is_valid:
+                return jsonify({'status': 'error', 'message': error_message}), 400
+            try:
+                photo_path = file_upload_handler.save_file(
+                    f, session.get('user', 'user'), sub.get('community', ''))
+            except Exception as e:
+                app.logger.error(f'Comment photo upload failed: {e}')
+
+    if not text.strip() and not photo_path:
+        return jsonify({'status': 'error', 'message': 'Write a comment or attach a photo.'}), 400
+
+    comment = inspection_service.add_comment(
+        submission_id, question_id, session.get('user'),
+        resolve_display_name(session.get('user')), text, photo_path)
+    if comment is None:
+        return jsonify({'status': 'error', 'message': 'Standard not found on this visit'}), 404
+
+    if photo_path and file_upload_handler.use_s3:
+        comment = {**comment, 'photo_url': file_upload_handler.generate_presigned_url(photo_path)}
+
+    activity_service.log(session.get('user'), 'standard_commented',
+                         f"Commented on {next((r.get('question_text', '') for r in sub.get('responses', []) if r.get('question_id') == question_id), '')[:60]} "
+                         f"at {sub.get('community')}",
+                         meta={'community': sub.get('community')})
+
+    # Tell the person who ran the visit that the community replied.
+    try:
+        notify_comment(sub, question_id, comment)
+    except Exception as e:
+        app.logger.error(f'Comment notification failed: {e}')
+
+    return jsonify({'status': 'success', 'comment': comment}), 201
+
+
+@app.route('/api/action-items/<submission_id>/standard/<question_id>/comments/<comment_id>',
+           methods=['DELETE'])
+@login_required
+def delete_standard_comment(submission_id, question_id, comment_id):
+    """Delete a comment. Authors can remove their own; admins can remove any."""
+    sub = next((s for s in inspection_service.get_all_submissions()
+                if s.get('id') == submission_id), None)
+    if not sub:
+        return jsonify({'status': 'error', 'message': 'Visit not found'}), 404
+    if not _can_see_community(sub.get('community')):
+        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+    ok = inspection_service.delete_comment(submission_id, question_id, comment_id,
+                                           session.get('user'), is_admin())
+    if not ok:
+        return jsonify({'status': 'error', 'message': 'You can only delete your own comments.'}), 403
+    return jsonify({'status': 'success'}), 200
+
+
+def notify_comment(sub, question_id, comment):
+    """Email the inspector (and the region's leaders) that a community replied
+    on one of their findings. Best-effort: never blocks the comment."""
+    if not email_service.enabled:
+        return
+    standard = next((r.get('question_text', '') for r in sub.get('responses', [])
+                     if r.get('question_id') == question_id), '')
+    recipients = []
+    inspector = sub.get('username')
+    if inspector and inspector != session.get('user'):
+        acct = resolve_account_context(inspector)
+        if acct.get('email'):
+            recipients.append(acct['email'])
+    for addr in region_leader_emails(sub.get('community', '')):
+        if addr not in recipients:
+            recipients.append(addr)
+    if not recipients:
+        return
+    email_service.send_standard_comment(
+        recipients, sub.get('community', ''), standard,
+        comment.get('author', ''), comment.get('text', ''),
+        bool(comment.get('photo')))
+
+
 @app.route('/api/action-items/<submission_id>/standard/<question_id>/resolve', methods=['POST'])
 @login_required
 def resolve_failed_standard(submission_id, question_id):
     """Mark a failed standard as addressed between visits.
 
-    This never edits the inspection: the item still reads Fail and the score is
-    unchanged. It records who fixed it, when, an optional note and a photo of
-    the fix, so the team has a follow-up trail without rewriting history. A
-    later visit that passes the standard still clears it the usual way."""
+    This never edits the inspection: the item still reads Fail and the score of
+    that visit is unchanged. It records who verified the fix, when, an optional
+    note and a photo, so the team has a follow-up trail without rewriting
+    history. A later visit that passes the standard still clears it the usual
+    way.
+
+    Closing an item is deliberately reserved for leadership. A community can
+    report that something is fixed by commenting, but somebody from outside the
+    community confirms it — otherwise the "current" score would be self-awarded."""
     sub = next((s for s in inspection_service.get_all_submissions()
                 if s.get('id') == submission_id), None)
     if not sub:
         return jsonify({'status': 'error', 'message': 'Inspection not found'}), 404
+    if not can_verify_fixes():
+        return jsonify({'status': 'error',
+                        'message': 'Only a regional, corporate or admin can mark an item as '
+                                   'addressed. Add a comment to report that it is fixed.'}), 403
     if not is_admin():
-        allowed = set(regional_communities()) if current_role() == 'regional' else {session.get('community')}
+        allowed = set(regional_communities())
         if sub.get('community') not in allowed:
             return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
 
@@ -4651,6 +4790,12 @@ def get_inspections():
                     # as addressed between visits.
                     if r.get('addressed_photo'):
                         r['addressed_photo_url'] = file_upload_handler.generate_presigned_url(r['addressed_photo'])
+                    # Photos attached to comments need signing too.
+                    if r.get('comments'):
+                        r['comments'] = [
+                            ({**c, 'photo_url': file_upload_handler.generate_presigned_url(c['photo'])}
+                             if c.get('photo') else c)
+                            for c in r['comments']]
                     new_responses.append(r)
                 new_sub['responses'] = new_responses
             enriched.append(new_sub)
