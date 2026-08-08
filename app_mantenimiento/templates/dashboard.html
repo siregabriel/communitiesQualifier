@@ -1652,6 +1652,8 @@
         .ai-resolved-hint { font-weight: 500; color: #6b8a7d; margin-top: 6px; font-size: 11.5px; line-height: 1.45; }
         /* Comment thread on a failed standard */
         /* ===== Community history (slide panel) ===== */
+        .panel-stat-note { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.35; }
+        html[data-theme="dark"] .panel-stat-note { color: #9fb0c4; }
         .hist-loading, .hist-empty { font-size: 13px; color: #94a3b8; padding: 6px 0; }
         .hist-list { border-top: 1px solid #eef2f7; }
         .hist-row { display: flex; align-items: center; gap: 12px; padding: 11px 0;
@@ -2579,19 +2581,6 @@
             `;
         }
 
-        // Action Items Counter Function
-        function countActionItems(responses) {
-            if (!responses || responses.length === 0) {
-                return 0;
-            }
-            
-            const actionConditions = ['Fail'];
-
-            return responses.filter(response =>
-                actionConditions.includes(response.condition)
-                && !(response.addressed || response.addressed_at)
-            ).length;
-        }
 
         // Filter Inspections by Community Name
         function filterByCommunity(inspections, communityName) {
@@ -2616,53 +2605,6 @@
             });
         }
 
-        // Calculate Average Score from Inspections
-        function calculateScore(inspections) {
-            // Handle edge cases
-            if (!inspections || !Array.isArray(inspections)) {
-                return null;
-            }
-            
-            if (inspections.length === 0) {
-                return null;
-            }
-            
-            // Map condition types to numeric scores
-            function getConditionScore(condition) {
-                const scoreMap = {
-                    'Pass': 100,
-                    'Fail': 0
-                };
-
-                return scoreMap[condition] !== undefined ? scoreMap[condition] : null;
-            }
-            
-            let totalScore = 0;
-            let scoredCount = 0;
-            
-            // Calculate total score from all inspections with valid conditions
-            for (const inspection of inspections) {
-                if (!inspection || !inspection.condition) {
-                    continue;
-                }
-                
-                const conditionScore = getConditionScore(inspection.condition);
-                
-                if (conditionScore !== null) {
-                    totalScore += conditionScore;
-                    scoredCount++;
-                }
-            }
-            
-            // Return null if no scoreable inspections exist
-            if (scoredCount === 0) {
-                return null;
-            }
-            
-            // Calculate average and round to nearest integer
-            const averageScore = totalScore / scoredCount;
-            return Math.round(averageScore);
-        }
 
         // Count Action Items from Inspections
         function countActionItems(inspections) {
@@ -2862,13 +2804,19 @@
                     new Date(b.submitted_at) - new Date(a.submitted_at)
                 )[0];
                 
-                // Flatten all responses from all submissions for this community
-                const allResponses = communitySubmissions.flatMap(sub => sub.responses || []);
-                
-                // Calculate metrics
-                const score = calculateScore(allResponses);
-                const actionItems = countActionItems(allResponses);
-                
+                /* This panel is about the most recent visit — that's what the
+                   header says, and it's the rule the score follows everywhere
+                   else. It used to merge the responses of every visit ever,
+                   which produced a lifetime average that disagreed with the
+                   number on the community card. Earlier visits now live in the
+                   History section further down, where they belong. */
+                const latestResponses = latestSubmission.responses || [];
+
+                const sc = scoreBoth(latestResponses);
+                const openManual = (latestSubmission.action_items || [])
+                    .filter(i => !i.resolved).length;
+                const actionItems = countActionItems(latestResponses) + openManual;
+
                 // Get latest timestamp
                 const lastVisitDate = latestSubmission.submitted_at
                     ? new Date(latestSubmission.submitted_at).toLocaleDateString()
@@ -2880,23 +2828,17 @@
                     || '';
 
                 // Process responses and photos
-                const responses = groupResponsesByCondition(allResponses);
-                const photos = extractPhotos(allResponses);
-                
-                // Debug logging
-                console.log('Community:', communityName);
-                console.log('All responses:', allResponses);
-                console.log('Grouped responses:', responses);
-                console.log('Photos:', photos);
-                console.log('Score:', score);
-                console.log('Action items:', actionItems);
-                
+                const responses = groupResponsesByCondition(latestResponses);
+                const photos = extractPhotos(latestResponses);
+
                 // Build data object
                 const detailData = {
                     communityName: communityName,
                     lastVisitDate: lastVisitDate,
                     inspectorName: inspectorName,
-                    score: score,
+                    score: sc.current,
+                    visitScore: sc.visit,
+                    fixedSinceVisit: sc.fixed,
                     actionItems: actionItems,
                     responses: responses,
                     photos: photos,
@@ -3112,7 +3054,8 @@
             let html = panelCoverHtml(data.communityName);
             
             // Stats section
-            html += renderStats(data.score, data.actionItems);
+            html += renderStats(data.score, data.actionItems,
+                                data.visitScore, data.fixedSinceVisit);
             
             // Responses section
             html += renderResponses(data.responses);
@@ -3210,26 +3153,33 @@
         }
 
         // Render Stats Section
-        function renderStats(score, actionItems) {
-            const scoreClass = score === null ? 'na' : 
-                              score >= 80 ? 'success' : 
+        function renderStats(score, actionItems, visitScore, fixedSinceVisit) {
+            const scoreClass = score === null ? 'na' :
+                              score >= 80 ? 'success' :
                               score >= 50 ? 'warning' : 'danger';
-            
+
             const scoreDisplay = score === null ? 'N/A' : `${score}%`;
-            
+            // Same wording as the community card: the big number is where the
+            // community stands now, with the visit's own result named beneath
+            // it. Only shown when they differ, so it never states the obvious.
+            const note = fixedSinceVisit
+                ? `<div class="panel-stat-note">${visitScore}% at the visit · ${fixedSinceVisit} fixed since</div>`
+                : '';
+
             return `
                 <div class="panel-section">
                     <h3 class="panel-section-title">
                         <i class="fas fa-chart-line"></i>
-                        Performance Metrics
+                        Latest visit
                     </h3>
                     <div class="panel-stats">
                         <div class="panel-stat-card">
-                            <div class="panel-stat-label">Overall Score</div>
+                            <div class="panel-stat-label">${fixedSinceVisit ? 'Current score' : 'Score'}</div>
                             <div class="panel-stat-value ${scoreClass}">${scoreDisplay}</div>
+                            ${note}
                         </div>
                         <div class="panel-stat-card">
-                            <div class="panel-stat-label">Action Items</div>
+                            <div class="panel-stat-label">Open action items</div>
                             <div class="panel-stat-value ${actionItems > 0 ? 'danger' : 'success'}">${actionItems}</div>
                         </div>
                     </div>
