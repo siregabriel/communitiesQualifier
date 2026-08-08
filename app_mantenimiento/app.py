@@ -3410,7 +3410,7 @@ def admin_reset_inspections():
         purged = activity_service.purge_types(['inspection_submitted'])
 
         activity_service.log(session.get('user'), 'data_reset',
-                             f'Reset inspection data — {removed} inspections cleared')
+                             f'Reset visit data — {removed} visits cleared')
         app.logger.warning('INSPECTION DATA RESET by %s — %d submissions removed (backup: %s)',
                            session.get('user'), removed, ', '.join(saved) or 'none')
         return jsonify({'status': 'success', 'removed': removed,
@@ -4837,8 +4837,10 @@ def submit_inspection():
             session.modified = True
 
             # Audit log
+            # The event type stays as-is (it's a stored key other code filters
+            # on); only the sentence people read changes.
             activity_service.log(username, 'inspection_submitted',
-                                 f'Submitted inspection for {community}',
+                                 f'Submitted a visit for {community}',
                                  meta={'community': community})
             
         except ValueError as e:
