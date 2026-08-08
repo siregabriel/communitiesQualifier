@@ -1651,12 +1651,67 @@
         html[data-theme="dark"] .ai-resolved { background: rgba(15,138,95,.16); border-color: rgba(15,138,95,.4); color: #5fd6a3; }
         .ai-resolved-hint { font-weight: 500; color: #6b8a7d; margin-top: 6px; font-size: 11.5px; line-height: 1.45; }
         /* Comment thread on a failed standard */
+        /* ===== Community history (slide panel) ===== */
+        .hist-loading, .hist-empty { font-size: 13px; color: #94a3b8; padding: 6px 0; }
+        .hist-list { border-top: 1px solid #eef2f7; }
+        .hist-row { display: flex; align-items: center; gap: 12px; padding: 11px 0;
+            border-bottom: 1px solid #f2f5f9; }
+        .hist-when { flex: 1; min-width: 0; }
+        .hist-when b { display: block; font-size: 13.5px; color: #0f1e36; }
+        .hist-when span { font-size: 11.5px; color: #64748b; }
+        .hist-meta { display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+            font-size: 11.5px; flex-shrink: 0; }
+        .hist-fails { color: #b42318; font-weight: 600; }
+        .hist-clean { color: #0f6b4a; font-weight: 600; }
+        .hist-extra { color: #94a3b8; }
+        .hist-score { width: 68px; text-align: right; font-size: 16px; font-weight: 800; flex-shrink: 0; }
+        .hist-score small { display: block; font-size: 10.5px; font-weight: 600; color: #94a3b8; }
+
+        .trk-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 20px 0 8px; }
+        .trk-head b { font-size: 13.5px; color: #0f1e36; }
+        .trk-head span { font-size: 11.5px; color: #94a3b8; }
+        .trk-row { display: flex; align-items: center; gap: 10px; padding: 7px 0;
+            border-bottom: 1px solid #f6f8fb; }
+        .trk-name { flex: 1; min-width: 0; font-size: 12.5px; color: #0f1e36;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .trk-dots { display: flex; gap: 4px; flex-shrink: 0; }
+        .trk-count { width: 34px; text-align: right; font-size: 11.5px; font-weight: 700; color: #64748b; flex-shrink: 0; }
+        .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+        .dot-pass { background: #0f8a5f; }
+        .dot-fail { background: #d13212; }
+        .dot-fixed { background: #0f8a5f; box-shadow: inset 0 0 0 2px #fff, 0 0 0 1.5px #d13212; }
+        .dot-none { background: #e2e8f0; }
+        .hist-chronic { margin-left: 7px; font-size: 9.5px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .4px; color: #b42318; background: #fdeee9; border: 1px solid #f7c4ba;
+            padding: 1px 6px; border-radius: 5px; }
+        .trk-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px;
+            font-size: 11px; color: #64748b; }
+        .trk-legend span { display: inline-flex; align-items: center; gap: 5px; }
+        html[data-theme="dark"] .hist-list { border-top-color: #26324a; }
+        html[data-theme="dark"] .hist-row { border-bottom-color: #1e2940; }
+        html[data-theme="dark"] .hist-when b, html[data-theme="dark"] .trk-head b,
+        html[data-theme="dark"] .trk-name { color: #eef2f8; }
+        html[data-theme="dark"] .hist-when span { color: #9fb0c4; }
+        html[data-theme="dark"] .trk-row { border-bottom-color: #1a2334; }
+        html[data-theme="dark"] .dot-none { background: #33425c; }
+        html[data-theme="dark"] .dot-fixed { box-shadow: inset 0 0 0 2px #131d2c, 0 0 0 1.5px #d13212; }
+        html[data-theme="dark"] .hist-chronic { background: rgba(209,50,18,.16); border-color: rgba(209,50,18,.4); color: #f0b8ab; }
+
         /* Small line under a community's score, shown only when fixes have been
            verified since the visit — otherwise the two numbers are identical
            and saying so twice is noise. */
         .score-note { text-align: center; font-size: 11px; color: #64748b; margin-top: -6px;
             margin-bottom: 10px; line-height: 1.4; }
         html[data-theme="dark"] .score-note { color: #9fb0c4; }
+        .ai-scope { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+        .ai-chip { background: #fff; border: 1.5px solid #e4ebf5; color: #475569; border-radius: 999px;
+            padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .ai-chip span { opacity: .6; margin-left: 3px; }
+        .ai-chip:hover { border-color: #b9cbe6; }
+        .ai-chip.on { background: #00285c; border-color: #00285c; color: #fff; }
+        .ai-chip.on span { opacity: .75; }
+        html[data-theme="dark"] .ai-chip { background: #161f2e; border-color: #33425c; color: #c2cddd; }
+        html[data-theme="dark"] .ai-chip.on { background: #1f6fe5; border-color: #1f6fe5; color: #fff; }
         .ai-await { margin-top: 12px; padding: 9px 12px; background: #f6f8fb; border: 1px dashed #d9dfe8;
             border-radius: 8px; font-size: 12px; color: #64748b; text-align: center; }
         .cm-wrap { margin-top: 10px; }
@@ -2302,6 +2357,9 @@
         let currentTypeFilter = 'all';
         let currentConditionFilter = 'all';
         let currentSurveyTypeFilter = 'all'; // Add survey type filter
+        // Which slice of action items to show. Defaults to what is still open
+        // on each community's most recent visit — the rest is history.
+        let aiScope = 'open';
         let currentView = 'dashboard'; // dashboard, reports, my-visits, communities, action-items
         let viewRenderTimer = null; // guards the deferred view render so it can't get stuck
         let regions = []; // regional structure (leadership + community assignments)
@@ -3061,8 +3119,94 @@
             
             // Photos section
             html += renderPhotos(data.photos);
-            
+
+            // History, fetched on demand so the dashboard's initial load never
+            // grows with years of past visits.
+            html += `<div class="panel-section" id="panelHistory">
+                        <h3 class="panel-section-title"><i class="fas fa-clock-rotate-left"></i> History</h3>
+                        <div class="hist-loading">Loading past visits…</div>
+                     </div>`;
+
             panelBody.innerHTML = html;
+            loadCommunityHistory(data.communityName);
+        }
+
+        /* ===== Community history =====
+           Two questions people actually ask: "what happened over time here?"
+           and "what keeps going wrong?" The timeline answers the first, the
+           per-standard record the second — and the second is the one that
+           turns a pile of visits into something to act on. */
+        async function loadCommunityHistory(community) {
+            const host = document.getElementById('panelHistory');
+            if (!host) return;
+            let d;
+            try {
+                const r = await fetch(`/api/communities/${encodeURIComponent(community)}/history?track=6`);
+                d = await r.json();
+                if (!r.ok || d.status !== 'success') throw new Error();
+            } catch (e) {
+                host.innerHTML = '<h3 class="panel-section-title"><i class="fas fa-clock-rotate-left"></i> History</h3>'
+                    + '<div class="hist-empty">Could not load the history.</div>';
+                return;
+            }
+
+            if (!d.visits.length) {
+                host.innerHTML = '<h3 class="panel-section-title"><i class="fas fa-clock-rotate-left"></i> History</h3>'
+                    + '<div class="hist-empty">No visits recorded yet.</div>';
+                return;
+            }
+
+            const rows = d.visits.map(v => {
+                const improved = v.current_score !== null && v.current_score > v.visit_score;
+                return `<div class="hist-row">
+                    <div class="hist-when">
+                        <b>${escapeHtml(formatDate(v.submitted_at))}</b>
+                        <span>${escapeHtml(v.inspector || '')}${v.survey_type ? ' · ' + escapeHtml(v.survey_type) : ''}</span>
+                    </div>
+                    <div class="hist-meta">
+                        ${v.failed ? `<span class="hist-fails">${v.failed} failed${v.fixed ? ` · ${v.fixed} fixed` : ''}</span>` : '<span class="hist-clean">All passed</span>'}
+                        ${v.action_items ? `<span class="hist-extra">${v.action_items} flagged</span>` : ''}
+                        ${v.comments ? `<span class="hist-extra"><i class="fas fa-comment"></i> ${v.comments}</span>` : ''}
+                    </div>
+                    <div class="hist-score">
+                        <span style="color:${scoreColor(v.current_score)}">${v.current_score === null ? 'N/A' : v.current_score + '%'}</span>
+                        ${improved ? `<small>was ${v.visit_score}%</small>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Oldest on the left reads like a timeline.
+            const chronic = d.standards.filter(t => t.fails > 0);
+            const dots = chronic.map(t => {
+                const cells = t.results.slice().reverse().map(res => {
+                    if (res === null) return '<span class="dot dot-none" title="Not checked on this visit"></span>';
+                    if (res === 'pass') return '<span class="dot dot-pass" title="Passed"></span>';
+                    if (res === 'fixed') return '<span class="dot dot-fixed" title="Failed, later verified as fixed"></span>';
+                    return '<span class="dot dot-fail" title="Failed"></span>';
+                }).join('');
+                const badge = t.fails >= 3 ? '<span class="hist-chronic">recurring</span>' : '';
+                return `<div class="trk-row">
+                    <div class="trk-name">${escapeHtml(t.question_text)}${badge}</div>
+                    <div class="trk-dots">${cells}</div>
+                    <div class="trk-count">${t.fails}/${t.seen}</div>
+                </div>`;
+            }).join('');
+
+            host.innerHTML = `
+                <h3 class="panel-section-title"><i class="fas fa-clock-rotate-left"></i> History</h3>
+                <div class="hist-list">${rows}</div>
+                ${chronic.length ? `
+                    <div class="trk-head">
+                        <b>What keeps coming back</b>
+                        <span>Last ${Math.min(d.visits.length, 6)} visit${d.visits.length === 1 ? '' : 's'}, oldest first</span>
+                    </div>
+                    <div class="trk-list">${dots}</div>
+                    <div class="trk-legend">
+                        <span><span class="dot dot-pass"></span> passed</span>
+                        <span><span class="dot dot-fail"></span> failed</span>
+                        <span><span class="dot dot-fixed"></span> fixed after</span>
+                        <span><span class="dot dot-none"></span> not checked</span>
+                    </div>` : ''}`;
         }
 
         // Render Stats Section
@@ -4688,15 +4832,54 @@
             // Action items come from two places: standards that failed, and
             // items the inspector raised by hand during the visit.
             const actionConditions = ['Fail', 'Action'];
-            let actionItems = allInspections.filter(item => actionConditions.includes(item.condition));
-            
+            let pool = allInspections.filter(item => actionConditions.includes(item.condition));
+
             // Apply survey type filter if active
             if (currentSurveyTypeFilter !== 'all') {
-                actionItems = actionItems.filter(item => item.surveyTypeId === currentSurveyTypeFilter);
+                pool = pool.filter(item => item.surveyTypeId === currentSurveyTypeFilter);
             }
-            
+
+            /* Without this the list keeps every item from every visit ever, so
+               after a year it's mostly history nobody is acting on. Default to
+               what's outstanding on each community's most recent visit; the
+               rest stays one click away rather than in the way. */
+            const latestByCommunity = {};
+            pool.forEach(it => {
+                const t = new Date(it.submittedAt).getTime() || 0;
+                if (!latestByCommunity[it.community] || t > latestByCommunity[it.community]) {
+                    latestByCommunity[it.community] = t;
+                }
+            });
+            const isCurrentVisit = it =>
+                (new Date(it.submittedAt).getTime() || 0) === latestByCommunity[it.community];
+            const isClosedItem = it => it.type === 'manual-action' ? !!it.resolved : !!it.addressed;
+
+            const counts = {
+                open: pool.filter(it => isCurrentVisit(it) && !isClosedItem(it)).length,
+                done: pool.filter(it => isCurrentVisit(it) && isClosedItem(it)).length,
+                past: pool.filter(it => !isCurrentVisit(it)).length,
+            };
+
+            let actionItems;
+            if (aiScope === 'done') actionItems = pool.filter(it => isCurrentVisit(it) && isClosedItem(it));
+            else if (aiScope === 'past') actionItems = pool.filter(it => !isCurrentVisit(it));
+            else if (aiScope === 'all') actionItems = pool;
+            else actionItems = pool.filter(it => isCurrentVisit(it) && !isClosedItem(it));
+
+            const chip = (key, label, n) =>
+                `<button class="ai-chip ${aiScope === key ? 'on' : ''}" onclick="aiSetScope('${key}')">${label}${n !== undefined ? ` <span>${n}</span>` : ''}</button>`;
+            const bar = `<div class="ai-scope" style="grid-column:1/-1;">
+                    ${chip('open', 'Needs attention', counts.open)}
+                    ${chip('done', 'Addressed', counts.done)}
+                    ${chip('past', 'Earlier visits', counts.past)}
+                    ${chip('all', 'Everything', pool.length)}
+                </div>`;
+
             if (actionItems.length === 0) {
-                gallery.innerHTML = '<div class="empty-state"><i class="fas fa-check-circle"></i><p>No action items - all good!</p></div>';
+                const msg = aiScope === 'open'
+                    ? 'Nothing outstanding from the latest visits.'
+                    : 'Nothing here.';
+                gallery.innerHTML = bar + `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-check-circle"></i><p>${msg}</p></div>`;
                 return;
             }
             
@@ -4707,7 +4890,7 @@
             actionItems.sort((a, b) =>
                 (closed(a) === closed(b) ? 0 : (closed(a) ? 1 : -1)) || rank(a) - rank(b));
 
-            gallery.innerHTML = actionItems.map(item => {
+            gallery.innerHTML = bar + actionItems.map(item => {
                 const manual = item.type === 'manual-action';
 
                 // Priority badge — real levels for ad-hoc items; a failed standard
@@ -4880,6 +5063,11 @@
                 if (r.ok && d.status === 'success') { await loadInspections(); renderActionItems(); }
                 else { alert(d.message || 'Could not delete the comment.'); }
             } catch (e) { alert('Network error.'); }
+        }
+
+        function aiSetScope(scope) {
+            aiScope = scope;
+            renderActionItems();
         }
 
         // ----- Failed standards: record that they were addressed between visits -----

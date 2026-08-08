@@ -2475,6 +2475,88 @@ def _can_see_community(community):
     return community == session.get('community')
 
 
+@app.route('/api/communities/<path:community>/history')
+@login_required
+def community_history(community):
+    """Everything this community has been through, on demand.
+
+    Kept out of the bulk /api/inspections payload on purpose: that one is
+    fetched on every dashboard load, and history only grows. Asking for it per
+    community keeps the app fast however many years of visits pile up."""
+    community = InputSanitizer.sanitize_community_name(community or '')
+    if not community:
+        return jsonify({'status': 'error', 'message': 'Community is required'}), 400
+    if not _can_see_community(community):
+        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+
+    try:
+        track_limit = max(1, min(int(request.args.get('track', 6)), 24))
+    except (TypeError, ValueError):
+        track_limit = 6
+
+    subs = sorted(inspection_service.get_submissions_by_community(community),
+                  key=lambda s: s.get('submitted_at', ''), reverse=True)
+
+    visits = []
+    for s in subs:
+        responses = s.get('responses') or []
+        passed = sum(1 for r in responses if r.get('condition') == 'Pass')
+        failed = sum(1 for r in responses if r.get('condition') == 'Fail')
+        fixed = sum(1 for r in responses
+                    if r.get('condition') == 'Fail' and r.get('addressed'))
+        total = passed + failed
+        manual = s.get('action_items') or []
+        visits.append({
+            'id': s.get('id'),
+            'submitted_at': s.get('submitted_at'),
+            'inspector': s.get('inspector_name') or resolve_display_name(s.get('username', '')),
+            'survey_type': survey_type_service.get_survey_type_name(s.get('survey_type_id')) or '',
+            # Two numbers, same meaning as everywhere else: what was found that
+            # day, and where it stands now that fixes have been verified.
+            'visit_score': round(passed / total * 100) if total else None,
+            'current_score': round((passed + fixed) / total * 100) if total else None,
+            'passed': passed, 'failed': failed, 'fixed': fixed,
+            'action_items': len(manual),
+            'action_items_open': sum(1 for i in manual if not i.get('resolved')),
+            'comments': sum(len(r.get('comments') or []) for r in responses),
+        })
+
+    # Per-standard record across the most recent visits, newest first. This is
+    # what turns a pile of visits into "these three keep failing".
+    recent = subs[:track_limit]
+    track = {}
+    for idx, s in enumerate(recent):
+        for r in (s.get('responses') or []):
+            cond = r.get('condition')
+            if cond not in ('Pass', 'Fail'):
+                continue
+            key = r.get('question_id') or ('t:' + (r.get('question_text') or '').strip().lower())
+            rec = track.setdefault(key, {
+                'question_id': r.get('question_id', ''),
+                'question_text': r.get('question_text', ''),
+                'results': [None] * len(recent),
+                'fails': 0,
+                'seen': 0,
+            })
+            rec['results'][idx] = 'fixed' if (cond == 'Fail' and r.get('addressed')) else cond.lower()
+            rec['seen'] += 1
+            if cond == 'Fail':
+                rec['fails'] += 1
+
+    # Worst offenders first: most failures, then most recently failing.
+    standards = sorted(track.values(),
+                       key=lambda t: (-t['fails'], t['question_text'].lower()))
+
+    return jsonify({
+        'status': 'success',
+        'community': community,
+        'visits': visits,
+        'total_visits': len(visits),
+        'standards': standards,
+        'track_dates': [s.get('submitted_at') for s in recent],
+    }), 200
+
+
 @app.route('/api/action-items/<submission_id>/standard/<question_id>/comments', methods=['POST'])
 @login_required
 def add_standard_comment(submission_id, question_id):

@@ -537,6 +537,45 @@ def test_community_cannot_file_its_own_visit():
         A.presence_service.forget("smoke.ed")
 
 
+def test_community_history_is_scoped_and_adds_up():
+    """History is served per community, only to people who may see it, and its
+    two scores follow the same rule as everywhere else."""
+    comm = _a_community()
+    sub = _seed_failed_visit(comm, qid="smoke_q7")
+    sid = sub["id"]
+    try:
+        c = _client()
+        _as_admin(c)
+        d = c.get(f"/api/communities/{comm}/history").get_json()
+        assert d["status"] == "success"
+        v = next(x for x in d["visits"] if x["id"] == sid)
+        assert v["failed"] == 1 and v["fixed"] == 0
+        assert v["visit_score"] == 0 and v["current_score"] == 0
+
+        # Verifying the fix lifts the current score but never the visit score.
+        c.post(f"/api/action-items/{sid}/standard/smoke_q7/resolve",
+               json={"resolved": True}, headers=HDR)
+        v = next(x for x in c.get(f"/api/communities/{comm}/history").get_json()["visits"]
+                 if x["id"] == sid)
+        assert v["visit_score"] == 0, "the visit score must never move"
+        assert v["current_score"] == 100, "a verified fix lifts the current score"
+        assert v["fixed"] == 1
+
+        # The per-standard record carries that visit.
+        track = c.get(f"/api/communities/{comm}/history").get_json()["standards"]
+        assert any(t["question_text"] == "Welcome sign in lobby" for t in track)
+
+        # Somebody from another community cannot read it.
+        outsider = _client()
+        _as_role(outsider, "staff", community="Some Other Place", name="smoke.other")
+        assert outsider.get(f"/api/communities/{comm}/history").status_code == 403
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") != sid]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.other")
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")
