@@ -793,6 +793,38 @@ def community_account_emails(community, exclude_username=None):
     return out
 
 
+def send_community_handover(community, recipients):
+    """Bring a new community account up to speed on what is already open.
+
+    The work belongs to the community, not to whoever held the role, so someone
+    taking over inherits every open item and comment thread. This is the email
+    that tells them so, instead of letting them find a backlog by accident."""
+    if not email_service.enabled or not recipients:
+        return
+    subs = sorted(inspection_service.get_submissions_by_community(community),
+                  key=lambda s: s.get('submitted_at', ''), reverse=True)
+    latest = subs[0] if subs else None
+    failed, open_items, inspector, when = [], [], '', ''
+    if latest:
+        failed = [r for r in (latest.get('responses') or [])
+                  if r.get('condition') == 'Fail' and not r.get('addressed')]
+        open_items = [i for i in (latest.get('action_items') or []) if not i.get('resolved')]
+        inspector = latest.get('inspector_name') or resolve_display_name(latest.get('username', ''))
+        when = (latest.get('submitted_at') or '')[:10]
+
+    criteria_map = {}
+    for q in question_manager.get_all_active_questions():
+        crit = q.get('pass_criteria') or []
+        if q.get('id'):
+            criteria_map[q['id']] = crit
+        if q.get('text'):
+            criteria_map['t:' + q['text'].strip().lower()] = crit
+
+    email_service.send_community_findings(
+        recipients, community, inspector, when, failed, open_items,
+        criteria_map, handover=True)
+
+
 def region_leader_emails(community):
     """Email addresses of the leadership for the region that owns this community."""
     r = region_for_community(community)
@@ -2956,6 +2988,16 @@ def create_person():
                                               session.get('user'))
     except Exception:
         pass
+
+    # A community account inherits whatever is already open there. Turnover is
+    # constant, so somebody's first day is usually mid-conversation: send the
+    # current findings straight away rather than leaving them to discover a
+    # backlog on their own.
+    if role == 'staff' and community and email:
+        try:
+            send_community_handover(community, [email])
+        except Exception as e:
+            app.logger.error(f'Handover email failed: {e}')
 
     activity_service.log(session.get('user'), 'person_created',
                          f'Added {name} ({username}) as {role}')

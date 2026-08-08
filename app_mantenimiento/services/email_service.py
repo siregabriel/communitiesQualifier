@@ -517,7 +517,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
     ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations', 'sales': 'Sales'}
 
     def send_community_findings(self, recipients, community, inspector, when,
-                                failed_items, action_items, criteria_map=None):
+                                failed_items, action_items, criteria_map=None,
+                                handover=False):
         """What the community itself needs after a visit.
 
         Deliberately not the leadership report: no score, no pass counts, no
@@ -536,16 +537,41 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                   f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
                   f"Open in Atlas Standards</a></div>") if link else ""
 
+        # Two ways in: straight after a visit, or when somebody takes over the
+        # community and needs to know where things stand. Same content, and the
+        # opening line says which it is — arriving to a list of findings with no
+        # explanation is disorienting on your first day.
+        opener_html = (f"<p style='font-size:14px;margin:0 0 4px'>You've been set up for "
+                       f"<b>{esc(community)}</b> in Atlas Standards. Here's where things stand today"
+                       f"{(' — from the last visit on ' + esc(when)) if when else ''}"
+                       f"{(' by ' + esc(inspector)) if inspector else ''}.</p>"
+                       ) if handover else (
+                       f"<p style='font-size:14px;margin:0 0 4px'>{esc(inspector)} visited "
+                       f"<b>{esc(community)}</b>{(' on ' + esc(when)) if when else ''}. "
+                       f"Here's what needs attention.</p>")
+        opener_text = (f"You've been set up for {community} in Atlas Standards. "
+                       f"Here's where things stand today"
+                       f"{(' — from the last visit on ' + when) if when else ''}"
+                       f"{(' by ' + inspector) if inspector else ''}."
+                       ) if handover else (
+                       f"{inspector} visited {community}{(' on ' + when) if when else ''}. "
+                       f"Here's what needs attention.")
+
         total = len(failed_items) + len(action_items)
         if not total:
-            subject = f"Visit complete — {community}: nothing outstanding"
-            body = (f"<p style='font-size:14px;margin:0 0 12px'>{esc(inspector)} visited "
-                    f"<b>{esc(community)}</b>{(' on ' + esc(when)) if when else ''}.</p>"
-                    f"<p style='font-size:15px;color:#0f8a5f;font-weight:700;margin:0'>"
-                    f"Everything passed — nothing needs your attention.</p>{button}")
-            text = (f"{inspector} visited {community}{(' on ' + when) if when else ''}.\n"
-                    "Everything passed — nothing needs your attention.\n")
-            return self._send(recipients, subject, self._shell("Visit complete", body), text)
+            if handover:
+                subject = f"Welcome to Atlas Standards — {community}"
+                good = "Nothing is open right now. You'll get an email here after each visit."
+                header = "Welcome"
+            else:
+                subject = f"Visit complete — {community}: nothing outstanding"
+                good = "Everything passed — nothing needs your attention."
+                header = "Visit complete"
+            body = (opener_html
+                    + f"<p style='font-size:15px;color:#0f8a5f;font-weight:700;margin:12px 0 0'>"
+                      f"{esc(good)}</p>{button}")
+            text = opener_text + "\n" + good + "\n"
+            return self._send(recipients, subject, self._shell(header, body), text)
 
         def crit_html(item):
             crit = self._criteria_for(item, criteria_map)
@@ -584,19 +610,18 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                        f"Other items flagged ({len(action_items)})</h3>"
                        f"<ul style='margin:0;padding-left:18px'>{act_rows}</ul>")
 
-        subject = f"Action needed — {community}: {total} item{'s' if total != 1 else ''}"
-        body = (f"<p style='font-size:14px;margin:0 0 4px'>{esc(inspector)} visited "
-                f"<b>{esc(community)}</b>{(' on ' + esc(when)) if when else ''}. "
-                f"Here's what needs attention.</p>"
-                f"{blocks}"
-                f"<div style='margin-top:22px;padding:12px 14px;background:#f6f9ff;"
+        subject = (f"Welcome to Atlas Standards — {total} open item{'s' if total != 1 else ''} at {community}"
+                   if handover else
+                   f"Action needed — {community}: {total} item{'s' if total != 1 else ''}")
+        body = (opener_html
+                + f"{blocks}"
+                + f"<div style='margin-top:22px;padding:12px 14px;background:#f6f9ff;"
                 f"border-left:3px solid #cfe0fb;font-size:13px;color:#1f2937'>"
                 f"<b>What to do next.</b> As each one is handled, open it in Atlas Standards "
                 f"and add a comment saying what was done — a photo helps. Your regional will "
                 f"review it and close it out.</div>{button}")
 
-        text_lines = [f"{inspector} visited {community}{(' on ' + when) if when else ''}.",
-                      "Here's what needs attention.", ""]
+        text_lines = [opener_text, ""]
         if failed_items:
             text_lines.append(f"STANDARDS THAT NEED ATTENTION ({len(failed_items)})")
             for i in failed_items:
@@ -617,7 +642,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             text_lines += ["", f"Open: {link}"]
 
         return self._send(recipients, subject,
-                          self._shell("What needs attention", body), "\n".join(text_lines))
+                          self._shell("Welcome" if handover else "What needs attention", body),
+                          "\n".join(text_lines))
 
     def send_standard_comment(self, recipients, community, standard,
                               author, text, has_photo=False):
