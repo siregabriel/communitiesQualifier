@@ -2842,7 +2842,7 @@
                     actionItems: actionItems,
                     responses: responses,
                     photos: photos,
-                    totalResponses: allResponses.length
+                    totalResponses: latestResponses.length
                 };
                 
                 // Render and display
@@ -3961,29 +3961,35 @@
             admin: [
                 { title: 'Welcome to Atlas Standards', text: 'A quick tour of the basics. You can replay it anytime from the Help button in the top bar.' },
                 { target: '.nav-item[data-view="dashboard"]', title: 'Dashboard', text: 'Your at-a-glance overview: average score, communities that need attention, performance by region (click a region to drill into its communities), recent activity, and — on wide screens — a mini-calendar of what’s coming up.' },
+                { title: 'Two scores, one truth', text: 'A community shows the score it stands at today. Underneath, when fixes have been verified since, you\'ll see what the visit itself scored — that number never changes, so past results stay comparable and nobody\'s history moves on its own.' },
                 { target: '#dashMainGrid', title: 'Rearrange your dashboard', text: 'On desktop, grab the ⠿ handle on any card (or KPI) to drag it into the order you like — your layout is saved on this device. Use “Reset layout” to put everything back.' },
                 { target: '[data-card="live"]', title: 'Live activity', text: 'Admin-only: who is signed in right now and what everyone has been doing — sign-ins, visits submitted, items marked as addressed, password and account changes. It refreshes on its own every 30 seconds. You also get a digest of all this by email once a day.' },
-                { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse every community, see its latest score and open action items, open a full report, and give each one a cover photo.' },
+                { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Every community with its current score and open items. Open one and you get its latest visit in full, then its history: every past visit, and — most useful — which standards keep coming back. Anything marked "recurring" has failed three times or more.' },
                 { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile. The Corporate group at the end holds company-wide members who can visit any community." },
                 { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and community staff. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Each row also shows sign-in activity: a green "Active now" while someone is using the app, when they last signed in, or "Never signed in" if they haven\'t started yet. Open it for its own walkthrough.' },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the visit standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF — including any action items raised on visits.' },
-                { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything that needs follow-up: standards that failed, plus anything the inspector flagged during a visit (those show "Raised on visit" with their own priority and who it\'s for). Fixed something between visits? Use "Mark as addressed" on a failed standard to log the date, a note and a photo of the fix — the visit and the score stay exactly as they were, and it still clears for good once a later visit passes it. Flagged items are closed with "Mark as done".' },
+                { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything needing follow-up. It opens on what\'s still outstanding from each community\'s latest visit — use the chips to reach items already addressed or from earlier visits. When a community comments that something is fixed, you get an email; review it and use "Mark as addressed" to close it out. That\'s what lifts their current score, so the sign-off is yours, not theirs.' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident’s move-in as a phased checklist — with required compliance items, attachments, printable binder pages, and automatic email reminders. Open it for its own walkthrough.' },
                 { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines visits, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
                 { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which visit emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to, flagging anyone missing an email. At the bottom, a Danger zone lets you wipe all visits to start fresh (a backup is saved first). People are managed in the People view.' },
                 { title: "You're all set", text: 'That’s the tour. Tap Help in the top bar to see it again whenever you want.' },
             ],
+            // The community tour. Everyone with this role is an Executive
+            // Director or their team: they don't run visits, they act on what a
+            // visit found. The old version walked them through starting a
+            // visit, which they can't do.
             staff: [
-                { title: 'Welcome to Atlas Standards', text: 'A quick tour of how to run your visits. Replay it anytime from Help.' },
-                { target: '#startVisitBtn', title: 'Start a visit', text: 'Tap here to begin a new visit — pick the community and survey type, then go item by item marking Pass or Fail.' },
-                { target: '.nav-item[data-view="my-visits"]', title: 'My Visits', text: "See the visits you've submitted, with their scores and dates." },
-                { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Browse communities and open a report to review results.' },
-                { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Follow new resident move-ins for your community as a step-by-step checklist. Open it for its own quick walkthrough.' },
-                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'See visits and move-in dates for your community on a monthly calendar.' },
-                { title: 'Tip: the info icon', text: "On every visit item, tap the info icon to see exactly what's required to pass. You can also add a comment and direct it to Clinical, Ops or Sales." },
-                { title: 'Flag anything else you see', text: 'At the end of a visit there’s an "Additional action items" section. Use + Add action item for anything that isn’t one of the standards — say what it is, who should handle it and how urgent. It reaches the right team without affecting the community’s score.' },
-                { title: "You're all set", text: 'That’s it! Use the Help button in the top bar to replay this anytime.' },
+                { title: 'Welcome to Atlas Standards', text: 'This is where you see what a visit found at your community, and where you show what you\'ve done about it. A quick tour — replay it anytime from Help.' },
+                { target: '.nav-item[data-view="dashboard"]', title: 'Your community at a glance', text: 'Your current score and anything still open. The score reflects where you stand today: as fixes get verified, it goes up — you don\'t have to wait for the next visit.' },
+                { target: '.nav-item[data-view="action-items"]', title: 'What needs attention', text: 'Everything from the latest visit that still needs work — standards that failed, plus anything the regional flagged while walking. Start here.' },
+                { title: 'Show what you\'ve done', text: 'Open an item and use "Comment on this" to say what\'s been handled — a photo of the fix helps a lot. Your regional gets an email with your comment, so you don\'t need to chase anyone.' },
+                { title: 'Who closes an item', text: 'You report, your regional confirms. That\'s deliberate: because closing an item raises your community\'s score, someone outside the community signs off on it. It keeps the number meaningful. If they need more detail they\'ll comment back and you\'ll get an email.' },
+                { target: '.nav-item[data-view="communities"]', title: 'Your history', text: 'Open your community to see every past visit, and further down, which standards keep coming back. A standard marked "recurring" has failed three or more times — that\'s worth a different kind of attention than a one-off.' },
+                { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Follow each new resident\'s move-in as a step-by-step checklist. Open it for its own quick walkthrough.' },
+                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'Visits and move-in dates for your community on a monthly calendar.' },
+                { title: 'You\'ll get an email too', text: 'After every visit you receive a summary of just your community — what needs attention and what to do about it. Nothing to log in and check.' },
+                { title: 'That\'s it', text: 'Use the Help button in the top bar to replay this anytime.' },
             ],
         };
         const PEOPLE_TOUR = [
