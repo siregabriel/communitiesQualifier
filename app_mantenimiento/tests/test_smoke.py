@@ -497,6 +497,46 @@ def test_comment_authorship_and_scope():
             A.presence_service.forget(u)
 
 
+def test_community_cannot_file_its_own_visit():
+    """The score comes from the latest visit, so letting a community run one
+    would let it overwrite the regional's findings. Both the page and the
+    endpoint must refuse."""
+    import json as _json
+    comm = _a_community()
+    c = _client()
+    _as_role(c, "staff", community=comm, name="smoke.ed")
+    with c.session_transaction() as s:
+        s["survey_type_id"] = A.survey_type_service.get_all_survey_types()[0]["id"]
+
+    before = {x["id"] for x in A.inspection_service.get_all_submissions()}
+    try:
+        r = c.post("/api/inspections", headers=HDR, content_type="multipart/form-data", data={
+            "community": comm,
+            "responses": _json.dumps([{
+                "question_id": "smoke_q6", "question_text": "Everything is fine",
+                "condition": "Pass", "description": "self-assessed",
+            }]),
+        })
+        assert r.status_code == 403, "a community must not be able to file a visit"
+        assert "regional" in r.get_json()["message"].lower()
+        after = {x["id"] for x in A.inspection_service.get_all_submissions()}
+        assert after == before, "nothing may be written when the visit is refused"
+
+        # The pages that lead there send them back to the dashboard.
+        for path in ("/select-survey-type", "/reporte"):
+            resp = c.get(path)
+            assert resp.status_code in (301, 302), f"{path} should redirect"
+            assert "/dashboard" in resp.headers.get("Location", "")
+
+        # A regional in that region is still free to submit.
+        assert A.app.test_client() is not None
+    finally:
+        A.inspection_service.submissions = [
+            x for x in A.inspection_service.submissions if x.get("id") in before]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.ed")
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

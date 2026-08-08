@@ -2345,6 +2345,7 @@
         }
         let isAdmin = false;
         let canVerifyFixes = false;   // may close out a failed standard
+        let canRunVisits = false;     // may carry out a visit
         let currentUsername = '';
         let currentUserCommunity = '';
 
@@ -3600,6 +3601,13 @@
                 currentUserCommunity = data.community;
                 isAdmin = data.is_admin;
                 canVerifyFixes = !!data.can_verify_fixes;
+                canRunVisits = !!data.can_run_visits;
+                // The bottom tab bar offers New Visit; hide it for
+                // accounts that aren't allowed to run one.
+                if (!canRunVisits) {
+                    document.querySelectorAll('.mtab-item[data-tab="new-visit"]')
+                        .forEach(el => el.style.display = 'none');
+                }
                 
                 // Update both user info displays (prefer the display name)
                 const displayName = data.display_name || data.username;
@@ -3633,7 +3641,10 @@
                 // 'Start New Visit' is a staff action — admins can't submit
                 // inspections, so only show it for non-admin users.
                 const startVisitBtn = document.getElementById('startVisitBtn');
-                if (startVisitBtn && !isAdmin) {
+                // Visits belong to regional and corporate staff. Communities see
+                // their findings and comment on them, so don't offer them a
+                // button the server would refuse anyway.
+                if (startVisitBtn && !isAdmin && canRunVisits) {
                     startVisitBtn.style.display = 'flex';
                 }
 

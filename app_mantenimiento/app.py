@@ -720,6 +720,15 @@ def is_admin():
     return bool(session.get('admin_extra'))
 
 
+def can_run_visits():
+    """Who may carry out a visit.
+
+    Regional and corporate staff only. A community must not inspect itself:
+    the score comes from the most recent visit, so a self-run walkthrough
+    would overwrite what the regional found — including the open items."""
+    return current_role() == 'regional'
+
+
 def can_verify_fixes():
     """Who may close out a failed standard.
 
@@ -1078,10 +1087,11 @@ def report_form():
     - If no survey type in session, redirect to survey type selection
     - Admin users are redirected to dashboard (cannot submit inspections)
     """
-    # Administrators don't submit inspections. Note this checks the *native*
-    # role: someone whose real role is Corporate/Regional keeps inspecting even
-    # when they also hold admin privileges.
-    if is_native_admin():
+    # Visits are carried out by regional and corporate staff. Administrators
+    # don't run them, and neither do community accounts — a community cannot
+    # inspect itself. Note this checks the *native* role: someone whose real
+    # role is Corporate/Regional keeps inspecting even with admin privileges.
+    if is_native_admin() or not can_run_visits():
         return redirect(url_for('dashboard'))
 
     # Check if survey type is selected
@@ -1124,9 +1134,8 @@ def select_survey_type():
     User must select a survey type before starting an inspection
     Requires login - admin users are redirected to dashboard
     """
-    # Native administrators don't submit inspections; Corporate/Regional users
-    # with admin privileges still do.
-    if is_native_admin():
+    # Same rule as the form itself: only regional and corporate staff run visits.
+    if is_native_admin() or not can_run_visits():
         return redirect(url_for('dashboard'))
 
     # Regional and corporate users have no fixed community — they choose it on
@@ -1286,6 +1295,8 @@ def get_profile():
             # Whether this user may close out a failed standard. Community
             # accounts report fixes by commenting; leadership verifies them.
             'can_verify_fixes': can_verify_fixes(),
+            # Whether this account may carry out a visit at all.
+            'can_run_visits': can_run_visits(),
             'role': role_label,
             'photo': profile_service.get_photo(username),
             'last_active': activity_service.last_active(username),
@@ -2351,7 +2362,9 @@ def create_user():
     # Emails (best-effort; never block account creation):
     #  - welcome the new user with their login (if an email was given)
     #  - alert the configured admin-notify list
-    role_label = {'admin': 'Administrator', 'staff': 'Staff', 'regional': 'Regional'}.get(role, role)
+    # For a community account the community itself is the meaningful label.
+    role_label = ({'admin': 'Administrator', 'regional': 'Regional'}.get(role)
+                  or (community if role == 'staff' and community else role.capitalize()))
     emailed = False
     if email_service.enabled:
         try:
@@ -2846,7 +2859,11 @@ def create_person():
     emailed = False
     if email and email_service.enabled:
         try:
-            ok, _ = email_service.send_welcome(email, name, username, password, role.capitalize())
+            # "Staff" means nothing to an Executive Director. Name the community
+            # instead, so the person can see at a glance that they were assigned
+            # to the right place.
+            role_label = community if role == 'staff' and community else role.capitalize()
+            ok, _ = email_service.send_welcome(email, name, username, password, role_label)
             emailed = bool(ok)
         except Exception as e:
             app.logger.error(f'Welcome email failed: {e}')
@@ -4473,23 +4490,28 @@ def submit_inspection():
         username = InputSanitizer.sanitize_username(username)
 
         # Resolve the community being inspected, by role:
-        #  - staff: their fixed community
-        #  - regional: a community they pick (must be within their region)
+        #  - regional / corporate: a community they pick (within their scope)
         #  - admin: not allowed
-        # Native Administrators don't submit inspections; Corporate/Regional
-        # users keep inspecting even when they hold admin privileges.
+        #  - community accounts: not allowed either — see below
+        # Native Administrators don't submit visits; Corporate/Regional users
+        # keep inspecting even when they hold admin privileges.
         if is_native_admin():
-            return jsonify({'status': 'error', 'message': 'Admin users cannot submit inspections'}), 400
+            return jsonify({'status': 'error', 'message': 'Admin users cannot submit visits'}), 400
         elif role == 'regional':
             community = InputSanitizer.sanitize_community_name(request.form.get('community', ''))
             if not community or community not in regional_communities():
                 return jsonify({'status': 'error', 'message': 'Select a valid community in your region'}), 400
         else:
-            community = session.get('community')
-            if community:
-                community = InputSanitizer.sanitize_community_name(community)
-            if not community:
-                return jsonify({'status': 'error', 'message': 'No community assigned to this account'}), 400
+            # A community cannot inspect itself. The score comes from the most
+            # recent visit, so a self-run walkthrough marking everything Pass
+            # would silently replace a regional's findings and wipe the open
+            # items with it. Communities report progress by commenting; the
+            # visit itself stays with the regional who performs it.
+            return jsonify({
+                'status': 'error',
+                'message': 'Visits are carried out by regional and corporate staff. '
+                           'To report progress on an item, add a comment to it.'
+            }), 403
         
         # Validate survey type is selected
         if not survey_type_id:
