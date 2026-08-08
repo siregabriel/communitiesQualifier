@@ -6227,7 +6227,7 @@
                             <select id="apRole" class="pw-input" style="width:100%;" onchange="apOnRoleChange()">
                                 <option value="regional">Regional — one region</option>
                                 <option value="corporate">Corporate — company-wide</option>
-                                <option value="staff">Staff — one community</option>
+                                <option value="staff">Community director — one community</option>
                                 <option value="admin">Administrator — full access</option>
                             </select></div>
                         <div id="apTitleWrap"><label class="mi-label">Title</label>
@@ -6267,7 +6267,7 @@
                 if (sel.selectedOptions[0]?.hidden && first) sel.value = first.value;
             }
             note.textContent = {
-                staff: 'Can inspect and run move-ins for one community only.',
+                staff: 'Sees their own community only: what a visit found, its history, and their move-ins. They comment on items to report a fix — a regional reviews and closes it. They do not run visits.',
                 regional: 'Can inspect every community in their region.',
                 corporate: 'Company-wide access: can visit any community and see every region.',
                 admin: 'Full access, including standards, people and settings. Admins do not submit visits.',
@@ -6333,7 +6333,7 @@
                             <input id="peEmail" class="pw-input" type="email" value="${escapeHtml(p.email || '')}" placeholder="name@atlasseniorliving.com" style="width:100%;"></div>
                         <div><label class="mi-label">Role</label>
                             <select id="peRole" class="pw-input" style="width:100%;" onchange="peOnRoleChange()">
-                                <option value="staff" ${p.role === 'staff' ? 'selected' : ''}>Staff — one community</option>
+                                <option value="staff" ${p.role === 'staff' ? 'selected' : ''}>Community director — one community</option>
                                 <option value="regional" ${p.role === 'regional' ? 'selected' : ''}>Regional — one region</option>
                                 <option value="corporate" ${p.role === 'corporate' ? 'selected' : ''}>Corporate — company-wide</option>
                                 <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>Administrator — full access</option>
@@ -6404,7 +6404,7 @@
                 }
             }
             const notes = {
-                staff: 'Can inspect and run move-ins for one community only.',
+                staff: 'Sees their own community only: what a visit found, its history, and their move-ins. They comment on items to report a fix — a regional reviews and closes it. They do not run visits.',
                 regional: 'Gets a regional login and can inspect every community in that region.',
                 corporate: 'Company-wide access: can visit any community and see every region.',
                 admin: 'Full access, including standards, people and settings. Admins do not submit visits.',
