@@ -1100,8 +1100,11 @@ def select_survey_type():
     if is_native_admin():
         return redirect(url_for('dashboard'))
 
+    # Regional and corporate users have no fixed community — they choose it on
+    # the form itself. Pass an empty string so the page can say something
+    # useful instead of printing "None".
     return render_template('select_survey_type.html',
-                         community=session.get('community'),
+                         community=session.get('community') or '',
                          username=session.get('user'))
 
 

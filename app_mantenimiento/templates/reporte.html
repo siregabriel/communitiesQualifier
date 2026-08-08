@@ -472,6 +472,77 @@
         }
 
         /* Full-screen submission confirmation */
+        /* ===== Drafts ===== */
+        .draft-banner {
+            display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+            justify-content: space-between;
+            background: #eef4ff; border: 1.5px solid #cfe0fb; border-radius: 12px;
+            padding: 14px 16px; margin-bottom: 20px;
+        }
+        .draft-banner-main b { display: block; font-size: 14px; color: #0f1e36; margin-bottom: 3px; }
+        .draft-banner-main span { font-size: 12.5px; color: #475569; }
+        .draft-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .draft-btn-primary {
+            background: #00285c; color: #fff; border: none; border-radius: 8px;
+            padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .draft-btn-ghost {
+            background: #fff; color: #475569; border: 1.5px solid #d9dfe8; border-radius: 8px;
+            padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .submit-row { margin-top: 8px; }
+        .submit-aside {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .draft-save-btn {
+            background: #fff; color: #00285c; border: 1.5px solid #d9dfe8; border-radius: 10px;
+            padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .draft-save-btn:hover { border-color: #00285c; }
+        /* Floating save indicator. The reassurance has to be visible WHILE
+           filling the form — everything else about drafts sits by the submit
+           button, several screens down, where nobody looks mid-visit. */
+        .draft-chip {
+            position: fixed;
+            left: 50%;
+            bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+            transform: translateX(-50%) translateY(12px);
+            z-index: 1200;
+            display: flex; align-items: center; gap: 8px;
+            max-width: min(92vw, 460px);
+            padding: 10px 16px; border-radius: 999px;
+            background: rgba(15, 30, 54, .92);
+            -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+            color: #fff; font-size: 12.5px; font-weight: 600; line-height: 1.35;
+            box-shadow: 0 10px 28px rgba(2, 12, 34, .28);
+            opacity: 0; pointer-events: none;
+            transition: opacity .28s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+        }
+        .draft-chip.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .draft-chip i { font-size: 12px; opacity: .9; flex-shrink: 0; }
+        .draft-chip.ok i { color: #6ee7b7; }
+        .draft-chip.err { background: rgba(122, 26, 12, .94); }
+        @media (prefers-reduced-motion: reduce) {
+            .draft-chip { transition: opacity .2s ease; transform: translateX(-50%); }
+            .draft-chip.show { transform: translateX(-50%); }
+        }
+
+        .draft-status { font-size: 12.5px; font-weight: 600; color: #64748b; }
+        .draft-status.ok { color: #0f6b4a; }
+        .draft-status.err { color: #b42318; }
+        .draft-hint { font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 10px 0 0; }
+        @media (max-width: 640px) {
+            .draft-banner { flex-direction: column; align-items: stretch; }
+            .draft-banner-actions button { flex: 1; }
+            .submit-aside { justify-content: space-between; }
+        }
+        html[data-theme="dark"] .draft-banner { background: rgba(31,111,229,.12); border-color: rgba(31,111,229,.4); }
+        html[data-theme="dark"] .draft-banner-main b { color: #eef2f8; }
+        html[data-theme="dark"] .draft-banner-main span { color: #9fb0c4; }
+        html[data-theme="dark"] .draft-btn-ghost,
+        html[data-theme="dark"] .draft-save-btn { background: #161f2e; color: #c2cddd; border-color: #33425c; }
+
         .success-screen {
             position: fixed;
             inset: 0;
@@ -1045,6 +1116,12 @@
                 <div class="progress-message" id="progressMessage"></div>
             </div>
 
+            <!-- Offer to pick up an unfinished visit for this community -->
+            <div id="draftBanner" style="display:none;"></div>
+
+            <!-- Floating "draft saved" confirmation, visible while scrolling -->
+            <div class="draft-chip" id="draftChip" role="status" aria-live="polite"></div>
+
             <div id="questionsContainer">
                 <!-- Questions will be dynamically loaded here -->
             </div>
@@ -1063,7 +1140,19 @@
                 </button>
             </div>
 
-            <button type="submit">Submit Visit</button>
+            <div class="submit-row">
+                <button type="submit">Submit Visit</button>
+                <div class="submit-aside">
+                    <button type="button" class="draft-save-btn" onclick="saveDraftManually()">
+                        <i class="fas fa-floppy-disk"></i> Save draft
+                    </button>
+                    <span class="draft-status" id="draftStatus"></span>
+                </div>
+                <p class="draft-hint">
+                    Your answers and photos are saved on this device as you go, so you can
+                    leave and come back. Nothing is sent until you press Submit.
+                </p>
+            </div>
         </form>
     </div>
 
@@ -1167,6 +1256,314 @@
             }
         }
 
+        /* =====================================================================
+           Drafts — an unfinished visit is kept on the device, not the server.
+
+           This is deliberate. The failures Greg described — getting signed out,
+           walking into a dead spot, the phone dropping the tab while he's in
+           another part of the building — are exactly the moments a server save
+           would fail. Storing locally keeps working with no session and no
+           signal, and costs nothing while he walks.
+
+           IndexedDB rather than localStorage because photos are Blobs, and
+           localStorage only holds strings. Losing a photo means walking back to
+           the hallway to retake it, so photos are the part most worth keeping.
+
+           One draft per community + survey type, pruned after 7 days.
+           ===================================================================== */
+        const DRAFT_DB = 'atlasDrafts', DRAFT_STORE = 'drafts', DRAFT_TTL_DAYS = 7;
+        let _draftDB = null, _draftTimer = null, _draftReady = false;
+
+        function draftDB() {
+            if (_draftDB) return Promise.resolve(_draftDB);
+            return new Promise((resolve, reject) => {
+                if (!window.indexedDB) return reject(new Error('no indexedDB'));
+                const req = indexedDB.open(DRAFT_DB, 1);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(DRAFT_STORE)) {
+                        db.createObjectStore(DRAFT_STORE, { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = () => { _draftDB = req.result; resolve(_draftDB); };
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function draftTx(mode) {
+            return draftDB().then(db => db.transaction(DRAFT_STORE, mode).objectStore(DRAFT_STORE));
+        }
+
+        function draftKey() {
+            const comm = selectedCommunity || userCommunity || '';
+            const st = '{{ survey_type_id }}';
+            return comm ? `${st}::${comm}` : null;
+        }
+
+        /* Everything typed so far, in a shape that can be handed straight back
+           to the form. Photos ride along as Blobs. */
+        function draftCollect() {
+            const responses = {};
+            questions.forEach(q => {
+                const picked = document.querySelector(`input[name="condition_${q.id}"]:checked`);
+                const desc = document.getElementById(`description_${q.id}`);
+                const route = document.getElementById(`route_${q.id}`);
+                const condition = picked ? picked.value : '';
+                const description = desc ? desc.value : '';
+                const routeTo = route ? route.value : '';
+                if (condition || description.trim() || routeTo) {
+                    responses[q.id] = { condition, description, routeTo };
+                }
+            });
+            const photos = {};
+            Object.keys(photoFiles).forEach(qid => {
+                const f = photoFiles[qid];
+                if (f) photos[qid] = { name: f.name, type: f.type, blob: f };
+            });
+            return {
+                id: draftKey(),
+                community: selectedCommunity || userCommunity || '',
+                surveyTypeId: '{{ survey_type_id }}',
+                savedAt: Date.now(),
+                responses,
+                photos,
+                actionItems: collectActionItems(),
+            };
+        }
+
+        function draftIsEmpty(d) {
+            return !Object.keys(d.responses).length
+                && !Object.keys(d.photos).length
+                && !d.actionItems.length;
+        }
+
+        async function draftSaveNow(silent) {
+            if (!_draftReady) return;
+            const key = draftKey();
+            if (!key) return;
+            try {
+                const data = draftCollect();
+                const store = await draftTx('readwrite');
+                // Nothing filled in yet? Don't leave an empty draft lying around.
+                if (draftIsEmpty(data)) { store.delete(key); draftStatus(''); return; }
+                store.put(data);
+                if (!silent) draftStatus('saved', data.savedAt);
+            } catch (e) {
+                console.warn('draft save failed:', e);
+                draftStatus('error');
+            }
+        }
+
+        // Typing shouldn't hit the database on every keystroke.
+        function draftScheduleSave() {
+            if (!_draftReady) return;
+            draftStatus('saving');
+            clearTimeout(_draftTimer);
+            _draftTimer = setTimeout(() => draftSaveNow(false), 900);
+        }
+
+        function draftLoad(key) {
+            return draftTx('readonly').then(store => new Promise((resolve) => {
+                const r = store.get(key);
+                r.onsuccess = () => resolve(r.result || null);
+                r.onerror = () => resolve(null);
+            })).catch(() => null);
+        }
+
+        function draftDelete(key) {
+            return draftTx('readwrite').then(store => store.delete(key)).catch(() => {});
+        }
+
+        /* Drop anything older than the TTL so an old draft can't be resumed by
+           accident weeks later and submitted with stale findings. */
+        async function draftPrune() {
+            try {
+                const store = await draftTx('readwrite');
+                const cutoff = Date.now() - DRAFT_TTL_DAYS * 86400000;
+                const req = store.openCursor();
+                req.onsuccess = () => {
+                    const cur = req.result;
+                    if (!cur) return;
+                    if (!cur.value || (cur.value.savedAt || 0) < cutoff) cur.delete();
+                    cur.continue();
+                };
+            } catch (e) { /* pruning is housekeeping; never block the form */ }
+        }
+
+        function draftAgo(ts) {
+            const s = Math.floor((Date.now() - ts) / 1000);
+            if (s < 60) return 'just now';
+            const m = Math.floor(s / 60); if (m < 60) return `${m} min ago`;
+            const h = Math.floor(m / 60); if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
+            const d = Math.floor(h / 24); return `${d} day${d === 1 ? '' : 's'} ago`;
+        }
+
+        /* The floating chip. The first save of a visit explains itself in full,
+           because that's the moment someone decides whether to trust it; after
+           that it shrinks to a two-word confirmation so it stops being noise. */
+        let _chipTimer = null, _chipExplained = false;
+
+        function draftChip(state) {
+            const chip = document.getElementById('draftChip');
+            if (!chip) return;
+            clearTimeout(_chipTimer);
+
+            if (state === 'error') {
+                chip.className = 'draft-chip err show';
+                chip.innerHTML = '<i class="fas fa-triangle-exclamation"></i> '
+                    + '<span>Could not save your draft on this device.</span>';
+                return;   // stays put: this one needs to be noticed
+            }
+            if (state !== 'saved') return;
+
+            chip.className = 'draft-chip ok show';
+            chip.innerHTML = _chipExplained
+                ? '<i class="fas fa-check"></i> <span>Draft saved</span>'
+                : '<i class="fas fa-check"></i> <span>Saved on this device — you can leave and come back to finish.</span>';
+            const linger = _chipExplained ? 2200 : 5000;
+            _chipExplained = true;
+            _chipTimer = setTimeout(() => chip.classList.remove('show'), linger);
+        }
+
+        function draftStatus(state, ts) {
+            draftChip(state);
+            const el = document.getElementById('draftStatus');
+            if (!el) return;
+            if (state === 'saving') { el.className = 'draft-status'; el.textContent = 'Saving…'; }
+            else if (state === 'saved') { el.className = 'draft-status ok';
+                el.innerHTML = `<i class="fas fa-check"></i> Draft saved ${draftAgo(ts || Date.now())}`; }
+            else if (state === 'error') { el.className = 'draft-status err';
+                el.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Could not save the draft'; }
+            else { el.className = 'draft-status'; el.textContent = ''; }
+        }
+
+        function draftApply(d) {
+            (Object.keys(d.responses || {})).forEach(qid => {
+                const r = d.responses[qid];
+                if (r.condition) {
+                    const input = document.querySelector(`input[name="condition_${qid}"][value="${r.condition}"]`);
+                    if (input) input.checked = true;
+                }
+                const desc = document.getElementById(`description_${qid}`);
+                if (desc && r.description) desc.value = r.description;
+                const route = document.getElementById(`route_${qid}`);
+                if (route && r.routeTo) route.value = r.routeTo;
+                onConditionChange(qid);   // re-apply the "comment required" state
+            });
+
+            (d.actionItems || []).forEach(it => {
+                addActionItem();
+                const rows = document.querySelectorAll('#aiList .ai-item');
+                const row = rows[rows.length - 1];
+                row.querySelector('.ai-text').value = it.text || '';
+                row.querySelector('.ai-assignee').value = it.assigned_to || '';
+                row.querySelector('.ai-priority').value = it.priority || 'medium';
+            });
+
+            Object.keys(d.photos || {}).forEach(qid => {
+                const p = d.photos[qid];
+                if (!p || !p.blob) return;
+                // Rebuild a File so submission works exactly as if just picked.
+                let file;
+                try { file = new File([p.blob], p.name || 'photo.jpg', { type: p.type || 'image/jpeg' }); }
+                catch (e) { file = p.blob; }
+                photoFiles[qid] = file;
+                const nameEl = document.getElementById(`fileName_${qid}`);
+                if (nameEl) {
+                    nameEl.innerHTML = '<i class="fas fa-paperclip"></i> ';
+                    nameEl.appendChild(document.createTextNode(p.name || 'photo'));
+                }
+                const prev = document.getElementById(`imagePreview_${qid}`);
+                if (prev) prev.innerHTML = `<img src="${URL.createObjectURL(p.blob)}" alt="Preview">`;
+            });
+
+            updateProgress();
+            draftStatus('saved', d.savedAt);
+        }
+
+        /* Offer to pick up where they left off. A banner rather than a modal:
+           it states the facts and stays out of the way if they'd rather start
+           clean. */
+        function draftOfferResume(d) {
+            const host = document.getElementById('draftBanner');
+            if (!host) return;
+            const n = Object.keys(d.responses || {}).length;
+            const photos = Object.keys(d.photos || {}).length;
+            const bits = [`${n} item${n === 1 ? '' : 's'} answered`];
+            if (photos) bits.push(`${photos} photo${photos === 1 ? '' : 's'}`);
+            if ((d.actionItems || []).length) bits.push(`${d.actionItems.length} action item${d.actionItems.length === 1 ? '' : 's'}`);
+            host.innerHTML = `
+                <div class="draft-banner">
+                    <div class="draft-banner-main">
+                        <b><i class="fas fa-rotate-left"></i> Unfinished visit for ${escapeHtml(d.community)}</b>
+                        <span>Saved ${draftAgo(d.savedAt)} — ${bits.join(', ')}.</span>
+                    </div>
+                    <div class="draft-banner-actions">
+                        <button type="button" class="draft-btn-primary" onclick="draftResume()">Resume</button>
+                        <button type="button" class="draft-btn-ghost" onclick="draftDiscard()">Start fresh</button>
+                    </div>
+                </div>`;
+            host.style.display = 'block';
+            window._pendingDraft = d;
+        }
+
+        function draftResume() {
+            const d = window._pendingDraft;
+            document.getElementById('draftBanner').style.display = 'none';
+            if (d) draftApply(d);
+            window._pendingDraft = null;
+        }
+
+        async function draftDiscard() {
+            if (!confirm('Discard the saved draft and start this visit from scratch?')) return;
+            document.getElementById('draftBanner').style.display = 'none';
+            window._pendingDraft = null;
+            const key = draftKey();
+            if (key) await draftDelete(key);
+            draftStatus('');
+        }
+
+        /* Called once the questions are on screen. */
+        async function draftInit() {
+            _draftReady = false;
+            // Each visit earns the full explanation once.
+            _chipExplained = false;
+            const chip = document.getElementById('draftChip');
+            if (chip) chip.classList.remove('show');
+            draftStatus('');
+            const banner = document.getElementById('draftBanner');
+            if (banner) banner.style.display = 'none';
+            const key = draftKey();
+            if (!key) return;
+            try {
+                await draftPrune();
+                const existing = await draftLoad(key);
+                if (existing && !draftIsEmpty(existing)) draftOfferResume(existing);
+            } catch (e) {
+                console.warn('drafts unavailable:', e);
+                return;   // private browsing or blocked storage: form still works
+            }
+            _draftReady = true;
+        }
+
+        // Save on any edit, and immediately whenever the page is about to be
+        // put away — this is the case that actually bites on a phone.
+        document.addEventListener('input', e => {
+            if (e.target.closest('#reportForm')) draftScheduleSave();
+        });
+        document.addEventListener('change', e => {
+            if (e.target.closest('#reportForm')) draftScheduleSave();
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) { clearTimeout(_draftTimer); draftSaveNow(true); }
+        });
+        window.addEventListener('pagehide', () => { clearTimeout(_draftTimer); draftSaveNow(true); });
+
+        function saveDraftManually() {
+            clearTimeout(_draftTimer);
+            draftSaveNow(false);
+        }
+
         function onCommunityChange() {
             const sel = document.getElementById('communitySelect');
             selectedCommunity = sel ? sel.value : null;
@@ -1218,10 +1615,13 @@
                 
                 // Render questions
                 renderQuestions();
-                
+
                 // Show form
                 document.getElementById('reportForm').style.display = 'block';
-                
+
+                // Now that the fields exist, wire up drafts and offer to resume.
+                draftInit();
+
             } catch (error) {
                 console.error('Error loading questions:', error);
                 document.getElementById('loadingMessage').textContent = 'Error loading questions. Please refresh the page.';
@@ -1544,9 +1944,12 @@
             
             const photoGroup = document.createElement('div');
             photoGroup.className = 'file-upload-wrapper';
+            // No `capture` attribute on purpose: with it, phones open the camera
+            // straight away and hide the photo library. Without it the user gets
+            // the choice — take one now, or pick a shot from earlier in the walk.
             photoGroup.innerHTML = `
-                <input type="file" id="photo_${question.id}" name="photo_${question.id}" accept="image/*" capture="environment" multiple>
-                <label for="photo_${question.id}" class="file-upload-label"><i class="fas fa-camera"></i> Upload Photo</label>
+                <input type="file" id="photo_${question.id}" name="photo_${question.id}" accept="image/*" multiple>
+                <label for="photo_${question.id}" class="file-upload-label"><i class="fas fa-camera"></i> Add Photo</label>
                 <div class="file-name" id="fileName_${question.id}"></div>
                 <div class="image-preview" id="imagePreview_${question.id}"></div>
             `;
@@ -1817,6 +2220,10 @@
                 
                 if (response.ok) {
                     playSubmitChime();
+                    // The visit is safely on the server now, so the local draft
+                    // has done its job and would only confuse a future visit.
+                    const dk = draftKey();
+                    if (dk) { clearTimeout(_draftTimer); _draftReady = false; await draftDelete(dk); }
                     // Show the full-screen confirmation
                     const txt = document.getElementById('successText');
                     if (txt) {
