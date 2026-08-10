@@ -793,6 +793,27 @@ def community_account_emails(community, exclude_username=None):
     return out
 
 
+def local_dt(dt=None):
+    """Move a moment into the timezone Atlas actually works in.
+
+    The server runs on UTC, so anything formatted straight from the clock
+    reads hours off for the person opening the email. Timestamps stay UTC in
+    storage — this is only for display. Set APP_TIMEZONE if HQ isn't Central."""
+    from datetime import timezone as _tz
+    dt = dt or datetime.now(_tz.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_tz.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        return dt.astimezone(ZoneInfo(os.environ.get('APP_TIMEZONE', 'America/Chicago')))
+    except Exception:
+        return dt
+
+
+def fmt_local(dt=None, fmt='%b %d, %Y %I:%M %p %Z'):
+    return local_dt(dt).strftime(fmt).strip()
+
+
 def role_label_for(role, community=None):
     """How a role reads to a person, not how it's stored.
 
@@ -860,7 +881,7 @@ def alert_password_changed(username, changed_by=''):
             admin_notify,
             resolve_display_name(username), username,
             changed_by=changed_by,
-            when=datetime.now().strftime('%b %d, %Y %I:%M %p'),
+            when=fmt_local(),
             ip=_client_ip() if not changed_by else '')
     except Exception as e:
         app.logger.error(f'Password-change alert failed: {e}')
@@ -1066,7 +1087,7 @@ def forgot_password():
                 try:
                     email_service.send_password_reset_request(
                         admin_notify, acct.get('display_name'), username,
-                        acct.get('context', ''), now.strftime('%b %d, %Y %I:%M %p'))
+                        acct.get('context', ''), fmt_local(now))
                 except Exception as e:
                     app.logger.error(f'Reset-request email failed: {str(e)}')
             activity_service.log(username, 'password_reset_requested',
@@ -2009,7 +2030,7 @@ def build_activity_digest(hours=24):
         app.logger.error(f'Digest never-signed-in step failed: {e}')
 
     return {
-        'since': since_dt.strftime('%b %d, %Y %I:%M %p'),
+        'since': fmt_local(since_dt),
         'hours': hours,
         'signed_in': signed_in,
         'visits': visits,
