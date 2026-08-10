@@ -2976,6 +2976,24 @@
         }
 
         // ===== Team-member profile popover (centered modal) =====
+        /* Anything that changes the roster touches two views: the People list
+           and the director tags in Regions. Redrawing People only makes sense
+           when that view is on screen — otherwise we'd hijack whatever the user
+           is looking at, so we just refresh the data it will read next time. */
+        async function refreshPeopleViews() {
+            await loadRegions();
+            if (currentView === 'people') {
+                await renderPeople();
+            } else {
+                try {
+                    const r = await fetch('/api/people');
+                    const d = await r.json();
+                    if (r.ok && d.status === 'success') peopleData = d;
+                } catch (e) { /* the next visit to People will fetch it */ }
+            }
+            if (currentView === 'regions') renderRegions();
+        }
+
         function closePersonModal() {
             const m = document.getElementById('personModal');
             if (m) m.classList.remove('show');
@@ -6322,6 +6340,9 @@
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
+                    // Update what's behind the modal right away — the credentials
+                    // box stays up because the password is only shown once.
+                    refreshPeopleViews();
                     const box = document.getElementById('apResult');
                     box.style.display = '';
                     box.innerHTML = `
@@ -6329,7 +6350,7 @@
                         <div class="cred-note">Copy these now — the password is shown only once. They'll set their own at first sign-in.</div>
                         <div class="cred-row"><span class="cred-label">Username</span><code>${escapeHtml(d.username)}</code><button class="cred-copy" onclick="copyText('${d.username.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
                         <div class="cred-row"><span class="cred-label">Password</span><code>${escapeHtml(d.password)}</code><button class="cred-copy" onclick="copyText('${d.password.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
-                        <button class="cred-dismiss" onclick="closePersonModal(); renderPeople(); loadRegions();">Done</button>`;
+                        <button class="cred-dismiss" onclick="closePersonModal()">Done</button>`;
                     msg.textContent = '';
                     document.getElementById('apName').value = '';
                     document.getElementById('apEmail').value = '';
@@ -6447,7 +6468,7 @@
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
                     closePersonModal();
-                    await renderPeople();
+                    await refreshPeopleViews();
                     await loadRegions();
                 } else {
                     alert(d.message || 'Could not remove this person.');
@@ -6492,13 +6513,13 @@
                             if (!pr.ok || pd.status !== 'success') {
                                 msg.textContent = pd.message || 'Saved, but privileges could not be changed.';
                                 msg.classList.add('error');
-                                await renderPeople();
+                                await refreshPeopleViews();
                                 return;
                             }
                         }
                     }
                     closePersonModal();
-                    await renderPeople();
+                    await refreshPeopleViews();
                     await loadRegions();
                 } else { msg.textContent = d.message || 'Could not save.'; msg.classList.add('error'); }
             } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
@@ -6519,7 +6540,7 @@
                             ? `\n\n⚠ Could not email it to ${d.email} — share it with them directly.\nReason: ${d.reason || 'unknown'}`
                             : `\n\n⚠ No email on file — share this with them directly. (Add their email with the pencil so future resets are emailed automatically.)`);
                     alert(`Temporary password for ${d.display_name}:\n\n${d.password}\n\nThey'll be asked to set their own password at sign-in.${sent}`);
-                    renderPeople();
+                    refreshPeopleViews();
                 } else { alert(d.message || 'Could not reset the password.'); }
             } catch (e) { alert('Network error.'); }
         }
