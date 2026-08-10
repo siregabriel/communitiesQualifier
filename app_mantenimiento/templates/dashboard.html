@@ -3450,7 +3450,7 @@
 
         function formatDate(isoString) {
             try {
-                const date = new Date(isoString);
+                const date = new Date(parseTs(isoString));
                 const options = { year: 'numeric', month: 'short', day: 'numeric' };
                 return date.toLocaleDateString('en-US', options);
             } catch (e) {
@@ -7066,16 +7066,29 @@
             }
             return `<div class="dash-avatar" style="background:${avatarColor(name)}">${profileInitials(name)}</div>`;
         }
+        /* The server stores timestamps in UTC with no timezone marker, and a
+           bare date-time is read as LOCAL time by browsers. That put every
+           event hours into the future for anyone outside UTC, which made
+           timeAgo report "just now" for anything recent and understate the
+           rest. Spelling out that these are UTC fixes past records too. */
+        function parseTs(iso) {
+            if (!iso) return NaN;
+            const hasZone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(iso);
+            return new Date(hasZone ? iso : iso + 'Z').getTime();
+        }
+
         function timeAgo(iso) {
             if (!iso) return '';
-            const then = new Date(iso).getTime();
+            const then = parseTs(iso);
             if (isNaN(then)) return '';
-            const s = Math.floor((Date.now() - then) / 1000);
+            // Clock skew can put an event slightly ahead; treat that as now
+            // rather than printing a negative age.
+            const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
             if (s < 60) return 'just now';
             const m = Math.floor(s / 60); if (m < 60) return m + (m === 1 ? ' min ago' : ' mins ago');
             const h = Math.floor(m / 60); if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
             const d = Math.floor(h / 24); if (d < 30) return d + (d === 1 ? ' day ago' : ' days ago');
-            return new Date(iso).toLocaleDateString();
+            return new Date(parseTs(iso)).toLocaleDateString();
         }
 
         function triggerPhotoUpload() {
@@ -8201,7 +8214,7 @@
 
         function formatTimestamp(isoString) {
             try {
-                const date = new Date(isoString);
+                const date = new Date(parseTs(isoString));
                 const year = date.getFullYear();
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 const day = String(date.getDate()).padStart(2, '0');
