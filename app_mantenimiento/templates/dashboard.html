@@ -4020,6 +4020,23 @@
                 { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which visit emails (by region or inspector), configure Clinical/Ops routing, and review "Who receives what" — a full list of every address we send to, flagging anyone missing an email. At the bottom, a Danger zone lets you wipe all visits to start fresh (a backup is saved first). People are managed in the People view.' },
                 { title: "You're all set", text: 'That’s the tour. Tap Help in the top bar to see it again whenever you want.' },
             ],
+            // Regional and corporate: the people who actually carry out visits.
+            // They used to fall through to the community tour, which since the
+            // rewrite tells you that you don't run visits — the opposite of
+            // their job.
+            regional: [
+                { title: 'Welcome to Atlas Standards', text: 'A quick tour of how you run visits and follow them through. Replay it anytime from Help.' },
+                { target: '#startVisitBtn', title: 'Start a visit', text: 'Begin here — pick the community and the survey type, then go item by item marking Pass or Fail. A Fail needs a comment saying what you found, so whoever fixes it knows where to start.' },
+                { title: 'You can stop and come back', text: 'The form saves itself on your device as you go, photos included. Leave mid-walk, lose signal, take a call — when you return to that community you\'ll be offered the unfinished visit. Nothing is sent until you submit.' },
+                { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Every community in your region with its current score and open items. Open one for its latest visit, then its history — including which standards keep coming back. Anything marked "recurring" has failed three times or more.' },
+                { title: 'Two scores, one truth', text: 'A community shows where it stands today, which rises as you verify fixes. The visit\'s own score is named underneath and never changes, so past results stay comparable.' },
+                { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything needing follow-up, opening on what\'s still outstanding from the latest visit. When a community comments that something is fixed, you get an email — review it and use "Mark as addressed" to close it out. That sign-off is yours: it\'s what lifts their current score.' },
+                { target: '.nav-item[data-view="my-visits"]', title: 'My Visits', text: 'Everything you\'ve submitted, with scores and dates.' },
+                { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns across your region, plus exports to CSV, Excel or PDF.' },
+                { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident\'s move-in as a phased checklist, with reminders. Open it for its own walkthrough.' },
+                { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'Visits and move-in dates for your communities on a monthly calendar.' },
+                { title: 'That\'s it', text: 'Use the Help button in the top bar to replay this anytime.' },
+            ],
             // The community tour. Everyone with this role is an Executive
             // Director or their team: they don't run visits, they act on what a
             // visit found. The old version walked them through starting a
@@ -4078,7 +4095,13 @@
         ];
         let tourSteps = [], tourIdx = 0;
         function runTour(steps) { tourSteps = steps || []; tourIdx = 0; showTourStep(); }
-        function startTour() { runTour(isAdmin ? TOUR_STEPS.admin : TOUR_STEPS.staff); }
+        function startTour() {
+            // Three audiences, three tours: admins, the people who run visits,
+            // and the communities who act on them.
+            const steps = isAdmin ? TOUR_STEPS.admin
+                        : (canRunVisits ? TOUR_STEPS.regional : TOUR_STEPS.staff);
+            runTour(steps);
+        }
         function startRegionsTour() { runTour(REGIONS_TOUR); }
         function startPeopleTour() { runTour(PEOPLE_TOUR); }
         function startMoveInsTour() { runTour(MOVEINS_TOUR); }
@@ -4262,11 +4285,11 @@
             document.getElementById('tourBlocker').style.display = 'none';
             document.getElementById('tourRing').style.display = 'none';
             document.getElementById('tourCard').style.display = 'none';
-            try { localStorage.setItem('atlasTourSeen_v1', '1'); } catch (e) {}
+            try { localStorage.setItem('atlasTourSeen_v2', '1'); } catch (e) {}
         }
         function maybeStartTour() {
             let seen = false;
-            try { seen = localStorage.getItem('atlasTourSeen_v1') === '1'; } catch (e) {}
+            try { seen = localStorage.getItem('atlasTourSeen_v2') === '1'; } catch (e) {}
             if (!seen) setTimeout(startTour, 900);
         }
         /* Reposition on resize/rotate — but never replay the step. On a phone the
