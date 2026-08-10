@@ -740,7 +740,7 @@ textarea:focus {
 .region-add-btn:hover { transform: translateY(-1px); }
 
 /* ----- Profile view ----------------------------------------------------- */
-.profile-wrap { grid-column: 1 / -1; max-width: 900px; display: grid; gap: 22px; }
+.profile-wrap { grid-column: 1 / -1; max-width: 100%; display: grid; gap: 22px; }
 .profile-header {
     background: #fff;
     border: 1px solid var(--line);
