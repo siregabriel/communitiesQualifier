@@ -629,6 +629,32 @@ def test_one_rule_for_both_kinds_of_item():
         A.presence_service.forget("smoke.ed")
 
 
+def test_user_info_carries_the_capability_flags():
+    """The dashboard hides "Start a visit" and "Mark as addressed" on these two
+    flags. They were once added to the wrong endpoint, which silently took the
+    buttons away from everyone — so pin them down."""
+    checks = [
+        ("admin",     dict(user="admin", role="admin", community=None, region_id=None),
+         {"can_run_visits": False, "can_verify_fixes": True}),
+        ("regional",  dict(user="smoke.regional", role="regional", community=None, region_id="coastal"),
+         {"can_run_visits": True, "can_verify_fixes": True}),
+        ("community", dict(user="smoke.ed", role="staff", community=_a_community(), region_id=None),
+         {"can_run_visits": False, "can_verify_fixes": False}),
+    ]
+    try:
+        for label, sess, expected in checks:
+            c = _client()
+            with c.session_transaction() as s:
+                s.update(display_name=label, **sess)
+            d = c.get("/api/user-info").get_json()
+            for key, want in expected.items():
+                assert key in d, f"{label}: /api/user-info is missing {key}"
+                assert d[key] is want, f"{label}: {key} should be {want}, got {d[key]}"
+    finally:
+        for u in ("smoke.regional", "smoke.ed"):
+            A.presence_service.forget(u)
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

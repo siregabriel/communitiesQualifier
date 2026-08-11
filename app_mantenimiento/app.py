@@ -1357,11 +1357,6 @@ def get_profile():
             'display_name': profile_service.get_display_name(username) or session.get('display_name') or '',
             'community': display_community,
             'is_admin': has_admin_access,
-            # Whether this user may close out a failed standard. Community
-            # accounts report fixes by commenting; leadership verifies them.
-            'can_verify_fixes': can_verify_fixes(),
-            # Whether this account may carry out a visit at all.
-            'can_run_visits': can_run_visits(),
             'role': role_label,
             'photo': profile_service.get_photo(username),
             'last_active': activity_service.last_active(username),
@@ -3883,6 +3878,12 @@ def get_user_info():
         'is_native_admin': is_native_admin(),
         'admin_extra': bool(session.get('admin_extra')),
         'can_inspect': not is_native_admin(),
+        # What this account may do. The dashboard hides the "Start a visit" and
+        # "Mark as addressed" controls on these, so they have to travel here —
+        # they were added to the profile endpoint by mistake, which left every
+        # role looking like a community account.
+        'can_run_visits': can_run_visits(),
+        'can_verify_fixes': can_verify_fixes(),
         'region_id': region_id,
         'region_name': region_name,
         'communities': communities
