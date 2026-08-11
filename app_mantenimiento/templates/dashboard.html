@@ -4617,6 +4617,10 @@
                 html[data-theme="dark"] .live-detail { color: #9fb0c4; }
                 html[data-theme="dark"] .live-time { color: #7e8ea3; }
                 html[data-theme="dark"] .live-online { color: #5fd6a3; }
+                .rail-up-row-late { background: #fdf3f1; border-radius: 0 8px 8px 0; }
+                .rail-up-late { color: #b42318; font-weight: 800; }
+                html[data-theme="dark"] .rail-up-row-late { background: rgba(209,50,18,.12); }
+                html[data-theme="dark"] .rail-up-late { color: #f0b8ab; }
                 .dash-row-name-flex { display: flex; align-items: center; gap: 6px; }
                 .dash-row-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
                 .dash-new-badge { flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #0f8a5f;
@@ -5974,21 +5978,43 @@
             const events = [];
             (moveInsRaw || []).forEach(m => {
                 if (!m.target_date || m.status === 'archived') return;
-                if (m.target_date >= todayKey) events.push({ date: m.target_date, type: 'mv', m });
+                if (m.target_date >= todayKey) {
+                    events.push({ date: m.target_date, type: 'mv', m });
+                } else if (m.status === 'active' && m.blockers > 0) {
+                    /* A move-in whose date has passed used to drop off this list
+                       the next morning — so the ones still missing required items
+                       became the least visible thing on the page. They stay, and
+                       they lead. */
+                    events.push({ date: m.target_date, type: 'late', m });
+                }
                 [[5, 'Day 5 follow-up'], [14, '1–2 week follow-up']].forEach(([n, label]) => {
                     const k = _calAddDays(m.target_date, n);
                     if (k >= todayKey) events.push({ date: k, type: 'fup', label, m });
                 });
             });
-            events.sort((a, b) => a.date.localeCompare(b.date));
+            // Overdue first, oldest of those first; everything else by date.
+            events.sort((a, b) =>
+                (a.type === 'late' ? 0 : 1) - (b.type === 'late' ? 0 : 1)
+                || a.date.localeCompare(b.date));
             const top = events.slice(0, 7);
             if (!top.length) return '<div class="dash-empty">Nothing upcoming.</div>';
+            const daysLate = key => Math.round((new Date(todayKey + 'T00:00:00') - new Date(key + 'T00:00:00')) / 86400000);
             return top.map(e => {
-                const color = e.type === 'mv' ? '#d97706' : '#0e7490';
-                const title = e.type === 'mv' ? `Move-in · ${escapeHtml(e.m.resident_name)}` : `${escapeHtml(e.label)} · ${escapeHtml(e.m.resident_name)}`;
+                const color = e.type === 'late' ? '#d13212' : (e.type === 'mv' ? '#d97706' : '#0e7490');
+                const title = e.type === 'fup'
+                    ? `${escapeHtml(e.label)} · ${escapeHtml(e.m.resident_name)}`
+                    : `Move-in · ${escapeHtml(e.m.resident_name)}`;
                 const dl = new Date(e.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const sub = e.type === 'mv' && e.m.blockers ? `${dl} · <span class="dash-muted-red">${e.m.blockers} required pending</span>` : dl;
-                return `<div class="rail-up-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${e.m.id}'),250)" style="border-left:2px solid ${color};">
+                let sub;
+                if (e.type === 'late') {
+                    const n = daysLate(e.date);
+                    sub = `<span class="rail-up-late">${n} day${n === 1 ? '' : 's'} overdue</span> · ${e.m.blockers} required pending`;
+                } else if (e.type === 'mv' && e.m.blockers) {
+                    sub = `${dl} · <span class="dash-muted-red">${e.m.blockers} required pending</span>`;
+                } else {
+                    sub = dl;
+                }
+                return `<div class="rail-up-row${e.type === 'late' ? ' rail-up-row-late' : ''}" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${e.m.id}'),250)" style="border-left:2px solid ${color};">
                     <div class="rail-up-title">${title}</div><div class="rail-up-sub">${sub} · ${escapeHtml(e.m.community)}</div></div>`;
             }).join('');
         }

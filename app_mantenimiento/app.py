@@ -2084,8 +2084,38 @@ def build_activity_digest(hours=24):
     except Exception as e:
         app.logger.error(f'Digest never-signed-in step failed: {e}')
 
+    # Move-ins whose date has passed with required items still open. Not an
+    # event from the last 24h — a standing condition that otherwise nobody is
+    # told about, since the reminder script only looks forward.
+    overdue = []
+    try:
+        from datetime import date as _date
+        today = _date.today()
+        for rec in movein_service.get_all():
+            if rec.get('status') != 'active':
+                continue
+            td = (rec.get('target_date') or '').strip()
+            if not td:
+                continue
+            try:
+                target = datetime.strptime(td, '%Y-%m-%d').date()
+            except ValueError:
+                continue
+            late = (today - target).days
+            if late <= 0:
+                continue
+            missing = _movein_blockers(rec)
+            if missing:
+                overdue.append({'resident': rec.get('resident_name', ''),
+                                'community': rec.get('community', ''),
+                                'days': late, 'pending': len(missing)})
+        overdue.sort(key=lambda x: -x['days'])
+    except Exception as e:
+        app.logger.error(f'Digest overdue move-ins step failed: {e}')
+
     return {
         'since': fmt_local(since_dt),
+        'overdue_moveins': overdue,
         'hours': hours,
         'signed_in': signed_in,
         'visits': visits,

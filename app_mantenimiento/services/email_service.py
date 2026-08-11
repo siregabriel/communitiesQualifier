@@ -496,12 +496,18 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         accounts = [f"<b>{html.escape(a['name'])}</b> — {html.escape(a['detail'])}"
                     for a in digest['accounts']]
         never = [html.escape(n) for n in digest['never_signed_in']]
+        # A standing condition rather than today's news, so it says how long.
+        overdue = [f"<b>{html.escape(o['resident'])}</b> at {html.escape(o['community'])} — "
+                   f"{o['days']} day{'s' if o['days'] != 1 else ''} past the move-in date, "
+                   f"{o['pending']} required item{'s' if o['pending'] != 1 else ''} still open"
+                   for o in digest.get('overdue_moveins', [])]
 
-        quiet = not any([signins, visits, addressed, comments, security, accounts])
+        quiet = not any([signins, visits, addressed, comments, security, accounts, overdue])
         blocks = [
             section("Signed in", signins,
                     empty="No activity in the last 24 hours." if quiet else None),
             section("Visits submitted", visits),
+            section("Move-ins past due with required items open", overdue),
             section("Reported by communities", comments),
             section("Waiting on a regional to confirm", awaiting),
             section("Marked as addressed", addressed),
