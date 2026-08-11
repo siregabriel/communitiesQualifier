@@ -2001,6 +2001,20 @@ def build_activity_digest(hours=24):
                   'detail': e.get('detail', '')}
                  for e in of_type('standard_addressed')]
 
+    # The report-and-verify loop is the point of the whole thing, so the day's
+    # comments belong here. What matters isn't the wording — it's whether the
+    # communities that spoke up got an answer.
+    comments = [{'name': resolve_display_name(e.get('username')) or e.get('username'),
+                 'detail': e.get('detail', ''),
+                 'community': (e.get('meta') or {}).get('community', '')}
+                for e in of_type('standard_commented')]
+    # Communities that reported something today with nothing closed out for
+    # them — that's the queue somebody needs to work through.
+    closed_for = {c for e in of_type('standard_addressed')
+                  for c in [(e.get('meta') or {}).get('community', '')] if c}
+    awaiting = sorted({c['community'] for c in comments
+                       if c['community'] and c['community'] not in closed_for})
+
     security = [{'name': resolve_display_name(e.get('username')) or e.get('username'),
                  'type': e.get('type'), 'detail': e.get('detail', '')}
                 for e in of_type('password_changed', 'password_reset',
@@ -2035,6 +2049,8 @@ def build_activity_digest(hours=24):
         'signed_in': signed_in,
         'visits': visits,
         'addressed': addressed,
+        'comments': comments,
+        'awaiting_review': awaiting,
         'security': security,
         'accounts': accounts,
         'never_signed_in': sorted(set(never)),
@@ -2668,7 +2684,8 @@ def add_standard_comment(submission_id, question_id):
     activity_service.log(session.get('user'), 'standard_commented',
                          f"Commented on {next((r.get('question_text', '') for r in sub.get('responses', []) if r.get('question_id') == question_id), '')[:60]} "
                          f"at {sub.get('community')}",
-                         meta={'community': sub.get('community')})
+                         meta={'community': sub.get('community'),
+                               'submission_id': submission_id, 'question_id': question_id})
 
     # Tell the person who ran the visit that the community replied.
     try:
@@ -2725,7 +2742,8 @@ def add_item_comment(submission_id, item_id):
                       if i.get('id') == item_id), '')
     activity_service.log(session.get('user'), 'standard_commented',
                          f"Commented on {item_text[:60]} at {sub.get('community')}",
-                         meta={'community': sub.get('community')})
+                         meta={'community': sub.get('community'),
+                               'submission_id': submission_id, 'item_id': item_id})
     try:
         notify_item_comment(sub, item_text, comment)
     except Exception as e:
@@ -2890,7 +2908,8 @@ def resolve_failed_standard(submission_id, question_id):
                          'standard_addressed' if resolved else 'standard_reopened',
                          f'{"Marked addressed" if resolved else "Reopened"}: '
                          f'{resp.get("question_text", "")[:60]} at {sub.get("community")}',
-                         meta={'community': sub.get('community')})
+                         meta={'community': sub.get('community'),
+                               'submission_id': submission_id, 'question_id': question_id})
     return jsonify({'status': 'success', 'response': resp,
                     'message': 'Marked as addressed.' if resolved else 'Reopened.'}), 200
 
@@ -3340,6 +3359,10 @@ def activity_live():
             'detail': e.get('detail', ''),
             'timestamp': e.get('timestamp'),
             'community': (e.get('meta') or {}).get('community', ''),
+            # Enough to open the exact item the event is about.
+            'submission_id': (e.get('meta') or {}).get('submission_id', ''),
+            'question_id': (e.get('meta') or {}).get('question_id', ''),
+            'item_id': (e.get('meta') or {}).get('item_id', ''),
         })
     online = [{'username': u, 'name': resolve_display_name(u) or u}
               for u in presence_service.active_usernames()]

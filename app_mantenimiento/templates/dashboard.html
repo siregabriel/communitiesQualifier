@@ -1725,6 +1725,16 @@
         .score-note { text-align: center; font-size: 11px; color: #64748b; margin-top: -6px;
             margin-bottom: 10px; line-height: 1.4; }
         html[data-theme="dark"] .score-note { color: #9fb0c4; }
+        .live-row-link { cursor: pointer; }
+        .live-row-link:hover { background: rgba(31,111,229,.05); }
+        /* Brief highlight so the card you were sent to is obvious on arrival. */
+        .card.ai-flash { animation: aiFlash 2.2s ease-out 1; }
+        @keyframes aiFlash {
+            0%   { box-shadow: 0 0 0 3px rgba(31,111,229,.55); }
+            70%  { box-shadow: 0 0 0 3px rgba(31,111,229,.18); }
+            100% { box-shadow: 0 0 0 3px rgba(31,111,229,0); }
+        }
+        @media (prefers-reduced-motion: reduce) { .card.ai-flash { animation: none; box-shadow: 0 0 0 3px rgba(31,111,229,.45); } }
         .ai-scope { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
         .ai-chip { background: #fff; border: 1.5px solid #e4ebf5; color: #475569; border-radius: 999px;
             padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
@@ -4629,7 +4639,12 @@
                     ? d.events.map(e => {
                         const meta = LIVE_EVENTS[e.type] || { icon: 'fa-circle-dot', color: '#64748b', verb: e.type.replace(/_/g, ' ') };
                         const where = e.community ? ` · ${escapeHtml(e.community)}` : '';
-                        return `<div class="live-row">
+                        // Only rows that point at something become clickable —
+                        // a dead link is worse than no link.
+                        const target = e.submission_id && (e.question_id || e.item_id)
+                            ? `openActivityTarget('${e.submission_id}','${e.question_id || ''}','${e.item_id || ''}')`
+                            : (e.community ? `openSlidePanel('${(e.community || '').replace(/'/g, "\\'")}')` : '');
+                        return `<div class="live-row${target ? ' live-row-link' : ''}"${target ? ` onclick="${target}" title="Open"` : ''}>
                             <span class="live-icon" style="color:${meta.color}"><i class="fas ${meta.icon}"></i></span>
                             <div class="live-main">
                                 <div class="live-text"><b>${escapeHtml(e.name || e.username)}</b> ${escapeHtml(meta.verb)}${where}</div>
@@ -4642,6 +4657,26 @@
             } catch (err) {
                 feed.innerHTML = '<div class="dash-empty">Could not load the activity feed.</div>';
             }
+        }
+
+        /* Take the admin to the item an event refers to.
+
+           Action Items opens on "what's outstanding from the latest visit", so
+           a comment on an older visit would land on a screen that doesn't
+           contain it and look broken. Widening the filter first is what makes
+           the link honest. */
+        function openActivityTarget(submissionId, questionId, itemId) {
+            const cardId = 'ai_' + submissionId + '_' + (questionId || itemId || '');
+            aiScope = 'all';
+            currentSurveyTypeFilter = 'all';
+            showView('action-items');
+            setTimeout(() => {
+                const el = document.getElementById(cardId);
+                if (!el) return;
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('ai-flash');
+                setTimeout(() => el.classList.remove('ai-flash'), 2200);
+            }, 120);
         }
 
         function startLiveActivity() {
@@ -4977,8 +5012,9 @@
                     resolveUi = closeUi + commentsUi(item, qid, null);
                 }
 
+                const cardId = 'ai_' + item.submissionId + '_' + (item.questionId || item.itemId || '');
                 return `
-                    <div class="card ${isClosed ? 'ai-done' : ''}">
+                    <div class="card ${isClosed ? 'ai-done' : ''}" id="${cardId}">
                         <div class="${imageClass}">${imageInner}</div>
                         <div class="card-content">
                             <div class="card-badge ${priorityClass}" style="margin-bottom: 8px;">${priorityText}</div>

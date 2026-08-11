@@ -486,17 +486,24 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                   for v in digest['visits']]
         addressed = [f"<b>{html.escape(a['name'])}</b> — {html.escape(a['detail'])}"
                      for a in digest['addressed']]
+        comments = [f"<b>{html.escape(c['name'])}</b> — {html.escape(c['detail'])}"
+                    for c in digest.get('comments', [])]
+        # Named separately because it's the one line worth acting on: somebody
+        # said they fixed something and nobody has confirmed it.
+        awaiting = [html.escape(c) for c in digest.get('awaiting_review', [])]
         security = [f"<b>{html.escape(s['name'])}</b> — {html.escape(s['detail'])}"
                     for s in digest['security']]
         accounts = [f"<b>{html.escape(a['name'])}</b> — {html.escape(a['detail'])}"
                     for a in digest['accounts']]
         never = [html.escape(n) for n in digest['never_signed_in']]
 
-        quiet = not any([signins, visits, addressed, security, accounts])
+        quiet = not any([signins, visits, addressed, comments, security, accounts])
         blocks = [
             section("Signed in", signins,
                     empty="No activity in the last 24 hours." if quiet else None),
             section("Visits submitted", visits),
+            section("Reported by communities", comments),
+            section("Waiting on a regional to confirm", awaiting),
             section("Marked as addressed", addressed),
             section("Passwords", security),
             section("Account changes", accounts),
