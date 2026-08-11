@@ -546,6 +546,10 @@ def authenticate_user(username, password):
         return (True, {
             'role': custom.get('role', 'staff'),
             'community': custom.get('community'),
+            # An account may cover several communities; `community` remains the
+            # primary one so anything reading a single value still works.
+            'communities': custom.get('communities')
+                           or ([custom.get('community')] if custom.get('community') else []),
             'region_id': custom.get('region_id'),
             'display_name': profile_service.get_display_name(username)
                             or custom.get('display_name') or username
@@ -720,6 +724,47 @@ def is_admin():
     return bool(session.get('admin_extra'))
 
 
+def requested_communities(data, primary):
+    """The communities an admin picked for a community account.
+
+    Accepts a list, and always keeps the primary one first so anything reading
+    a single value gets the main site. Unknown names are dropped rather than
+    trusted — this is what stops a request from granting itself a community."""
+    known = set(all_communities())
+    out = []
+    if primary:
+        out.append(primary)
+    for c in (data.get('communities') or []):
+        name = InputSanitizer.sanitize_community_name(c or '')
+        if name and name in known and name not in out:
+            out.append(name)
+    return [c for c in out if c in known]
+
+
+def account_communities(u):
+    """Which communities a stored account covers, tolerating older records
+    that only ever had a single one."""
+    comms = u.get('communities')
+    if comms:
+        return [c for c in comms if c]
+    one = (u.get('community') or '').strip()
+    return [one] if one else []
+
+
+def session_communities():
+    """Every community this session covers.
+
+    Community accounts used to be one-per-site, and a dozen checks compared a
+    single string. An ED can now stand in for a neighbouring community, so the
+    answer is a list — with the old single value as a fallback for sessions
+    created before this existed."""
+    comms = session.get('communities')
+    if comms:
+        return [c for c in comms if c]
+    one = session.get('community')
+    return [one] if one else []
+
+
 def can_run_visits():
     """Who may carry out a visit.
 
@@ -783,7 +828,7 @@ def community_account_emails(community, exclude_username=None):
         return []
     out = []
     for u in user_service.get_all():
-        if u.get('role') != 'staff' or (u.get('community') or '').strip() != community:
+        if u.get('role') != 'staff' or community not in account_communities(u):
             continue
         if exclude_username and u.get('username') == exclude_username:
             continue
@@ -1014,6 +1059,8 @@ def api_login():
             # Store user in session
             session['user'] = username
             session['community'] = account['community']
+            session['communities'] = account.get('communities') or (
+                [account['community']] if account['community'] else [])
             session['role'] = account['role']
             session['region_id'] = account['region_id']
             session['display_name'] = account['display_name']
@@ -1180,7 +1227,7 @@ def report_form():
     if current_role() == 'regional':
         communities = regional_communities()
     else:
-        communities = [session.get('community')] if session.get('community') else []
+        communities = session_communities()
 
     return render_template('reporte.html',
                          community=session.get('community'),
@@ -1326,7 +1373,7 @@ def get_profile():
         role = current_role()
         # NOTE: don't shadow the module-level is_admin() helper.
         has_admin_access = is_admin()
-        role_label = {'admin': 'Administrator', 'regional': 'Regional', 'staff': 'Staff'}.get(role, 'Staff')
+        role_label = role_label_for(role, community)
 
         # Inspection count from the source of truth (historical-safe)
         try:
@@ -1485,7 +1532,7 @@ def get_communities():
     elif role == 'regional':
         communities = regional_communities()
     else:
-        communities = [session.get('community')] if session.get('community') else []
+        communities = session_communities()
     return jsonify({'status': 'success', 'communities': communities}), 200
 
 
@@ -1753,9 +1800,8 @@ def _movein_allowed_communities():
         return None
     if role == 'regional':
         return set(regional_communities())
-    # staff
-    c = session.get('community')
-    return {c} if c else set()
+    # community account — may cover more than one site
+    return set(session_communities())
 
 
 def _can_access_movein(rec):
@@ -2546,7 +2592,7 @@ def _can_see_community(community):
         return True
     if current_role() == 'regional':
         return community in set(regional_communities())
-    return community == session.get('community')
+    return community in set(session_communities())
 
 
 @app.route('/api/communities/<path:community>/history')
@@ -3019,9 +3065,11 @@ def list_people():
             'title': '',
             'role': role,
             'scope': ('All communities' if role == 'admin'
-                      else (u.get('community') or region_name.get(u.get('region_id'), '') or '—')),
+                      else (' · '.join(account_communities(u))
+                            or region_name.get(u.get('region_id'), '') or '—')),
             'region_id': u.get('region_id'),
             'community': u.get('community'),
+            'communities': account_communities(u),
             'source': 'user',
             'photo': profile_service.get_photo(username),
             'inspections': n, 'last_visit': last,
@@ -3114,6 +3162,8 @@ def create_person():
     else:
         user_service.create(username, display_name=name, role=role, password_hash=pw_hash,
                             community=community if role == 'staff' else None,
+                            communities=(requested_communities(data, community)
+                                         if role == 'staff' else None),
                             region_id=None, created_by=session.get('user'), email=email or None)
         scope = community if role == 'staff' else 'All communities'
 
@@ -3143,7 +3193,8 @@ def create_person():
     # backlog on their own.
     if role == 'staff' and community and email:
         try:
-            send_community_handover(community, [email])
+            for comm in requested_communities(data, community):
+                send_community_handover(comm, [email])
         except Exception as e:
             app.logger.error(f'Handover email failed: {e}')
 
@@ -3173,6 +3224,7 @@ def update_person(username):
     requested_role = data.get('role') if data.get('role') in ('admin', 'staff', 'regional', 'corporate') else None
     target_region = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
     community = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
+    communities = requested_communities(data, community)
 
     def preserve_password(user_rec):
         """Carry an account's password across storage types so moving someone
@@ -3199,6 +3251,7 @@ def update_person(username):
             else:
                 user_service.update(username, display_name=name, role=requested_role,
                                     community=community if requested_role == 'staff' else None,
+                                    communities=(communities if requested_role == 'staff' else []),
                                     email=email)
             profile_service.set_display_name(username, name)
             activity_service.log(session.get('user'), 'person_updated',
@@ -3253,8 +3306,10 @@ def update_person(username):
             fields['role'] = requested_role
             if requested_role == 'admin':
                 fields['community'] = None
+                fields['communities'] = []
         if 'community' in data and requested_role != 'admin':
             fields['community'] = community
+            fields['communities'] = communities
         user_service.update(username, **fields)
         profile_service.set_display_name(username, name)
         activity_service.log(session.get('user'), 'person_updated', f'Updated {name} ({username})')
@@ -3862,8 +3917,8 @@ def get_user_info():
         communities = regional_communities()
         region_name = next((r.get('name') for r in region_service.get_all_regions()
                             if r.get('id') == region_id), None)
-    elif session.get('community'):
-        communities = [session.get('community')]
+    elif session_communities():
+        communities = session_communities()
     else:
         communities = []
     return jsonify({
@@ -4117,8 +4172,9 @@ def get_questions():
             else:
                 questions = []
         else:
-            # Staff user - always filter by their assigned community
-            questions = question_manager.get_questions_for_community(session.get('community'))
+            # Community account — the standards for whichever site it covers.
+            comms = session_communities()
+            questions = question_manager.get_questions_for_community(comms[0]) if comms else []
         
         # Apply survey type filter if provided
         if survey_type_filter:
@@ -4466,15 +4522,13 @@ def get_regions():
         for u in user_service.get_all():
             if u.get('role') != 'staff':
                 continue
-            comm = (u.get('community') or '').strip()
-            if not comm:
-                continue
-            directors.setdefault(comm, []).append({
-                'username': u.get('username'),
-                'name': profile_service.get_display_name(u.get('username'))
-                        or u.get('display_name') or u.get('username'),
-                'email': (u.get('email') or '').strip(),
-            })
+            for comm in account_communities(u):
+                directors.setdefault(comm, []).append({
+                    'username': u.get('username'),
+                    'name': profile_service.get_display_name(u.get('username'))
+                            or u.get('display_name') or u.get('username'),
+                    'email': (u.get('email') or '').strip(),
+                })
 
         return jsonify({
             'status': 'success',
@@ -5130,8 +5184,10 @@ def get_inspections():
             else:
                 submissions = [s for s in all_subs if s.get('community') in allowed]
         else:
-            # Staff user - always filter by their assigned community
-            submissions = inspection_service.get_submissions_by_community(session.get('community'))
+            # Community account — every site it covers, not just one.
+            allowed_comms = set(session_communities())
+            submissions = [s for s in inspection_service.get_all_submissions()
+                           if s.get('community') in allowed_comms]
         
         # Apply survey type filter if provided
         if survey_type_filter:
@@ -5206,7 +5262,9 @@ def _scoped_submissions_for_export():
         submissions = [s for s in inspection_service.get_all_submissions()
                        if s.get('community') in allowed]
     else:
-        submissions = inspection_service.get_submissions_by_community(session.get('community'))
+        allowed_comms = set(session_communities())
+        submissions = [s for s in inspection_service.get_all_submissions()
+                       if s.get('community') in allowed_comms]
     out = []
     for sub in submissions:
         name = sub.get('inspector_name') or resolve_display_name(sub.get('username', ''))

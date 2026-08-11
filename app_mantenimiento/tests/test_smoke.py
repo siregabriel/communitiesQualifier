@@ -655,6 +655,72 @@ def test_user_info_carries_the_capability_flags():
             A.presence_service.forget(u)
 
 
+def _two_communities():
+    names = []
+    for reg in A.region_service.get_all_regions():
+        for entry in reg.get("communities", []):
+            n = entry if isinstance(entry, str) else entry.get("name")
+            if n and n not in names:
+                names.append(n)
+            if len(names) >= 3:
+                return names[0], names[1], names[2]
+    raise AssertionError("need at least three communities to test isolation")
+
+
+def test_an_account_can_cover_two_communities_and_no_more():
+    """An ED standing in for a neighbour sees both — and must not gain a third.
+    Every scoping check compared a single community before this, so each one
+    is exercised here."""
+    first, second, third = _two_communities()
+    subs = []
+    try:
+        for comm in (first, second, third):
+            subs.append(A.inspection_service.create_submission(
+                username="admin", community=comm, inspector_name="Smoke",
+                responses=[{"question_id": "smoke_q9", "question_text": "Welcome sign",
+                            "condition": "Fail", "description": "missing",
+                            "answered_at": "2026-08-11T09:00:00"}]))
+
+        c = _client()
+        with c.session_transaction() as s:
+            s.update(user="smoke.ed", role="staff", region_id=None,
+                     community=first, communities=[first, second],
+                     display_name="Smoke ED")
+
+        # The dashboard grid lists both, and only both.
+        listed = set(c.get("/api/communities").get_json()["communities"])
+        assert listed == {first, second}, listed
+
+        # Visits: both visible, the third absent.
+        seen = {s["community"] for s in c.get("/api/inspections").get_json()["submissions"]}
+        assert first in seen and second in seen, seen
+        assert third not in seen, "a third community leaked into the visit list"
+
+        # History is readable for both, refused for the third.
+        assert c.get(f"/api/communities/{first}/history").status_code == 200
+        assert c.get(f"/api/communities/{second}/history").status_code == 200
+        assert c.get(f"/api/communities/{third}/history").status_code == 403
+
+        # Commenting follows the same rule.
+        ok_sub = next(x for x in subs if x["community"] == second)
+        no_sub = next(x for x in subs if x["community"] == third)
+        assert c.post(f"/api/action-items/{ok_sub['id']}/standard/smoke_q9/comments",
+                      json={"text": "covering this one too"}, headers=HDR).status_code == 201
+        assert c.post(f"/api/action-items/{no_sub['id']}/standard/smoke_q9/comments",
+                      json={"text": "nope"}, headers=HDR).status_code == 403
+
+        # And so do the exports.
+        csv_body = c.get("/api/reports/export.csv").get_data(as_text=True)
+        assert first in csv_body and second in csv_body
+        assert third not in csv_body, "the export reached beyond the account's communities"
+    finally:
+        ids = {s["id"] for s in subs}
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") not in ids]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.ed")
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

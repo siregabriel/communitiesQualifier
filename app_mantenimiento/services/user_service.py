@@ -71,6 +71,10 @@ class UserService(JsonFileBacked):
                 'display_name': rec.get('display_name', username),
                 'role': rec.get('role', 'staff'),
                 'community': rec.get('community'),
+                # Callers scope data by this, so it must survive the copy —
+                # dropping it here silently narrowed every account to one site.
+                'communities': rec.get('communities')
+                               or ([rec.get('community')] if rec.get('community') else []),
                 'region_id': rec.get('region_id'),
                 'email': rec.get('email'),
                 'created_at': rec.get('created_at'),
@@ -81,13 +85,18 @@ class UserService(JsonFileBacked):
 
     # --- Writes ---
     def create(self, username, display_name, role, password_hash,
-               community=None, region_id=None, created_by=None, email=None) -> dict:
+               community=None, region_id=None, created_by=None, email=None,
+               communities=None) -> dict:
         with self._lock:
             self._ensure_fresh()
             rec = {
                 'display_name': display_name,
                 'role': role,
                 'community': community,
+                # A community account can cover more than one site — an ED
+                # standing in for a neighbour, for instance. `community` stays
+                # as the primary so older records and code keep working.
+                'communities': [c for c in (communities or ([community] if community else []))],
                 'region_id': region_id,
                 'email': email,
                 'password_hash': password_hash,
@@ -110,7 +119,7 @@ class UserService(JsonFileBacked):
     def update(self, username: str, **fields) -> bool:
         """Update editable profile fields on a stored user. Only the keys passed
         in are touched; the username and password hash are never changed here."""
-        allowed = {'display_name', 'role', 'community', 'region_id', 'email'}
+        allowed = {'display_name', 'role', 'community', 'communities', 'region_id', 'email'}
         with self._lock:
             self._ensure_fresh()
             if username not in self.users:
@@ -132,6 +141,8 @@ class UserService(JsonFileBacked):
                 'display_name': fields.get('display_name') or username,
                 'role': fields.get('role', 'staff'),
                 'community': fields.get('community'),
+                'communities': fields.get('communities')
+                               or ([fields.get('community')] if fields.get('community') else []),
                 'region_id': fields.get('region_id'),
                 'email': fields.get('email'),
                 'password_hash': fields.get('password_hash'),

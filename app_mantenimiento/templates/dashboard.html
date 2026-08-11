@@ -1867,6 +1867,18 @@
         html[data-theme="dark"] .pe-priv-row b { color: #f2c94c; }
         html[data-theme="dark"] .pe-priv-row small, html[data-theme="dark"] .pe-priv-note { color: #d8bd77; }
         .ppl-info-tag { font-size: 10px; font-weight: 800; background: #eef4ff; color: #1e40af; border: 1px solid #d3e2fb; padding: 1px 7px; border-radius: 6px; }
+        .cov-extra { margin-top: 10px; }
+        .cov-label { font-size: 11.5px; font-weight: 700; color: #0f1e36; margin-bottom: 6px; }
+        .cov-label span { font-weight: 500; color: #94a3b8; }
+        .cov-list { max-height: 168px; overflow-y: auto; border: 1px solid #e4ebf5;
+            border-radius: 9px; padding: 8px 10px; background: #fbfcfe; }
+        .cov-item { display: flex; align-items: center; gap: 8px; padding: 4px 0;
+            font-size: 12.5px; color: #475569; cursor: pointer; }
+        .cov-item input { width: 15px; height: 15px; accent-color: #1f6fe5; flex-shrink: 0; }
+        .cov-empty { font-size: 12px; color: #94a3b8; padding: 4px 0; }
+        html[data-theme="dark"] .cov-list { background: #131d2c; border-color: #33425c; }
+        html[data-theme="dark"] .cov-label { color: #eef2f8; }
+        html[data-theme="dark"] .cov-item { color: #c2cddd; }
         .ppl-actions { display: flex; gap: 6px; flex-shrink: 0; }
         .ppl-alert { background: #fdf3f1; border: 1px solid #f7d3ca; color: #7a3227; border-radius: 10px;
             padding: 12px 14px; font-size: 12.5px; line-height: 1.5; margin-bottom: 12px; }
@@ -6408,7 +6420,12 @@
                         <div id="apRegionWrap"><label class="mi-label">Region / group</label>
                             <select id="apRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
                         <div id="apCommunityWrap"><label class="mi-label">Community</label>
-                            <select id="apCommunity" class="pw-input" style="width:100%;"><option value="">— Select —</option>${commOpts}</select></div>
+                            <select id="apCommunity" class="pw-input" style="width:100%;" onchange="apRenderExtraComms()"><option value="">— Select —</option>${commOpts}</select>
+                            <div class="cov-extra" id="apExtraWrap" style="display:none;">
+                                <div class="cov-label">Also covers <span>(optional — for someone standing in for another community)</span></div>
+                                <div class="cov-list" id="apExtraComms"></div>
+                            </div>
+                        </div>
                         <div id="apRoleNote" style="font-size:12px;color:#64748b;line-height:1.45;"></div>
                     </div>
                     <div style="display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap;">
@@ -6458,7 +6475,10 @@
                 title: (document.getElementById('apTitle').value || '').trim(),
             };
             if (role === 'regional' || role === 'corporate') body.region_id = document.getElementById('apRegion').value;
-            if (role === 'staff') body.community = document.getElementById('apCommunity').value;
+            if (role === 'staff') {
+                body.community = document.getElementById('apCommunity').value;
+                body.communities = checkedCoverage('apExtraComms');
+            }
             if (!body.name) { msg.textContent = 'Enter a name.'; msg.classList.add('error'); return; }
             if (role === 'staff' && !body.community) { msg.textContent = 'Pick a community.'; msg.classList.add('error'); return; }
             try {
@@ -6487,6 +6507,33 @@
                     msg.classList.add('error');
                 }
             } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
+        }
+
+        /* An account can stand in for a neighbouring community. The primary
+           one stays the field above; these are the extras. The primary is
+           excluded so it can't be listed twice. */
+        function coverageChecklist(primary, selected) {
+            const all = (peopleData && peopleData.communities) || [];
+            const chosen = new Set(selected || []);
+            const rows = all.filter(c => c !== primary).map(c => {
+                const id = 'cov_' + c.replace(/[^a-zA-Z0-9]/g, '_');
+                return `<label class="cov-item"><input type="checkbox" class="cov-check" value="${escapeHtml(c)}" id="${id}" ${chosen.has(c) ? 'checked' : ''}> ${escapeHtml(c)}</label>`;
+            }).join('');
+            return rows || '<div class="cov-empty">No other communities available.</div>';
+        }
+
+        function apRenderExtraComms() {
+            const sel = document.getElementById('apCommunity');
+            const wrap = document.getElementById('apExtraWrap');
+            const list = document.getElementById('apExtraComms');
+            if (!sel || !wrap || !list) return;
+            wrap.style.display = sel.value ? '' : 'none';
+            if (sel.value) list.innerHTML = coverageChecklist(sel.value, []);
+        }
+
+        function checkedCoverage(containerId) {
+            return Array.from(document.querySelectorAll(`#${containerId} .cov-check:checked`))
+                        .map(el => el.value);
         }
 
         function openPersonEdit(username) {
@@ -6519,7 +6566,12 @@
                         <div id="peRegionWrap"><label class="mi-label">Region / group</label>
                             <select id="peRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
                         <div id="peCommunityWrap"><label class="mi-label">Community</label>
-                            <input id="peCommunity" class="pw-input" value="${escapeHtml(p.community || '')}" placeholder="Community name" style="width:100%;"></div>
+                            <input id="peCommunity" class="pw-input" value="${escapeHtml(p.community || '')}" placeholder="Community name" style="width:100%;">
+                            <div class="cov-extra">
+                                <div class="cov-label">Also covers <span>(optional)</span></div>
+                                <div class="cov-list" id="peExtraComms">${coverageChecklist(p.community, p.communities || [])}</div>
+                            </div>
+                        </div>
                         <div id="peRoleNote" style="font-size:12px;color:#64748b;line-height:1.45;"></div>
                         ${(peopleData.can_grant_admin && p.role !== 'admin') ? `
                         <div class="pe-priv">
@@ -6619,7 +6671,10 @@
             if (t) body.title = t.value.trim();
             // Only send the field that applies to the chosen role.
             if (rg && (role === 'regional' || role === 'corporate')) body.region_id = rg.value;
-            if (cm && role === 'staff') body.community = cm.value.trim();
+            if (cm && role === 'staff') {
+                body.community = cm.value.trim();
+                body.communities = checkedCoverage('peExtraComms');
+            }
             if (!body.name) { msg.textContent = 'Name is required.'; msg.classList.add('error'); return; }
             try {
                 const r = await fetch(`/api/people/${encodeURIComponent(username)}`, {
