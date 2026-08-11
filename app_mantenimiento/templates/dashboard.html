@@ -2116,7 +2116,7 @@
                 <span>Dashboard</span>
                 <span class="nav-badge" id="dashNavBadge" style="display:none;" aria-label="new activity"></span>
             </a>
-            <a href="#" class="nav-item" data-view="my-visits">
+            <a href="#" class="nav-item" data-view="my-visits" id="myVisitsNavItem">
                 <i class="fas fa-file-alt" aria-hidden="true"></i>
                 <span>My Visits</span>
             </a>
@@ -3800,6 +3800,15 @@
                 // People (user directory) is an admin-only area
                 const peopleNav = document.getElementById('peopleNavItem');
                 if (peopleNav && isAdmin) peopleNav.style.display = '';
+                // A community account never submits a visit, so "My Visits"
+                // would only ever be an empty page. Hide it rather than offer
+                // a dead end — same for the mobile tab.
+                if (!canRunVisits && !isAdmin) {
+                    const mv = document.getElementById('myVisitsNavItem');
+                    if (mv) mv.style.display = 'none';
+                    document.querySelectorAll('.mtab-item[data-view="my-visits"]')
+                        .forEach(el => el.style.display = 'none');
+                }
 
                 // Show Question Manager button only for admin users
                 if (isAdmin) {
@@ -7288,7 +7297,10 @@
                 : `<div class="activity-avatar-initials" style="background:${avatarColor(username)};">${profileInitials(displayName)}</div>`;
 
             const statCards = [];
-            statCards.push(`<div class="profile-stat profile-stat-clickable" onclick="showView('my-visits')" title="View my visits"><div class="profile-stat-value">${stats.inspections}</div><div class="profile-stat-label">Visits</div></div>`);
+            // Only offer the shortcut to people who have a My Visits page to
+            // land on — a community account would arrive at an empty list.
+            const visitsClickable = canRunVisits || isAdmin;
+            statCards.push(`<div class="profile-stat${visitsClickable ? ' profile-stat-clickable' : ''}"${visitsClickable ? ` onclick="showView('my-visits')" title="View my visits"` : ''}><div class="profile-stat-value">${stats.inspections}</div><div class="profile-stat-label">Visits</div></div>`);
             if (admin) {
                 statCards.push(`<div class="profile-stat"><div class="profile-stat-value">${stats.questions_created}</div><div class="profile-stat-label">Questions created</div></div>`);
                 statCards.push(`<div class="profile-stat"><div class="profile-stat-value">${stats.questions_edited}</div><div class="profile-stat-label">Questions edited</div></div>`);
