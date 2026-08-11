@@ -1239,6 +1239,43 @@
         .tour-btn { background: #00285c; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
         .tour-btn-ghost { background: #fff; color: #475569; border: 1px solid #d9dfe8; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
 
+        /* A failure that has since been verified as fixed shouldn't shout the
+           same red as one still open — but the Fail badge stays, because the
+           visit found what it found. The green edge and chip carry the update. */
+        .response-card-fixed { border-color: #cfeee0; background: #fbfefc; }
+        .response-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .resp-chip-fixed {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #e6f5ee; color: #0f6b4a; border: 1px solid #b7e0cd;
+            padding: 5px 10px; border-radius: 8px;
+            font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+        }
+        .resp-fixed {
+            display: flex; gap: 9px; margin-top: 14px; padding: 11px 13px;
+            background: #f2fbf7; border: 1px solid #cfeee0; border-radius: 10px;
+            font-size: 12.5px; color: #0f6b4a; line-height: 1.45;
+        }
+        .resp-fixed > i { margin-top: 1px; }
+        .resp-fixed b { font-weight: 700; }
+        .resp-fixed-note { color: #46705f; font-weight: 500; margin-top: 3px; }
+        .resp-fixed-photo {
+            display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;
+            color: #0f6b4a; font-weight: 700; text-decoration: none;
+        }
+        .resp-fixed-photo:hover { text-decoration: underline; }
+        .resp-thread {
+            margin-top: 12px; width: 100%; padding: 9px;
+            background: #f7faff; border: 1px solid #d9e3f2; border-radius: 9px;
+            color: #1f4f9e; font-size: 12.5px; font-weight: 700; cursor: pointer;
+        }
+        .resp-thread:hover { background: #eef4ff; }
+        html[data-theme="dark"] .response-card-fixed { border-color: rgba(15,138,95,.4); background: rgba(15,138,95,.07); }
+        html[data-theme="dark"] .resp-chip-fixed,
+        html[data-theme="dark"] .resp-fixed { background: rgba(15,138,95,.14); border-color: rgba(15,138,95,.38); color: #5fd6a3; }
+        html[data-theme="dark"] .resp-fixed-note { color: #9fc9b8; }
+        html[data-theme="dark"] .resp-fixed-photo { color: #5fd6a3; }
+        html[data-theme="dark"] .resp-thread { background: rgba(31,111,229,.12); border-color: rgba(31,111,229,.35); color: #9cc4ff; }
+
         .response-condition {
             display: inline-block;
             padding: 6px 12px;
@@ -2319,19 +2356,6 @@
     </div>
 
     <!-- Inspection Details Modal -->
-    <div class="modal-overlay" id="inspectionModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-clipboard-list"></i> Visit Details</h2>
-                <button class="modal-close" onclick="closeInspectionModal()" aria-label="Close modal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Content will be dynamically loaded here -->
-            </div>
-        </div>
-    </div>
 
     <!-- Guided tour / tutorial -->
     <div id="tourBlocker"></div>
@@ -2718,7 +2742,7 @@
         }
 
         // Group Responses by Condition
-        function groupResponsesByCondition(inspections) {
+        function groupResponsesByCondition(inspections, submissionId) {
             if (!inspections || !Array.isArray(inspections)) {
                 return [];
             }
@@ -2740,7 +2764,17 @@
                     questionText: inspection.question_text || inspection.questionText || 'N/A',
                     description: inspection.description || '',
                     photoPath: inspection.photo_url || inspection.photo_path || inspection.photoPath || null,
-                    timestamp: inspection.submitted_at || inspection.timestamp || ''
+                    timestamp: inspection.submitted_at || inspection.timestamp || '',
+                    // What happened after the visit — the panel showed a bare
+                    // Fail even once the fix had been verified, which read as a
+                    // contradiction against the current score above it.
+                    addressed: !!inspection.addressed,
+                    addressedAt: inspection.addressed_at || '',
+                    addressedBy: inspection.addressed_by || '',
+                    addressedNote: inspection.addressed_note || '',
+                    addressedPhoto: inspection.addressed_photo_url || inspection.addressed_photo || '',
+                    comments: inspection.comments || [],
+                    submissionId: submissionId || ''
                 }));
             
             // Sort by severity (Fail first, Pass last)
@@ -2860,7 +2894,7 @@
                     || '';
 
                 // Process responses and photos
-                const responses = groupResponsesByCondition(latestResponses);
+                const responses = groupResponsesByCondition(latestResponses, latestSubmission.id);
                 const photos = extractPhotos(latestResponses);
 
                 // Build data object
@@ -3244,7 +3278,7 @@
                     <div class="panel-section">
                         <h3 class="panel-section-title">
                             <i class="fas fa-clipboard-list"></i>
-                            Inspection Responses
+                            Visit responses
                         </h3>
                         <div class="no-data">No responses available</div>
                     </div>
@@ -3255,21 +3289,46 @@
                 <div class="panel-section">
                     <h3 class="panel-section-title">
                         <i class="fas fa-clipboard-list"></i>
-                        Inspection Responses (${responses.length})
+                        Visit responses (${responses.length})
                     </h3>
             `;
             
             for (const response of responses) {
                 const std = standardFor(response);
                 const stdBtn = std ? `<button class="std-info-btn" title="View the standard for this item" data-qid="${escapeHtml(response.questionId || '')}" data-qtext="${escapeHtml(response.questionText || '')}" onclick="openStandardSheetFor(this)"><i class="fas fa-circle-info"></i></button>` : '';
+                const nComments = (response.comments || []).length;
+                // The conversation itself lives in Action Items — one home for
+                // it, so the two screens can't drift apart. Here we show the
+                // outcome and a way through to the thread.
+                const qid = (response.questionId || '').replace(/'/g, "\\'");
+                const thread = nComments
+                    ? `<button class="resp-thread" onclick="openActivityTarget('${response.submissionId}','${qid}','')">
+                           <i class="fas fa-comment-dots"></i> ${nComments} comment${nComments === 1 ? '' : 's'}
+                       </button>`
+                    : '';
+                const outcome = response.addressed
+                    ? `<div class="resp-fixed">
+                           <i class="fas fa-circle-check"></i>
+                           <div>
+                               <b>Addressed${response.addressedAt ? ' ' + escapeHtml(formatDate(response.addressedAt)) : ''}${response.addressedBy ? ' by ' + escapeHtml(response.addressedBy) : ''}</b>
+                               ${response.addressedNote ? `<div class="resp-fixed-note">${escapeHtml(response.addressedNote)}</div>` : ''}
+                               ${response.addressedPhoto ? `<a class="resp-fixed-photo" href="${photoUrl(response.addressedPhoto)}" target="_blank"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                           </div>
+                       </div>`
+                    : '';
                 html += `
-                    <div class="response-card">
+                    <div class="response-card${response.addressed ? ' response-card-fixed' : ''}">
                         <div class="response-question-row"><div class="response-question">${escapeHtml(response.questionText)}</div>${stdBtn}</div>
-                        <span class="response-condition ${response.conditionClass}">
-                            <i class="${response.conditionIcon}"></i> ${response.condition}
-                        </span>
+                        <div class="response-badges">
+                            <span class="response-condition ${response.conditionClass}">
+                                <i class="${response.conditionIcon}"></i> ${response.condition}
+                            </span>
+                            ${response.addressed ? '<span class="resp-chip-fixed"><i class="fas fa-wrench"></i> Fixed since</span>' : ''}
+                        </div>
                         ${response.description ? `<div class="response-description">${escapeHtml(response.description)}</div>` : ''}
                         ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" alt="Response photo" style="cursor:zoom-in" onclick="window.open(this.src,'_blank')" onerror="this.parentElement.style.display='none'"></div>` : ''}
+                        ${outcome}
+                        ${thread}
                     </div>
                 `;
             }
@@ -8516,193 +8575,11 @@
         console.log('✅ Navigation event listeners setup complete');
 
         // Inspection Details Modal Functions
-        async function viewCommunityDetails(communityName) {
-            try {
-                // Fetch all inspections
-                const response = await fetch('/api/inspections');
-                if (!response.ok) {
-                    alert('Failed to load visit details');
-                    return;
-                }
-                
-                const data = await response.json();
-                
-                if (data.status === 'success' && data.submissions) {
-                    // Filter submissions for this community
-                    const communitySubmissions = data.submissions.filter(
-                        submission => submission.community === communityName
-                    );
-                    
-                    if (communitySubmissions.length === 0) {
-                        alert('No visit data found for this community');
-                        return;
-                    }
-                    
-                    // Get the most recent submission
-                    const latestSubmission = communitySubmissions.sort((a, b) => 
-                        new Date(b.submitted_at) - new Date(a.submitted_at)
-                    )[0];
-                    
-                    // Display the modal with inspection details
-                    displayInspectionModal(latestSubmission);
-                }
-            } catch (error) {
-                console.error('Error loading inspection details:', error);
-                alert('Error loading visit details');
-            }
-        }
 
-        function displayInspectionModal(submission) {
-            const modal = document.getElementById('inspectionModal');
-            const modalBody = document.getElementById('modalBody');
-            
-            // Calculate score
-            const score = calculateCommunityScore(submission.responses);
-            const scoreDisplay = score !== null ? `${score}%` : 'N/A';
-            
-            // Count action items
-            const actionItems = countActionItems(submission.responses);
-            
-            // Format date
-            const submittedDate = formatDate(submission.submitted_at);
-            const submittedTime = formatTime(submission.submitted_at);
-            
-            // Get survey type badge
-            const surveyTypeBadge = getSurveyTypeBadge(submission.survey_type_id);
-            
-            // Collect all photos
-            const photos = submission.responses
-                .filter(r => r.photo_url || r.photo_path)
-                .map(r => r.photo_url || r.photo_path);
-            
-            // Build modal content
-            let modalContent = `
-                <div class="inspection-meta">
-                    <div class="meta-item">
-                        <div class="meta-label">Community</div>
-                        <div class="meta-value">${submission.community}</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Inspector</div>
-                        <div class="meta-value"><i class="fas fa-user card-emoji"></i> ${submission.inspector_name || submission.username}</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Survey Type</div>
-                        <div class="meta-value">${surveyTypeBadge}</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Date</div>
-                        <div class="meta-value">${submittedDate}</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Time</div>
-                        <div class="meta-value">${submittedTime}</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Score</div>
-                        <div class="meta-value">${scoreDisplay}</div>
-                    </div>
-                    <div class="meta-item">
-                        <div class="meta-label">Action Items</div>
-                        <div class="meta-value">${actionItems}</div>
-                    </div>
-                </div>
-                
-                <div class="responses-section">
-                    <div class="section-title"><i class="fas fa-clipboard-list"></i> Visit Responses</div>
-            `;
-            
-            // Add each response
-            if (submission.responses.length === 0) {
-                modalContent += '<div class="no-data">No responses recorded</div>';
-            } else {
-                submission.responses.forEach(response => {
-                    const badgeClass = getBadgeClass(response.condition);
-                    const badgeIcon = getBadgeIcon(response.condition);
-                    
-                    modalContent += `
-                        <div class="response-card">
-                            <div class="response-question"><i class="fas fa-circle-question card-emoji"></i> ${response.question_text}</div>
-                            <div class="response-condition ${badgeClass}">
-                                ${badgeIcon} ${response.condition}
-                            </div>
-                            ${response.description ? `
-                                <div class="response-description">${response.description}</div>
-                            ` : ''}
-                            ${response.addressed ? `
-                                <div class="ai-resolved" style="margin-top:8px;">
-                                    <i class="fas fa-circle-check"></i> Addressed${response.addressed_at ? ' ' + formatDate(response.addressed_at) : ''}${response.addressed_by ? ' by ' + escapeHtml(response.addressed_by) : ''}
-                                    ${response.addressed_note ? `<div class="ai-resolved-note">${escapeHtml(response.addressed_note)}</div>` : ''}
-                                    ${(response.addressed_photo_url || response.addressed_photo) ? `<a class="ai-fix-photo" href="${photoUrl(response.addressed_photo_url || response.addressed_photo)}" target="_blank"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
-                                </div>
-                            ` : ''}
-                            ${(response.photo_url || response.photo_path) ? `
-                                <div class="response-photo">
-                                    <img src="${photoUrl(response.photo_url || response.photo_path)}" alt="Response photo" onerror="this.parentElement.style.display='none'">
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                });
-            }
-            
-            modalContent += '</div>';
-            
-            // Add photos section if there are any
-            if (photos.length > 0) {
-                modalContent += `
-                    <div class="photos-section">
-                        <div class="section-title">📷 Photos (${photos.length})</div>
-                        <div class="photos-grid">
-                `;
-                
-                photos.forEach(photoPath => {
-                    modalContent += `
-                        <div class="photo-item">
-                            <img src="${photoUrl(photoPath)}" alt="Visit photo" onerror="this.parentElement.style.display='none'">
-                        </div>
-                    `;
-                });
-                
-                modalContent += `
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Set modal content and show
-            modalBody.innerHTML = modalContent;
-            modal.classList.add('show');
-            
-            // Prevent body scroll when modal is open
-            document.body.style.overflow = 'hidden';
-        }
 
-        function closeInspectionModal() {
-            const modal = document.getElementById('inspectionModal');
-            modal.classList.remove('show');
-            
-            // Restore body scroll
-            document.body.style.overflow = '';
-        }
 
-        function formatTime(isoString) {
-            try {
-                const date = new Date(isoString);
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                return `${hours}:${minutes}`;
-            } catch (e) {
-                return 'Unknown';
-            }
-        }
 
         // Close modal when clicking outside
-        document.getElementById('inspectionModal').addEventListener('click', (e) => {
-            if (e.target.id === 'inspectionModal') {
-                closeInspectionModal();
-            }
-        });
 
         // Close modal with Escape key
         document.addEventListener('keydown', (e) => {
