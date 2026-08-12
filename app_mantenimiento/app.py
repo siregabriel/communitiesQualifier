@@ -2654,6 +2654,231 @@ def _can_see_community(community):
     return community in set(session_communities())
 
 
+def visible_communities():
+    """Every community the current session may see, in one call.
+
+    The same three-way answer as _can_see_community, but as a list — anything
+    that has to iterate rather than test a single name should use this so the
+    scoping rule stays in one place."""
+    if is_admin():
+        return all_communities()
+    if current_role() == 'regional':
+        return regional_communities()
+    return session_communities()
+
+
+def _community_account_usernames():
+    """Usernames belonging to communities themselves (Executive Directors).
+
+    Used to tell apart the two sides of a comment thread: a community saying
+    "this is fixed" is a request, leadership replying is an answer."""
+    return {u.get('username') for u in user_service.get_all()
+            if u.get('role') == 'staff' and u.get('username')}
+
+
+def _days_since(iso_ts):
+    """Whole days between an ISO timestamp and now, or None if unparseable."""
+    if not iso_ts:
+        return None
+    try:
+        ts = datetime.fromisoformat(str(iso_ts).replace('Z', ''))
+    except (TypeError, ValueError):
+        return None
+    return max(0, (datetime.now() - ts).days)
+
+
+def build_attention(limit_per_group=6):
+    """What needs the signed-in person, today.
+
+    The dashboard has always reported: averages, totals, charts. None of it
+    says which three things are waiting on *you*, so the report-and-verify loop
+    depended on somebody remembering to go looking. Everything here is derived
+    from data the app already holds — this only surfaces it.
+
+    Scope is whatever the session may see, so a regional gets their region and
+    an Executive Director gets their own community and nothing else."""
+    role = current_role()
+    scope = set(visible_communities())
+    cadence = settings_service.get_visit_cadence_days()
+    community_accounts = _community_account_usernames()
+    groups = []
+
+    # Only visits inside the caller's scope, newest first.
+    subs = [s for s in inspection_service.get_all_submissions()
+            if s.get('community') in scope]
+    subs.sort(key=lambda s: s.get('submitted_at', ''), reverse=True)
+
+    def failed_open(sub):
+        """Failed standards on a visit that nobody has closed out yet.
+
+        A standard is yielded once even if the visit holds more than one row
+        for it. Older submissions do contain duplicates, and since a comment
+        or a close only ever lands on the first row, the extras would show up
+        as phantom work that can never be cleared."""
+        seen_q = set()
+        for r in (sub.get('responses') or []):
+            if r.get('condition') != 'Fail' or r.get('addressed'):
+                continue
+            key = r.get('question_id') or ('t:' + (r.get('question_text') or '').strip().lower())
+            if key in seen_q:
+                continue
+            seen_q.add(key)
+            yield r
+
+    if can_verify_fixes():
+        # 1. A community reported a fix and is waiting for someone to confirm.
+        #    This is the one thing that stalls silently: the ED has done the
+        #    work and the score stays down until a regional looks.
+        waiting = []
+        for s in subs:
+            for r in failed_open(s):
+                comments = r.get('comments') or []
+                if not comments:
+                    continue
+                last = comments[-1]
+                if last.get('username') not in community_accounts:
+                    continue  # leadership spoke last — the ball isn't here
+                waiting.append({
+                    'community': s.get('community', ''),
+                    'title': r.get('question_text', '') or 'Standard',
+                    'detail': f"Reported fixed by {last.get('author') or 'the community'}",
+                    'days': _days_since(last.get('at')),
+                    'submission_id': s.get('id'),
+                    'question_id': r.get('question_id'),
+                    'view': 'action-items',
+                })
+        waiting.sort(key=lambda x: -(x['days'] or 0))
+        if waiting:
+            groups.append({
+                'key': 'verify', 'tone': 'act',
+                'title': 'Fixes waiting on your confirmation',
+                'note': 'A community says these are done. The score only moves once you agree.',
+                'total': len(waiting), 'items': waiting[:limit_per_group],
+            })
+
+        # 2. Communities falling behind on visits. Never-visited ones sort
+        #    first: they are the easiest to overlook precisely because they
+        #    have nothing on the dashboard.
+        seen = {}
+        for s in subs:
+            c = s.get('community')
+            if c and c not in seen:
+                seen[c] = s.get('submitted_at')
+        behind = []
+        for c in sorted(scope):
+            d = _days_since(seen.get(c)) if seen.get(c) else None
+            if c not in seen:
+                behind.append({'community': c, 'title': c, 'detail': 'No visit on record',
+                               'days': None, 'never': True, 'view': 'communities'})
+            elif d is not None and d >= cadence:
+                behind.append({'community': c, 'title': c,
+                               'detail': f'Last visit {d} days ago',
+                               'days': d, 'never': False, 'view': 'communities'})
+        behind.sort(key=lambda x: (not x['never'], -(x['days'] or 0)))
+        if behind:
+            groups.append({
+                'key': 'overdue', 'tone': 'plan',
+                'title': 'Due for a visit',
+                'note': f'Target is every {cadence} days.',
+                'total': len(behind), 'items': behind[:limit_per_group],
+            })
+
+        # 3. Open findings nobody has said anything about. Not overdue in any
+        #    formal sense — just quietly ageing, which is how a backlog forms.
+        quiet = []
+        for s in subs:
+            age = _days_since(s.get('submitted_at'))
+            if age is None or age < cadence:
+                continue
+            for r in failed_open(s):
+                if r.get('comments'):
+                    continue
+                quiet.append({
+                    'community': s.get('community', ''),
+                    'title': r.get('question_text', '') or 'Standard',
+                    'detail': f'Open {age} days, no follow-up',
+                    'days': age,
+                    'submission_id': s.get('id'),
+                    'question_id': r.get('question_id'),
+                    'view': 'action-items',
+                })
+        quiet.sort(key=lambda x: -(x['days'] or 0))
+        if quiet:
+            groups.append({
+                'key': 'quiet', 'tone': 'watch',
+                'title': 'Open with no follow-up',
+                'note': 'Nothing has been said about these since the visit.',
+                'total': len(quiet), 'items': quiet[:limit_per_group],
+            })
+    else:
+        # An Executive Director's side of the same loop.
+        mine = set(session_communities())
+        me = session.get('user')
+        to_answer, awaiting = [], []
+        for s in subs:
+            if s.get('community') not in mine:
+                continue
+            age = _days_since(s.get('submitted_at'))
+            for r in failed_open(s):
+                comments = r.get('comments') or []
+                spoke = any(c.get('username') in community_accounts for c in comments)
+                row = {
+                    'community': s.get('community', ''),
+                    'title': r.get('question_text', '') or 'Standard',
+                    'days': age,
+                    'submission_id': s.get('id'),
+                    'question_id': r.get('question_id'),
+                    'view': 'action-items',
+                }
+                if not spoke:
+                    row['detail'] = (f'Open {age} days — tell your regional what you have done'
+                                     if age else 'Tell your regional what you have done')
+                    to_answer.append(row)
+                else:
+                    last = comments[-1]
+                    row['detail'] = 'Waiting on your regional to confirm'
+                    row['days'] = _days_since(last.get('at'))
+                    awaiting.append(row)
+        to_answer.sort(key=lambda x: -(x['days'] or 0))
+        awaiting.sort(key=lambda x: -(x['days'] or 0))
+        if to_answer:
+            groups.append({
+                'key': 'respond', 'tone': 'act',
+                'title': 'Needs an update from you',
+                'note': 'Add a comment and a photo once the work is done.',
+                'total': len(to_answer), 'items': to_answer[:limit_per_group],
+            })
+        if awaiting:
+            groups.append({
+                'key': 'awaiting', 'tone': 'wait',
+                'title': 'With your regional',
+                'note': 'You have reported these. Only a regional can close them.',
+                'total': len(awaiting), 'items': awaiting[:limit_per_group],
+            })
+        _ = me  # scope is by community, not by who happens to be signed in
+
+    return {
+        'role': role,
+        'cadence_days': cadence,
+        'groups': groups,
+        'total': sum(g['total'] for g in groups),
+    }
+
+
+@app.route('/api/attention')
+@login_required
+def attention():
+    """The short list of things waiting on whoever is signed in."""
+    try:
+        return jsonify({'status': 'success', **build_attention()}), 200
+    except Exception:
+        app.logger.exception('Building the attention list failed')
+        # Never let this take the dashboard down with it — an empty list just
+        # means the strip doesn't render.
+        return jsonify({'status': 'success', 'role': current_role(),
+                        'groups': [], 'total': 0, 'cadence_days': 0}), 200
+
+
 @app.route('/api/communities/<path:community>/history')
 @login_required
 def community_history(community):
@@ -3962,6 +4187,22 @@ def save_email_settings():
     return jsonify({'status': 'success', 'regions': regions, 'inspectors': leadership_names(), **saved}), 200
 
 
+@app.route('/api/settings/visit-cadence', methods=['POST'])
+@login_required
+def save_visit_cadence():
+    """Admin-only: how many days a community may go between visits.
+
+    Nothing is enforced by this — it only decides which communities are shown
+    as falling behind, on the dashboard and on the community cards."""
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    days = settings_service.set_visit_cadence_days(data.get('days'))
+    activity_service.log(session.get('user'), 'settings_updated',
+                         f'Set the visit target to every {days} days')
+    return jsonify({'status': 'success', 'visit_cadence_days': days}), 200
+
+
 @app.route('/api/user-info')
 @login_required
 def get_user_info():
@@ -4000,6 +4241,10 @@ def get_user_info():
         'can_verify_fixes': can_verify_fixes(),
         'region_id': region_id,
         'region_name': region_name,
+        # How often a community is meant to be visited. The community cards use
+        # it to flag the ones falling behind, so it has to be here rather than
+        # only in the attention payload — that one is dashboard-only.
+        'visit_cadence_days': settings_service.get_visit_cadence_days(),
         'communities': communities
     }), 200
 

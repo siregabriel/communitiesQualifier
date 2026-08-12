@@ -329,6 +329,52 @@ textarea:focus {
     font-weight: 600;
     cursor: pointer;
 }
+/* Keep the sort control pinned right so the count and the "due" toggle stay
+   together on the left instead of being spread across the whole toolbar. */
+.cards-sort { margin-left: auto; }
+
+/* "N due for a visit" — a filter, and a standing reminder of how many
+   communities are drifting past their window. */
+.cards-due-toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px;
+    border: 1.5px solid #f0c9c0;
+    border-radius: 999px;
+    background: #fdf4f2;
+    color: #b42318;
+    font-size: 12.5px; font-weight: 700;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+.cards-due-toggle:hover { background: #fbe9e5; border-color: #e5a898; }
+.cards-due-toggle.is-on { background: #b42318; border-color: #b42318; color: #fff; }
+.cards-due-toggle.is-on:hover { background: #9c1e14; }
+html[data-theme="dark"] .cards-due-toggle {
+    background: rgba(209, 50, 18, .14) !important;
+    border-color: rgba(209, 50, 18, .38) !important;
+    color: #f3b0a3 !important;
+}
+html[data-theme="dark"] .cards-due-toggle.is-on {
+    background: #b42318 !important; border-color: #b42318 !important; color: #fff !important;
+}
+
+/* Ageing chip on a community card. Only rendered once a community is past
+   its window, so its presence is the signal. */
+.age-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin: 6px 0 2px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+    line-height: 1.5;
+}
+.age-chip i { font-size: 10px; }
+.age-chip-due   { background: #fdf4e3; color: #92620a; }
+.age-chip-late  { background: #fdecea; color: #b42318; }
+.age-chip-never { background: #eef1f6; color: #4b5a6e; }
+html[data-theme="dark"] .age-chip-due   { background: rgba(146, 98, 10, .22); color: #e8c78a; }
+html[data-theme="dark"] .age-chip-late  { background: rgba(209, 50, 18, .18); color: #f3b0a3; }
+html[data-theme="dark"] .age-chip-never { background: rgba(148, 163, 184, .16); color: #b7c3d3; }
 
 /* Sidebar user avatar */
 .user-welcome { display: flex; align-items: center; gap: 12px; }

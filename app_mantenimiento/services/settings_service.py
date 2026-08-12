@@ -106,6 +106,30 @@ class SettingsService(JsonFileBacked):
             self._save()
             return self.get_email_settings()
 
+    # How often a community is expected to be visited. Used to work out which
+    # ones are falling behind. A target, not a rule — nothing is blocked by it.
+    DEFAULT_CADENCE_DAYS = 30
+
+    def get_visit_cadence_days(self) -> int:
+        self._ensure_fresh()
+        try:
+            v = int(self.data.get('visit_cadence_days', self.DEFAULT_CADENCE_DAYS))
+        except (TypeError, ValueError):
+            return self.DEFAULT_CADENCE_DAYS
+        # Bounded so a stray value can't mark everything overdue or nothing.
+        return max(7, min(v, 365))
+
+    def set_visit_cadence_days(self, days) -> int:
+        with self._lock:
+            self._ensure_fresh()
+            try:
+                v = max(7, min(int(days), 365))
+            except (TypeError, ValueError):
+                v = self.DEFAULT_CADENCE_DAYS
+            self.data['visit_cadence_days'] = v
+            self._save()
+            return v
+
     # Company-level teams a comment can be directed to from a visit.
     ROUTES = ('clinical', 'ops', 'sales')
     ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations (Ops)', 'sales': 'Sales'}

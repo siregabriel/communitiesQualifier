@@ -765,6 +765,176 @@ def test_a_photo_lands_on_its_own_standard():
         A.presence_service.forget("smoke.regional")
 
 
+def _region_owning(community):
+    """The region a community belongs to, and one that doesn't."""
+    owner = A.region_for_community(community)
+    other = next(r for r in A.region_service.get_all_regions()
+                 if r.get("id") != owner.get("id")
+                 and community not in (r.get("communities") or []))
+    return owner, other
+
+
+def _groups(payload):
+    return {g["key"]: g for g in payload["groups"]}
+
+
+def test_attention_moves_between_the_two_sides():
+    """The report-and-verify loop, seen from the worklist.
+
+    A failed standard starts on the community's plate. Once they say it's done
+    it moves to the regional's. Once the regional replies it goes back. Once
+    the regional closes it, it belongs to nobody. Whoever the item is *not*
+    waiting on must never be shown it as work."""
+    comm = _a_community()
+    sub = _seed_failed_visit(comm)
+    sid = sub["id"]
+    owner, _ = _region_owning(comm)
+    ed_name = "smoke.attn.ed"
+    A.user_service.create(ed_name, "Attention ED", "staff", "x" * 20,
+                          community=comm, communities=[comm], email="attn@example.com")
+    try:
+        ed = _client()
+        _as_role(ed, "staff", community=comm, name=ed_name)
+        reg = _client()
+        _as_role(reg, "regional", region_id=owner["id"], name="smoke.attn.reg")
+
+        def mine(client):
+            r = client.get("/api/attention")
+            assert r.status_code == 200, r.get_data(as_text=True)
+            return _groups(r.get_json())
+
+        def has(groups, key):
+            return any(i.get("question_id") == "smoke_q4"
+                       for i in groups.get(key, {}).get("items", []))
+
+        # 1. Nobody has said anything: it is the community's move.
+        assert has(mine(ed), "respond"), "the ED should be asked for an update"
+        assert not has(mine(reg), "verify"), "there is nothing to verify yet"
+
+        # 2. The community reports the fix.
+        ed.post(f"/api/action-items/{sid}/standard/smoke_q4/comments",
+                json={"text": "Sign is up"}, headers=HDR)
+        assert has(mine(reg), "verify"), "the regional should now be asked to confirm"
+        assert has(mine(ed), "awaiting"), "the ED should see it as waiting on the regional"
+        assert not has(mine(ed), "respond"), "and it should have left their to-do list"
+
+        # 3. The regional asks for more: the ball goes back.
+        reg.post(f"/api/action-items/{sid}/standard/smoke_q4/comments",
+                 json={"text": "Send a wider shot"}, headers=HDR)
+        assert not has(mine(reg), "verify"), \
+            "leadership spoke last, so it is not waiting on them"
+
+        # 4. Closed: it is work for nobody.
+        reg.post(f"/api/action-items/{sid}/standard/smoke_q4/resolve",
+                 json={"resolved": True}, headers=HDR)
+        for groups in (mine(reg), mine(ed)):
+            assert not any(has(groups, k) for k in
+                           ("verify", "respond", "awaiting", "quiet")), \
+                "a closed standard must disappear from every list"
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") != sid]
+        A.inspection_service.save_to_file()
+        A.user_service.delete(ed_name)
+        for u in (ed_name, "smoke.attn.reg"):
+            A.presence_service.forget(u)
+
+
+def test_attention_never_reaches_outside_its_scope():
+    """Scoping is the whole safety property here: the endpoint reads every
+    visit in the system before filtering."""
+    comm = _a_community()
+    sub = _seed_failed_visit(comm)
+    sid = sub["id"]
+    owner, other = _region_owning(comm)
+    try:
+        outsider = _client()
+        _as_role(outsider, "regional", region_id=other["id"], name="smoke.attn.out")
+        payload = outsider.get("/api/attention").get_json()
+        seen = {i.get("community") for g in payload["groups"] for i in g["items"]}
+        assert comm not in seen, f"a regional in {other['id']} can see {comm}"
+
+        insider = _client()
+        _as_role(insider, "regional", region_id=owner["id"], name="smoke.attn.in")
+        payload = insider.get("/api/attention").get_json()
+        seen = {i.get("community") for g in payload["groups"] for i in g["items"]}
+        assert seen <= set(owner.get("communities") or []), \
+            "a regional saw a community outside their own region"
+
+        # An Executive Director gets their own community, and never the
+        # verification queue — closing items is not theirs to do.
+        ed = _client()
+        _as_role(ed, "staff", community=comm, name="smoke.attn.ed2")
+        payload = ed.get("/api/attention").get_json()
+        keys = {g["key"] for g in payload["groups"]}
+        assert not (keys & {"verify", "overdue", "quiet"}), \
+            f"a community account was handed leadership's queue: {keys}"
+        assert all(i.get("community") == comm
+                   for g in payload["groups"] for i in g["items"])
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") != sid]
+        A.inspection_service.save_to_file()
+        for u in ("smoke.attn.out", "smoke.attn.in", "smoke.attn.ed2"):
+            A.presence_service.forget(u)
+
+
+def test_visit_cadence_setting_is_admin_only_and_bounded():
+    original = A.settings_service.get_visit_cadence_days()
+    try:
+        c = _client()
+        _as_role(c, "regional", region_id=None, name="smoke.cadence")
+        assert c.post("/api/settings/visit-cadence", json={"days": 14},
+                      headers=HDR).status_code == 403
+
+        _as_admin(c)
+        r = c.post("/api/settings/visit-cadence", json={"days": 14}, headers=HDR)
+        assert r.status_code == 200
+        assert r.get_json()["visit_cadence_days"] == 14
+        assert c.get("/api/user-info").get_json()["visit_cadence_days"] == 14
+
+        # Out-of-range values are clamped, not stored, so nothing downstream
+        # can end up marking every community overdue at once.
+        assert c.post("/api/settings/visit-cadence", json={"days": 0},
+                      headers=HDR).get_json()["visit_cadence_days"] == 7
+        assert c.post("/api/settings/visit-cadence", json={"days": 99999},
+                      headers=HDR).get_json()["visit_cadence_days"] == 365
+        assert c.post("/api/settings/visit-cadence", json={"days": "nonsense"},
+                      headers=HDR).get_json()["visit_cadence_days"] == 30
+    finally:
+        A.settings_service.set_visit_cadence_days(original)
+        A.presence_service.forget("smoke.cadence")
+
+
+def test_attention_survives_a_visit_with_duplicate_rows():
+    """Older visits hold two rows for the same standard. A comment only ever
+    lands on the first, so counting both would show work that can never be
+    cleared."""
+    comm = _a_community()
+    sub = A.inspection_service.create_submission(
+        username="admin", community=comm, inspector_name="Smoke Test",
+        responses=[
+            {"question_id": "smoke_dup", "question_text": "Same standard twice",
+             "condition": "Fail", "description": "one", "answered_at": "2026-08-06T09:00:00"},
+            {"question_id": "smoke_dup", "question_text": "Same standard twice",
+             "condition": "Fail", "description": "two", "answered_at": "2026-08-06T09:00:00"},
+        ])
+    sid = sub["id"]
+    owner, _ = _region_owning(comm)
+    try:
+        reg = _client()
+        _as_role(reg, "regional", region_id=owner["id"], name="smoke.attn.dup")
+        payload = reg.get("/api/attention").get_json()
+        hits = [i for g in payload["groups"] for i in g["items"]
+                if i.get("question_id") == "smoke_dup"]
+        assert len(hits) <= 1, f"the same standard was listed {len(hits)} times"
+    finally:
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") != sid]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.attn.dup")
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

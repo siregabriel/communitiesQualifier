@@ -2434,6 +2434,45 @@
         let viewRenderTimer = null; // guards the deferred view render so it can't get stuck
         let regions = []; // regional structure (leadership + community assignments)
         let communitySort = 'attention'; // default sort for the community cards
+        let onlyDueForVisit = false;     // show only the communities falling behind
+
+        // How many days a community may go between visits before it counts as
+        // behind. Comes from settings via /api/user-info; this is the fallback
+        // used only if that hasn't landed yet.
+        let visitCadenceDays = 30;
+
+        // Whole days since a visit, or null when there has never been one.
+        function daysSinceVisit(c) {
+            if (!c || !c.lastVisitTs) return null;
+            const ms = Date.now() - new Date(c.lastVisitTs).getTime();
+            return isNaN(ms) ? null : Math.max(0, Math.floor(ms / 86400000));
+        }
+
+        // A community is "due" once it passes the cadence — and one that has
+        // never been visited is always due. Never-visited is the case that
+        // matters most and the easiest to miss: it has no score, no items and
+        // nothing else on the dashboard to make it noticeable.
+        function isDueForVisit(c) {
+            if (!c || !c.lastVisitTs) return true;
+            const d = daysSinceVisit(c);
+            return d !== null && d >= visitCadenceDays;
+        }
+
+        // The small ageing chip on a community card. Silent while a community
+        // is inside its window — a badge on every card would say nothing.
+        function visitAgeBadge(c) {
+            const d = daysSinceVisit(c);
+            if (d === null) {
+                return `<span class="age-chip age-chip-never" title="This community has no visit on record">
+                            <i class="fas fa-circle-exclamation"></i> Never visited</span>`;
+            }
+            if (d < visitCadenceDays) return '';
+            // Well past the target reads differently from just past it.
+            const bad = d >= visitCadenceDays * 2;
+            return `<span class="age-chip ${bad ? 'age-chip-late' : 'age-chip-due'}"
+                          title="Target is a visit every ${visitCadenceDays} days">
+                        <i class="fas fa-calendar-day"></i> ${d} days since a visit</span>`;
+        }
 
         // Sort community cards by the selected mode. Never-visited (N/A) sink
         // to the bottom for score-based sorts so they don't distort the ranking.
@@ -2453,6 +2492,16 @@
                     return arr.sort(byName);
                 case 'recent':
                     return arr.sort((a, b) => (b.lastVisitTs || 0) - (a.lastVisitTs || 0) || byName(a, b));
+                case 'stale':
+                    // Longest since a visit. Never-visited first, because they
+                    // are the ones that quietly never come up at all.
+                    return arr.sort((a, b) => {
+                        const da = daysSinceVisit(a), db = daysSinceVisit(b);
+                        if (da === null && db === null) return byName(a, b);
+                        if (da === null) return -1;
+                        if (db === null) return 1;
+                        return db - da || byName(a, b);
+                    });
                 case 'attention':
                 default:
                     return arr.sort((a, b) => {
@@ -2469,6 +2518,14 @@
 
         function setCommunitySort(value) {
             communitySort = value;
+            renderCommunityCards();
+        }
+
+        function setOnlyDueForVisit(on) {
+            onlyDueForVisit = !!on;
+            // Showing only what's behind is pointless in any order other than
+            // oldest-first, so switch to it — unless the user already chose one.
+            if (onlyDueForVisit && communitySort === 'attention') communitySort = 'stale';
             renderCommunityCards();
         }
         let isAdmin = false;
@@ -3630,8 +3687,20 @@
                 });
             }
             
+            // How many are behind on visits — worked out before the "only due"
+            // filter is applied, so the toggle can say what it will show.
+            const dueCount = filteredCommunities.filter(isDueForVisit).length;
+            if (onlyDueForVisit) {
+                filteredCommunities = filteredCommunities.filter(isDueForVisit);
+            }
+
             if (filteredCommunities.length === 0) {
-                gallery.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i><p>No communities match this filter</p></div>';
+                gallery.innerHTML = onlyDueForVisit
+                    ? `<div class="empty-state"><i class="fas fa-calendar-check"></i>
+                         <p>Every community has been visited in the last ${visitCadenceDays} days.</p>
+                         <button class="cards-due-toggle" onclick="setOnlyDueForVisit(false)">Show all communities</button>
+                       </div>`
+                    : '<div class="empty-state"><i class="fas fa-search"></i><p>No communities match this filter</p></div>';
                 return;
             }
 
@@ -3642,11 +3711,22 @@
                 { v: 'attention', label: 'Needs attention' },
                 { v: 'score', label: 'Score (high → low)' },
                 { v: 'az', label: 'Name (A–Z)' },
-                { v: 'recent', label: 'Most recent visit' }
+                { v: 'recent', label: 'Most recent visit' },
+                { v: 'stale', label: 'Longest since a visit' }
             ];
+            // The toggle only appears when there is something behind to show.
+            const dueToggle = (dueCount > 0 || onlyDueForVisit)
+                ? `<button class="cards-due-toggle ${onlyDueForVisit ? 'is-on' : ''}"
+                           onclick="setOnlyDueForVisit(${onlyDueForVisit ? 'false' : 'true'})"
+                           title="Target is a visit every ${visitCadenceDays} days">
+                       <i class="fas ${onlyDueForVisit ? 'fa-circle-check' : 'fa-calendar-day'}"></i>
+                       ${onlyDueForVisit ? 'Showing due only' : `${dueCount} due for a visit`}
+                   </button>`
+                : '';
             const toolbar = `
                 <div class="cards-toolbar">
                     <span class="cards-count">${filteredCommunities.length} ${filteredCommunities.length === 1 ? 'community' : 'communities'}</span>
+                    ${dueToggle}
                     <label class="cards-sort">
                         <span>Sort by</span>
                         <select onchange="setCommunitySort(this.value)">
@@ -3704,7 +3784,8 @@
                         <div class="card-content">
                             <div class="card-title">${community.name}</div>
                             <div class="card-date">Last visit: ${lastVisitText}</div>
-                            
+                            ${visitAgeBadge(community)}
+
                             <div class="circular-progress">
                                 <svg viewBox="0 0 100 100">
                                     <circle class="progress-bg" cx="50" cy="50" r="45"></circle>
@@ -3822,6 +3903,7 @@
                 isAdmin = data.is_admin;
                 canVerifyFixes = !!data.can_verify_fixes;
                 canRunVisits = !!data.can_run_visits;
+                if (data.visit_cadence_days) visitCadenceDays = data.visit_cadence_days;
                 // The bottom tab bar offers New Visit; hide it for
                 // accounts that aren't allowed to run one.
                 if (!canRunVisits) {
@@ -4095,7 +4177,7 @@
         const TOUR_STEPS = {
             admin: [
                 { title: 'Welcome to Atlas Standards', text: 'A quick tour of the basics. You can replay it anytime from the Help button in the top bar.' },
-                { target: '.nav-item[data-view="dashboard"]', title: 'Dashboard', text: 'Your at-a-glance overview: average score, communities that need attention, performance by region (click a region to drill into its communities), recent activity, and — on wide screens — a mini-calendar of what’s coming up.' },
+                { target: '.nav-item[data-view="dashboard"]', title: 'Dashboard', text: 'Starts with "Needs you" — fixes a community has reported and is waiting on you to confirm, communities going too long without a visit, and findings nobody has followed up on. Click any line to go straight to it. Below that: average score, performance by region (click a region to drill in), recent activity, and — on wide screens — a mini-calendar of what’s coming up.' },
                 { title: 'Two scores, one truth', text: 'A community shows the score it stands at today. Underneath, when fixes have been verified since, you\'ll see what the visit itself scored — that number never changes, so past results stay comparable and nobody\'s history moves on its own.' },
                 { target: '#dashMainGrid', title: 'Rearrange your dashboard', text: 'On desktop, grab the ⠿ handle on any card (or KPI) to drag it into the order you like — your layout is saved on this device. Use “Reset layout” to put everything back.' },
                 { target: '[data-card="live"]', title: 'Live activity', text: 'Admin-only: who is signed in right now and what everyone has been doing — sign-ins, visits submitted, items marked as addressed, password and account changes. It refreshes on its own every 30 seconds. You also get a digest of all this by email once a day.' },
@@ -4116,6 +4198,7 @@
             // their job.
             regional: [
                 { title: 'Welcome to Atlas Standards', text: 'A quick tour of how you run visits and follow them through. Replay it anytime from Help.' },
+                { target: '.nav-item[data-view="dashboard"]', title: 'Start with "Needs you"', text: 'The top of your dashboard is your queue: fixes a community has reported and is waiting on you to confirm, communities going too long without a visit, and findings nobody has followed up on. Click a line to go straight to it. When there is nothing pending, it isn\'t there.' },
                 { target: '#startVisitBtn', title: 'Start a visit', text: 'Begin here — pick the community and the survey type, then go item by item marking Pass or Fail. A Fail needs a comment saying what you found, so whoever fixes it knows where to start.' },
                 { title: 'You can stop and come back', text: 'The form saves itself on your device as you go, photos included. Leave mid-walk, lose signal, take a call — when you return to that community you\'ll be offered the unfinished visit. Nothing is sent until you submit.' },
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Every community in your region with its current score and open items. Open one for its latest visit, then its history — including which standards keep coming back. Anything marked "recurring" has failed three times or more.' },
@@ -4133,7 +4216,7 @@
             // visit, which they can't do.
             staff: [
                 { title: 'Welcome to Atlas Standards', text: 'This is where you see what a visit found at your community, and where you show what you\'ve done about it. A quick tour — replay it anytime from Help.' },
-                { target: '.nav-item[data-view="dashboard"]', title: 'Your community at a glance', text: 'Your current score and anything still open. The score reflects where you stand today: as fixes get verified, it goes up — you don\'t have to wait for the next visit.' },
+                { target: '.nav-item[data-view="dashboard"]', title: 'Your community at a glance', text: 'It opens with "Needs you": what still needs an update from you, and what you have already reported that your regional has yet to confirm. Below that, your current score and anything still open. The score reflects where you stand today: as fixes get verified, it goes up — you don\'t have to wait for the next visit.' },
                 { target: '.nav-item[data-view="action-items"]', title: 'What needs attention', text: 'Everything from the latest visit that still needs work — standards that failed, plus anything the regional flagged while walking. Start here.' },
                 { title: 'Show what you\'ve done', text: 'Open an item and use "Comment on this" to say what\'s been handled — a photo of the fix helps a lot. Your regional gets an email with your comment, so you don\'t need to chase anyone.' },
                 { title: 'Who closes an item', text: 'You report, your regional confirms. That\'s deliberate: because closing an item raises your community\'s score, someone outside the community signs off on it. It keeps the number meaningful. If they need more detail they\'ll comment back and you\'ll get an email.' },
@@ -4430,11 +4513,18 @@
             else badge.style.display = 'none';
         }
 
+        // The colour a score is shown in. Lived as a local inside
+        // renderDashboard, which meant the community history — written later and
+        // calling it by the same name — threw a ReferenceError and never drew
+        // its timeline. Global, so there is one definition to call.
+        function scoreColor(v) {
+            if (v === null || v === undefined || v === 'N/A') return '#94a3b8';
+            return v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212');
+        }
+
         // ===== Dashboard overview =====
         function renderDashboard() {
             const gallery = document.getElementById('gallery');
-            const scoreColor = (v) => (v === null || v === undefined || v === 'N/A') ? '#94a3b8'
-                : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212'));
             const now = new Date();
             const inThisMonth = (ts) => {
                 const d = new Date(ts);
@@ -4621,6 +4711,69 @@
                 .rail-up-late { color: #b42318; font-weight: 800; }
                 html[data-theme="dark"] .rail-up-row-late { background: rgba(209,50,18,.12); }
                 html[data-theme="dark"] .rail-up-late { color: #f0b8ab; }
+                /* "Needs you" strip — the one part of the dashboard that is a
+                   worklist rather than a report. Sits above the KPIs because it
+                   is the thing you act on; everything below it is context. */
+                .attn { border: 1px solid #d9dfe8; border-radius: 12px; background: #fff; overflow: hidden; }
+                .attn-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+                    border-bottom: 1px solid #eef1f6; }
+                .attn-head i { color: #1f6fe5; }
+                .attn-head h3 { font-size: 15px; font-weight: 800; color: #0f1e36; margin: 0; }
+                .attn-count { margin-left: auto; font-size: 12px; font-weight: 700; color: #6b7280; }
+                .attn-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+                .attn-group { padding: 14px 18px 16px; border-left: 1px solid #eef1f6; min-width: 0; }
+                .attn-group:first-child { border-left: none; }
+                .attn-gtitle { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800;
+                    color: #0f1e36; margin-bottom: 2px; }
+                .attn-badge { font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; flex-shrink: 0; }
+                .attn-note { font-size: 11.5px; color: #6b7280; margin-bottom: 8px; line-height: 1.35; }
+                .attn-item { display: flex; align-items: center; gap: 9px; padding: 8px 0;
+                    border-top: 1px solid #f1f5f9; cursor: pointer; }
+                .attn-item:first-of-type { border-top: none; }
+                .attn-item:hover { background: rgba(31,111,229,.06); margin: 0 -8px; padding-left: 8px;
+                    padding-right: 8px; border-radius: 8px; }
+                .attn-main { flex: 1; min-width: 0; }
+                .attn-title { font-size: 13px; font-weight: 700; color: #0f1e36;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .attn-sub { font-size: 11.5px; color: #6b7280;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .attn-chev { color: #c2cad6; font-size: 11px; flex-shrink: 0; }
+                .attn-more { font-size: 12px; font-weight: 700; color: #1f6fe5; background: none; border: none;
+                    padding: 8px 0 0; cursor: pointer; }
+                .attn-more:hover { text-decoration: underline; }
+                /* Tone says how urgent, without shouting: act = on you now,
+                   plan = schedule it, watch = drifting, wait = not your move. */
+                .attn-tone-act    .attn-badge { background: #fdecea; color: #b42318; }
+                .attn-tone-plan   .attn-badge { background: #eaf1fd; color: #1f5fbf; }
+                .attn-tone-watch  .attn-badge { background: #fdf4e3; color: #92620a; }
+                .attn-tone-wait   .attn-badge { background: #eef1f6; color: #64748b; }
+                .attn-tone-act    .attn-gtitle i { color: #b42318; }
+                .attn-tone-plan   .attn-gtitle i { color: #1f5fbf; }
+                .attn-tone-watch  .attn-gtitle i { color: #92620a; }
+                .attn-tone-wait   .attn-gtitle i { color: #64748b; }
+                html[data-theme="dark"] .attn { background: #16203a; border-color: #26324a; }
+                html[data-theme="dark"] .attn-head { border-bottom-color: #26324a; }
+                html[data-theme="dark"] .attn-head h3,
+                html[data-theme="dark"] .attn-gtitle,
+                html[data-theme="dark"] .attn-title { color: #eef2f8; }
+                html[data-theme="dark"] .attn-group { border-left-color: #26324a; }
+                html[data-theme="dark"] .attn-item { border-top-color: #22304a; }
+                html[data-theme="dark"] .attn-note,
+                html[data-theme="dark"] .attn-sub,
+                html[data-theme="dark"] .attn-count { color: #9fb0c4; }
+                html[data-theme="dark"] .attn-item:hover { background: rgba(90,150,255,.10); }
+                html[data-theme="dark"] .attn-tone-act   .attn-badge { background: rgba(209,50,18,.18); color: #f3b0a3; }
+                html[data-theme="dark"] .attn-tone-plan  .attn-badge { background: rgba(31,111,229,.18); color: #a9c8f7; }
+                html[data-theme="dark"] .attn-tone-watch .attn-badge { background: rgba(146,98,10,.20); color: #e8c78a; }
+                html[data-theme="dark"] .attn-tone-wait  .attn-badge { background: rgba(148,163,184,.16); color: #b7c3d3; }
+                /* On a phone the groups stack, so the dividing rules become
+                   horizontal instead of vertical. */
+                @media (max-width: 720px) {
+                    .attn-groups { grid-template-columns: minmax(0, 1fr); }
+                    .attn-group { border-left: none; border-top: 1px solid #eef1f6; }
+                    .attn-group:first-child { border-top: none; }
+                    html[data-theme="dark"] .attn-group { border-top-color: #26324a; }
+                }
                 .dash-row-name-flex { display: flex; align-items: center; gap: 6px; }
                 .dash-row-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
                 .dash-new-badge { flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #0f8a5f;
@@ -4650,6 +4803,7 @@
               <div class="dash-main">
                 <div class="dash-wrap">
                     <div class="dash-toolbar"><button class="dash-reset" id="dashResetBtn" onclick="resetDashLayout()"><i class="fas fa-rotate-left"></i> Reset layout</button></div>
+                    <div id="attentionStrip"></div>
                     <div class="dash-kpis" id="dashKpis">${kpiHtml}</div>
                     <div class="dash-grid" id="dashMainGrid">
                         <div class="dash-card" data-card="attention"><h3><i class="fas fa-triangle-exclamation"></i> Needs attention</h3>${attentionHtml}</div>
@@ -4674,6 +4828,119 @@
             </div>`;
             setupDashLayout();
             startLiveActivity();
+            loadAttention();
+        }
+
+        // ===================== "Needs you" strip =====================
+        // The dashboard tells you how things are going. This tells you what is
+        // waiting on you specifically — fixes to confirm, communities going too
+        // long without a visit, findings nobody has touched. The server decides
+        // what belongs here based on the role, so this only has to draw it.
+        //
+        // It is fetched after the dashboard paints rather than with it: the
+        // dashboard must never be held up, or fail, because of this panel.
+
+        const ATTN_ICONS = {
+            verify:   'fa-clipboard-check',
+            overdue:  'fa-calendar-day',
+            quiet:    'fa-hourglass-half',
+            respond:  'fa-comment-dots',
+            awaiting: 'fa-clock',
+        };
+
+        // Groups start collapsed to their first few rows; this remembers which
+        // ones the user opened, for as long as they stay on the page.
+        let _attnExpanded = {};
+        let _attnData = null;
+
+        async function loadAttention() {
+            const slot = document.getElementById('attentionStrip');
+            if (!slot) return;
+            try {
+                const r = await fetch('/api/attention');
+                if (!r.ok) throw new Error('unavailable');
+                _attnData = await r.json();
+                renderAttention();
+            } catch (e) {
+                // Silent on purpose. A missing strip is a non-event; an error
+                // banner above the KPIs would be worse than showing nothing.
+                console.warn('Attention strip unavailable:', e);
+                slot.innerHTML = '';
+            }
+        }
+
+        function renderAttention() {
+            const slot = document.getElementById('attentionStrip');
+            if (!slot) return;
+            const d = _attnData;
+            // Nothing pending: the strip disappears completely. An empty
+            // "all clear" card would just be a permanent piece of furniture.
+            if (!d || !d.groups || !d.groups.length) { slot.innerHTML = ''; return; }
+
+            const groups = d.groups.map(g => {
+                const open = !!_attnExpanded[g.key];
+                const shown = open ? g.items : g.items.slice(0, 3);
+                const hidden = g.total - shown.length;
+                // `shown` is always a prefix of `items`, so the position in one
+                // is the position in the other — that index is what the click
+                // handler looks the item up by, which keeps community names
+                // with apostrophes out of the generated HTML entirely.
+                const rows = shown.map((it, i) =>
+                    `<div class="attn-item" onclick="openAttentionItem('${g.key}',${i})">
+                        <div class="attn-main">
+                            <div class="attn-title">${escapeHtml(it.title || '')}</div>
+                            <div class="attn-sub">${escapeHtml(it.community || '')} · ${escapeHtml(it.detail || '')}</div>
+                        </div>
+                        <i class="fas fa-chevron-right attn-chev"></i>
+                    </div>`).join('');
+                // "+N more" only opens what the server sent; beyond that it
+                // hands off to the full view, which can page through the rest.
+                const more = hidden > 0
+                    ? (shown.length < g.items.length
+                        ? `<button class="attn-more" onclick="expandAttention('${g.key}')">Show ${Math.min(hidden, g.items.length - shown.length)} more</button>`
+                        : `<button class="attn-more" onclick="openAttentionGroup('${g.key}')">See all ${g.total}</button>`)
+                    : '';
+                return `<div class="attn-group attn-tone-${g.tone}">
+                    <div class="attn-gtitle"><i class="fas ${ATTN_ICONS[g.key] || 'fa-circle-dot'}"></i>
+                        <span>${escapeHtml(g.title)}</span>
+                        <span class="attn-badge">${g.total}</span></div>
+                    <div class="attn-note">${escapeHtml(g.note || '')}</div>
+                    ${rows}${more}
+                </div>`;
+            }).join('');
+
+            slot.innerHTML = `<div class="attn">
+                <div class="attn-head">
+                    <i class="fas fa-circle-exclamation"></i>
+                    <h3>Needs you</h3>
+                    <span class="attn-count">${d.total} item${d.total === 1 ? '' : 's'}</span>
+                </div>
+                <div class="attn-groups">${groups}</div>
+            </div>`;
+        }
+
+        function expandAttention(key) {
+            _attnExpanded[key] = true;
+            renderAttention();
+        }
+
+        function openAttentionGroup(key) {
+            // Where the full list lives for each kind of item.
+            showView(key === 'overdue' ? 'communities' : 'action-items');
+        }
+
+        function openAttentionItem(key, idx) {
+            const g = (_attnData && _attnData.groups || []).find(x => x.key === key);
+            const it = g && g.items[idx];
+            if (!it) return;
+            if (it.view === 'communities') {
+                // Straight into the community, where the visit history and the
+                // "Start a visit" button already are.
+                if (typeof openSlidePanel === 'function') openSlidePanel(it.community);
+                else showView('communities');
+                return;
+            }
+            openActivityTarget(it.submission_id, it.question_id, null);
         }
 
         // ===================== Live activity feed (admin only) =====================
@@ -7405,6 +7672,36 @@
             }
         }
 
+        async function saveVisitCadence() {
+            const input = document.getElementById('cadenceInput');
+            const msg = document.getElementById('cadenceMsg');
+            if (!input || !msg) return;
+            const days = parseInt(input.value, 10);
+            if (!days || days < 7 || days > 365) {
+                msg.textContent = 'Pick a number of days between 7 and 365.';
+                msg.style.color = '#b42318';
+                return;
+            }
+            msg.textContent = 'Saving…';
+            msg.style.color = '#64748b';
+            try {
+                const r = await fetch('/api/settings/visit-cadence', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ days })
+                });
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not save');
+                visitCadenceDays = d.visit_cadence_days;
+                input.value = visitCadenceDays;
+                msg.textContent = `Saved. Communities are flagged after ${visitCadenceDays} days.`;
+                msg.style.color = '#0f8a5f';
+            } catch (e) {
+                msg.textContent = e.message || 'Could not save';
+                msg.style.color = '#b42318';
+            }
+        }
+
         async function renderSettings() {
             const gallery = document.getElementById('gallery');
 
@@ -7501,6 +7798,22 @@
 
                     <div class="profile-grid">
                         ${admin ? `
+                        <div class="profile-section">
+                            <div class="profile-section-title"><i class="fas fa-calendar-day"></i> Visit target</div>
+                            <p style="font-size:13px;color:#64748b;line-height:1.55;margin:-4px 0 14px;">
+                                How often each community should be visited. Nothing is blocked by
+                                this — it decides which communities are flagged as falling behind,
+                                on the dashboard and on the community cards.
+                            </p>
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <span style="font-size:13px;font-weight:600;color:#475569;">Every</span>
+                                <input type="number" id="cadenceInput" class="pw-input" min="7" max="365"
+                                       value="${visitCadenceDays}" style="width:90px;">
+                                <span style="font-size:13px;font-weight:600;color:#475569;">days</span>
+                                <button class="btn btn-primary" onclick="saveVisitCadence()">Save</button>
+                            </div>
+                            <div class="pw-msg" id="cadenceMsg"></div>
+                        </div>
                         <div class="profile-section">
                             <div class="profile-section-title"><i class="fas fa-users-gear"></i> User management</div>
                             <p style="font-size:13px;color:#64748b;line-height:1.55;margin:-4px 0 14px;">
@@ -8660,13 +8973,13 @@
 
 
 
-        // Close modal when clicking outside
-
-        // Close modal with Escape key
+        // Escape closes the slide panel.
+        //
+        // This used to call closeInspectionModal() first, a function removed
+        // along with the old modal — so every Escape threw a ReferenceError
+        // before reaching the line below, and the panel stayed open.
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                closeInspectionModal();
-                // Also close slide panel if open
                 const panel = document.getElementById('slidePanel');
                 if (panel && panel.classList.contains('show')) {
                     closeSlidePanel();
