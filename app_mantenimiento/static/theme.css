@@ -358,6 +358,110 @@ html[data-theme="dark"] .cards-due-toggle.is-on {
     background: #b42318 !important; border-color: #b42318 !important; color: #fff !important;
 }
 
+/* ===== Search ===== */
+.sr-overlay {
+    position: fixed; inset: 0; z-index: 4000;
+    display: none;
+    background: rgba(15, 30, 54, .45);
+    backdrop-filter: blur(2px);
+    padding: 12vh 16px 16px;
+}
+.sr-overlay.show { display: block; }
+.sr-card {
+    max-width: 620px; margin: 0 auto;
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(15, 30, 54, .28);
+    overflow: hidden;
+}
+.sr-inputwrap {
+    display: flex; align-items: center; gap: 11px;
+    padding: 15px 18px; border-bottom: 1px solid var(--line);
+}
+.sr-inputwrap > i { color: var(--muted); font-size: 15px; flex-shrink: 0; }
+.sr-inputwrap input {
+    flex: 1; min-width: 0;
+    border: none !important; outline: none; background: none;
+    font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
+    color: var(--navy-700); font-weight: 600;
+}
+.sr-inputwrap input::placeholder { color: #9ca3af; font-weight: 500; }
+.sr-esc {
+    flex-shrink: 0; border: 1px solid var(--line); background: #f7f9fc;
+    color: var(--muted); border-radius: 6px; padding: 3px 8px;
+    font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.sr-esc:hover { background: #eef2f7; }
+.sr-results { max-height: min(56vh, 460px); overflow-y: auto; }
+.sr-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 18px; cursor: pointer;
+    border-bottom: 1px solid #f4f7fb;
+}
+.sr-row:last-child { border-bottom: none; }
+.sr-row.is-active, .sr-row:hover { background: #f2f7ff; }
+.sr-icon { width: 18px; text-align: center; color: var(--azure); font-size: 13px; flex-shrink: 0; }
+.sr-main { flex: 1; min-width: 0; }
+.sr-title {
+    font-size: 14px; font-weight: 700; color: var(--navy-700);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sr-sub {
+    font-size: 11.5px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sr-kind {
+    flex-shrink: 0; font-size: 10px; font-weight: 800; letter-spacing: .4px;
+    text-transform: uppercase; color: #8b98a9;
+    background: #f1f5f9; border-radius: 999px; padding: 2px 8px;
+}
+.sr-hint { padding: 22px 18px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+.sr-hint span { display: block; font-size: 12px; color: #9ca3af; margin-top: 4px; }
+html[data-theme="dark"] .sr-card { background: #16203a; }
+html[data-theme="dark"] .sr-inputwrap { border-bottom-color: #26324a; }
+html[data-theme="dark"] .sr-inputwrap input { color: #eef2f8 !important; }
+html[data-theme="dark"] .sr-esc { background: rgba(255,255,255,.05); border-color: #33425c; color: #9fb0c4; }
+html[data-theme="dark"] .sr-row { border-bottom-color: #1e2940; }
+html[data-theme="dark"] .sr-row.is-active,
+html[data-theme="dark"] .sr-row:hover { background: rgba(90,150,255,.10); }
+html[data-theme="dark"] .sr-title { color: #eef2f8; }
+html[data-theme="dark"] .sr-kind { background: rgba(148,163,184,.16); color: #b7c3d3; }
+/* On a phone the palette takes the whole screen and the button shrinks to
+   its icon — the header has little room and used to crush its buttons. */
+@media (max-width: 700px) {
+    .sr-overlay { padding: 0; }
+    .sr-card { max-width: none; border-radius: 0; height: 100%; display: flex; flex-direction: column; }
+    .sr-results { max-height: none; flex: 1; }
+    .search-btn-text { display: none; }
+}
+
+/* Trend: the last few visits as a sparkline, with a plain reading of it. */
+.trend-block {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; flex-wrap: wrap;
+    margin: 8px 0 2px;
+}
+.trend-block .spark { display: block; flex-shrink: 0; }
+.trend-label { font-size: 11.5px; font-weight: 700; }
+.trend-label i { font-size: 10px; margin-right: 3px; }
+.trend-up   { color: #0f8a5f; }
+.trend-down { color: #d13212; }
+.trend-flat { color: #6b7280; }
+html[data-theme="dark"] .trend-up   { color: #5fd6a3; }
+html[data-theme="dark"] .trend-down { color: #f3b0a3; }
+html[data-theme="dark"] .trend-flat { color: #9fb0c4; }
+
+/* The same trend, larger, at the head of a community's history. */
+.hist-trend {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px; margin-bottom: 12px;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: #fbfcfe;
+}
+.hist-trend-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hist-trend-text b { font-size: 13.5px; }
+.hist-trend-text span { font-size: 11.5px; color: var(--muted); }
+html[data-theme="dark"] .hist-trend { background: rgba(255,255,255,.03); border-color: #26324a; }
+
 /* Ageing chip on a community card. Only rendered once a community is past
    its window, so its presence is the signal. */
 .age-chip {

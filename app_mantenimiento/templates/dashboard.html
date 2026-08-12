@@ -1800,6 +1800,16 @@
             background: #f7faff; color: #1f4f9e; border-radius: 8px; font-size: 12.5px;
             font-weight: 700; cursor: pointer; }
         .cm-add:hover { background: #eef4ff; }
+        /* Collapsed thread: only the newest comment shows. Everything is still
+           in the DOM, so expanding costs nothing and the delete buttons on
+           older comments keep working once revealed. */
+        .cm-list.is-collapsed .cm:not(:last-child) { display: none; }
+        .cm-toggle { width: 100%; margin-top: 6px; padding: 6px; background: none; border: none;
+            color: #64748b; font-size: 11.5px; font-weight: 700; cursor: pointer; border-radius: 6px; }
+        .cm-toggle:hover { background: #f4f7fb; color: #0f1e36; }
+        .cm-toggle i { font-size: 9px; margin-right: 4px; }
+        html[data-theme="dark"] .cm-toggle { color: #9fb0c4; }
+        html[data-theme="dark"] .cm-toggle:hover { background: rgba(255,255,255,.05); color: #eef2f8; }
         html[data-theme="dark"] .ai-await { background: #131d2c; border-color: #33425c; color: #9fb0c4; }
         html[data-theme="dark"] .cm-list { border-top-color: #26324a; }
         html[data-theme="dark"] .cm { border-bottom-color: #1e2940; }
@@ -2231,6 +2241,7 @@
                     <div class="user-info" id="userInfo"></div>
                 </div>
                 <div class="header-actions">
+                    <button class="btn btn-secondary" id="searchBtn" onclick="openSearch()" title="Search communities, people and visits (press / )" aria-label="Search"><i class="fas fa-magnifying-glass"></i> <span class="search-btn-text">Search</span></button>
                     <a href="/questions/manage" class="btn btn-primary" id="questionManagerBtn" style="display: none; text-decoration: none;"><i class="fas fa-clipboard-list"></i> Question Manager</a>
                     <button class="btn btn-secondary" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
                     <button class="btn btn-secondary" id="headerHelpBtn" onclick="contextHelp()" title="Show the tutorial for this screen"><i class="fas fa-circle-question"></i> Help</button>
@@ -2308,6 +2319,22 @@
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- Team-member profile popover -->
+    <!-- Search. Everything it looks through is already loaded and already
+         scoped by the server, so there is no new way to reach another
+         region's data through it. -->
+    <div id="searchOverlay" class="sr-overlay" onclick="if(event.target===this) closeSearch()">
+        <div class="sr-card" role="dialog" aria-label="Search">
+            <div class="sr-inputwrap">
+                <i class="fas fa-magnifying-glass"></i>
+                <input id="searchInput" type="text" autocomplete="off" spellcheck="false"
+                       placeholder="Search communities, people and visits…"
+                       oninput="runSearch(this.value)" onkeydown="searchKey(event)">
+                <button class="sr-esc" onclick="closeSearch()">Esc</button>
+            </div>
+            <div id="searchResults" class="sr-results"></div>
+        </div>
+    </div>
+
     <div id="personModal" class="pm-overlay" onclick="if(event.target===this) closePersonModal()">
         <div class="pm-card">
             <button class="pm-close" onclick="closePersonModal()" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -3288,8 +3315,26 @@
                 </div>`;
             }).join('');
 
+            // The same trend as the community card, with room to breathe: what
+            // each visit found, oldest first. Uses the visit score rather than
+            // the current one so later fixes can't flatter the line.
+            const series = d.visits.slice().reverse()
+                .map(v => v.visit_score).filter(v => typeof v === 'number');
+            const dir = trendDirection(series);
+            const trendHead = series.length >= 2 ? `
+                <div class="hist-trend">
+                    ${sparklineSvg(series, 132, 34)}
+                    <div class="hist-trend-text">
+                        <b class="trend-${dir.dir}">${dir.dir === 'flat'
+                            ? 'Holding steady'
+                            : (dir.delta > 0 ? `Up ${dir.delta} points` : `Down ${Math.abs(dir.delta)} points`)}</b>
+                        <span>${series.length} visits · ${series[0]}% → ${series[series.length - 1]}%</span>
+                    </div>
+                </div>` : '';
+
             host.innerHTML = `
                 <h3 class="panel-section-title"><i class="fas fa-clock-rotate-left"></i> History</h3>
+                ${trendHead}
                 <div class="hist-list">${rows}</div>
                 ${chronic.length ? `
                     <div class="trk-head">
@@ -3573,6 +3618,17 @@
                             .filter(i => !i.resolved).length;
                         const actionItems = countActionItems(latestSubmission.responses) + openManual;
 
+                        // What the last few visits found, oldest first.
+                        //
+                        // Deliberately the visit score, not the current one: the
+                        // question a trend answers is "is this community in
+                        // better shape each time we walk it", and the current
+                        // score folds in fixes made afterwards, which would make
+                        // an unchanged community look like it was improving.
+                        const trend = sortedSubmissions.slice(0, 6).reverse()
+                            .map(s => scoreBoth(s.responses).visit)
+                            .filter(v => typeof v === 'number');
+
                         communityData.push({
                             name: communityName,
                             lastVisit: formatDate(latestSubmission.submitted_at),
@@ -3581,6 +3637,7 @@
                             visitScore: sc.visit,
                             fixedSinceVisit: sc.fixed,
                             actionItems: actionItems,
+                            trend: trend,
                             photoUrl: getCommunityPhoto(communityName)
                         });
                     } else {
@@ -3591,6 +3648,7 @@
                             lastVisitTs: 0,
                             score: null,
                             actionItems: 0,
+                            trend: [],
                             photoUrl: getCommunityPhoto(communityName)
                         });
                     }
@@ -3802,6 +3860,7 @@
                                        ${community.fixedSinceVisit} fixed since
                                    </div>`
                                 : ''}
+                            ${trendBlock(community)}
 
                             <div class="action-items ${actionClass}">
                                 <i class="fas ${community.actionItems > 0 ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
@@ -4511,6 +4570,232 @@
             const cnt = (allSubmissions || []).filter(s => (new Date(s.submitted_at).getTime() || 0) > seen).length;
             if (cnt > 0) { badge.textContent = cnt > 9 ? '9+' : String(cnt); badge.style.display = 'inline-flex'; }
             else badge.style.display = 'none';
+        }
+
+        // ===================== Search =====================
+        // One box over the things already in memory: communities, the people
+        // in the regions this account can see, and past visits. Nothing is
+        // fetched — those lists were scoped by the server when they loaded, so
+        // search cannot reach anything the account couldn't already open.
+
+        let _srResults = [];   // what is currently listed
+        let _srActive = 0;     // which row the arrow keys are on
+
+        function openSearch() {
+            const o = document.getElementById('searchOverlay');
+            const i = document.getElementById('searchInput');
+            if (!o || !i) return;
+            o.classList.add('show');
+            i.value = '';
+            runSearch('');
+            // Wait for the overlay to paint before focusing, or iOS won't
+            // bring the keyboard up.
+            setTimeout(() => i.focus(), 50);
+        }
+
+        function closeSearch() {
+            const o = document.getElementById('searchOverlay');
+            if (o) o.classList.remove('show');
+        }
+
+        function searchIsOpen() {
+            const o = document.getElementById('searchOverlay');
+            return !!(o && o.classList.contains('show'));
+        }
+
+        // Everything searchable, flattened into one shape.
+        function searchIndex() {
+            const rows = [];
+
+            (communityData || []).forEach(c => {
+                const bits = [];
+                if (typeof c.score === 'number') bits.push(c.score + '%');
+                bits.push(c.lastVisitTs ? 'Last visit ' + c.lastVisit : 'No visits yet');
+                if (c.actionItems) bits.push(c.actionItems + ' open');
+                rows.push({
+                    kind: 'Community', icon: 'fa-building', title: c.name,
+                    sub: bits.join(' · '), key: c.name,
+                    open: () => openSlidePanel(c.name),
+                });
+            });
+
+            // People come from the regions already loaded for this account.
+            const seen = new Set();
+            (regions || []).forEach(r => {
+                (r.leadership || []).forEach(l => {
+                    const nm = (l.name || '').trim();
+                    if (!nm || nm.toLowerCase() === 'open' || seen.has(nm.toLowerCase())) return;
+                    seen.add(nm.toLowerCase());
+                    rows.push({
+                        kind: 'Person', icon: 'fa-user', title: nm,
+                        sub: [l.title, r.name].filter(Boolean).join(' · '),
+                        key: nm + ' ' + (l.username || '') + ' ' + (l.email || ''),
+                        // openPersonPanel takes the display name, not the login.
+                        open: () => openPersonPanel(nm),
+                    });
+                });
+            });
+
+            (allSubmissions || []).forEach(s => {
+                const who = s.inspector_name || s.username || 'Unknown';
+                rows.push({
+                    kind: 'Visit', icon: 'fa-clipboard-check',
+                    title: `${s.community || 'Unknown'} — ${formatDate(s.submitted_at)}`,
+                    sub: `Visited by ${who}`,
+                    key: `${s.community || ''} ${who} ${formatDate(s.submitted_at)}`,
+                    open: () => openSlidePanel(s.community),
+                });
+            });
+
+            return rows;
+        }
+
+        function runSearch(q) {
+            const host = document.getElementById('searchResults');
+            if (!host) return;
+            q = (q || '').trim().toLowerCase();
+
+            if (!q) {
+                _srResults = [];
+                host.innerHTML = `<div class="sr-hint">
+                    Type to find a community, a person, or a visit.
+                    <span>Communities and visits open where you'd expect; people open their profile.</span>
+                </div>`;
+                return;
+            }
+
+            // Every word has to appear somewhere, in any order — so "kelley
+            // june" finds June's visit to Kelley Place.
+            const words = q.split(/\s+/);
+            const scored = [];
+            searchIndex().forEach(r => {
+                const hay = (r.title + ' ' + r.sub + ' ' + r.key).toLowerCase();
+                if (!words.every(w => hay.includes(w))) return;
+                // A match at the start of the name beats one buried in a
+                // subtitle, and communities outrank visits to the same place.
+                const t = r.title.toLowerCase();
+                let score = t.startsWith(words[0]) ? 0 : (t.includes(words[0]) ? 1 : 2);
+                score += ({ Community: 0, Person: 1, Visit: 2 })[r.kind] * 0.1;
+                scored.push({ r, score });
+            });
+            scored.sort((a, b) => a.score - b.score || a.r.title.localeCompare(b.r.title));
+            _srResults = scored.slice(0, 20).map(x => x.r);
+            _srActive = 0;
+
+            if (!_srResults.length) {
+                host.innerHTML = `<div class="sr-hint">Nothing matches “${escapeHtml(q)}”.</div>`;
+                return;
+            }
+            host.innerHTML = _srResults.map((r, i) => `
+                <div class="sr-row${i === 0 ? ' is-active' : ''}" data-i="${i}" onclick="searchPick(${i})">
+                    <i class="fas ${r.icon} sr-icon"></i>
+                    <div class="sr-main">
+                        <div class="sr-title">${escapeHtml(r.title)}</div>
+                        <div class="sr-sub">${escapeHtml(r.sub || '')}</div>
+                    </div>
+                    <span class="sr-kind">${r.kind}</span>
+                </div>`).join('');
+        }
+
+        function searchPick(i) {
+            const r = _srResults[i];
+            if (!r) return;
+            closeSearch();
+            try { r.open(); } catch (e) { console.error('Could not open that result:', e); }
+        }
+
+        function searchKey(e) {
+            if (e.key === 'Escape') { closeSearch(); return; }
+            if (e.key === 'Enter') { searchPick(_srActive); return; }
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+            e.preventDefault();
+            if (!_srResults.length) return;
+            _srActive = (_srActive + (e.key === 'ArrowDown' ? 1 : -1) + _srResults.length) % _srResults.length;
+            const host = document.getElementById('searchResults');
+            host.querySelectorAll('.sr-row').forEach(el => {
+                const on = Number(el.dataset.i) === _srActive;
+                el.classList.toggle('is-active', on);
+                if (on) el.scrollIntoView({ block: 'nearest' });
+            });
+        }
+
+        // "/" to search, the convention almost everywhere — but not while
+        // someone is typing into a field, or it would swallow the character.
+        document.addEventListener('keydown', (e) => {
+            const tag = (e.target && e.target.tagName || '').toLowerCase();
+            const typing = tag === 'input' || tag === 'textarea' || tag === 'select'
+                || (e.target && e.target.isContentEditable);
+            if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                searchIsOpen() ? closeSearch() : openSearch();
+                return;
+            }
+            if (e.key === '/' && !typing && !searchIsOpen()) {
+                e.preventDefault();
+                openSearch();
+            }
+        });
+
+        // ===================== Community trend =====================
+        // A community's score is the latest visit and nothing else, by design.
+        // That answers "where do they stand" but never "are they getting
+        // better", which is the question anyone reviewing a region actually
+        // asks. These draw the last few visits so the direction is visible
+        // without opening the history.
+
+        // Which way the last two visits went, and by how much.
+        function trendDirection(trend) {
+            if (!Array.isArray(trend) || trend.length < 2) return null;
+            const delta = trend[trend.length - 1] - trend[trend.length - 2];
+            // A point or two either way is noise, not a direction — a single
+            // standard on a short survey moves the score by more than that.
+            if (Math.abs(delta) < 3) return { dir: 'flat', delta: delta };
+            return { dir: delta > 0 ? 'up' : 'down', delta: delta };
+        }
+
+        // A tiny line chart, as inline SVG. No library, no canvas: these end up
+        // on 39 cards at once and each one has to cost almost nothing.
+        function sparklineSvg(trend, w, h) {
+            w = w || 68; h = h || 22;
+            if (!Array.isArray(trend) || trend.length < 2) return '';
+            const pad = 2;
+            const lo = Math.min(...trend), hi = Math.max(...trend);
+            // A flat line would otherwise divide by zero and vanish; sit it in
+            // the middle instead, which is what "no change" should look like.
+            const span = (hi - lo) || 1;
+            const stepX = (w - pad * 2) / (trend.length - 1);
+            const pts = trend.map((v, i) => {
+                const x = pad + i * stepX;
+                const y = hi === lo ? h / 2 : pad + (hi - v) / span * (h - pad * 2);
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            });
+            const t = trendDirection(trend) || { dir: 'flat' };
+            const stroke = t.dir === 'up' ? '#0f8a5f' : (t.dir === 'down' ? '#d13212' : '#94a3b8');
+            const last = pts[pts.length - 1].split(',');
+            return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"
+                         aria-hidden="true" focusable="false">
+                <polyline points="${pts.join(' ')}" fill="none" stroke="${stroke}"
+                          stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+                <circle cx="${last[0]}" cy="${last[1]}" r="2.4" fill="${stroke}"/>
+            </svg>`;
+        }
+
+        // The sparkline plus a plain-language reading of it. Silent for a
+        // community with a single visit — one point is not a trend, and saying
+        // so on every new community would be noise.
+        function trendBlock(community) {
+            const trend = (community && community.trend) || [];
+            if (trend.length < 2) return '';
+            const t = trendDirection(trend);
+            const label = t.dir === 'flat'
+                ? 'About the same as last visit'
+                : `${t.delta > 0 ? '+' : '−'}${Math.abs(t.delta)} points vs last visit`;
+            const icon = t.dir === 'up' ? 'fa-arrow-trend-up'
+                : (t.dir === 'down' ? 'fa-arrow-trend-down' : 'fa-arrows-left-right');
+            return `<div class="trend-block" title="Score at each of the last ${trend.length} visits: ${trend.join('% → ')}%">
+                        ${sparklineSvg(trend)}
+                        <span class="trend-label trend-${t.dir}"><i class="fas ${icon}"></i> ${label}</span>
+                    </div>`;
         }
 
         // The colour a score is shown in. Lived as a local inside
@@ -5402,12 +5687,33 @@
                 </div>`;
             }).join('');
             const n = (item.comments || []).length;
+            // A long thread pushed everything else off a phone screen — one
+            // item could fill it entirely. Older comments are collapsed behind
+            // a toggle, with the newest always visible because that is the one
+            // that says where things stand. Every comment is still in the DOM,
+            // so the toggle is a class flip rather than a re-render, and
+            // nothing about posting or deleting changes.
+            const collapsible = n >= 3;
+            const threadId = 'cmlist_' + (item.submissionId || '') + '_' + (qid || itemId || '');
             return `<div class="cm-wrap">
-                ${n ? `<div class="cm-list">${list}</div>` : ''}
+                ${n ? `<div class="cm-list${collapsible ? ' is-collapsed' : ''}" id="${threadId}">${list}</div>` : ''}
+                ${collapsible ? `<button class="cm-toggle" onclick="toggleThread('${threadId}', this)">
+                    <i class="fas fa-chevron-down"></i> Show ${n - 1} earlier comment${n - 1 === 1 ? '' : 's'}
+                </button>` : ''}
                 <button class="cm-add" onclick="openCommentBox('${item.submissionId}','${qid || ''}','${itemId || ''}')">
                     <i class="fas fa-comment-dots"></i> ${n ? 'Add a comment' : 'Comment on this'}
                 </button>
             </div>`;
+        }
+
+        function toggleThread(threadId, btn) {
+            const list = document.getElementById(threadId);
+            if (!list) return;
+            const collapsed = list.classList.toggle('is-collapsed');
+            const n = list.querySelectorAll('.cm').length;
+            btn.innerHTML = collapsed
+                ? `<i class="fas fa-chevron-down"></i> Show ${n - 1} earlier comment${n - 1 === 1 ? '' : 's'}`
+                : '<i class="fas fa-chevron-up"></i> Hide earlier comments';
         }
 
         function commentUrl(submissionId, questionId, itemId) {

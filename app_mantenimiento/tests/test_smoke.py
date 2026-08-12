@@ -935,6 +935,60 @@ def test_attention_survives_a_visit_with_duplicate_rows():
         A.presence_service.forget("smoke.attn.dup")
 
 
+def test_the_trend_matches_the_history_endpoint():
+    """The card's sparkline is built in the browser from /api/inspections; the
+    panel's is built from /api/communities/<c>/history. Two code paths, one
+    number — a score shown two ways and disagreeing is exactly the bug that
+    reached production before."""
+    comm = _a_community()
+    made = []
+    try:
+        # Two visits with known, different results: 1/2 then 2/2.
+        made.append(A.inspection_service.create_submission(
+            username="admin", community=comm, inspector_name="Smoke Test",
+            responses=[
+                {"question_id": "trend_a", "question_text": "A", "condition": "Pass",
+                 "description": "", "answered_at": "2026-08-01T09:00:00"},
+                {"question_id": "trend_b", "question_text": "B", "condition": "Fail",
+                 "description": "x", "answered_at": "2026-08-01T09:00:00"},
+            ]))
+        made.append(A.inspection_service.create_submission(
+            username="admin", community=comm, inspector_name="Smoke Test",
+            responses=[
+                {"question_id": "trend_a", "question_text": "A", "condition": "Pass",
+                 "description": "", "answered_at": "2026-08-08T09:00:00"},
+                {"question_id": "trend_b", "question_text": "B", "condition": "Pass",
+                 "description": "", "answered_at": "2026-08-08T09:00:00"},
+            ]))
+        ids = {s["id"] for s in made}
+
+        c = _client()
+        _as_admin(c)
+        hist = c.get(f"/api/communities/{comm}/history").get_json()
+        ours = [v for v in hist["visits"] if v["id"] in ids]
+        assert len(ours) == 2, "the history did not return both visits"
+        by_id = {v["id"]: v for v in ours}
+        assert by_id[made[0]["id"]]["visit_score"] == 50
+        assert by_id[made[1]["id"]]["visit_score"] == 100
+
+        # The same two visits as the browser receives them, scored the way
+        # scoreBoth() in dashboard.html does it.
+        raw = {s["id"]: s for s in c.get("/api/inspections").get_json()["submissions"]}
+        for vid in ids:
+            responses = raw[vid]["responses"]
+            passed = sum(1 for r in responses if r.get("condition") == "Pass")
+            failed = sum(1 for r in responses if r.get("condition") == "Fail")
+            browser = round(passed / (passed + failed) * 100)
+            assert browser == by_id[vid]["visit_score"], (
+                f"visit {vid}: the card would show {browser}%, "
+                f"the history shows {by_id[vid]['visit_score']}%")
+    finally:
+        keep = {s["id"] for s in made}
+        A.inspection_service.submissions = [
+            s for s in A.inspection_service.submissions if s.get("id") not in keep]
+        A.inspection_service.save_to_file()
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

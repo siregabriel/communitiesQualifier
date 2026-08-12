@@ -30,9 +30,39 @@ if (js.length < 10000) {
   console.error('Could not find the dashboard script in the template.');
   process.exit(1);
 }
+// Some checks need the page's own markup rather than a stub — the search
+// palette in particular, since half of what it does is manipulate those
+// elements. Lift the real element out of the template by walking its tags, so
+// that if it is ever restructured this fails loudly instead of quietly testing
+// a placeholder.
+function elementFromTemplate(id) {
+  const start = html_src.indexOf(`<div id="${id}"`);
+  if (start === -1) throw new Error(`#${id} is no longer in the template`);
+  let depth = 0, i = start;
+  const tag = /<(\/?)div\b[^>]*?(\/?)>/g;
+  tag.lastIndex = start;
+  let m;
+  while ((m = tag.exec(html_src))) {
+    if (m[2] === '/') continue;          // self-closing, ignore
+    depth += m[1] === '/' ? -1 : 1;
+    i = m.index + m[0].length;
+    if (depth === 0) return html_src.slice(start, i);
+  }
+  throw new Error(`#${id} is not balanced in the template`);
+}
+
+const searchMarkup = elementFromTemplate('searchOverlay');
+for (const needed of ['searchInput', 'searchResults']) {
+  if (!searchMarkup.includes(needed)) {
+    console.error(`The search markup no longer contains #${needed}.`);
+    process.exit(1);
+  }
+}
+
 const dom = new JSDOM(`<!doctype html><html><body>
   <div id="gallery"></div><div id="userInfo"></div><div id="userName"></div>
   <div id="attentionStrip"></div>
+  ${searchMarkup}
 </body></html>`, { runScripts: 'dangerously', url: 'http://localhost/' });
 const w = dom.window;
 
@@ -46,6 +76,9 @@ w.document.querySelector = sel => realQS(sel) || w.document.createElement('div')
 
 w.fetch = async () => ({ ok: true, status: 200, json: async () => ({}) });
 w.Chart = function () { return { destroy() {} }; };
+// jsdom has no layout, so it implements neither of these. Browsers do.
+w.Element.prototype.scrollIntoView = function () {};
+w.HTMLElement.prototype.scrollTo = function () {};
 
 let failures = 0;
 const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) failures++; };
@@ -166,6 +199,93 @@ ok(only.includes('Showing due only'), 'the toggle shows it is on');
 run(`communityData = ${JSON.stringify([mk('Alpha', 2)])}; renderCommunityCards();`);
 ok(gallery.innerHTML.includes('Every community has been visited'),
    'due-only with nothing behind says so, and offers a way back');
+
+console.log('\nTrend — reading the direction');
+const dir = t => run(`JSON.stringify(trendDirection(${JSON.stringify(t)}))`);
+ok(dir([]) === undefined || JSON.parse(dir([]) || 'null') === null, 'no visits, no direction');
+ok(JSON.parse(dir([80]) || 'null') === null, 'one visit is not a trend');
+ok(JSON.parse(dir([70, 85])).dir === 'up', 'a real rise reads as up');
+ok(JSON.parse(dir([85, 70])).dir === 'down', 'a real fall reads as down');
+ok(JSON.parse(dir([80, 82])).dir === 'flat', 'two points of movement is noise, not a direction');
+ok(JSON.parse(dir([80, 80])).dir === 'flat', 'no change is flat');
+
+console.log('Trend — drawing it');
+const spark = t => run(`sparklineSvg(${JSON.stringify(t)})`);
+ok(spark([80]) === '', 'nothing is drawn for a single visit');
+const flat = spark([80, 80, 80]);
+ok(flat.includes('<polyline'), 'a flat run still draws a line rather than dividing by zero');
+ok(!/NaN|Infinity/.test(flat), 'and produces no NaN coordinates');
+const rising = spark([40, 60, 90]);
+ok(!/NaN|Infinity/.test(rising) && rising.includes('#0f8a5f'), 'a rising line is drawn in green');
+ok(spark([90, 60, 40]).includes('#d13212'), 'a falling one in red');
+const block = run(`trendBlock(${JSON.stringify({ trend: [70, 85] })})`);
+ok(block.includes('+15 points'), 'the reading spells out the change');
+ok(run(`trendBlock(${JSON.stringify({ trend: [70] })})`) === '', 'and says nothing with one visit');
+
+console.log('\nAction Items — collapsing a long thread');
+const mkItem = (n) => ({
+  submissionId: 's1',
+  comments: Array.from({ length: n }, (_, i) => ({
+    id: 'c' + i, username: 'someone', author: 'Someone', text: 'Comment ' + i,
+    at: new Date().toISOString(),
+  })),
+});
+const ui = n => run(`commentsUi(${JSON.stringify(mkItem(n))}, 'q1', '')`);
+ok(!ui(2).includes('cm-toggle'), 'a short thread is left alone');
+const long = ui(5);
+ok(long.includes('cm-toggle') && long.includes('Show 4 earlier comments'), 'a long one collapses');
+ok(long.includes('is-collapsed'), 'and starts collapsed');
+ok((long.match(/class="cm"/g) || []).length === 5,
+   'every comment is still in the DOM, so expanding needs no re-render');
+ok(long.includes('cm-add'), 'and posting a new comment is still offered');
+
+console.log('Action Items — the toggle itself');
+const threadHost = w.document.createElement('div');
+threadHost.innerHTML = long;
+w.document.body.appendChild(threadHost);
+const thread = threadHost.querySelector('.cm-list');
+const btn = threadHost.querySelector('.cm-toggle');
+run(`toggleThread('${thread.id}', document.getElementById('${thread.id}').parentNode.querySelector('.cm-toggle'))`);
+ok(!thread.classList.contains('is-collapsed'), 'clicking it expands the thread');
+ok(btn.textContent.includes('Hide'), 'and the button says how to undo that');
+run(`toggleThread('${thread.id}', document.getElementById('${thread.id}').parentNode.querySelector('.cm-toggle'))`);
+ok(thread.classList.contains('is-collapsed') && btn.textContent.includes('Show 4'), 'and back again');
+
+console.log('\nSearch');
+run(`communityData = ${JSON.stringify([
+  { name: 'Kelley Place, Enterprise', score: 67, lastVisit: 'Jun 20, 2026',
+    lastVisitTs: Date.now(), actionItems: 3, trend: [] },
+  { name: 'The Goldton at Venice', score: null, lastVisit: 'No visits yet',
+    lastVisitTs: 0, actionItems: 0, trend: [] },
+])};
+regions = [{ id: 'magnolia', name: 'Magnolia', communities: ['Kelley Place, Enterprise'],
+             leadership: [{ name: 'June Carter', username: 'june', title: 'Regional' },
+                          { name: 'Open', username: '' }] }];
+allSubmissions = [{ id: 'v1', community: 'Kelley Place, Enterprise',
+                    inspector_name: 'June Carter', submitted_at: '2026-06-20T20:18:27' }];`);
+
+const results = q => JSON.parse(run(
+  `runSearch(${JSON.stringify(q)}); JSON.stringify(_srResults.map(r => r.kind + ': ' + r.title))`));
+ok(results('kelley').length >= 2, 'a community name finds the community and its visits');
+ok(results('kelley')[0].startsWith('Community'), 'and the community itself comes first');
+ok(results('june').some(r => r.startsWith('Person')), 'a person is found by name');
+ok(!results('open').some(r => r === 'Person: Open'), 'an unfilled leadership slot is not a person');
+ok(results('kelley june').length === 1, 'words can be combined, in any order');
+ok(results('zzzz').length === 0, 'and nonsense finds nothing');
+ok(w.document.getElementById('searchResults').innerHTML.includes('Nothing matches'),
+   'which is said out loud rather than left blank');
+
+console.log('Search — keyboard and opening');
+run(`openSearch();`);
+ok(w.document.getElementById('searchOverlay').classList.contains('show'), 'it opens');
+run(`runSearch('kelley');`);
+run(`searchKey({ key: 'ArrowDown', preventDefault(){} });`);
+ok(run('_srActive') === 1, 'arrow keys move down the list');
+run(`searchKey({ key: 'ArrowUp', preventDefault(){} }); searchKey({ key: 'ArrowUp', preventDefault(){} });`);
+ok(run('_srActive') === run('_srResults.length') - 1, 'and wrap around the ends');
+run(`window.__opened = null; searchPick(0);`);
+ok(w.__opened === 'Kelley Place, Enterprise', 'picking a community opens it');
+ok(!w.document.getElementById('searchOverlay').classList.contains('show'), 'and closes the search');
 
 console.log('');
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
