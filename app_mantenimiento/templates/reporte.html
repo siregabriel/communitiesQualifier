@@ -2190,10 +2190,37 @@
                     : `Please add a comment on the ${missingComment.length} items marked Fail. Whoever fixes them needs to know what you found.`);
                 return;
             }
-            
+
+            // Sending an incomplete visit is allowed — a walk gets interrupted.
+            // What isn't acceptable is it happening silently: the score is
+            // worked out over the standards that were answered, so three of
+            // eight all passed reads as 100%. Say so, and let them decide.
+            const unanswered = questions.length - responses.length;
+            if (unanswered > 0) {
+                const ok = confirm(
+                    `${unanswered} of ${questions.length} standards ${unanswered === 1 ? 'has' : 'have'} no answer yet.\n\n` +
+                    `You can send this now and the visit will be marked as partial — the score will only ` +
+                    `cover the ${responses.length} you did answer.\n\n` +
+                    `Send anyway? Choose Cancel to go back and finish.`);
+                if (!ok) {
+                    // Take them to the first one still blank rather than
+                    // leaving them to hunt for it.
+                    const firstBlank = questions.find(q =>
+                        !document.querySelector(`input[name="condition_${q.id}"]:checked`));
+                    const el = firstBlank && document.querySelector(
+                        `.question-section[data-question-id="${firstBlank.id}"]`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+            }
+
             // Create FormData for multipart/form-data submission
             const formData = new FormData();
             formData.append('responses', JSON.stringify(responses));
+            // How many standards this survey had, so a partial visit can be
+            // told apart from a complete one later. The server checks it
+            // against the survey rather than trusting the number.
+            formData.append('standards_total', String(questions.length));
             // Regional users submit for a chosen community (staff ignore this server-side)
             formData.append('community', selectedCommunity || userCommunity || '');
             // Ad-hoc action items (follow-up tasks, not standards)

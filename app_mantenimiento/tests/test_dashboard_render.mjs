@@ -287,6 +287,43 @@ run(`window.__opened = null; searchPick(0);`);
 ok(w.__opened === 'Kelley Place, Enterprise', 'picking a community opens it');
 ok(!w.document.getElementById('searchOverlay').classList.contains('show'), 'and closes the search');
 
+console.log('\nPartial visits');
+const sub = (conds, total) => ({
+  standards_total: total,
+  responses: conds.map((c, i) => ({ question_id: 'q' + i, condition: c })),
+});
+const info = s => JSON.parse(run(`JSON.stringify(partialInfo(${JSON.stringify(s)}))`) || 'null');
+ok(info(sub(['Pass', 'Pass', 'Pass'], 8)).answered === 3, 'three of eight is partial');
+ok(info(sub(['Pass', 'Pass', 'Pass'], 8)).missing === 5, 'and it knows how many are missing');
+ok(info(sub(['Pass', 'Fail', 'Pass'], 3)) === null, 'a complete visit is not partial');
+ok(info(sub(['Pass'], null)) === null, 'a visit with no recorded total is left alone');
+ok(info(sub(['Pass'], undefined)) === null, 'and so is an older one missing the field entirely');
+// Unanswered standards are never stored, but a stray row with no verdict
+// must not be counted as answered either.
+ok(info({ standards_total: 4, responses: [
+  { question_id: 'a', condition: 'Pass' }, { question_id: 'b' }] }).answered === 1,
+  'a row with no verdict does not count as answered');
+
+const chip = s => run(`partialChip(partialInfo(${JSON.stringify(s)}))`);
+ok(chip(sub(['Pass'], 8)).includes('1 of 8 standards'), 'the chip says what it covers');
+ok(chip(sub(['Pass', 'Pass'], 2)) === '', 'and stays away from a complete visit');
+ok(run(`partialChip(null)`) === '', 'nothing is drawn without an info object');
+ok(run(`partialChip(partialInfo(${JSON.stringify(sub(['Pass'], 8))}), true)`).includes('1/8'),
+   'the compact form is just the ratio');
+
+console.log('Partial visits — on the card');
+run(`communityData = ${JSON.stringify([
+  { name: 'Halfway House', score: 100, actionItems: 0, photoUrl: '#',
+    lastVisit: 'Aug 1, 2026', lastVisitTs: Date.now(), trend: [],
+    partial: { answered: 3, total: 8, missing: 5 } },
+  { name: 'Whole House', score: 100, actionItems: 0, photoUrl: '#',
+    lastVisit: 'Aug 1, 2026', lastVisitTs: Date.now(), trend: [], partial: null },
+])}; onlyDueForVisit = false; communitySort = 'az'; renderCommunityCards();`);
+const cardsHtml = gallery.innerHTML;
+ok((cardsHtml.match(/partial-chip/g) || []).length === 1,
+   'only the partial visit is labelled, though both show 100%');
+ok(cardsHtml.includes('3 of 8 standards'), 'and it says what the number is based on');
+
 console.log('');
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

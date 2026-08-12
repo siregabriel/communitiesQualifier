@@ -244,7 +244,8 @@ class InspectionService(JsonFileBacked):
     def create_submission(self, username: str, community: str,
                          responses: List[Dict], survey_type_id: Optional[str] = None,
                          inspector_name: Optional[str] = None,
-                         action_items: Optional[List[Dict]] = None) -> Dict:
+                         action_items: Optional[List[Dict]] = None,
+                         standards_total: Optional[int] = None) -> Dict:
         """
         Create new inspection submission.
         
@@ -297,6 +298,20 @@ class InspectionService(JsonFileBacked):
         # Add survey_type_id if provided (backward compatibility)
         if survey_type_id:
             submission['survey_type_id'] = survey_type_id
+
+        # How many standards the survey held when this was walked.
+        #
+        # Only answered standards are stored, and the score is worked out over
+        # those — so three of eight, all passed, reads as 100% and looks just
+        # like a complete clean visit. Keeping the total is what lets a partial
+        # visit be told apart later. Visits recorded before this existed simply
+        # don't carry it, and are left unlabelled rather than guessed at.
+        try:
+            total = int(standards_total)
+            if total >= len(validated_responses) and total > 0:
+                submission['standards_total'] = total
+        except (TypeError, ValueError):
+            pass
         
         # Reload latest from disk, then append, so concurrent submissions
         # from another process aren't lost.

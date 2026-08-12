@@ -989,6 +989,146 @@ def test_the_trend_matches_the_history_endpoint():
         A.inspection_service.save_to_file()
 
 
+def _a_region_and_community():
+    """A community together with the region that owns it, so a fabricated
+    regional session is actually allowed to file a visit there."""
+    for reg in A.region_service.get_all_regions():
+        for entry in reg.get("communities", []):
+            n = entry if isinstance(entry, str) else entry.get("name")
+            if n:
+                return reg.get("id"), n
+    return None, _a_community()
+
+
+def _submit_visit(c, comm, answers, standards_total=None):
+    """File a visit through the real endpoint, the way the browser does."""
+    import json as _json
+    data = {
+        "community": comm,
+        "responses": _json.dumps([
+            {"question_id": f"pv_{i}", "question_text": f"Standard {i}",
+             "condition": cond, "description": "" if cond == "Pass" else "found it"}
+            for i, cond in enumerate(answers)
+        ]),
+    }
+    if standards_total is not None:
+        data["standards_total"] = str(standards_total)
+    return c.post("/api/inspections", headers=HDR,
+                  content_type="multipart/form-data", data=data)
+
+
+def _visiting_client(name):
+    region_id, comm = _a_region_and_community()
+    c = _client()
+    _as_role(c, "regional", region_id=region_id, name=name)
+    with c.session_transaction() as s:
+        s["survey_type_id"] = A.survey_type_service.get_all_survey_types()[0]["id"]
+    return c, comm
+
+
+def _drop(ids):
+    A.inspection_service.submissions = [
+        x for x in A.inspection_service.submissions if x.get("id") not in ids]
+    A.inspection_service.save_to_file()
+
+
+def test_a_partial_visit_is_recorded_as_partial():
+    """Only answered standards are stored and the score is worked out over
+    those — so three of eight all passed reads as 100%, identical to a clean
+    full visit. The survey's size is kept so the two can be told apart."""
+    c, comm = _visiting_client("smoke.partial")
+    before = {x["id"] for x in A.inspection_service.get_all_submissions()}
+    made = set()
+    try:
+        r = _submit_visit(c, comm, ["Pass", "Pass", "Pass"], standards_total=99)
+        assert r.status_code in (200, 201), r.get_data(as_text=True)
+        new = [x for x in A.inspection_service.get_all_submissions()
+               if x["id"] not in before]
+        assert len(new) == 1
+        sub = new[0]
+        made = {sub["id"]}
+        assert len(sub["responses"]) == 3, "only answered standards are stored"
+        total = sub.get("standards_total")
+        assert total and total > 3, "the survey's size was not recorded"
+
+        _as_admin(c)
+        hist = c.get(f"/api/communities/{comm}/history").get_json()
+        v = next(v for v in hist["visits"] if v["id"] == sub["id"])
+        assert v["partial"] is True
+        assert v["answered"] == 3
+        assert v["visit_score"] == 100, (
+            "the score still covers only what was answered — which is exactly "
+            "why it has to be labelled")
+    finally:
+        _drop(made)
+        A.presence_service.forget("smoke.partial")
+
+
+def test_a_complete_visit_is_not_labelled_partial():
+    c, comm = _visiting_client("smoke.complete")
+    before = {x["id"] for x in A.inspection_service.get_all_submissions()}
+    made = set()
+    try:
+        r = _submit_visit(c, comm, ["Pass", "Fail", "Pass"], standards_total=3)
+        assert r.status_code in (200, 201), r.get_data(as_text=True)
+        new = [x for x in A.inspection_service.get_all_submissions()
+               if x["id"] not in before]
+        made = {x["id"] for x in new}
+        # The server may know the survey is larger than the three sent; only
+        # assert the not-partial case when it agrees the survey had three.
+        if new[0].get("standards_total") == 3:
+            _as_admin(c)
+            hist = c.get(f"/api/communities/{comm}/history").get_json()
+            v = next(v for v in hist["visits"] if v["id"] == new[0]["id"])
+            assert v["partial"] is False, "a full visit must not be flagged"
+    finally:
+        _drop(made)
+        A.presence_service.forget("smoke.complete")
+
+
+def test_an_older_visit_is_left_unlabelled():
+    """Visits filed before the survey size was captured carry no total.
+    Reporting them as complete would be inventing a fact about them."""
+    comm = _a_community()
+    sub = A.inspection_service.create_submission(
+        username="admin", community=comm, inspector_name="Smoke Test",
+        responses=[{"question_id": "old_a", "question_text": "A", "condition": "Pass",
+                    "description": "", "answered_at": "2026-01-01T09:00:00"}])
+    assert "standards_total" not in sub, "nothing should be invented at write time"
+    try:
+        c = _client()
+        _as_admin(c)
+        hist = c.get(f"/api/communities/{comm}/history").get_json()
+        v = next(v for v in hist["visits"] if v["id"] == sub["id"])
+        assert v["standards_total"] is None
+        assert v["partial"] is False, "unknown must not read as partial either"
+    finally:
+        _drop({sub["id"]})
+
+
+def test_the_claimed_survey_size_is_not_taken_on_trust():
+    """The browser sends the total, so it has to be checked — otherwise a
+    partial visit could be filed claiming it was whole."""
+    c, comm = _visiting_client("smoke.claim")
+    st = A.survey_type_service.get_all_survey_types()[0]["id"]
+    real = len(A.question_filter_service.get_questions_for_survey(comm, st) or [])
+    before = {x["id"] for x in A.inspection_service.get_all_submissions()}
+    made = set()
+    try:
+        # Claim the survey only ever held the one standard just answered.
+        r = _submit_visit(c, comm, ["Pass"], standards_total=1)
+        assert r.status_code in (200, 201), r.get_data(as_text=True)
+        new = [x for x in A.inspection_service.get_all_submissions()
+               if x["id"] not in before]
+        made = {x["id"] for x in new}
+        if real > 1:
+            assert new[0].get("standards_total") == real, (
+                f"stored the claimed 1 instead of the survey's real {real}")
+    finally:
+        _drop(made)
+        A.presence_service.forget("smoke.claim")
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

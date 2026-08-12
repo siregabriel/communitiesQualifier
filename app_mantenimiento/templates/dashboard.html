@@ -3001,6 +3001,7 @@
                     score: sc.current,
                     visitScore: sc.visit,
                     fixedSinceVisit: sc.fixed,
+                    partial: partialInfo(latestSubmission),
                     actionItems: actionItems,
                     responses: responses,
                     photos: photos,
@@ -3235,7 +3236,7 @@
             
             // Stats section
             html += renderStats(data.score, data.actionItems,
-                                data.visitScore, data.fixedSinceVisit);
+                                data.visitScore, data.fixedSinceVisit, data.partial);
             
             // Responses section
             html += renderResponses(data.responses);
@@ -3288,6 +3289,8 @@
                     </div>
                     <div class="hist-meta">
                         ${v.failed ? `<span class="hist-fails">${v.failed} failed${v.fixed ? ` · ${v.fixed} fixed` : ''}</span>` : '<span class="hist-clean">All passed</span>'}
+                        ${v.partial ? `<span class="hist-partial" title="Only ${v.answered} of the ${v.standards_total} standards were answered, so this score covers those">
+                            <i class="fas fa-circle-half-stroke"></i> ${v.answered}/${v.standards_total}</span>` : ''}
                         ${v.action_items ? `<span class="hist-extra">${v.action_items} flagged</span>` : ''}
                         ${v.comments ? `<span class="hist-extra"><i class="fas fa-comment"></i> ${v.comments}</span>` : ''}
                     </div>
@@ -3351,7 +3354,7 @@
         }
 
         // Render Stats Section
-        function renderStats(score, actionItems, visitScore, fixedSinceVisit) {
+        function renderStats(score, actionItems, visitScore, fixedSinceVisit, partial) {
             const scoreClass = score === null ? 'na' :
                               score >= 80 ? 'success' :
                               score >= 50 ? 'warning' : 'danger';
@@ -3362,6 +3365,14 @@
             // it. Only shown when they differ, so it never states the obvious.
             const note = fixedSinceVisit
                 ? `<div class="panel-stat-note">${visitScore}% at the visit · ${fixedSinceVisit} fixed since</div>`
+                : '';
+            // Says what the number above is actually based on, when it isn't
+            // the whole survey.
+            const partialNote = partial
+                ? `<div class="panel-stat-note panel-stat-partial">
+                       <i class="fas fa-circle-half-stroke"></i>
+                       Partial visit — ${partial.answered} of ${partial.total} standards answered
+                   </div>`
                 : '';
 
             return `
@@ -3375,6 +3386,7 @@
                             <div class="panel-stat-label">${fixedSinceVisit ? 'Current score' : 'Score'}</div>
                             <div class="panel-stat-value ${scoreClass}">${scoreDisplay}</div>
                             ${note}
+                            ${partialNote}
                         </div>
                         <div class="panel-stat-card">
                             <div class="panel-stat-label">Open action items</div>
@@ -3638,6 +3650,7 @@
                             fixedSinceVisit: sc.fixed,
                             actionItems: actionItems,
                             trend: trend,
+                            partial: partialInfo(latestSubmission),
                             photoUrl: getCommunityPhoto(communityName)
                         });
                     } else {
@@ -3649,6 +3662,7 @@
                             score: null,
                             actionItems: 0,
                             trend: [],
+                            partial: null,
                             photoUrl: getCommunityPhoto(communityName)
                         });
                     }
@@ -3860,6 +3874,7 @@
                                        ${community.fixedSinceVisit} fixed since
                                    </div>`
                                 : ''}
+                            ${partialChip(community.partial)}
                             ${trendBlock(community)}
 
                             <div class="action-items ${actionClass}">
@@ -4735,6 +4750,34 @@
                 openSearch();
             }
         });
+
+        // ===================== Partial visits =====================
+        // A visit can be filed with only some standards answered — a walk gets
+        // interrupted. The score then covers only what was answered, so three
+        // of eight all passed shows as 100%. Wherever that number appears, it
+        // has to say what it is based on.
+        //
+        // Visits recorded before the total was captured carry no total at all.
+        // Those are left alone: "unknown" is the honest answer, and labelling
+        // them complete would be a guess.
+
+        function partialInfo(sub) {
+            const total = sub && sub.standards_total;
+            if (!total) return null;
+            const answered = (sub.responses || []).filter(
+                r => r.condition === 'Pass' || r.condition === 'Fail').length;
+            if (answered >= total) return null;
+            return { answered: answered, total: total, missing: total - answered };
+        }
+
+        function partialChip(info, compact) {
+            if (!info) return '';
+            const text = compact
+                ? `${info.answered}/${info.total}`
+                : `Partial visit · ${info.answered} of ${info.total} standards`;
+            return `<span class="partial-chip" title="${info.missing} standard${info.missing === 1 ? '' : 's'} were not answered on this visit, so the score covers only the ${info.answered} that were">
+                        <i class="fas fa-circle-half-stroke"></i> ${text}</span>`;
+        }
 
         // ===================== Community trend =====================
         // A community's score is the latest visit and nothing else, by design.

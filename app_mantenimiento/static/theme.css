@@ -434,6 +434,29 @@ html[data-theme="dark"] .sr-kind { background: rgba(148,163,184,.16); color: #b7
     .search-btn-text { display: none; }
 }
 
+/* Partial visit: the score only covers the standards that were answered.
+   Deliberately neutral rather than alarming — stopping mid-walk is allowed,
+   it just has to be visible next to the number it explains. */
+.partial-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin: 6px 0 2px; padding: 3px 9px;
+    border-radius: 999px;
+    background: #eef2f7; color: #4b5a6e;
+    font-size: 11px; font-weight: 700; line-height: 1.5;
+}
+.partial-chip i { font-size: 10px; }
+.panel-stat-partial { color: #4b5a6e; font-weight: 700; }
+.panel-stat-partial i { margin-right: 4px; }
+.hist-partial {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: #4b5a6e; background: #eef2f7;
+    border-radius: 999px; padding: 1px 8px;
+    font-size: 11px; font-weight: 700;
+}
+html[data-theme="dark"] .partial-chip,
+html[data-theme="dark"] .hist-partial { background: rgba(148,163,184,.16); color: #b7c3d3; }
+html[data-theme="dark"] .panel-stat-partial { color: #b7c3d3; }
+
 /* Trend: the last few visits as a sparkline, with a plain reading of it. */
 .trend-block {
     display: flex; align-items: center; justify-content: center;

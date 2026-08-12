@@ -2910,9 +2910,18 @@ def community_history(community):
                     if r.get('condition') == 'Fail' and r.get('addressed'))
         total = passed + failed
         manual = s.get('action_items') or []
+        # A visit that only covered part of the survey. Older visits have no
+        # total recorded, so they are reported as unknown rather than complete
+        # — claiming they were whole would be inventing a fact.
+        declared_total = s.get('standards_total')
+        answered = len(responses)
+        partial = bool(declared_total) and answered < declared_total
         visits.append({
             'id': s.get('id'),
             'submitted_at': s.get('submitted_at'),
+            'answered': answered,
+            'standards_total': declared_total,
+            'partial': partial,
             'inspector': s.get('inspector_name') or resolve_display_name(s.get('username', '')),
             'survey_type': survey_type_service.get_survey_type_name(s.get('survey_type_id')) or '',
             # Two numbers, same meaning as everywhere else: what was found that
@@ -5344,13 +5353,34 @@ def submit_inspection():
             except (json.JSONDecodeError, TypeError) as e:
                 app.logger.warning(f'Ignoring malformed action_items: {e}')
 
+            # How many standards the form offered. Sent by the browser, but not
+            # taken on trust: it is checked against the survey's real question
+            # count so a doctored value can't make a partial visit look whole.
+            standards_total = None
+            try:
+                claimed = int(request.form.get('standards_total') or 0)
+            except (TypeError, ValueError):
+                claimed = 0
+            if claimed > 0:
+                actual = 0
+                if survey_type_id:
+                    try:
+                        actual = len(question_filter_service.get_questions_for_survey(
+                            community, survey_type_id) or [])
+                    except Exception:
+                        # A survey type that no longer resolves shouldn't stop a
+                        # visit being filed; fall back to what the form said.
+                        actual = 0
+                standards_total = actual or claimed
+
             submission = inspection_service.create_submission(
                 username=username,
                 community=community,
                 responses=processed_responses,
                 survey_type_id=survey_type_id,
                 inspector_name=(session.get('display_name') or resolve_display_name(username)),
-                action_items=manual_items
+                action_items=manual_items,
+                standards_total=standards_total
             )
             
             # Clear survey type from session after successful submission
