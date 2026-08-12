@@ -1353,7 +1353,7 @@ def submit_report():
         }), 200
 
     except Exception as e:
-        app.logger.error(f'Unexpected error submitting report: {str(e)}')
+        app.logger.exception('Unexpected error submitting report')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while submitting report'
@@ -1411,7 +1411,7 @@ def get_profile():
             'recent_activity': activity_service.get_for_user(username, limit=15)
         }), 200
     except Exception as e:
-        app.logger.error(f'Error retrieving profile: {str(e)}')
+        app.logger.exception('Error retrieving profile')
         return jsonify({'status': 'error', 'message': 'Internal server error while retrieving profile'}), 500
 
 
@@ -1429,7 +1429,7 @@ def update_profile_name():
         profile_service.set_display_name(username, display_name)
         return jsonify({'status': 'success', 'display_name': display_name}), 200
     except Exception as e:
-        app.logger.error(f'Error updating display name: {str(e)}')
+        app.logger.exception('Error updating display name')
         return jsonify({'status': 'error', 'message': 'Internal server error while updating name'}), 500
 
 
@@ -1470,7 +1470,7 @@ def change_password():
         alert_password_changed(username)
         return jsonify({'status': 'success', 'message': 'Password updated successfully'}), 200
     except Exception as e:
-        app.logger.error(f'Error changing password: {str(e)}')
+        app.logger.exception('Error changing password')
         return jsonify({'status': 'error', 'message': 'Internal server error while changing password'}), 500
 
 
@@ -1496,14 +1496,14 @@ def upload_profile_photo():
         try:
             file.save(os.path.join(AVATARS_FOLDER, filename))
         except IOError as e:
-            app.logger.error(f'Error saving avatar: {str(e)}')
+            app.logger.exception('Error saving avatar')
             return jsonify({'status': 'error', 'message': 'Failed to save photo'}), 500
 
         relative_path = f"avatars/{filename}"
         profile_service.set_photo(username, relative_path)
         return jsonify({'status': 'success', 'photo': relative_path}), 200
     except Exception as e:
-        app.logger.error(f'Error uploading profile photo: {str(e)}')
+        app.logger.exception('Error uploading profile photo')
         return jsonify({'status': 'error', 'message': 'Internal server error while uploading photo'}), 500
 
 
@@ -1579,7 +1579,7 @@ def upload_community_cover():
         return jsonify({'status': 'success', 'slug': slug,
                         'url': cover_url_for(rec)}), 200
     except Exception as e:
-        app.logger.error(f'Error uploading community cover: {str(e)}')
+        app.logger.exception('Error uploading community cover')
         return jsonify({'status': 'error', 'message': 'Internal server error while uploading cover'}), 500
 
 
@@ -1600,7 +1600,7 @@ def delete_community_cover():
                              f'Removed cover image for "{name}"')
         return jsonify({'status': 'success', 'slug': slug}), 200
     except Exception as e:
-        app.logger.error(f'Error removing community cover: {str(e)}')
+        app.logger.exception('Error removing community cover')
         return jsonify({'status': 'error', 'message': 'Internal server error while removing cover'}), 500
 
 
@@ -1932,7 +1932,7 @@ def upload_movein_attachment(mv_id):
         return jsonify({'status': 'success', 'attachment_name': name,
                         'attachment_url': _movein_attachment_url(entry)}), 200
     except Exception as e:
-        app.logger.error(f'Error uploading move-in attachment: {str(e)}')
+        app.logger.exception('Error uploading move-in attachment')
         return jsonify({'status': 'error', 'message': 'Internal server error while uploading attachment'}), 500
 
 
@@ -3998,7 +3998,7 @@ def get_survey_types():
         }), 200
         
     except Exception as e:
-        app.logger.error(f'Error retrieving survey types: {str(e)}')
+        app.logger.exception('Error retrieving survey types')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while retrieving survey types'
@@ -4021,7 +4021,7 @@ def create_survey_type():
     try:
         st = survey_type_service.create_survey_type(name, description, icon, color)
     except Exception as e:
-        app.logger.error(f'Error creating survey type: {e}')
+        app.logger.exception('Error creating survey type')
         return jsonify({'status': 'error', 'message': 'Could not create survey type'}), 500
     return jsonify({'status': 'success', 'survey_type': st}), 201
 
@@ -4126,7 +4126,7 @@ def api_select_survey_type():
         }), 200
         
     except Exception as e:
-        app.logger.error(f'Error selecting survey type: {str(e)}')
+        app.logger.exception('Error selecting survey type')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while selecting survey type'
@@ -4217,7 +4217,7 @@ def get_questions():
         
     except Exception as e:
         # Log the error for debugging
-        app.logger.error(f'Error retrieving questions: {str(e)}')
+        app.logger.exception('Error retrieving questions')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while retrieving questions'
@@ -4306,7 +4306,7 @@ def create_question():
         }), 500
     except Exception as e:
         # Unexpected errors
-        app.logger.error(f'Unexpected error creating question: {str(e)}')
+        app.logger.exception('Unexpected error creating question')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while creating question'
@@ -4404,7 +4404,7 @@ def update_question(question_id):
         }), 500
     except Exception as e:
         # Unexpected errors
-        app.logger.error(f'Unexpected error updating question: {str(e)}')
+        app.logger.exception('Unexpected error updating question')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while updating question'
@@ -4453,7 +4453,7 @@ def delete_question(question_id):
         }), 500
     except Exception as e:
         # Unexpected errors
-        app.logger.error(f'Unexpected error deleting question: {str(e)}')
+        app.logger.exception('Unexpected error deleting question')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while deleting question'
@@ -4516,7 +4516,7 @@ def bulk_delete_questions():
             'message': 'Internal server error: Failed to save changes'
         }), 500
     except Exception as e:
-        app.logger.error(f'Unexpected error during bulk delete: {str(e)}')
+        app.logger.exception('Unexpected error during bulk delete')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while deleting questions'
@@ -4566,7 +4566,7 @@ def get_regions():
             'directors': directors
         }), 200
     except Exception as e:
-        app.logger.error(f'Error retrieving regions: {str(e)}')
+        app.logger.exception('Error retrieving regions')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while retrieving regions'
@@ -4608,7 +4608,7 @@ def assign_region_community():
         app.logger.error(f'File system error assigning community: {str(e)}')
         return jsonify({'status': 'error', 'message': 'Internal server error: Failed to save changes'}), 500
     except Exception as e:
-        app.logger.error(f'Unexpected error assigning community: {str(e)}')
+        app.logger.exception('Unexpected error assigning community')
         return jsonify({'status': 'error', 'message': 'Internal server error while assigning community'}), 500
 
 
@@ -4636,7 +4636,7 @@ def rename_region():
         activity_service.log(session.get('user'), 'region_renamed', f'Renamed region {region_id} to "{new_name}"')
         return jsonify({'status': 'success', 'regions': region_service.get_all_regions()}), 200
     except Exception as e:
-        app.logger.error(f'Unexpected error renaming region: {str(e)}')
+        app.logger.exception('Unexpected error renaming region')
         return jsonify({'status': 'error', 'message': 'Internal server error while renaming region'}), 500
 
 
@@ -4679,7 +4679,7 @@ def rename_region_community():
         app.logger.error(f'File system error renaming community: {str(e)}')
         return jsonify({'status': 'error', 'message': 'Internal server error: Failed to save changes'}), 500
     except Exception as e:
-        app.logger.error(f'Unexpected error renaming community: {str(e)}')
+        app.logger.exception('Unexpected error renaming community')
         return jsonify({'status': 'error', 'message': 'Internal server error while renaming community'}), 500
 
 
@@ -4708,14 +4708,14 @@ def upload_leader_photo():
         try:
             file.save(os.path.join(AVATARS_FOLDER, filename))
         except IOError as e:
-            app.logger.error(f'Error saving leader photo: {str(e)}')
+            app.logger.exception('Error saving leader photo')
             return jsonify({'status': 'error', 'message': 'Failed to save photo'}), 500
 
         relative_path = f"avatars/{filename}"
         profile_service.set_leader_photo(region_id, leader_name, relative_path)
         return jsonify({'status': 'success', 'photo': relative_path}), 200
     except Exception as e:
-        app.logger.error(f'Error uploading leader photo: {str(e)}')
+        app.logger.exception('Error uploading leader photo')
         return jsonify({'status': 'error', 'message': 'Internal server error while uploading photo'}), 500
 
 
@@ -4809,7 +4809,7 @@ def manage_region_leader():
         app.logger.error(f'File system error managing leader: {str(e)}')
         return jsonify({'status': 'error', 'message': 'Internal server error: Failed to save changes'}), 500
     except Exception as e:
-        app.logger.error(f'Unexpected error managing leader: {str(e)}')
+        app.logger.exception('Unexpected error managing leader')
         return jsonify({'status': 'error', 'message': 'Internal server error while managing leadership'}), 500
 
 
@@ -4840,7 +4840,7 @@ def remove_region_community():
         app.logger.error(f'File system error removing community: {str(e)}')
         return jsonify({'status': 'error', 'message': 'Internal server error: Failed to save changes'}), 500
     except Exception as e:
-        app.logger.error(f'Unexpected error removing community: {str(e)}')
+        app.logger.exception('Unexpected error removing community')
         return jsonify({'status': 'error', 'message': 'Internal server error while removing community'}), 500
 
 
@@ -5024,7 +5024,7 @@ def submit_inspection():
                             'message': f'Response {idx}: Internal server error - Failed to save photo'
                         }), 500
                     except Exception as e:
-                        app.logger.error(f'Unexpected error saving photo: {str(e)}')
+                        app.logger.exception('Unexpected error saving photo')
                         return jsonify({
                             'status': 'error',
                             'message': f'Response {idx}: Failed to save photo'
@@ -5158,7 +5158,7 @@ def submit_inspection():
         
     except Exception as e:
         # Unexpected errors
-        app.logger.error(f'Unexpected error submitting inspection: {str(e)}')
+        app.logger.exception('Unexpected error submitting inspection')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while submitting inspection'
@@ -5277,7 +5277,7 @@ def get_inspections():
         
     except Exception as e:
         # Log the error for debugging
-        app.logger.error(f'Error retrieving inspections: {str(e)}')
+        app.logger.exception('Error retrieving inspections')
         return jsonify({
             'status': 'error',
             'message': 'Internal server error while retrieving inspections'
