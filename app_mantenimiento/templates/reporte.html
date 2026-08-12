@@ -2200,12 +2200,15 @@
             const manualItems = collectActionItems();
             if (manualItems.length) formData.append('action_items', JSON.stringify(manualItems));
             
-            // Attach photo files
-            let photoIndex = 0;
+            /* Attach photos keyed by the standard they belong to.
+
+               They used to be numbered in sequence while the server matched
+               them by the position of the response, so a photo taken on the
+               third standard was filed under the first. Naming the field after
+               the question removes the ordering assumption entirely. */
             for (const question of questions) {
                 if (photoFiles[question.id]) {
-                    formData.append(`photo_${photoIndex}`, photoFiles[question.id]);
-                    photoIndex++;
+                    formData.append(`photo_q_${question.id}`, photoFiles[question.id]);
                 }
             }
             

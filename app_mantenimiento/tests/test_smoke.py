@@ -721,6 +721,50 @@ def test_an_account_can_cover_two_communities_and_no_more():
         A.presence_service.forget("smoke.ed")
 
 
+def test_a_photo_lands_on_its_own_standard():
+    """Photos were numbered in sequence while the server matched them by the
+    position of the response, so evidence filed under the wrong item whenever
+    an earlier standard had no photo. Also covers a filename that sanitises
+    down to nothing, which used to raise a 500 mid-upload."""
+    import io, json as _json
+    region_id = comm = None
+    for reg in A.region_service.get_all_regions():
+        for entry in reg.get("communities", []):
+            n = entry if isinstance(entry, str) else entry.get("name")
+            if n:
+                region_id, comm = reg.get("id"), n
+                break
+        if comm:
+            break
+    c = _client()
+    _as_role(c, "regional", region_id=region_id, name="smoke.regional")
+    with c.session_transaction() as s:
+        s["survey_type_id"] = A.survey_type_service.get_all_survey_types()[0]["id"]
+
+    before = {x["id"] for x in A.inspection_service.get_all_submissions()}
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
+    r = c.post("/api/inspections", headers=HDR, content_type="multipart/form-data", data={
+        "community": comm,
+        "responses": _json.dumps([
+            {"question_id": "qa", "question_text": "First", "condition": "Pass", "description": ""},
+            {"question_id": "qb", "question_text": "Second", "condition": "Pass", "description": ""},
+            {"question_id": "qc", "question_text": "Third", "condition": "Fail", "description": "photo here"},
+        ]),
+        # a name that secure_filename() reduces to just the extension
+        "photo_q_qc": (io.BytesIO(png), "\u56fe\u7247.png"),
+    })
+    try:
+        assert r.status_code in (200, 201), r.get_data(as_text=True)
+        new = [x for x in A.inspection_service.get_all_submissions() if x["id"] not in before]
+        with_photo = [x["question_id"] for x in new[0]["responses"] if x.get("photo_path")]
+        assert with_photo == ["qc"], f"the photo landed on {with_photo}"
+    finally:
+        A.inspection_service.submissions = [
+            x for x in A.inspection_service.submissions if x.get("id") in before]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.regional")
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

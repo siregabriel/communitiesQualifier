@@ -4990,9 +4990,15 @@ def submit_inspection():
                 }), 400
 
 
-            # Handle optional photo upload
+            # Handle optional photo upload. Keyed by the standard, not by the
+            # position in the list — those two stopped lining up whenever an
+            # earlier standard had no photo, and evidence landed on the wrong
+            # item. The positional name is still read so a page left open from
+            # before this change still submits correctly.
             photo_path = None
-            photo_field_name = f'photo_{idx}'
+            photo_field_name = f'photo_q_{question_id}'
+            if photo_field_name not in request.files:
+                photo_field_name = f'photo_{idx}'
             
             if photo_field_name in request.files:
                 photo_file = request.files[photo_field_name]

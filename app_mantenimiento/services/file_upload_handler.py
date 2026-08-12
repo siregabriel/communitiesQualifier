@@ -225,9 +225,14 @@ class FileUploadHandler:
         Raises:
             IOError: If file cannot be saved to disk
         """
-        # Generate a clean, URL-safe filename (no spaces/commas)
+        # Generate a clean, URL-safe filename (no spaces/commas).
+        # Take the extension from the ORIGINAL name: validation already approved
+        # it, while secure_filename can strip a non-ASCII name down to just the
+        # extension, leaving nothing to split and raising IndexError mid-upload.
         timestamp = int(datetime.now().timestamp())
-        file_ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+        original = file.filename or ''
+        file_ext = original.rsplit('.', 1)[1].lower() if '.' in original else 'jpg'
+        file_ext = secure_filename(file_ext) or 'jpg'
         safe_community = secure_filename(community)
         filename = f"{secure_filename(username)}_{timestamp}.{file_ext}"
         relative_path = f"{safe_community}/{filename}"
