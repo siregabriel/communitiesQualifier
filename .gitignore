@@ -8,6 +8,10 @@ __pycache__/
 venv/
 env/
 
+# ---- Test tooling (installed on demand, never committed) ----
+node_modules/
+package-lock.json
+
 # ---- OS / editor ----
 .DS_Store
 *.swp

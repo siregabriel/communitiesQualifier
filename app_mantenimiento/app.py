@@ -2009,6 +2009,34 @@ def save_movein_template():
     return jsonify({'status': 'success', 'template': tmpl}), 200
 
 
+def recent_errors(hours=24):
+    """How many requests failed in the last `hours`, grouped by kind.
+
+    Failures were invisible until a user wrote in — someone did, but the next
+    person may just give up. Reading the service log costs nothing and turns a
+    silent break into a line in the summary that already goes out."""
+    import subprocess
+    try:
+        out = subprocess.run(
+            ['journalctl', '-u', 'atlas', '--since', f'{hours} hours ago', '--no-pager'],
+            capture_output=True, text=True, timeout=20).stdout
+    except Exception:
+        return []          # not on the server, or journald unavailable
+    counts = {}
+    for line in out.splitlines():
+        # The catch-all handlers log "... ERROR ... <what failed>"; the traceback
+        # lines that follow are indented, so only the headline is counted.
+        if ' ERROR ' not in line:
+            continue
+        msg = line.split(' ERROR ', 1)[1].strip()
+        if ':' in msg:
+            msg = msg.split(':', 1)[1].strip() or msg
+        msg = msg[:90]
+        counts[msg] = counts.get(msg, 0) + 1
+    return sorted(({'what': k, 'count': v} for k, v in counts.items()),
+                  key=lambda x: -x['count'])[:6]
+
+
 def build_activity_digest(hours=24):
     """Summarize what happened in the app over the last `hours`.
 
@@ -2115,6 +2143,7 @@ def build_activity_digest(hours=24):
 
     return {
         'since': fmt_local(since_dt),
+        'errors': recent_errors(hours),
         'overdue_moveins': overdue,
         'hours': hours,
         'signed_in': signed_in,
