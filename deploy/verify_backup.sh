@@ -28,12 +28,33 @@ PYTHON="/home/ubuntu/CommunitiesQualifier/.venv/bin/python"
 # Same credential handling as the backup script: read only the AWS_* lines,
 # because other values in that file contain spaces and angle brackets that
 # would break `source`.
+#
+# Stop here if the credentials can't be read, rather than carrying on and
+# calling S3 anonymously. AWS answers an unauthenticated request with
+# "AccessDenied", which reads exactly like a missing IAM permission — the first
+# run of this script sent us looking at the bucket policy when the real problem
+# was a missing sudo.
 if [ -f "$ENV_FILE" ]; then
+  if [ ! -r "$ENV_FILE" ]; then
+    echo "FAIL: $ENV_FILE is not readable by $(whoami)."
+    echo "      The credentials live there, so this has to run as root:"
+    echo "        sudo bash $0"
+    exit 1
+  fi
   AWS_ACCESS_KEY_ID="$(grep -E '^AWS_ACCESS_KEY_ID=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
   AWS_SECRET_ACCESS_KEY="$(grep -E '^AWS_SECRET_ACCESS_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
   export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 fi
 export AWS_DEFAULT_REGION="$REGION"
+
+# No key from the file and no instance role either: everything below would fail
+# for a reason that has nothing to do with the backups.
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ] && ! curl -s -m 2 -o /dev/null \
+     http://169.254.169.254/latest/meta-data/iam/security-credentials/ 2>/dev/null; then
+  echo "FAIL: no AWS credentials available (none in $ENV_FILE, no instance role)."
+  echo "      Nothing below would be a real test of the backup. Run with sudo."
+  exit 1
+fi
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
