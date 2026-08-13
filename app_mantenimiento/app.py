@@ -1,5 +1,7 @@
 """
-Assisted Living Maintenance App - Backend Server
+Atlas Excellence App - Backend Server
+2026 Atlas Senior Living
+Developed by Gabriel Rosales | gabriel@gabrielrosales.org
 Flask application for managing maintenance and cleaning reports
 With user authentication and automatic community detection
 """
@@ -10,7 +12,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import os
 import re
-from datetime import datetime
+from datetime import datetime #calendarios
 import json
 from services.question_manager import QuestionManager
 from services.inspection_service import InspectionService
