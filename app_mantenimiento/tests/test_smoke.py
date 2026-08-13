@@ -1129,6 +1129,78 @@ def test_the_claimed_survey_size_is_not_taken_on_trust():
         A.presence_service.forget("smoke.claim")
 
 
+def _sidebar_nav(html):
+    """The sidebar's links, in order, as a browser would see them."""
+    import re
+    start = html.index('<div class="sidebar"')
+    end = html.index('<!-- Main Content Area -->')
+    side = html[start:end]
+    return [(m.group(3).strip(), m.group(1), "active" in m.group(2))
+            for m in re.finditer(
+                r'<a\s+href="([^"]+)"([^>]*)>\s*<i[^>]*></i>\s*<span>([^<]+)</span>',
+                side, re.S)]
+
+
+def test_every_page_shows_the_same_menu():
+    """The Standards page carried its own copy of the sidebar. The copies
+    drifted — a different logo, a different product name, and no People at all
+    — so the menu visibly changed when you opened it. One template now."""
+    c = _client()
+    _as_admin(c)
+    dash = _sidebar_nav(c.get("/dashboard").get_data(as_text=True))
+    qm = _sidebar_nav(c.get("/questions/manage").get_data(as_text=True))
+
+    assert [x[0] for x in dash] == [x[0] for x in qm], "the two menus list different things"
+    assert [x[1] for x in dash] == [x[1] for x in qm], "the two menus link to different places"
+    assert "People" in [x[0] for x in dash]
+
+    assert [x[0] for x in dash if x[2]] == ["Dashboard"], "wrong item highlighted on the dashboard"
+    assert [x[0] for x in qm if x[2]] == ["Standards"], "wrong item highlighted on Standards"
+
+
+def test_standards_is_offered_only_to_those_who_can_open_it():
+    """The route is admin-only, so showing the link to anyone else is a dead
+    end that bounces them out. It used to be shown to everybody."""
+    admin = _client()
+    _as_admin(admin)
+    assert "Standards" in [x[0] for x in
+                           _sidebar_nav(admin.get("/dashboard").get_data(as_text=True))]
+
+    for role, kwargs, name in (
+            ("regional", {"region_id": "coastal"}, "smoke.nav.reg"),
+            ("staff", {"community": _a_community()}, "smoke.nav.ed")):
+        c = _client()
+        _as_role(c, role, name=name, **kwargs)
+        try:
+            labels = [x[0] for x in _sidebar_nav(c.get("/dashboard").get_data(as_text=True))]
+            assert "Standards" not in labels, f"a {role} is offered Standards"
+            assert "People" not in labels, f"a {role} is offered People"
+            # And the door is still locked, not merely hidden.
+            assert c.get("/questions/manage").status_code in (302, 403)
+        finally:
+            A.presence_service.forget(name)
+
+
+def test_the_dashboard_menu_still_drives_the_single_page_app():
+    """Sections are switched by script on the dashboard; Standards is a real
+    page. Giving Standards a data-view would make the handler swallow the click
+    and try to render a section that doesn't exist."""
+    import re
+    c = _client()
+    _as_admin(c)
+    html = c.get("/dashboard").get_data(as_text=True)
+    side = html[html.index('<div class="sidebar"'):html.index("<!-- Main Content Area -->")]
+
+    standards = re.search(r'<a[^>]*href="/questions/manage"[^>]*>', side).group(0)
+    assert "data-view" not in standards, "Standards must not be handled as a section"
+
+    for view in ("communities", "action-items", "settings"):
+        assert f'data-view="{view}"' in side, f"{view} lost its section handle"
+
+    # Real hrefs as well, so the menu still works if the script fails to load.
+    assert 'href="/dashboard?view=communities"' in side
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

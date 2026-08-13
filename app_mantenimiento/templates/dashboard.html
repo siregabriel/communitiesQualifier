@@ -2154,78 +2154,9 @@
 
 </head>
 <body>
-    <!-- Sidebar Navigation -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-logo">
-            <img src="/static/iso-logo.png" alt="ATLAS Logo">
-            <span>Atlas <span style="color:#1f6fe5 !important;">Excellence</span></span>
-        </div>
-        
-        <div class="user-welcome">
-            <div class="sidebar-avatar" id="sidebarAvatar"></div>
-            <div class="user-welcome-text">
-                <div class="welcome-text">Welcome back, <br><span id="userName"><span class="nav-skel" style="width:90px;"></span></span></div>
-                <div class="user-role" id="userRole"><span class="nav-skel" style="width:54px;"></span></div>
-            </div>
-        </div>
-        
-        <nav class="navigation-menu">
-            <a href="#" class="nav-item active" data-view="dashboard" aria-current="page">
-                <i class="fas fa-home" aria-hidden="true"></i>
-                <span>Dashboard</span>
-                <span class="nav-badge" id="dashNavBadge" style="display:none;" aria-label="new activity"></span>
-            </a>
-            <a href="#" class="nav-item" data-view="my-visits" id="myVisitsNavItem">
-                <i class="fas fa-file-alt" aria-hidden="true"></i>
-                <span>My Visits</span>
-            </a>
-            <a href="#" class="nav-item" data-view="communities">
-                <i class="fas fa-building" aria-hidden="true"></i>
-                <span>Communities</span>
-            </a>
-            <a href="#" class="nav-item" data-view="regions">
-                <i class="fas fa-sitemap" aria-hidden="true"></i>
-                <span>Regions</span>
-            </a>
-            <a href="#" class="nav-item" data-view="people" id="peopleNavItem" style="display:none;">
-                <i class="fas fa-users" aria-hidden="true"></i>
-                <span>People</span>
-            </a>
-            <a href="/questions/manage" class="nav-item" id="standardsLink">
-                <i class="fas fa-clipboard-check" aria-hidden="true"></i>
-                <span>Standards</span>
-            </a>
-            <a href="#" class="nav-item" data-view="reports">
-                <i class="fas fa-chart-bar" aria-hidden="true"></i>
-                <span>Reports</span>
-            </a>
-            <a href="#" class="nav-item" data-view="action-items">
-                <i class="fas fa-check-circle" aria-hidden="true"></i>
-                <span>Action Items</span>
-            </a>
-            <a href="#" class="nav-item" data-view="move-ins">
-                <i class="fas fa-house-circle-check" aria-hidden="true"></i>
-                <span>Move-Ins</span>
-            </a>
-            <a href="#" class="nav-item" data-view="calendar">
-                <i class="fas fa-calendar-days" aria-hidden="true"></i>
-                <span>Calendar</span>
-            </a>
-            <a href="#" class="nav-item" data-view="resources">
-                <i class="fas fa-book" aria-hidden="true"></i>
-                <span>Resources</span>
-            </a>
-            <a href="#" class="nav-item" data-view="settings">
-                <i class="fas fa-cog" aria-hidden="true"></i>
-                <span>Settings</span>
-            </a>
-            <a href="/logout" class="nav-item">
-                <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
-                <span>Log Out</span>
-            </a>
-            <div class="sidebar-copyright">&copy; 2026 | Atlas Senior Living Web Technologies</div>
-        </nav>
-    </div>
+    <!-- Sidebar Navigation (shared with the Standards page — templates/_sidebar.html) -->
+{% set active = 'dashboard' %}
+{% include '_sidebar.html' %}
 
     <!-- Main Content Area -->
     <div class="main-content">
@@ -2555,6 +2486,11 @@
             if (onlyDueForVisit && communitySort === 'attention') communitySort = 'stale';
             renderCommunityCards();
         }
+        // The shared sidebar fills in the signed-in user itself on pages that
+        // have no other code to do it. This page does, as part of loadUserInfo,
+        // so tell it to stand down rather than making the same call twice.
+        window.ATLAS_PAGE_FILLS_SIDEBAR = true;
+
         let isAdmin = false;
         let canVerifyFixes = false;   // may close out a failed standard
         let canRunVisits = false;     // may carry out a visit

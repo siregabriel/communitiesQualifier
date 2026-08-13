@@ -1268,10 +1268,16 @@ def dashboard():
     This page is designed for managers to view reports from a desktop
     Admin users can see all communities
     """
-    is_admin = session.get('community') is None
+    # nav_admin decides whether the sidebar offers the admin-only sections.
+    #
+    # It deliberately uses is_admin() rather than the old "community is None"
+    # shorthand this route used to rely on: a regional also has no community,
+    # so that test called every regional an admin. Nothing read the value
+    # before, which is why it went unnoticed — the sidebar reads it now.
     return render_template('dashboard.html',
                          username=session.get('user'),
-                         is_admin=is_admin,
+                         is_admin=is_admin(),
+                         nav_admin=is_admin(),
                          community=session.get('community'))
 
 
@@ -4430,6 +4436,10 @@ def question_manager_ui():
     """
     return render_template('question_manager.html',
                          username=session.get('user'),
+                         # Only admins reach this page at all, so the sidebar
+                         # here always shows the full menu.
+                         nav_admin=True,
+                         active='standards',
                          communities=ALL_COMMUNITIES)
 
 

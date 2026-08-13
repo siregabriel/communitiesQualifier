@@ -1,0 +1,119 @@
+{#
+  The left-hand navigation, in one place.
+
+  It used to be copied into every page that had a sidebar. The copies drifted:
+  the Standards page carried a different logo image, a different product name,
+  and was missing People entirely — so the menu visibly changed underneath you
+  when you opened it. This is the single source now; a page that wants the
+  sidebar includes it rather than restating it.
+
+  Parameters:
+    active     the key of the current section, e.g. 'dashboard', 'standards'
+    nav_admin  true when this account may reach admin-only sections
+
+  Sections of the dashboard carry both a real href and a data-view. The
+  dashboard's script binds to .nav-item[data-view] and handles those clicks
+  itself; on any other page there is no such script and the href simply works.
+  That also means the menu keeps working if the dashboard's JavaScript ever
+  fails to load.
+
+  Items that live on their own page (Standards) deliberately carry no
+  data-view: they are a real navigation, and the dashboard's handler would
+  otherwise swallow the click and try to render a section that doesn't exist.
+#}
+{% set nav_items = [
+    {'view': 'dashboard',    'icon': 'fa-home',                'label': 'Dashboard'},
+    {'view': 'my-visits',    'icon': 'fa-file-alt',            'label': 'My Visits',    'id': 'myVisitsNavItem'},
+    {'view': 'communities',  'icon': 'fa-building',            'label': 'Communities'},
+    {'view': 'regions',      'icon': 'fa-sitemap',             'label': 'Regions'},
+    {'view': 'people',       'icon': 'fa-users',               'label': 'People',       'id': 'peopleNavItem', 'admin_only': true},
+    {'view': 'standards',    'icon': 'fa-clipboard-check',     'label': 'Standards',    'id': 'standardsLink', 'admin_only': true, 'href': '/questions/manage'},
+    {'view': 'reports',      'icon': 'fa-chart-bar',           'label': 'Reports'},
+    {'view': 'action-items', 'icon': 'fa-check-circle',        'label': 'Action Items'},
+    {'view': 'move-ins',     'icon': 'fa-house-circle-check',  'label': 'Move-Ins'},
+    {'view': 'calendar',     'icon': 'fa-calendar-days',       'label': 'Calendar'},
+    {'view': 'resources',    'icon': 'fa-book',                'label': 'Resources'},
+    {'view': 'settings',     'icon': 'fa-cog',                 'label': 'Settings'},
+] %}
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+        <img src="/static/iso-logo.png" alt="ATLAS Logo">
+        <span>Atlas <span style="color:#1f6fe5 !important;">Excellence</span></span>
+    </div>
+
+    <div class="user-welcome">
+        <div class="sidebar-avatar" id="sidebarAvatar"></div>
+        <div class="user-welcome-text">
+            <div class="welcome-text">Welcome back, <br><span id="userName"><span class="nav-skel" style="width:90px;"></span></span></div>
+            <div class="user-role" id="userRole"><span class="nav-skel" style="width:54px;"></span></div>
+        </div>
+    </div>
+
+    <nav class="navigation-menu">
+        {%- for item in nav_items %}
+        {#- Standards is admin-only on the server, so showing it to anyone else
+            is a link that bounces them straight back out. #}
+        {%- if not item.get('admin_only') or nav_admin %}
+        <a href="{{ item.get('href', '/dashboard?view=' ~ item.view) }}"
+           class="nav-item{% if active == item.view %} active{% endif %}"
+           {%- if not item.get('href') %} data-view="{{ item.view }}"{% endif %}
+           {%- if item.get('id') %} id="{{ item.id }}"{% endif %}
+           {%- if active == item.view %} aria-current="page"{% endif %}>
+            <i class="fas {{ item.icon }}" aria-hidden="true"></i>
+            <span>{{ item.label }}</span>
+            {%- if item.view == 'dashboard' %}
+            <span class="nav-badge" id="dashNavBadge" style="display:none;" aria-label="new activity"></span>
+            {%- endif %}
+        </a>
+        {%- endif %}
+        {%- endfor %}
+        <a href="/logout" class="nav-item">
+            <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+            <span>Log Out</span>
+        </a>
+        <div class="sidebar-copyright">&copy; 2026 | Atlas Senior Living Web Technologies</div>
+    </nav>
+</div>
+<script>
+// Fill in who is signed in.
+//
+// The dashboard already does this as part of its own start-up, and sets the
+// flag below to say so. Every other page that includes the sidebar has no such
+// code, and used to carry its own copy — which is how the Standards page ended
+// up with a hard-coded "ADMIN" label under the avatar regardless of who was
+// looking at it.
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.ATLAS_PAGE_FILLS_SIDEBAR) return;
+
+    var nameEl = document.getElementById('userName');
+    var roleEl = document.getElementById('userRole');
+    var avatarEl = document.getElementById('sidebarAvatar');
+
+    fetch('/api/user-info').then(function (r) { return r.json(); }).then(function (d) {
+        var name = d.display_name || d.username || '';
+        if (nameEl) nameEl.textContent = name;
+
+        if (roleEl) {
+            roleEl.textContent = d.is_admin ? 'Admin'
+                : (d.role === 'regional' ? (d.region_name ? d.region_name + ' Region' : 'Regional')
+                : (d.community || 'Staff'));
+        }
+
+        if (avatarEl) {
+            if (d.photo) {
+                avatarEl.innerHTML = '<img src="/static/' + d.photo + '" alt="">';
+            } else {
+                var initials = name.trim().split(/\s+/).slice(0, 2)
+                    .map(function (w) { return w.charAt(0); }).join('').toUpperCase();
+                avatarEl.textContent = initials || '?';
+                var palette = ['#1f6fe5','#0bb8d4','#7c3aed','#db2777','#059669','#d97706','#0ea5e9','#e11d48'];
+                var h = 0;
+                for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 100000;
+                avatarEl.style.background = palette[Math.abs(h) % palette.length];
+            }
+        }
+    }).catch(function () {
+        // Leave the placeholders rather than showing a broken state.
+    });
+});
+</script>
