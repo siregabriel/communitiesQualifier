@@ -711,6 +711,20 @@ def current_role():
     return 'admin' if session.get('community') is None else 'staff'
 
 
+# The two roles that cover communities rather than belong to one. They behave
+# identically everywhere that matters — a Corporate member is a regional whose
+# region happens to be the whole company, which is what regional_communities()
+# already encodes. Several checks tested only for 'regional', so an account
+# stored as 'corporate' fell through to the community-account branch and ended
+# up with no communities, no visits and no leaderboard.
+LEADERSHIP_ROLES = ('regional', 'corporate')
+
+
+def is_leadership(role=None):
+    """True for regional and corporate accounts."""
+    return (role or current_role()) in LEADERSHIP_ROLES
+
+
 def is_native_admin():
     """True only for real Administrator accounts. The admin accessory does NOT
     count here — granting privileges is reserved for the main administrator."""
@@ -773,7 +787,7 @@ def can_run_visits():
     Regional and corporate staff only. A community must not inspect itself:
     the score comes from the most recent visit, so a self-run walkthrough
     would overwrite what the regional found — including the open items."""
-    return current_role() == 'regional'
+    return is_leadership()
 
 
 def can_verify_fixes():
@@ -783,7 +797,7 @@ def can_verify_fixes():
     a regional, corporate member or admin reviews it and marks it addressed.
     Keeping those two apart is what makes the current score trustworthy — a
     community can never raise its own number."""
-    return is_admin() or current_role() == 'regional'
+    return is_admin() or is_leadership()
 
 
 def all_communities():
@@ -1226,7 +1240,7 @@ def report_form():
     
     # Communities the user may report on: regionals pick from their whole
     # region; staff are locked to their single community.
-    if current_role() == 'regional':
+    if is_leadership():
         communities = regional_communities()
     else:
         communities = session_communities()
@@ -1399,7 +1413,7 @@ def get_profile():
 
         # For regionals, surface their region in place of a single community
         display_community = community
-        if role == 'regional':
+        if is_leadership(role):
             display_community = session.get('region_id') and \
                 next((r.get('name') for r in region_service.get_all_regions()
                       if r.get('id') == session.get('region_id')), None)
@@ -1537,7 +1551,7 @@ def get_communities():
                     seen.add(c); communities.append(c)
         if not communities:
             communities = list(ALL_COMMUNITIES)
-    elif role == 'regional':
+    elif is_leadership(role):
         communities = regional_communities()
     else:
         communities = session_communities()
@@ -1741,7 +1755,7 @@ def leaderboard():
     the visits. Community-level accounts (Executive Directors) are deliberately
     excluded: they only ever see their own community, and a company-wide
     ranking of regionals is not theirs to browse."""
-    if not (is_admin() or current_role() == 'regional'):
+    if not (is_admin() or is_leadership()):
         return jsonify({'status': 'error', 'message': 'Not available for this account'}), 403
     agg = {}
     for s in inspection_service.get_all_submissions():
@@ -1806,7 +1820,7 @@ def _movein_allowed_communities():
     role = current_role()
     if is_admin():
         return None
-    if role == 'regional':
+    if is_leadership(role):
         return set(regional_communities())
     # community account — may cover more than one site
     return set(session_communities())
@@ -2552,7 +2566,7 @@ def create_user():
         if not community or community not in valid:
             return jsonify({'status': 'error', 'message': 'A valid community is required for staff'}), 400
         region_id = None
-    elif role == 'regional':
+    elif is_leadership(role):
         valid_ids = {r.get('id') for r in region_service.get_all_regions() if r.get('id') != 'unassigned'}
         if not region_id or region_id not in valid_ids:
             return jsonify({'status': 'error', 'message': 'A valid region is required for a regional account'}), 400
@@ -2692,7 +2706,7 @@ def _can_see_community(community):
     across their communities, a community account only its own."""
     if is_admin():
         return True
-    if current_role() == 'regional':
+    if is_leadership():
         return community in set(regional_communities())
     return community in set(session_communities())
 
@@ -2705,7 +2719,7 @@ def visible_communities():
     scoping rule stays in one place."""
     if is_admin():
         return all_communities()
-    if current_role() == 'regional':
+    if is_leadership():
         return regional_communities()
     return session_communities()
 
@@ -4265,7 +4279,7 @@ def get_user_info():
     role = current_role()
     region_id = session.get('region_id')
     region_name = None
-    if role == 'regional':
+    if is_leadership(role):
         communities = regional_communities()
         region_name = next((r.get('name') for r in region_service.get_all_regions()
                             if r.get('id') == region_id), None)
@@ -4524,7 +4538,7 @@ def get_questions():
                 questions = question_manager.get_questions_for_community(community_filter)
             else:
                 questions = question_manager.get_all_active_questions()
-        elif role == 'regional':
+        elif is_leadership(role):
             # Regionals must pick a community within their region
             allowed = regional_communities()
             if community_filter and community_filter in allowed:
@@ -5213,7 +5227,7 @@ def submit_inspection():
         # keep inspecting even when they hold admin privileges.
         if is_native_admin():
             return jsonify({'status': 'error', 'message': 'Admin users cannot submit visits'}), 400
-        elif role == 'regional':
+        elif is_leadership(role):
             community = InputSanitizer.sanitize_community_name(request.form.get('community', ''))
             if not community or community not in regional_communities():
                 return jsonify({'status': 'error', 'message': 'Select a valid community in your region'}), 400
@@ -5562,7 +5576,7 @@ def get_inspections():
                 submissions = inspection_service.get_submissions_by_community(community_filter)
             else:
                 submissions = inspection_service.get_all_submissions()
-        elif role == 'regional':
+        elif is_leadership(role):
             # Regionals see submissions across their region's communities
             allowed = set(regional_communities())
             all_subs = inspection_service.get_all_submissions()
@@ -5644,7 +5658,7 @@ def _scoped_submissions_for_export():
     role = current_role()
     if is_admin():
         submissions = inspection_service.get_all_submissions()
-    elif role == 'regional':
+    elif is_leadership(role):
         allowed = set(regional_communities())
         submissions = [s for s in inspection_service.get_all_submissions()
                        if s.get('community') in allowed]
