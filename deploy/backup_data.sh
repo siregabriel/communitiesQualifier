@@ -49,4 +49,13 @@ DEST="s3://$BUCKET/$PREFIX/$YM/atlas-data-$TS.tar.gz"
 aws s3 cp "$ARCHIVE" "$DEST" --region "$REGION" --only-show-errors
 
 rm -rf "$TMP"
+
+# Leave a receipt the app can read.
+#
+# This backup failed every night for two weeks and nobody knew: cron wrote
+# "Permission denied" into a log file no human opens. The daily digest reports
+# on this file instead, so a backup that stops running shows up in an email
+# somebody actually reads. Written only on success — that is the whole point.
+echo "$(date -Is) $DEST" > "$DATA_DIR/.last_backup" 2>/dev/null || true
+
 echo "$(date -Is) OK: backup uploaded -> $DEST"

@@ -1328,6 +1328,66 @@ def test_infrastructure_names_were_not_renamed():
             assert "atlas-standards-uploads" in f.read(), "the S3 bucket was renamed"
 
 
+def test_a_stopped_backup_is_reported():
+    """The nightly backup failed for two weeks and nobody knew: cron wrote the
+    error into a log no human opens. It now leaves a receipt on success and the
+    daily digest reads it, so the silence itself becomes visible."""
+    import datetime, os as _os
+    receipt = _os.path.join(A.DATA_FOLDER, ".last_backup")
+    saved = None
+    if _os.path.exists(receipt):
+        with open(receipt, encoding="utf-8") as f:
+            saved = f.read()
+    try:
+        # Never run at all.
+        if _os.path.exists(receipt):
+            _os.remove(receipt)
+        st = A.backup_status()
+        assert st["stale"] is True and st["known"] is False
+
+        # Two nights missed.
+        old = (datetime.datetime.now() - datetime.timedelta(days=3)).isoformat()
+        with open(receipt, "w", encoding="utf-8") as f:
+            f.write(f"{old} s3://bucket/x.tar.gz\n")
+        st = A.backup_status()
+        assert st["known"] is True and st["stale"] is True
+        assert 70 < st["age_hours"] < 74
+
+        # Ran last night: must say nothing at all. A daily "all good" line
+        # becomes furniture and stops being read.
+        fresh = (datetime.datetime.now() - datetime.timedelta(hours=8)).isoformat()
+        with open(receipt, "w", encoding="utf-8") as f:
+            f.write(f"{fresh} s3://bucket/x.tar.gz\n")
+        assert A.backup_status()["stale"] is False
+
+        digest = A.build_activity_digest(24)
+        assert "backup" in digest, "the digest stopped carrying backup state"
+    finally:
+        if saved is None:
+            if _os.path.exists(receipt):
+                _os.remove(receipt)
+        else:
+            with open(receipt, "w", encoding="utf-8") as f:
+                f.write(saved)
+
+
+def test_the_backup_script_is_executable():
+    """cron ran it directly and got "Permission denied" every night. Git tracks
+    the mode, so the bit has to be set in the repository — otherwise the next
+    deploy silently takes it away again."""
+    import subprocess
+    repo = os.path.dirname(_APP_DIR)
+    out = subprocess.run(["git", "ls-files", "-s", "deploy/"], cwd=repo,
+                         capture_output=True, text=True).stdout
+    if not out.strip():
+        return  # not a git checkout; nothing to assert
+    for line in out.strip().splitlines():
+        mode, _, rest = line.partition(" ")
+        name = rest.split("\t")[-1]
+        if name.endswith(".sh"):
+            assert mode == "100755", f"{name} is not executable in git (mode {mode})"
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

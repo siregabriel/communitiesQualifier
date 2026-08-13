@@ -2017,6 +2017,40 @@ def save_movein_template():
     return jsonify({'status': 'success', 'template': tmpl}), 200
 
 
+def backup_status(stale_after_hours=36):
+    """When the data was last backed up, and whether that is recent enough.
+
+    The nightly backup failed silently for two weeks: cron could not execute
+    the script, said so in a log file, and nobody reads log files. The backup
+    now leaves a receipt on success; this reads it. Anything that guards the
+    data has to report to somewhere a person actually looks.
+
+    `stale_after_hours` is 36 rather than 24 so a single late or skipped night
+    doesn't cry wolf — two missed nights does."""
+    from datetime import timedelta as _timedelta
+    path = os.path.join(DATA_FOLDER, '.last_backup')
+    try:
+        with open(path, encoding='utf-8') as f:
+            stamp = f.read().strip().split(' ')[0]
+        when = datetime.fromisoformat(stamp.replace('Z', ''))
+        if when.tzinfo is not None:
+            when = when.astimezone().replace(tzinfo=None)
+        age = datetime.now() - when
+        return {
+            'known': True,
+            'when': when.isoformat(),
+            'age_hours': round(age.total_seconds() / 3600, 1),
+            'stale': age > _timedelta(hours=stale_after_hours),
+        }
+    except FileNotFoundError:
+        # No receipt at all: either it has never succeeded, or this is the
+        # first run since the receipt was introduced.
+        return {'known': False, 'when': None, 'age_hours': None, 'stale': True}
+    except Exception as e:
+        app.logger.warning(f'Could not read the backup receipt: {e}')
+        return {'known': False, 'when': None, 'age_hours': None, 'stale': True}
+
+
 def recent_errors(hours=24):
     """How many requests failed in the last `hours`, grouped by kind.
 
@@ -2152,6 +2186,7 @@ def build_activity_digest(hours=24):
     return {
         'since': fmt_local(since_dt),
         'errors': recent_errors(hours),
+        'backup': backup_status(),
         'overdue_moveins': overdue,
         'hours': hours,
         'signed_in': signed_in,

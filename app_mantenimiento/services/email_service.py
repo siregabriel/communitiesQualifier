@@ -506,11 +506,29 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                    f"{o['pending']} required item{'s' if o['pending'] != 1 else ''} still open"
                    for o in digest.get('overdue_moveins', [])]
 
-        quiet = not any([signins, visits, addressed, comments, security, accounts, overdue, errs])
+        # Only reported when something is wrong. A green tick every morning
+        # becomes furniture within a week and stops being read — which is how
+        # a backup can fail for a fortnight in plain sight.
+        backup = digest.get('backup') or {}
+        backup_warning = []
+        if backup.get('stale'):
+            if backup.get('known'):
+                days = int((backup.get('age_hours') or 0) // 24)
+                backup_warning = [
+                    f"<b>No backup for {days} day{'s' if days != 1 else ''}.</b> "
+                    f"The last one succeeded on {html.escape(str(backup.get('when', ''))[:16].replace('T', ' '))}."]
+            else:
+                backup_warning = [
+                    "<b>No successful backup on record.</b> "
+                    "The nightly job has not reported success — check that it can run."]
+
+        quiet = not any([signins, visits, addressed, comments, security, accounts,
+                         overdue, errs, backup_warning])
         blocks = [
             section("Signed in", signins,
                     empty="No activity in the last 24 hours." if quiet else None),
             section("Visits submitted", visits),
+            section("Backups", backup_warning),
             section("Errors users hit", errs),
             section("Move-ins past due with required items open", overdue),
             section("Reported by communities", comments),
