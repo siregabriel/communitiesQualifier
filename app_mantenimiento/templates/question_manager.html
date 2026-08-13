@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Question Manager</title>
+    <title>Standards — Atlas Excellence</title>
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Questionnaire-based visit system for assisted living communities">
     <meta name="theme-color" content="#4CAF50">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Atlas Standards">
+    <meta name="apple-mobile-web-app-title" content="Atlas Excellence">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     
@@ -1299,7 +1299,7 @@
                 </div>
             </div>
             <div class="modal-body">
-                <p style="color:#64748b;font-size:13px;margin-bottom:16px;">A survey type is a question group / checklist (e.g. "Atlas Standards", "Sales Quick Visit"). Tag questions to a type, and inspectors pick the type when starting a visit.</p>
+                <p style="color:#64748b;font-size:13px;margin-bottom:16px;">A survey type is a question group / checklist (e.g. "Atlas Excellence", "Sales Quick Visit"). Tag questions to a type, and inspectors pick the type when starting a visit.</p>
                 <div style="display:grid;gap:10px;max-width:560px;margin-bottom:18px;padding:14px;background:#f8fafc;border:1px solid #d9dfe8;border-radius:10px;">
                     <input id="stName" placeholder="Name (e.g. Sales Quick Visit)" maxlength="80" style="padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
                     <input id="stDesc" placeholder="Short description (optional)" maxlength="300" style="padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
@@ -1979,13 +1979,13 @@
         const STANDARDS_TOUR = [
             { title: 'Standards', text: 'Standards are the questions inspectors answer during a visit. Here’s how to manage them.' },
             { target: '#qmCreateBtn', title: 'Create a standard', text: 'Add a new standard. You set the prompt, an interpretive guideline, the “must include to pass” criteria, whether a photo is required, and which survey types & communities it applies to.' },
-            { target: '#qmSurveyTypesBtn', title: 'Survey Types', text: 'Survey Types are the question groups (e.g. Atlas Standards, Sales Quick Visit). Create them here, then tag questions to a type — inspectors pick the type when starting a visit.' },
+            { target: '#qmSurveyTypesBtn', title: 'Survey Types', text: 'Survey Types are the question groups (e.g. Atlas Excellence, Sales Quick Visit). Create them here, then tag questions to a type — inspectors pick the type when starting a visit.' },
             { target: '#questionsTable', title: 'Your standards', text: 'All your standards live here. Click a row to edit it, or use the actions to manage it.' },
             { target: '#qmPdfBtn', title: 'Printable PDF', text: 'Download a clean PDF of all standards with their pass criteria — great for training.' },
             { title: 'That’s Standards', text: 'Use the Help button to replay this anytime.' },
         ];
         const SURVEY_TYPES_TOUR = [
-            { title: 'Survey Types', text: 'A survey type is a question group / checklist — like “Atlas Standards” or “Sales Quick Visit”. Here’s how to set them up.' },
+            { title: 'Survey Types', text: 'A survey type is a question group / checklist — like “Atlas Excellence” or “Sales Quick Visit”. Here’s how to set them up.' },
             { target: '#stName', title: 'Name & description', text: 'Give the type a clear name (and an optional description). This is what inspectors see when they pick a checklist to start a visit.' },
             { target: '#stIconGrid', title: 'Pick an icon', text: 'Choose an icon from the grid so the type is easy to recognize at a glance — no need to know any icon codes.' },
             { target: '#stColor', title: 'Color', text: 'Pick an accent color for the type. It’s used to tag and tell your checklists apart.' },

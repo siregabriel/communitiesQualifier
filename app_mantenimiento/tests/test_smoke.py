@@ -1,5 +1,5 @@
 """
-Smoke tests for the Atlas Standards app.
+Smoke tests for the Atlas Excellence app.
 
 Boots the Flask app with its in-process test client (no network, no S3, no
 SES) and exercises the endpoints and flows that have historically broken:
@@ -1199,6 +1199,133 @@ def test_the_dashboard_menu_still_drives_the_single_page_app():
 
     # Real hrefs as well, so the menu still works if the script fails to load.
     assert 'href="/dashboard?view=communities"' in side
+
+
+# ---------------------------------------------------------------------------
+# Branding.
+#
+# "Standards" means two different things in this app and only one of them was
+# renamed. "Atlas Standards" was the product; it is now Atlas Excellence. A
+# "standard" is also an inspection point — the thing a visit marks Pass or Fail
+# — and that word stays. A blind find-and-replace would have left the app
+# saying "Weakest excellence" and "mark this excellence as addressed", so both
+# halves are pinned here.
+
+_SOURCE_DIRS = ("templates", "services")
+
+
+def _source_files():
+    import glob
+    out = [os.path.join(_APP_DIR, "app.py")]
+    for d in _SOURCE_DIRS:
+        out += glob.glob(os.path.join(_APP_DIR, d, "*.html"))
+        out += glob.glob(os.path.join(_APP_DIR, d, "*.py"))
+    # Sample copy, not shipped UI.
+    return [f for f in out if not f.endswith("ui_preview.html")]
+
+
+def test_the_old_product_name_is_gone():
+    stale = []
+    for path in _source_files():
+        with open(path, encoding="utf-8") as f:
+            for i, line in enumerate(f, 1):
+                if "Atlas Standards" in line or "Atlas Communities Standards" in line:
+                    stale.append(f"{os.path.basename(path)}:{i}")
+    assert not stale, "the old product name is still shown in: " + ", ".join(stale)
+
+
+def test_the_inspection_noun_was_left_alone():
+    """The rename must not have eaten the word the app uses for its own
+    subject matter."""
+    dash = os.path.join(_APP_DIR, "templates", "dashboard.html")
+    with open(dash, encoding="utf-8") as f:
+        html = f.read()
+
+    for phrase in ("Weakest standards", "Mark as addressed", "failed standard"):
+        assert phrase.lower() in html.lower(), f"lost the wording: {phrase}"
+
+    # And nothing reads as the brand glued onto the noun.
+    import re
+    nonsense = re.findall(
+        r"[Ee]xcellence (?:are|is|was|were) (?:posted|clean|open)"
+        r"|[Ww]eakest excellence|failed excellence|open excellence",
+        html)
+    assert not nonsense, f"the rename ran over the noun: {nonsense}"
+
+
+def test_the_menu_still_calls_the_section_standards():
+    """The Standards section manages inspection points, not the brand — its
+    label is the noun and must not have been renamed with the product."""
+    c = _client()
+    _as_admin(c)
+    labels = [x[0] for x in _sidebar_nav(c.get("/dashboard").get_data(as_text=True))]
+    assert "Standards" in labels
+    assert "Excellence" not in labels
+
+
+def test_what_people_actually_see_says_excellence():
+    c = _client()
+    _as_admin(c)
+    for path in ("/dashboard", "/questions/manage"):
+        html = c.get(path).get_data(as_text=True)
+        assert "Atlas Excellence" in html, f"{path} does not show the product name"
+        assert "Atlas Standards" not in html, f"{path} still shows the old name"
+
+
+def test_emails_say_excellence_too():
+    """Emails are the other half of what people see, and the subject line is
+    assembled at send time — so intercept a real send rather than reading the
+    source. Nothing leaves the machine: _send is replaced for the duration."""
+    svc = A.email_service
+    captured = []
+
+    original_send = svc._send
+    original_enabled = svc.enabled
+    svc._send = lambda recipients, subject, html_body, text_body: (
+        captured.append((subject, html_body, text_body)) or (True, "captured"))
+    try:
+        svc.enabled = True
+    except Exception:
+        pass
+
+    try:
+        svc.send_welcome("nobody@example.com", "Test Person", "test.person",
+                         "x" * 12, role_label="Executive Director · Somewhere")
+        svc.send_password_reset("nobody@example.com", "Test Person",
+                                "test.person", "y" * 12)
+        svc.send_activity_digest(["nobody@example.com"], A.build_activity_digest(24))
+
+        assert captured, "no email was produced"
+        for subject, html_body, text_body in captured:
+            blob = f"{subject}\n{html_body}\n{text_body}"
+            assert "Atlas Standards" not in blob, f"old name in: {subject}"
+        assert any("Atlas Excellence" in s for s, _, _ in captured), \
+            "no email names the product at all"
+    finally:
+        svc._send = original_send
+        try:
+            svc.enabled = original_enabled
+        except Exception:
+            pass
+
+
+def test_infrastructure_names_were_not_renamed():
+    """The bucket, the tour keys and the logo file are identifiers, not copy.
+    Renaming them would have broken uploads, re-shown every tour, and left a
+    missing image."""
+    with open(os.path.join(_APP_DIR, "templates", "question_manager.html"),
+              encoding="utf-8") as f:
+        qm = f.read()
+    assert "atlasStandardsTourSeen" in qm, "a tour key was renamed"
+
+    with open(os.path.join(_APP_DIR, "templates", "change_password.html"),
+              encoding="utf-8") as f:
+        assert "atlas-standards-logo.svg" in f.read(), "the logo file was renamed"
+
+    backup = os.path.join(os.path.dirname(_APP_DIR), "deploy", "backup_data.sh")
+    if os.path.exists(backup):
+        with open(backup, encoding="utf-8") as f:
+            assert "atlas-standards-uploads" in f.read(), "the S3 bucket was renamed"
 
 
 def test_leaderboard_hidden_from_community_accounts():

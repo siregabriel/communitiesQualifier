@@ -4137,7 +4137,7 @@
                             break;
                         case 'people':
                             headerTitle.innerHTML = '<i class="fas fa-users"></i> People';
-                            headerDesc.textContent = 'Everyone with access to Atlas Standards';
+                            headerDesc.textContent = 'Everyone with access to Atlas Excellence';
                             renderPeople().then(() => maybeStartPeopleTour());
                             break;
                         case 'action-items':
@@ -4186,7 +4186,7 @@
         // ===== Guided tour / tutorial =====
         const TOUR_STEPS = {
             admin: [
-                { title: 'Welcome to Atlas Standards', text: 'A quick tour of the basics. You can replay it anytime from the Help button in the top bar.' },
+                { title: 'Welcome to Atlas Excellence', text: 'A quick tour of the basics. You can replay it anytime from the Help button in the top bar.' },
                 { target: '.nav-item[data-view="dashboard"]', title: 'Dashboard', text: 'Starts with "Needs you" — fixes a community has reported and is waiting on you to confirm, communities going too long without a visit, and findings nobody has followed up on. Click any line to go straight to it. Below that: average score, performance by region (click a region to drill in), recent activity, and — on wide screens — a mini-calendar of what’s coming up.' },
                 { title: 'Two scores, one truth', text: 'A community shows the score it stands at today. Underneath, when fixes have been verified since, you\'ll see what the visit itself scored — that number never changes, so past results stay comparable and nobody\'s history moves on its own.' },
                 { target: '#dashMainGrid', title: 'Rearrange your dashboard', text: 'On desktop, grab the ⠿ handle on any card (or KPI) to drag it into the order you like — your layout is saved on this device. Use “Reset layout” to put everything back.' },
@@ -4207,7 +4207,7 @@
             // rewrite tells you that you don't run visits — the opposite of
             // their job.
             regional: [
-                { title: 'Welcome to Atlas Standards', text: 'A quick tour of how you run visits and follow them through. Replay it anytime from Help.' },
+                { title: 'Welcome to Atlas Excellence', text: 'A quick tour of how you run visits and follow them through. Replay it anytime from Help.' },
                 { target: '.nav-item[data-view="dashboard"]', title: 'Start with "Needs you"', text: 'The top of your dashboard is your queue: fixes a community has reported and is waiting on you to confirm, communities going too long without a visit, and findings nobody has followed up on. Click a line to go straight to it. When there is nothing pending, it isn\'t there.' },
                 { target: '#startVisitBtn', title: 'Start a visit', text: 'Begin here — pick the community and the survey type, then go item by item marking Pass or Fail. A Fail needs a comment saying what you found, so whoever fixes it knows where to start.' },
                 { title: 'You can stop and come back', text: 'The form saves itself on your device as you go, photos included. Leave mid-walk, lose signal, take a call — when you return to that community you\'ll be offered the unfinished visit. Nothing is sent until you submit.' },
@@ -4225,7 +4225,7 @@
             // visit found. The old version walked them through starting a
             // visit, which they can't do.
             staff: [
-                { title: 'Welcome to Atlas Standards', text: 'This is where you see what a visit found at your community, and where you show what you\'ve done about it. A quick tour — replay it anytime from Help.' },
+                { title: 'Welcome to Atlas Excellence', text: 'This is where you see what a visit found at your community, and where you show what you\'ve done about it. A quick tour — replay it anytime from Help.' },
                 { target: '.nav-item[data-view="dashboard"]', title: 'Your community at a glance', text: 'It opens with "Needs you": what still needs an update from you, and what you have already reported that your regional has yet to confirm. Below that, your current score and anything still open. The score reflects where you stand today: as fixes get verified, it goes up — you don\'t have to wait for the next visit.' },
                 { target: '.nav-item[data-view="action-items"]', title: 'What needs attention', text: 'Everything from the latest visit that still needs work — standards that failed, plus anything the regional flagged while walking. Start here.' },
                 { title: 'Show what you\'ve done', text: 'Open an item and use "Comment on this" to say what\'s been handled — a photo of the fix helps a lot. Your regional gets an email with your comment, so you don\'t need to chase anyone.' },
@@ -4238,7 +4238,7 @@
             ],
         };
         const PEOPLE_TOUR = [
-            { title: 'People', text: 'Everyone with access to Atlas Standards lives here — administrators, corporate, regionals and community staff — in one list. This is the only place accounts are created.' },
+            { title: 'People', text: 'Everyone with access to Atlas Excellence lives here — administrators, corporate, regionals and community staff — in one list. This is the only place accounts are created.' },
             { target: '.ppl-toolbar .btn-primary', title: 'Add someone', text: 'Create an account for anyone. Pick their role and the form adapts: a region for Regional, the Corporate group for Corporate, or a community for Staff. Their username and a temporary password are generated automatically — and emailed to them if you add their address.' },
             { target: '.ppl-chips', title: 'Find people fast', text: 'Filter by role, or search by name, username, email or region. Handy once the list grows.' },
             { target: '.ppl-row', title: 'Everything at a glance', text: 'Each row shows their role, what they can reach, their email and how many visits they’ve done. Anyone missing an email is flagged — they can’t receive reports or reminders until you add it.' },
@@ -7219,7 +7219,7 @@
         }
 
         async function deletePerson(username, name) {
-            if (!confirm(`Remove ${name} (@${username})?\n\nThey will lose access to Atlas Standards.\nVisits they already submitted are kept.`)) return;
+            if (!confirm(`Remove ${name} (@${username})?\n\nThey will lose access to Atlas Excellence.\nVisits they already submitted are kept.`)) return;
             try {
                 const r = await fetch(`/api/people/${encodeURIComponent(username)}`, { method: 'DELETE' });
                 const d = await r.json();
@@ -8182,7 +8182,7 @@
                     <div class="profile-section">
                         <div class="profile-section-title"><i class="fas fa-list-check"></i>Notifications</div>
                         <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
-                            Every address that receives email from Atlas Standards, and exactly which notifications it gets —
+                            Every address that receives email from Atlas Excellence, and exactly which notifications it gets —
                             including region leaders, who are copied on their own region automatically.
                         </p>
                         <div id="notifySummary"><div class="activity-empty">Loading…</div></div>

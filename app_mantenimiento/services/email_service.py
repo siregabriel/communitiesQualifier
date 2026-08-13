@@ -3,7 +3,7 @@ Email Service (Amazon SES)
 Sends a post-visit summary email when an inspection is submitted.
 
 Env-driven, like the S3 backend:
-  - MAIL_FROM         verified SES sender, e.g. "Atlas Standards <noreply@atlasseniorliving.net>"
+  - MAIL_FROM         verified SES sender, e.g. "Atlas Excellence <noreply@atlasseniorliving.net>"
   - SES_REGION        SES region (defaults to AWS_REGION)
   - MAIL_EXTRA_RECIPIENTS  comma-separated fixed recipients added to every email
   - APP_BASE_URL      base URL for the "view report" link, e.g. https://standards.atlasseniorliving.net
@@ -346,10 +346,10 @@ and some checklist items are still open.</p>
         if not self.enabled or not _valid(to_email or ''):
             return (False, 'no recipient / disabled')
         login = self.app_base_url or ''
-        subject = "Your Atlas Standards account"
+        subject = "Your Atlas Excellence account"
         role_line = f"<tr><td style='color:#6b7280;padding:3px 12px 3px 0'>Role</td><td style='font-weight:600'>{html.escape(role_label)}</td></tr>" if role_label else ""
         body = f"""\
-<p style="font-size:14px;margin:0 0 14px">Hi {html.escape(display_name)}, an account was created for you on Atlas Standards.</p>
+<p style="font-size:14px;margin:0 0 14px">Hi {html.escape(display_name)}, an account was created for you on Atlas Excellence.</p>
 <table style="font-size:14px;border-collapse:collapse;margin-bottom:8px">
   <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:700">{html.escape(username)}</td></tr>
   <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
@@ -357,7 +357,7 @@ and some checklist items are still open.</p>
 </table>
 <p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
 {f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}"""
-        text = (f"Hi {display_name}, an account was created for you on Atlas Standards.\n"
+        text = (f"Hi {display_name}, an account was created for you on Atlas Excellence.\n"
                 f"Username: {username}\nTemporary password: {password}\n"
                 + (f"Role: {role_label}\n" if role_label else "")
                 + "Sign in with the temporary password above — you'll be asked to create your own password right away.\n"
@@ -369,9 +369,9 @@ and some checklist items are still open.</p>
         if not self.enabled or not _valid(to_email or ''):
             return (False, 'no recipient / disabled')
         login = self.app_base_url or ''
-        subject = "Your Atlas Standards password was reset"
+        subject = "Your Atlas Excellence password was reset"
         body = f"""\
-<p style="font-size:14px;margin:0 0 14px">Hi {html.escape(display_name)}, an administrator reset your Atlas Standards password.</p>
+<p style="font-size:14px;margin:0 0 14px">Hi {html.escape(display_name)}, an administrator reset your Atlas Excellence password.</p>
 <table style="font-size:14px;border-collapse:collapse;margin-bottom:8px">
   <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:700">{html.escape(username)}</td></tr>
   <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
@@ -379,7 +379,7 @@ and some checklist items are still open.</p>
 <p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
 {f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}
 <p style="font-size:12px;color:#9ca3af;margin:18px 0 0">If you didn't expect this, contact your administrator.</p>"""
-        text = (f"Hi {display_name}, an administrator reset your Atlas Standards password.\n"
+        text = (f"Hi {display_name}, an administrator reset your Atlas Excellence password.\n"
                 f"Username: {username}\nTemporary password: {password}\n"
                 "Sign in with the temporary password above — you'll be asked to create your own password right away.\n"
                 + (f"{login}\n" if login else ""))
@@ -523,13 +523,13 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         body_html = "".join(b[0] for b in blocks)
         body_text = "".join(b[1] for b in blocks)
 
-        subject = (f"Atlas Standards — daily activity"
+        subject = (f"Atlas Excellence — daily activity"
                    + ("" if quiet else f" ({digest['total_events']} events)"))
         header = (f"<p style='font-size:13px;color:#6b7280;margin:0 0 4px'>"
                   f"Since {html.escape(digest['since'])}</p>")
         return self._send(admin_emails, subject,
                           self._shell("Daily activity", header + body_html),
-                          f"Atlas Standards — daily activity since {digest['since']}\n" + body_text)
+                          f"Atlas Excellence — daily activity since {digest['since']}\n" + body_text)
 
     # Company-level teams a comment can be directed to during a visit.
     ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations', 'sales': 'Sales'}
@@ -553,21 +553,21 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         button = (f"<div style='margin-top:20px'><a href='{esc(link)}' "
                   f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
                   f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
-                  f"Open in Atlas Standards</a></div>") if link else ""
+                  f"Open in Atlas Excellence</a></div>") if link else ""
 
         # Two ways in: straight after a visit, or when somebody takes over the
         # community and needs to know where things stand. Same content, and the
         # opening line says which it is — arriving to a list of findings with no
         # explanation is disorienting on your first day.
         opener_html = (f"<p style='font-size:14px;margin:0 0 4px'>You've been set up for "
-                       f"<b>{esc(community)}</b> in Atlas Standards. Here's where things stand today"
+                       f"<b>{esc(community)}</b> in Atlas Excellence. Here's where things stand today"
                        f"{(' — from the last visit on ' + esc(when)) if when else ''}"
                        f"{(' by ' + esc(inspector)) if inspector else ''}.</p>"
                        ) if handover else (
                        f"<p style='font-size:14px;margin:0 0 4px'>{esc(inspector)} visited "
                        f"<b>{esc(community)}</b>{(' on ' + esc(when)) if when else ''}. "
                        f"Here's what needs attention.</p>")
-        opener_text = (f"You've been set up for {community} in Atlas Standards. "
+        opener_text = (f"You've been set up for {community} in Atlas Excellence. "
                        f"Here's where things stand today"
                        f"{(' — from the last visit on ' + when) if when else ''}"
                        f"{(' by ' + inspector) if inspector else ''}."
@@ -578,7 +578,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         total = len(failed_items) + len(action_items)
         if not total:
             if handover:
-                subject = f"Welcome to Atlas Standards — {community}"
+                subject = f"Welcome to Atlas Excellence — {community}"
                 good = "Nothing is open right now. You'll get an email here after each visit."
                 header = "Welcome"
             else:
@@ -628,14 +628,14 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                        f"Other items flagged ({len(action_items)})</h3>"
                        f"<ul style='margin:0;padding-left:18px'>{act_rows}</ul>")
 
-        subject = (f"Welcome to Atlas Standards — {total} open item{'s' if total != 1 else ''} at {community}"
+        subject = (f"Welcome to Atlas Excellence — {total} open item{'s' if total != 1 else ''} at {community}"
                    if handover else
                    f"Action needed — {community}: {total} item{'s' if total != 1 else ''}")
         body = (opener_html
                 + f"{blocks}"
                 + f"<div style='margin-top:22px;padding:12px 14px;background:#f6f9ff;"
                 f"border-left:3px solid #cfe0fb;font-size:13px;color:#1f2937'>"
-                f"<b>What to do next.</b> As each one is handled, open it in Atlas Standards "
+                f"<b>What to do next.</b> As each one is handled, open it in Atlas Excellence "
                 f"and add a comment saying what was done — a photo helps. Your regional will "
                 f"review it and close it out.</div>{button}")
 
@@ -654,7 +654,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 text_lines.append(f"  - [{(i.get('priority') or 'medium').upper()}] {i.get('text')}"
                                   + (f" (for: {i.get('assigned_to')})" if i.get('assigned_to') else ""))
             text_lines.append("")
-        text_lines.append("As each one is handled, comment on it in Atlas Standards — a photo "
+        text_lines.append("As each one is handled, comment on it in Atlas Excellence — a photo "
                           "helps. Your regional will review and close it out.")
         if link:
             text_lines += ["", f"Open: {link}"]

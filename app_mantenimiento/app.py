@@ -3301,7 +3301,7 @@ def resolve_action_item(submission_id, item_id):
 @app.route('/api/people', methods=['GET'])
 @login_required
 def list_people():
-    """Admin-only: everyone with access to Atlas Standards, from all sources —
+    """Admin-only: everyone with access to Atlas Excellence, from all sources —
     stored users (admins and community staff) and region/corporate members —
     in one list with their role, scope, photo and activity."""
     if not is_admin():
@@ -4012,7 +4012,7 @@ def standards_pdf():
         story.append(HRFlowable(width='100%', color=colors.HexColor('#eef1f6')))
 
     buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=LETTER, title='Atlas Standards',
+    doc = SimpleDocTemplate(buf, pagesize=LETTER, title='Atlas Excellence',
                             topMargin=0.6 * inch, bottomMargin=0.6 * inch,
                             leftMargin=0.7 * inch, rightMargin=0.7 * inch)
     doc.build(story)
@@ -4020,7 +4020,7 @@ def standards_pdf():
     buf.close()
     from flask import Response
     return Response(pdf, mimetype='application/pdf',
-                    headers={'Content-Disposition': 'attachment; filename="Atlas-Standards.pdf"'})
+                    headers={'Content-Disposition': 'attachment; filename="Atlas-Excellence-Standards.pdf"'})
 
 
 @app.route('/api/resources', methods=['GET'])
