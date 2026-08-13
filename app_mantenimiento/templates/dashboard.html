@@ -2260,7 +2260,7 @@
                 <input id="searchInput" type="text" autocomplete="off" spellcheck="false"
                        placeholder="Search communities, people and visits…"
                        oninput="runSearch(this.value)" onkeydown="searchKey(event)">
-                <button class="sr-esc" onclick="closeSearch()">Esc</button>
+                <button class="sr-esc" onclick="closeSearch()" aria-label="Close search" title="Close (Esc)"><i class="fas fa-times"></i></button>
             </div>
             <div id="searchResults" class="sr-results"></div>
         </div>
