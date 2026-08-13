@@ -383,11 +383,12 @@ html[data-theme="dark"] .cards-due-toggle.is-on {
     border: none !important; outline: none; background: none;
     font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
     color: var(--navy-700); font-weight: 600;
+    padding: 10px;
 }
 .sr-inputwrap input::placeholder { color: #9ca3af; font-weight: 500; }
 .sr-esc {
     flex-shrink: 0; border: 1px solid var(--line); background: #f7f9fc;
-    color: var(--muted); border-radius: 6px; padding: 3px 8px;
+    color: var(--muted); border-radius: 6px; padding: 12px;
     font-size: 11px; font-weight: 700; cursor: pointer;
 }
 .sr-esc:hover { background: #eef2f7; }
