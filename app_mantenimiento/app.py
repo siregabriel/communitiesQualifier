@@ -2031,6 +2031,30 @@ def save_movein_template():
     return jsonify({'status': 'success', 'template': tmpl}), 200
 
 
+def survey_type_coverage():
+    """How many active standards each survey type would put on a form.
+
+    A standard with no survey types is used by every one of them, which is the
+    rule the form itself applies — so the count has to follow that, or a type
+    would look empty while working perfectly.
+
+    This exists because a survey type can be emptied without anyone noticing:
+    unticking it on the last standard is an ordinary-looking edit, and the only
+    symptom appears later, to a regional who has already driven to a community."""
+    try:
+        questions = question_manager.get_all_active_questions()
+    except Exception:
+        app.logger.exception('Could not read standards for survey type coverage')
+        return {}
+
+    counts = {}
+    for st in survey_type_service.get_all_survey_types():
+        tid = st.get('id')
+        counts[tid] = sum(1 for q in questions
+                          if not q.get('survey_types') or tid in q.get('survey_types'))
+    return counts
+
+
 def backup_status(stale_after_hours=36):
     """When the data was last backed up, and whether that is recent enough.
 
@@ -4331,7 +4355,14 @@ def get_survey_types():
     """
     try:
         survey_types = survey_type_service.get_all_survey_types()
-        
+        # How many standards each type would actually put on the form. A type
+        # with none is unusable: whoever picks it gets "No questions available"
+        # after they have already chosen a community — in practice, standing in
+        # a building. The pickers use this to rule those out up front.
+        coverage = survey_type_coverage()
+        survey_types = [{**st, 'standards': coverage.get(st.get('id'), 0)}
+                        for st in survey_types]
+
         return jsonify({
             'status': 'success',
             'survey_types': survey_types

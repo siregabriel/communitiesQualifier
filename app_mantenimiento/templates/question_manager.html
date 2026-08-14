@@ -501,6 +501,27 @@
             border-color: rgba(148, 163, 184, 0.3);
         }
 
+        /* Survey types left with no standards. Amber rather than red: nothing
+           is broken yet, but somebody has to act before a regional finds out
+           the hard way. */
+        .empty-type-warning {
+            display: flex; align-items: flex-start; gap: 12px;
+            margin: 0 0 18px; padding: 14px 18px;
+            background: #fdf6e3; border: 1px solid #e8d9a8;
+            border-left: 4px solid #d99a0b; border-radius: 10px;
+        }
+        .empty-type-warning > i { color: #d99a0b; font-size: 16px; margin-top: 2px; flex-shrink: 0; }
+        .etw-title { font-size: 14px; font-weight: 800; color: #7a5504; margin-bottom: 3px; }
+        .etw-body { font-size: 13px; color: #6b5a2e; line-height: 1.55; }
+        .etw-body b { color: #5c4503; }
+        html[data-theme="dark"] .empty-type-warning {
+            background: rgba(217,154,11,.12); border-color: rgba(217,154,11,.35);
+            border-left-color: #d99a0b;
+        }
+        html[data-theme="dark"] .etw-title { color: #e8c78a; }
+        html[data-theme="dark"] .etw-body { color: #cbb98f; }
+        html[data-theme="dark"] .etw-body b { color: #f0dcb0; }
+
         .filter-section {
             display: flex;
             gap: 12px;
@@ -1131,6 +1152,12 @@
             </div>
         </div>
 
+        <!-- Survey types nobody can use, because no standard is ticked for them.
+             Emptying one is an ordinary-looking edit — untick it on the last
+             standard and nothing says a word; the symptom turns up later, to a
+             regional who has already driven to a community. -->
+        <div id="emptyTypeWarning" class="empty-type-warning" style="display:none;"></div>
+
         <div class="content-section">
             <div class="filter-section">
                 <span class="filter-label"><i class="fas fa-filter"></i> Filter by Survey Type:</span>
@@ -1434,9 +1461,47 @@
                 allQuestions = data.questions || [];
                 questions = [...allQuestions];
                 renderQuestions();
+                checkEmptySurveyTypes();
             } catch (error) {
                 console.error('Error loading questions:', error);
                 alert('Failed to load questions. Please refresh the page.');
+            }
+        }
+
+        // Which reviews currently have nothing behind them. Re-checked after
+        // every save, so unticking the last standard for a type says so
+        // immediately instead of weeks later.
+        async function checkEmptySurveyTypes() {
+            const host = document.getElementById('emptyTypeWarning');
+            if (!host) return;
+            try {
+                const r = await fetch('/api/survey-types');
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') return;
+
+                const empty = (d.survey_types || []).filter(t => t.standards === 0);
+                if (!empty.length) { host.style.display = 'none'; host.innerHTML = ''; return; }
+
+                const names = empty.map(t => `<b>${t.name}</b>`).join(', ');
+                host.innerHTML = `
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <div>
+                        <div class="etw-title">${empty.length === 1
+                            ? 'One review has no standards'
+                            : `${empty.length} reviews have no standards`}</div>
+                        <div class="etw-body">
+                            ${names} ${empty.length === 1 ? 'is' : 'are'} offered when starting a
+                            visit, but ${empty.length === 1 ? 'it has' : 'they have'} no standards
+                            ticked — anyone who picks ${empty.length === 1 ? 'it' : 'them'} gets an
+                            empty form after choosing a community. Tick
+                            ${empty.length === 1 ? 'it' : 'them'} on the standards
+                            ${empty.length === 1 ? 'it belongs' : 'they belong'} to, or delete the
+                            review under <b>Survey Types</b> until it's ready.
+                        </div>
+                    </div>`;
+                host.style.display = 'flex';
+            } catch (e) {
+                console.warn('Could not check survey type coverage:', e);
             }
         }
 

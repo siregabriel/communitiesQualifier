@@ -118,6 +118,22 @@
             position: relative;
         }
 
+        /* A review with no standards behind it. Visible, so nobody wonders
+           where it went, but not selectable — picking it can only lead to an
+           empty form. */
+        .survey-type-option.is-empty .survey-type-label {
+            opacity: .5;
+            cursor: not-allowed;
+            background: #f6f8fb;
+        }
+        .survey-type-option.is-empty .survey-type-label:hover,
+        .survey-type-option.is-empty .survey-type-label:active {
+            transform: none;
+            box-shadow: none;
+            border-color: #e2e8f0;
+        }
+        .survey-type-option.is-empty .survey-type-check { color: #94a3b8; }
+
         .survey-type-option input[type="radio"] {
             position: absolute;
             opacity: 0;
@@ -486,12 +502,20 @@
                 optionDiv.className = 'survey-type-option';
                 optionDiv.setAttribute('data-color', surveyType.color);
 
+                // A type with no standards behind it can only end one way: the
+                // form comes up empty after a community has been chosen. Show
+                // it, greyed out and saying why, rather than hiding it — a
+                // missing option looks like a bug to whoever expected it.
+                const empty = surveyType.standards === 0;
+                if (empty) optionDiv.classList.add('is-empty');
+
                 optionDiv.innerHTML = `
-                    <input 
-                        type="radio" 
-                        name="survey_type" 
-                        value="${surveyType.id}" 
+                    <input
+                        type="radio"
+                        name="survey_type"
+                        value="${surveyType.id}"
                         id="${surveyType.id}"
+                        ${empty ? 'disabled' : ''}
                     >
                     <label for="${surveyType.id}" class="survey-type-label">
                         <div class="survey-type-icon">
@@ -499,10 +523,12 @@
                         </div>
                         <div class="survey-type-content">
                             <div class="survey-type-name">${surveyType.name}</div>
-                            <div class="survey-type-description">${surveyType.description}</div>
+                            <div class="survey-type-description">${
+                                empty ? 'No standards set up for this review yet — ask an administrator.'
+                                      : surveyType.description}</div>
                         </div>
                         <div class="survey-type-check">
-                            <i class="fas fa-check"></i>
+                            <i class="fas ${empty ? 'fa-ban' : 'fa-check'}"></i>
                         </div>
                     </label>
                 `;

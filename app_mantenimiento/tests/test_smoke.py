@@ -1388,6 +1388,41 @@ def test_the_backup_script_is_executable():
             assert mode == "100755", f"{name} is not executable in git (mode {mode})"
 
 
+def test_an_empty_survey_type_is_not_offered():
+    """Unticking a survey type on the last standard is an ordinary-looking
+    edit, and nothing used to say a word — the symptom appeared later, to a
+    regional who had already driven to a community. The pickers now know how
+    many standards each type would produce."""
+    import copy
+    saved = copy.deepcopy(A.question_manager.questions)
+    try:
+        c = _client()
+        _as_admin(c)
+
+        # Give every standard a type list that leaves one review with nothing.
+        others = [s["id"] for s in A.survey_type_service.get_all_survey_types()][1:]
+        orphan = A.survey_type_service.get_all_survey_types()[0]
+        for q in A.question_manager.questions:
+            q["survey_types"] = list(others)
+        A.question_manager.save_to_file()
+
+        types = {t["id"]: t for t in c.get("/api/survey-types").get_json()["survey_types"]}
+        assert types[orphan["id"]]["standards"] == 0, "the empty review was not spotted"
+        assert all(types[o]["standards"] > 0 for o in others), \
+            "reviews that do have standards were reported empty"
+
+        # A standard with no types at all belongs to every review, so one is
+        # enough to bring the orphan back. This is the rule the form applies;
+        # the count has to match it or a working type would look empty.
+        A.question_manager.questions[0]["survey_types"] = []
+        A.question_manager.save_to_file()
+        types = {t["id"]: t for t in c.get("/api/survey-types").get_json()["survey_types"]}
+        assert types[orphan["id"]]["standards"] == 1
+    finally:
+        A.question_manager.questions = saved
+        A.question_manager.save_to_file()
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")
