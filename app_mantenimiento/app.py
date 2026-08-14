@@ -425,7 +425,7 @@ ALL_COMMUNITIES = [
     "Legacy Ridge at Buckhead, Atlanta",
     "Legacy Ridge at Marietta, Marietta",
     "The Canopy at Westridge, McDonough",
-    "The Overlook at Suwanee, Suwanee",
+    "The Overlook at Suwanee",
     
     # Ohio
     "Legacy Reserve at Fritz Farm, Lexington",
@@ -445,7 +445,7 @@ ALL_COMMUNITIES = [
     
     # Texas
     "The Oscar at Georgetown",
-    "The Oscar at Veramendi (June 2026)",
+    "The Oscar at Veramendi",
     
     # Maryland
     "Tribute at Black Hill",
@@ -4483,13 +4483,18 @@ def question_manager_ui():
     
     Requirements: 1.1, 7.1
     """
+    # The community checkboxes come from the region rosters, not the fixed list
+    # below. The two had drifted apart on two names, so a standard could be
+    # assigned to "The Overlook at Suwanee, Suwanee" while a visit for "The
+    # Overlook at Suwanee" found nothing — the checkbox looked ticked and the
+    # regional got "No questions available" standing in the building.
     return render_template('question_manager.html',
                          username=session.get('user'),
                          # Only admins reach this page at all, so the sidebar
                          # here always shows the full menu.
                          nav_admin=True,
                          active='standards',
-                         communities=ALL_COMMUNITIES)
+                         communities=all_communities() or ALL_COMMUNITIES)
 
 
 @app.route('/api/questions', methods=['GET'])
