@@ -90,6 +90,43 @@ if len(sys.argv) >= 3:
 
 # No arguments: every empty combination, so nothing has to be found by a
 # regional standing in a building.
+def audit_ids():
+    """Which survey type ids the standards actually reference.
+
+    A type that is empty for every single community is rarely an oversight —
+    it usually means the standards point at an id that no longer exists, or
+    that the type was created after the standards and never ticked on any of
+    them. These two look identical from the form and need opposite fixes."""
+    defined = {s['id']: s.get('name', s['id']) for s in survey_types}
+    used = {}
+    untyped = 0
+    for q in questions:
+        types = q.get('survey_types')
+        if not types:
+            untyped += 1
+            continue
+        for t in types:
+            used[t] = used.get(t, 0) + 1
+
+    print('How many standards reference each survey type:')
+    for tid, name in defined.items():
+        n = used.get(tid, 0)
+        note = '' if n else '   <-- no standard references this id'
+        print(f'  {name:<28} {tid:<18} {n}{note}')
+    if untyped:
+        print(f'\n  {untyped} standards have no survey type at all, so they are used by every type.')
+
+    orphans = {t: n for t, n in used.items() if t not in defined}
+    if orphans:
+        print('\n!! Standards point at survey type ids that do not exist:')
+        for t, n in orphans.items():
+            print(f'     "{t}" referenced by {n} standards')
+        print('   Either the type was renamed/recreated with a new id, or these')
+        print('   are typos. Fixing the id is the repair — not ticking boxes.')
+    print()
+
+
+audit_ids()
 print(f'{len(questions)} active standards, {len(communities)} communities, '
       f'{len(survey_types)} survey types\n')
 broken = []
