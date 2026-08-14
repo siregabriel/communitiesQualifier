@@ -36,3 +36,6 @@ app_mantenimiento/static/uploads/
 app_mantenimiento/static/avatars/
 app_mantenimiento/static/community_photos/*
 !app_mantenimiento/static/community_photos/README.txt
+
+# Build artefacts from the manual
+docs/__pycache__/
