@@ -34,6 +34,20 @@ import app as A  # noqa: E402
 HDR = {"Origin": "http://localhost", "Referer": "http://localhost/"}
 
 
+def _sweep_test_photos():
+    """Remove photos written by the tests.
+
+    Only files whose name starts with a smoke-test username are touched — a
+    real photo uploaded by a real person must never be caught by this."""
+    import glob
+    root = os.path.join(_APP_DIR, "static", "uploads")
+    for path in glob.glob(os.path.join(root, "*", "smoke.*")):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 def _client():
     return A.app.test_client()
 
@@ -60,6 +74,7 @@ _FAKE_USERS = ("tester", "smoke.regional")
 def teardown_module(module):
     for u in _FAKE_USERS:
         A.presence_service.forget(u)
+    _sweep_test_photos()
 
 
 def _a_community():
@@ -763,6 +778,7 @@ def test_a_photo_lands_on_its_own_standard():
             x for x in A.inspection_service.submissions if x.get("id") in before]
         A.inspection_service.save_to_file()
         A.presence_service.forget("smoke.regional")
+        _sweep_test_photos()
 
 
 def _region_owning(community):
@@ -1421,6 +1437,77 @@ def test_an_empty_survey_type_is_not_offered():
     finally:
         A.question_manager.questions = saved
         A.question_manager.save_to_file()
+
+
+def test_every_photo_in_a_visit_is_kept():
+    """Photos were named "<user>_<unix seconds>", and every photo in one visit
+    is saved inside the same second — so they overwrote each other and every
+    standard ended up showing whichever one was saved last. A six-photo visit
+    kept one. Nothing errored; it only surfaced when someone noticed the same
+    picture on every item."""
+    import io, json as _json
+    region_id = comm = None
+    for reg in A.region_service.get_all_regions():
+        for entry in reg.get("communities", []):
+            n = entry if isinstance(entry, str) else entry.get("name")
+            if n:
+                region_id, comm = reg.get("id"), n
+                break
+        if comm:
+            break
+
+    c = _client()
+    _as_role(c, "regional", region_id=region_id, name="smoke.photos")
+    with c.session_transaction() as s:
+        s["survey_type_id"] = A.survey_type_service.get_all_survey_types()[0]["id"]
+
+    before = {x["id"] for x in A.inspection_service.get_all_submissions()}
+    made = set()
+    try:
+        # Four standards, four visibly different photos.
+        payload = [{"question_id": f"ph_{i}", "question_text": f"Standard {i}",
+                    "condition": "Pass", "description": ""} for i in range(4)]
+        data = {"community": comm, "responses": _json.dumps(payload)}
+        for i in range(4):
+            body = b"\x89PNG\r\n\x1a\n" + bytes([i]) * 64
+            data[f"photo_q_ph_{i}"] = (io.BytesIO(body), f"photo{i}.jpg")
+
+        r = c.post("/api/inspections", headers=HDR,
+                   content_type="multipart/form-data", data=data)
+        assert r.status_code in (200, 201), r.get_data(as_text=True)
+
+        new = [x for x in A.inspection_service.get_all_submissions()
+               if x["id"] not in before]
+        made = {x["id"] for x in new}
+        paths = [resp.get("photo_path") for resp in new[0]["responses"]]
+        assert all(paths), f"a photo went missing: {paths}"
+        assert len(set(paths)) == 4, (
+            "photos overwrote each other — every standard would show the same "
+            f"picture: {paths}")
+    finally:
+        A.inspection_service.submissions = [
+            x for x in A.inspection_service.submissions if x.get("id") not in made]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.photos")
+        _sweep_test_photos()
+
+
+def test_two_uploads_in_the_same_second_do_not_collide():
+    """The same collision reaches comment photos and fix photos, which arrive
+    in separate requests that know nothing about each other."""
+    import io
+    from werkzeug.datastructures import FileStorage
+    names = set()
+    for i in range(25):
+        f = FileStorage(stream=io.BytesIO(b"x" * 32), filename="p.jpg",
+                        content_type="image/jpeg")
+        names.add(A.file_upload_handler.save_file(f, "smoke.user", "Photo Collision Test"))
+    assert len(names) == 25, f"only {len(names)} of 25 uploads got their own name"
+
+    folder = os.path.join(_APP_DIR, "static", "uploads", "Photo_Collision_Test")
+    if os.path.isdir(folder):
+        import shutil
+        shutil.rmtree(folder)
 
 
 def test_leaderboard_hidden_from_community_accounts():

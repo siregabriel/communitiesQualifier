@@ -5,6 +5,7 @@ Handles file validation, secure filename generation, and file storage
 
 import os
 import logging
+import secrets
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from typing import Tuple
@@ -229,12 +230,25 @@ class FileUploadHandler:
         # Take the extension from the ORIGINAL name: validation already approved
         # it, while secure_filename can strip a non-ASCII name down to just the
         # extension, leaving nothing to split and raising IndexError mid-upload.
-        timestamp = int(datetime.now().timestamp())
         original = file.filename or ''
         file_ext = original.rsplit('.', 1)[1].lower() if '.' in original else 'jpg'
         file_ext = secure_filename(file_ext) or 'jpg'
         safe_community = secure_filename(community)
-        filename = f"{secure_filename(username)}_{timestamp}.{file_ext}"
+
+        # The name has to be unique per file, not per second.
+        #
+        # It used to be "<user>_<unix seconds>", and every photo in one visit is
+        # saved inside the same second — so they all got the same name, each
+        # overwrote the last, and every standard ended up pointing at whichever
+        # photo happened to be saved last. A visit with six photos kept one.
+        # That is silent: nothing errors, the upload "succeeds", and it only
+        # shows up when somebody notices the same picture on every item.
+        #
+        # A random token rather than a counter, because uploads also arrive from
+        # separate requests (a comment, a fix photo) that know nothing about
+        # each other.
+        stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+        filename = f"{secure_filename(username)}_{stamp}_{secrets.token_hex(4)}.{file_ext}"
         relative_path = f"{safe_community}/{filename}"
 
         if self.use_s3:
