@@ -278,9 +278,14 @@ SECTIONS = [
       'move-in cannot be marked complete while a required item is still open — '
       'the app will say which ones.'),
 
-('p', 'A reminder is emailed three days before each move-in date. Anything past '
-      'its date with required items still open is reported in the daily '
-      'summary until it is dealt with.'),
+('p', 'A reminder is emailed to the community three days before each move-in '
+      'date, and again when the move-in is completed. Regionals are not emailed '
+      'each one — a region covering a dozen communities would receive forty or '
+      'fifty a month, and a mailbox like that teaches you to ignore the sender. '
+      'They see every move-in in their region here instead.'),
+
+('p', 'Anything past its date with required items still open is reported in the '
+      'daily summary until it is dealt with, so nothing drifts quietly.'),
 
 ('p', 'Each move-in can be printed as a binder page, and the whole list exports '
       'to Excel or CSV.'),

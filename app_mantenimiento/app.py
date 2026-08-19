@@ -929,6 +929,29 @@ def region_leader_emails(community):
             if (l.get('email') or '').strip()]
 
 
+def movein_recipients(community):
+    """Who is emailed about a move-in.
+
+    The community itself, plus the administrator notification list.
+
+    Deliberately not the region's leadership. A move-in is the community's own
+    work, and a regional covering a dozen communities was receiving forty to
+    fifty of these a month — which is how a mailbox teaches someone to ignore a
+    sender. Regionals keep full access to every move-in in their region under
+    Move-Ins, and the daily summary still reports any that are past their date
+    with required items open, so nothing is hidden from them. They just aren't
+    told one at a time.
+
+    If a community has no account yet, the region's leadership is used after
+    all: better a regional hears about it than nobody does."""
+    community = (community or '').strip()
+    admin_notify = settings_service.get_email_settings().get('admin_notify', [])
+    to = community_account_emails(community)
+    if not to:
+        to = region_leader_emails(community)
+    return list(dict.fromkeys(to + admin_notify))
+
+
 def alert_password_changed(username, changed_by=''):
     """Tell the administrators that an account's password changed.
 
@@ -1998,9 +2021,7 @@ def set_movein_status(mv_id):
     if status == 'completed':
         try:
             community = rec.get('community', '')
-            recipients = list(dict.fromkeys(
-                region_leader_emails(community)
-                + settings_service.get_email_settings().get('admin_notify', [])))
+            recipients = movein_recipients(community)
             if recipients:
                 item_ids = movein_template_service.all_item_ids()
                 done, total = _movein_progress(rec, item_ids)
@@ -2258,15 +2279,15 @@ def run_activity_digest(hours=24):
 
 def run_movein_reminders(days_ahead=3, other_cap=6):
     """Email a reminder for every ACTIVE move-in whose target date is within
-    `days_ahead` days and still has open checklist items. Recipients are the
-    community's region leaders plus the admin-notify list. Returns a summary
-    list (also used by the cron script). Safe to call when email is disabled."""
+    `days_ahead` days and still has open checklist items. Recipients come from
+    movein_recipients(): the community itself plus the administrator list, not
+    the region's leadership. Returns a summary list (also used by the cron
+    script). Safe to call when email is disabled."""
     from datetime import date as _date
     today = _date.today()
     template = movein_template_service.get_template()
     all_items = [(it['id'], it.get('text', ''), bool(it.get('required')))
                  for ph in template['phases'] for it in ph.get('items', [])]
-    admin_notify = settings_service.get_email_settings().get('admin_notify', [])
     sent = []
     for rec in movein_service.get_all():
         if rec.get('status') != 'active':
@@ -2285,7 +2306,7 @@ def run_movein_reminders(days_ahead=3, other_cap=6):
         if not missing_req and not missing_other:
             continue  # everything done — no need to nag
         community = rec.get('community', '')
-        recipients = list(dict.fromkeys(region_leader_emails(community) + admin_notify))
+        recipients = movein_recipients(community)
         if not recipients:
             continue
         shown_other = missing_other[:other_cap]

@@ -1510,6 +1510,54 @@ def test_two_uploads_in_the_same_second_do_not_collide():
         shutil.rmtree(folder)
 
 
+def test_movein_emails_go_to_the_community_not_the_region():
+    """A regional covering a dozen communities was getting forty to fifty
+    move-in emails a month, which is how a mailbox teaches someone to ignore a
+    sender. Move-ins are the community's own work, so the community is told;
+    regionals keep full access under Move-Ins and still see anything overdue in
+    the daily summary."""
+    import json as _json
+    comm = _a_community()
+    region = A.region_for_community(comm)
+    rid = region["id"]
+    backup = _json.loads(_json.dumps(A.region_service.regions))
+    before_notify = A.settings_service.get_email_settings().get("admin_notify", [])
+    ed = "smoke.movein.ed"
+    try:
+        A.settings_service.set_email_settings(admin_notify=["admin@example.test"])
+        for i, leader in enumerate(region.get("leadership") or []):
+            A.region_service.update_leader(rid, i, leader.get("name") or f"L{i}",
+                                           leader.get("title") or "",
+                                           f"regional{i}@example.test")
+        leaders = A.region_leader_emails(comm)
+        assert leaders, "the test needs a region with leadership emails"
+
+        # No community account yet: better a regional hears about it than
+        # nobody does.
+        assert set(leaders) <= set(A.movein_recipients(comm)), \
+            "with no community account the region must still be told"
+
+        # Once the community has an account, it is theirs and the region drops off.
+        A.user_service.create(ed, "Smoke ED", "staff", "x" * 20, community=comm,
+                              communities=[comm], email="ed@example.test")
+        got = A.movein_recipients(comm)
+        assert "ed@example.test" in got, "the community was not told"
+        assert "admin@example.test" in got, "the administrator list was dropped"
+        assert not any(a in got for a in leaders), \
+            f"regionals are still being emailed every move-in: {got}"
+
+        # Visit emails are a different question and must be untouched.
+        assert set(A.region_leader_emails(comm)) == set(leaders), \
+            "visit emails stopped reaching the region"
+    finally:
+        if A.user_service.get(ed):
+            A.user_service.delete(ed)
+        A.presence_service.forget(ed)
+        A.region_service.regions = backup
+        A.region_service.save_to_file()
+        A.settings_service.set_email_settings(admin_notify=before_notify)
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")
