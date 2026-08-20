@@ -358,6 +358,24 @@ html[data-theme="dark"] .cards-due-toggle.is-on {
     background: #b42318 !important; border-color: #b42318 !important; color: #fff !important;
 }
 
+/* Sidebar wordmark.
+   Both pages size .sidebar-logo img as a 40px square, which is right for an
+   icon and would squash a wordmark three times wider than it is tall. The
+   extra class raises specificity so this wins wherever it is loaded. */
+.sidebar-logo img.sidebar-wordmark {
+    width: auto;
+    height: 42px;
+    max-width: 100%;
+    border-radius: 0;
+    display: block;
+}
+/* On the dark sidebar the logo's navy lettering would all but disappear, so
+   it is flattened to white. The light sidebar leaves it in its own colours. */
+html[data-theme="dark"] .sidebar-logo img.sidebar-wordmark {
+    filter: brightness(0) invert(1);
+    opacity: .92;
+}
+
 /* ===== Search ===== */
 .sr-overlay {
     position: fixed; inset: 0; z-index: 4000;
