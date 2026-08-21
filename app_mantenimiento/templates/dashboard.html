@@ -2758,7 +2758,16 @@
                 || questionsMap['t:' + (response.questionText || '').trim().toLowerCase()]
                 || null;
         }
-        function escapeHtmlForAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
+        // For text going inside an HTML attribute.
+        //
+        // escapeHtml() handles &, < and > — right for element content, but it
+        // leaves quotes alone, and a quote inside an attribute closes it early.
+        // The rest of the text then becomes stray attributes and whatever
+        // followed (a click handler, usually) is silently cut in half. Both
+        // quote characters have to go.
+        function escapeHtmlForAttr(s) {
+            return escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
         function openStandardSheet(title, std) {
             if (!std) return;
             let body = '';
@@ -3384,7 +3393,7 @@
                            <div>
                                <b>Addressed${response.addressedAt ? ' ' + escapeHtml(formatDate(response.addressedAt)) : ''}${response.addressedBy ? ' by ' + escapeHtml(response.addressedBy) : ''}</b>
                                ${response.addressedNote ? `<div class="resp-fixed-note">${escapeHtml(response.addressedNote)}</div>` : ''}
-                               ${response.addressedPhoto ? `<a class="resp-fixed-photo" href="#" onclick="event.preventDefault();openPhoto('${photoUrl(response.addressedPhoto)}','Photo of the fix')"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                               ${response.addressedPhoto ? `<a class="resp-fixed-photo" href="${photoUrl(response.addressedPhoto)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo of the fix')"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
                            </div>
                        </div>`
                     : '';
@@ -3398,7 +3407,7 @@
                             ${response.addressed ? '<span class="resp-chip-fixed"><i class="fas fa-wrench"></i> Fixed since</span>' : ''}
                         </div>
                         ${response.description ? `<div class="response-description">${escapeHtml(response.description)}</div>` : ''}
-                        ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" alt="Response photo" style="cursor:zoom-in" onclick="openPhoto(this.src, ${JSON.stringify(response.questionText || 'Response photo')})" onerror="this.parentElement.style.display='none'"></div>` : ''}
+                        ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" alt="${escapeHtmlForAttr(response.questionText || 'Response photo')}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt)" onerror="this.parentElement.style.display='none'"></div>` : ''}
                         ${outcome}
                         ${thread}
                     </div>
@@ -3439,7 +3448,7 @@
             for (const photo of photos) {
                 html += `
                     <div class="photo-item">
-                        <img src="${photoUrl(photo.path)}" alt="${escapeHtml(photo.alt)}" style="cursor:zoom-in" onclick="openPhoto(this.src, ${JSON.stringify(photo.alt || '')})" onerror="this.parentElement.style.display='none'">
+                        <img src="${photoUrl(photo.path)}" alt="${escapeHtmlForAttr(photo.alt)}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt)" onerror="this.parentElement.style.display='none'">
                     </div>
                 `;
             }
@@ -4697,6 +4706,17 @@
             }
         });
 
+
+        // Exposed for the render tests: returns the card photo markup exactly
+        // as renderActionItems builds it, so a test can parse it the way a
+        // browser would. A caption once broke out of the onclick attribute
+        // here and the only symptom was a click that did nothing.
+        function renderActionItemCardPhotoForTest(item) {
+            item = item || { photoPath: 'x/a.jpg',
+                             questionText: 'Tour Path is "show time" ready' };
+            return `<img src="${photoUrl(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText)}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt)" onerror="this.style.display='none'">`;
+        }
+
         // ===================== Photo viewer =====================
         // A photo is evidence, and it was opening in a new tab — which on a
         // phone loses your place in the list you were working through, and
@@ -5622,7 +5642,7 @@
                 const hasPhoto = !!item.photoPath;
                 const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
                 const imageInner = hasPhoto
-                    ? `<img src="${photoUrl(item.photoPath)}" alt="Visit photo" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, ${JSON.stringify(item.questionText || item.text || 'Visit photo')})" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
+                    ? `<img src="${photoUrl(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText || item.text || 'Visit photo')}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt)" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
                     : `<i class="fas ${iconClass}"></i>`;
                 const isClosed = manual ? !!item.resolved : !!item.addressed;
                 const imageClass = (hasPhoto ? 'card-image' : 'card-image card-image-themed')
@@ -5662,7 +5682,7 @@
                         ? `<div class="ai-resolved">
                                <i class="fas fa-circle-check"></i> Addressed${item.addressedAt ? ' ' + formatDate(item.addressedAt) : ''}${item.addressedBy ? ' by ' + escapeHtml(item.addressedBy) : ''}
                                ${item.addressedNote ? `<div class="ai-resolved-note">${escapeHtml(item.addressedNote)}</div>` : ''}
-                               ${item.addressedPhoto ? `<a class="ai-fix-photo" href="#" onclick="event.preventDefault();openPhoto('${photoUrl(item.addressedPhoto)}','Photo of the fix')"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                               ${item.addressedPhoto ? `<a class="ai-fix-photo" href="${photoUrl(item.addressedPhoto)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo of the fix')"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
                                <div class="ai-resolved-hint">Still counts as failed on this visit — it clears when a later visit passes it.</div>
                                ${canVerifyFixes ? `<button class="ai-reopen" onclick="reopenStandard('${item.submissionId}','${qid}')">Reopen</button>` : ''}
                            </div>`
@@ -5708,7 +5728,7 @@
                             onclick="deleteComment('${item.submissionId}','${qid || ''}','${c.id}','${itemId || ''}')"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                     ${c.text ? `<div class="cm-text">${escapeHtml(c.text)}</div>` : ''}
-                    ${photo ? `<a class="cm-photo" href="#" onclick="event.preventDefault();openPhoto('${photoUrl(photo)}','Photo from a comment')"><i class="fas fa-image"></i> Photo</a>` : ''}
+                    ${photo ? `<a class="cm-photo" href="${photoUrl(photo)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo from a comment')"><i class="fas fa-image"></i> Photo</a>` : ''}
                 </div>`;
             }).join('');
             const n = (item.comments || []).length;

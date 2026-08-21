@@ -358,6 +358,36 @@ ok(w.__panelClosed === false,
 run(`openPhoto('', 'nothing');`);
 ok(!lb.classList.contains('show'), 'an empty path opens nothing at all');
 
+console.log('\nPhoto viewer — the markup actually survives being parsed');
+// A caption was being written straight into the onclick with JSON.stringify.
+// Its double quotes closed the attribute, so the handler was cut in half and
+// the click did nothing — while the zoom cursor still appeared, which is what
+// made it look like the click was being swallowed by something else.
+// Checking the string is not enough; the browser has to parse it.
+const shots = [
+  { name: 'action item card',
+    html: run(`renderActionItemCardPhotoForTest()`) },
+];
+function attrsOf(html) {
+  const d = w.document.createElement('div');
+  d.innerHTML = html;
+  const img = d.querySelector('img') || d.querySelector('a');
+  return img ? [...img.attributes].map(a => a.name) : [];
+}
+const KNOWN = ['src', 'alt', 'style', 'onclick', 'onerror', 'class', 'href', 'target', 'title'];
+for (const shot of shots) {
+  if (!shot.html) continue;
+  const stray = attrsOf(shot.html).filter(n => !KNOWN.includes(n));
+  ok(stray.length === 0,
+     `${shot.name}: no stray attributes from a broken quote (${stray.join(', ')})`);
+  const d = w.document.createElement('div');
+  d.innerHTML = shot.html;
+  const el = d.querySelector('img');
+  const handler = el && el.getAttribute('onclick');
+  ok(handler && handler.includes('openPhoto') && /\)\s*$/.test(handler.trim()),
+     `${shot.name}: the click handler is whole, not truncated`);
+}
+
 console.log('');
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);
