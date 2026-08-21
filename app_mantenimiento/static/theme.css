@@ -368,6 +368,45 @@ html[data-theme="dark"] .cards-due-toggle.is-on {
 }
 html[data-theme="dark"] .hist-note { background: rgba(31,111,229,.18); color: #a9c8f7; }
 
+/* What was said about a visit, opened in place from the timeline. */
+.hist-talk-btn {
+    border: none; font: inherit; cursor: pointer;
+    transition: filter .12s ease;
+}
+.hist-talk-btn:hover { filter: brightness(.94); }
+.talk {
+    margin: -4px 0 14px;
+    padding: 12px 14px;
+    background: #f7f9fc;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+.talk-thread + .talk-thread,
+.talk-note + .talk-thread { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e8edf4; }
+.talk-label {
+    font-size: 11px; font-weight: 800; letter-spacing: .3px;
+    text-transform: uppercase; color: #8b98a9; margin-bottom: 5px;
+}
+.talk-msg + .talk-msg { margin-top: 9px; }
+.talk-who { font-size: 12px; font-weight: 700; color: var(--navy-700); }
+.talk-who span { font-weight: 500; color: var(--muted); margin-left: 6px; }
+.talk-text {
+    font-size: 13px; color: #475569; line-height: 1.5; margin-top: 2px;
+    white-space: pre-wrap;
+}
+.talk-photo {
+    display: block; margin-top: 7px;
+    max-width: 190px; max-height: 130px;
+    border-radius: 7px; border: 1px solid var(--line);
+}
+.talk-note .talk-text { color: var(--navy-700); }
+html[data-theme="dark"] .talk { background: rgba(255,255,255,.04); border-color: #26324a; }
+html[data-theme="dark"] .talk-thread + .talk-thread,
+html[data-theme="dark"] .talk-note + .talk-thread { border-top-color: #26324a; }
+html[data-theme="dark"] .talk-who,
+html[data-theme="dark"] .talk-note .talk-text { color: #eef2f8; }
+html[data-theme="dark"] .talk-text { color: #9fb0c4; }
+
 /* The regional's note on a visit. Blue and quiet — everything else in this
    panel is a finding, and this deliberately doesn't look like one. */
 .vnote {

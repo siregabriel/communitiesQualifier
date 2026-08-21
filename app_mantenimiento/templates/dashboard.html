@@ -3247,17 +3247,20 @@
                     </div>
                     <div class="hist-meta">
                         ${v.failed ? `<span class="hist-fails">${v.failed} failed${v.fixed ? ` · ${v.fixed} fixed` : ''}</span>` : '<span class="hist-clean">All passed</span>'}
-                        ${v.notes ? `<span class="hist-note" title="${escapeHtmlForAttr(v.notes)}"><i class="fas fa-comment-dots"></i> note</span>` : ''}
+                        ${v.notes ? `<button class="hist-note hist-talk-btn" onclick="toggleVisitTalk('${v.id}')"
+                            title="Read the note"><i class="fas fa-comment-dots"></i> note</button>` : ''}
                         ${v.partial ? `<span class="hist-partial" title="Only ${v.answered} of the ${v.standards_total} standards were answered, so this score covers those">
                             <i class="fas fa-circle-half-stroke"></i> ${v.answered}/${v.standards_total}</span>` : ''}
                         ${v.action_items ? `<span class="hist-extra">${v.action_items} flagged</span>` : ''}
-                        ${v.comments ? `<span class="hist-extra"><i class="fas fa-comment"></i> ${v.comments}</span>` : ''}
+                        ${v.comments ? `<button class="hist-extra hist-talk-btn" onclick="toggleVisitTalk('${v.id}')"
+                            title="Read what was said"><i class="fas fa-comment"></i> ${v.comments}</button>` : ''}
                     </div>
                     <div class="hist-score">
                         <span style="color:${scoreColor(v.current_score)}">${v.current_score === null ? 'N/A' : v.current_score + '%'}</span>
                         ${improved ? `<small>was ${v.visit_score}%</small>` : ''}
                     </div>
-                </div>`;
+                </div>
+                ${visitTalkPanel(v)}`;
             }).join('');
 
             // Oldest on the left reads like a timeline.
@@ -4719,6 +4722,58 @@
             item = item || { photoPath: 'x/a.jpg',
                              questionText: 'Tour Path is "show time" ready' };
             return `<img src="${photoUrl(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText)}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt)" onerror="this.style.display='none'">`;
+        }
+
+        // Everything that was said about one visit, ready to open in place.
+        //
+        // The timeline used to show a count — "3 comments" — which told you
+        // something had happened and then made you go looking for it. On a list
+        // you are scanning, that is the entire cost of the feature. The text is
+        // already in the payload, so it costs nothing to render it collapsed
+        // and let a click flip it open.
+        function visitTalkPanel(v) {
+            const comments = v.comment_list || [];
+            const note = (v.notes || '').trim();
+            if (!comments.length && !note) return '';
+
+            const noteBlock = note ? `
+                <div class="talk-note">
+                    <div class="talk-label">Note from ${escapeHtml(v.inspector || 'the visit')}</div>
+                    <div class="talk-text">${escapeHtml(note)}</div>
+                    ${v.notes_photo ? `<img class="talk-photo" src="${photoUrl(v.notes_photo)}"
+                        alt="${escapeHtmlForAttr('Photo from the visit note')}" style="cursor:zoom-in"
+                        onclick="openPhoto(this.src, this.alt)" onerror="this.style.display='none'">` : ''}
+                </div>` : '';
+
+            // Grouped by standard: three replies about one item read as a
+            // conversation, not as three unrelated remarks.
+            const byStandard = {};
+            comments.forEach(c => {
+                const k = c.standard || 'This visit';
+                (byStandard[k] = byStandard[k] || []).push(c);
+            });
+            const threads = Object.keys(byStandard).map(std => `
+                <div class="talk-thread">
+                    <div class="talk-label">${escapeHtml(std)}</div>
+                    ${byStandard[std].map(c => `
+                        <div class="talk-msg">
+                            <div class="talk-who">${escapeHtml(c.author || '')}
+                                <span>${escapeHtml(timeAgo(c.at))}</span></div>
+                            ${c.text ? `<div class="talk-text">${escapeHtml(c.text)}</div>` : ''}
+                            ${c.photo ? `<img class="talk-photo" src="${photoUrl(c.photo)}"
+                                alt="${escapeHtmlForAttr(std)}" style="cursor:zoom-in"
+                                onclick="openPhoto(this.src, this.alt)"
+                                onerror="this.style.display='none'">` : ''}
+                        </div>`).join('')}
+                </div>`).join('');
+
+            return `<div class="talk" id="talk_${v.id}" hidden>${noteBlock}${threads}</div>`;
+        }
+
+        function toggleVisitTalk(visitId) {
+            const el = document.getElementById('talk_' + visitId);
+            if (!el) return;
+            el.hidden = !el.hidden;
         }
 
         // The note a regional left about the visit as a whole. Not a standard

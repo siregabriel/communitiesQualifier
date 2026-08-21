@@ -388,6 +388,55 @@ for (const shot of shots) {
      `${shot.name}: the click handler is whole, not truncated`);
 }
 
+console.log('\nHistory — reading what was said, in place');
+const visit = {
+  id: 'v_1', submitted_at: '2026-08-21T09:00:00', inspector: 'Greg Crutcher',
+  survey_type: 'Operational Quick Visit', visit_score: 78, current_score: 92,
+  passed: 5, failed: 1, fixed: 0, action_items: 1, comments: 3,
+  notes: 'Great visit "wonderful event" while I was there.',
+  notes_photo: 'x/event.jpg',
+  comment_list: [
+    { standard: '30 Second Commercial', author: 'Carol Ramirez',
+      text: 'Team retrained this week.', at: '2026-08-20T10:00:00', photo: '' },
+    { standard: '30 Second Commercial', author: 'Greg Crutcher',
+      text: 'Thanks - will check next visit.', at: '2026-08-20T11:00:00', photo: '' },
+    { standard: 'Common Area TVs Display', author: 'Carol Ramirez',
+      text: 'TV replaced.', at: '2026-08-20T12:00:00', photo: 'x/tv.jpg' },
+  ],
+};
+const panel = run(`visitTalkPanel(${JSON.stringify(visit)})`);
+ok(panel.includes('Team retrained'), 'the comment text is there, not just a count');
+ok(panel.includes('TV replaced'), 'every comment is included');
+ok((panel.match(/talk-thread/g) || []).length === 2,
+   'comments are grouped by standard, so a back-and-forth reads as one thread');
+ok(panel.includes('Great visit'), 'the visit note is in the same panel');
+ok(panel.indexOf('Great visit') < panel.indexOf('Team retrained'),
+   'the note leads, as it does everywhere else');
+ok(panel.includes('hidden'), 'it starts collapsed');
+
+// The same quoting trap that broke the photo click. Parse it, do not trust it.
+const holder = w.document.createElement('div');
+holder.innerHTML = panel;
+const shot = holder.querySelector('.talk-photo');
+ok(!!shot, 'a comment photo is shown');
+const strayAttrs = [...shot.attributes].map(a => a.name)
+  .filter(n => !['class','src','alt','style','onclick','onerror'].includes(n));
+ok(strayAttrs.length === 0, `no attribute broke out of its quotes (${strayAttrs.join(', ')})`);
+ok(holder.querySelector('.talk-text').textContent.includes('"wonderful event"'),
+   'quotes inside a note survive intact');
+
+console.log('History — the toggle');
+w.document.body.appendChild(holder);
+const talk = holder.querySelector('.talk');
+ok(talk.hidden === true, 'collapsed to begin with');
+run(`toggleVisitTalk('v_1');`);
+ok(talk.hidden === false, 'clicking the count opens it');
+run(`toggleVisitTalk('v_1');`);
+ok(talk.hidden === true, 'and closes it again');
+
+ok(run(`visitTalkPanel({ id: 'v_2', comments: 0, comment_list: [], notes: '' })`) === '',
+   'a visit with nothing said renders no panel at all');
+
 console.log('');
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

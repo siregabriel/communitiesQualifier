@@ -3034,6 +3034,23 @@ def community_history(community):
             'action_items': len(manual),
             'action_items_open': sum(1 for i in manual if not i.get('resolved')),
             'comments': sum(len(r.get('comments') or []) for r in responses),
+            # The conversations themselves, not just how many there were.
+            # Counting them told you something happened and then made you go
+            # find it; on a timeline you are scanning, that is the whole cost.
+            # Capped so a long-running argument on one standard can't bloat a
+            # payload that is fetched every time a community is opened.
+            'comment_list': [
+                {
+                    'standard': r.get('question_text', ''),
+                    'question_id': r.get('question_id', ''),
+                    'author': c.get('author') or c.get('username', ''),
+                    'text': c.get('text', ''),
+                    'at': c.get('at', ''),
+                    'photo': c.get('photo', ''),
+                }
+                for r in responses
+                for c in (r.get('comments') or [])
+            ][:40],
             # The regional's own words about the visit. Read far more often
             # than any per-standard comment, because it explains the number.
             'notes': s.get('notes', ''),
