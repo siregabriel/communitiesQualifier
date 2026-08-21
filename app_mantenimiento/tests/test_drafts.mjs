@@ -71,6 +71,10 @@ const draft = (id, community, savedAt) => ({
     q1: { name: 'lobby.jpg', type: 'image/jpeg', blob: new Blob([photoBytes], { type: 'image/jpeg' }) },
   },
   actionItems: [{ text: 'Replace welcome sign', assigned_to: 'Sales', priority: 'high' }],
+  // Notes about the visit as a whole, with their own photo.
+  notes: 'Great visit — they had a wonderful event while I was there.',
+  notesPhoto: { name: 'event.jpg', type: 'image/jpeg',
+                blob: new Blob([photoBytes], { type: 'image/jpeg' }) },
 });
 
 console.log('saving and coming back to it');
@@ -81,6 +85,8 @@ ok(got.responses.q1.condition === 'Fail' && got.responses.q1.routeTo === 'sales'
    'answers and routing survive');
 ok(got.actionItems[0].priority === 'high', 'ad-hoc items survive');
 ok(got.photos.q1.blob instanceof Blob, 'the photo is stored as binary, not text');
+ok(got.notes && got.notes.includes('wonderful event'), 'the visit note survives');
+ok(got.notesPhoto && got.notesPhoto.blob instanceof Blob, 'and the photo attached to it');
 
 const back = new Uint8Array(await got.photos.q1.blob.arrayBuffer());
 ok(back.length === photoBytes.length && back.every((b, i) => b === photoBytes[i]),

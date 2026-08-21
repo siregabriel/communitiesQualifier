@@ -245,7 +245,8 @@ class InspectionService(JsonFileBacked):
                          responses: List[Dict], survey_type_id: Optional[str] = None,
                          inspector_name: Optional[str] = None,
                          action_items: Optional[List[Dict]] = None,
-                         standards_total: Optional[int] = None) -> Dict:
+                         standards_total: Optional[int] = None,
+                         notes: str = '', notes_photo: str = '') -> Dict:
         """
         Create new inspection submission.
         
@@ -294,6 +295,18 @@ class InspectionService(JsonFileBacked):
             # Follow-up tasks raised by the inspector; excluded from scoring.
             'action_items': self._clean_manual_items(action_items),
         }
+
+        # Notes about the visit as a whole. Everything else recorded here is a
+        # problem — a failed standard or a task. This is the one place to say
+        # that it went well, or to explain a score: a community mid-renovation
+        # and a community that isn't trying both score 60, and the number alone
+        # can't tell them apart. Stored only when there is something to store,
+        # so older visits stay exactly as they were.
+        notes = (notes or '').strip()
+        if notes:
+            submission['notes'] = notes[:2000]
+        if notes_photo:
+            submission['notes_photo'] = notes_photo
 
         # Add survey_type_id if provided (backward compatibility)
         if survey_type_id:

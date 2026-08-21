@@ -883,6 +883,33 @@
             }
         }
 
+        /* ===== Notes from the visit =====
+           Deliberately not red or amber. Every other block on this form is a
+           problem; this one has to look like it isn't, or nobody uses it. */
+        .notes-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+            padding: 20px; margin-top: 20px; border-left: 4px solid #1f6fe5; }
+        .notes-head h3 { font-size: 16px; font-weight: 800; color: #0f1e36; display: flex;
+            align-items: center; gap: 8px; margin-bottom: 4px; }
+        .notes-head h3 i { color: #1f6fe5; }
+        .notes-head p { font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 14px; }
+        #visitNotes { width: 100%; padding: 12px 14px; border: 1px solid #cbd5e1;
+            border-radius: 10px; font-family: inherit; font-size: 15px; line-height: 1.5;
+            color: #0f1e36; resize: vertical; background: #f8fafc; }
+        #visitNotes:focus { outline: none; border-color: #1f6fe5; background: #fff;
+            box-shadow: 0 0 0 3px rgba(31,111,229,.12); }
+        .notes-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            margin-top: 10px; }
+        .notes-photo { display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+            border: 1px solid #d9e3f2; background: #f7faff; color: #1f4f9e;
+            border-radius: 8px; padding: 8px 13px; font-size: 13px; font-weight: 700; }
+        .notes-photo:hover { background: #eef4ff; }
+        .notes-photo-clear { border: none; background: none; color: #b42318; cursor: pointer;
+            font-size: 12.5px; font-weight: 700; padding: 4px; }
+        .notes-count { margin-left: auto; font-size: 12px; color: #94a3b8; font-weight: 600; }
+        .notes-warn { display: flex; gap: 8px; margin-top: 12px; font-size: 12.5px;
+            color: #64748b; line-height: 1.5; }
+        .notes-warn i { color: #94a3b8; margin-top: 2px; flex-shrink: 0; }
+
         /* ===== Additional action items (ad-hoc, not tied to a standard) ===== */
         .ai-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
             padding: 20px; margin-top: 24px; }
@@ -1140,6 +1167,40 @@
                 </button>
             </div>
 
+            <!-- Everything else on this form is a problem: a failed standard or
+                 a task for somebody. There was nowhere to say that the visit
+                 went well, or to explain a score — a community mid-renovation
+                 and a community that isn't trying both score 60, and only one
+                 of those deserves a phone call. -->
+            <div class="notes-section" id="visitNotesSection">
+                <div class="notes-head">
+                    <h3><i class="fas fa-comment-dots"></i> Notes from the visit</h3>
+                    <p>
+                        Anything worth passing on that isn't one of the standards — what went
+                        well, or what was going on that day. This goes to the community with
+                        the report. It doesn't affect the score and doesn't create a task.
+                    </p>
+                </div>
+                <textarea id="visitNotes" name="visit_notes" rows="4" maxlength="2000"
+                          placeholder="e.g. Great visit — they had a wonderful event while I was there."></textarea>
+                <div class="notes-foot">
+                    <label class="notes-photo">
+                        <i class="fas fa-camera"></i>
+                        <span id="notesPhotoLabel">Add a photo</span>
+                        <input type="file" id="visitNotesPhoto" accept="image/*"
+                               onchange="onNotesPhotoChosen(event)" hidden>
+                    </label>
+                    <button type="button" class="notes-photo-clear" id="notesPhotoClear"
+                            onclick="clearNotesPhoto()" hidden>Remove photo</button>
+                    <span class="notes-count" id="notesCount"></span>
+                </div>
+                <p class="notes-warn">
+                    <i class="fas fa-circle-info"></i>
+                    Anything that needs following up belongs in an action item above —
+                    notes aren't tracked and nobody is asked to close them.
+                </p>
+            </div>
+
             <div class="submit-row">
                 <button type="submit">Submit Visit</button>
                 <div class="submit-aside">
@@ -1320,6 +1381,7 @@
                 const f = photoFiles[qid];
                 if (f) photos[qid] = { name: f.name, type: f.type, blob: f };
             });
+            const notesEl = document.getElementById('visitNotes');
             return {
                 id: draftKey(),
                 community: selectedCommunity || userCommunity || '',
@@ -1328,13 +1390,64 @@
                 responses,
                 photos,
                 actionItems: collectActionItems(),
+                notes: notesEl ? notesEl.value : '',
+                notesPhoto: notesPhotoFile
+                    ? { name: notesPhotoFile.name, type: notesPhotoFile.type, blob: notesPhotoFile }
+                    : null,
             };
+        }
+
+
+        // ===== Notes from the visit =====
+        // Free text that goes to the community with the report. It is not a
+        // standard and not a task, so it never touches the score.
+        let notesPhotoFile = null;
+
+        function updateNotesCount() {
+            const el = document.getElementById('visitNotes');
+            const out = document.getElementById('notesCount');
+            if (!el || !out) return;
+            const n = el.value.length;
+            // Only speak up near the limit; a counter on an empty box reads
+            // like a form demanding something.
+            out.textContent = n > 1700 ? `${n} / 2000` : '';
+        }
+
+        function showNotesPhotoName(name) {
+            const label = document.getElementById('notesPhotoLabel');
+            const clear = document.getElementById('notesPhotoClear');
+            if (label) label.textContent = name ? name.slice(0, 28) : 'Add a photo';
+            if (clear) clear.hidden = !name;
+        }
+
+        function onNotesPhotoChosen(ev) {
+            const f = ev.target.files && ev.target.files[0];
+            notesPhotoFile = f || null;
+            showNotesPhotoName(f ? f.name : '');
+            draftScheduleSave();
+        }
+
+        function clearNotesPhoto() {
+            notesPhotoFile = null;
+            const input = document.getElementById('visitNotesPhoto');
+            if (input) input.value = '';
+            showNotesPhotoName('');
+            draftScheduleSave();
+        }
+
+        function initVisitNotes() {
+            const el = document.getElementById('visitNotes');
+            if (!el) return;
+            el.addEventListener('input', () => { updateNotesCount(); draftScheduleSave(); });
+            updateNotesCount();
         }
 
         function draftIsEmpty(d) {
             return !Object.keys(d.responses).length
                 && !Object.keys(d.photos).length
-                && !d.actionItems.length;
+                && !d.actionItems.length
+                && !(d.notes || '').trim()
+                && !d.notesPhoto;
         }
 
         async function draftSaveNow(silent) {
@@ -1460,6 +1573,17 @@
                 row.querySelector('.ai-priority').value = it.priority || 'medium';
             });
 
+            const notesEl = document.getElementById('visitNotes');
+            if (notesEl && d.notes) { notesEl.value = d.notes; updateNotesCount(); }
+            if (d.notesPhoto && d.notesPhoto.blob) {
+                try {
+                    notesPhotoFile = new File([d.notesPhoto.blob],
+                                              d.notesPhoto.name || 'photo.jpg',
+                                              { type: d.notesPhoto.type || 'image/jpeg' });
+                } catch (e) { notesPhotoFile = d.notesPhoto.blob; }
+                showNotesPhotoName(d.notesPhoto.name);
+            }
+
             Object.keys(d.photos || {}).forEach(qid => {
                 const p = d.photos[qid];
                 if (!p || !p.blob) return;
@@ -1578,6 +1702,7 @@
             }
             if (prompt) prompt.style.display = 'none';
             loadQuestions();
+            initVisitNotes();
         }
 
         async function loadQuestions() {
@@ -2221,6 +2346,12 @@
             // told apart from a complete one later. The server checks it
             // against the survey rather than trusting the number.
             formData.append('standards_total', String(questions.length));
+
+            // Notes from the visit — free text, never a task, never scored.
+            const notesEl = document.getElementById('visitNotes');
+            const notes = notesEl ? notesEl.value.trim() : '';
+            if (notes) formData.append('visit_notes', notes);
+            if (notesPhotoFile) formData.append('visit_notes_photo', notesPhotoFile);
             // Regional users submit for a chosen community (staff ignore this server-side)
             formData.append('community', selectedCommunity || userCommunity || '');
             // Ad-hoc action items (follow-up tasks, not standards)

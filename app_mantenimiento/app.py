@@ -3034,6 +3034,10 @@ def community_history(community):
             'action_items': len(manual),
             'action_items_open': sum(1 for i in manual if not i.get('resolved')),
             'comments': sum(len(r.get('comments') or []) for r in responses),
+            # The regional's own words about the visit. Read far more often
+            # than any per-standard comment, because it explains the number.
+            'notes': s.get('notes', ''),
+            'notes_photo': s.get('notes_photo', ''),
         })
 
     # Per-standard record across the most recent visits, newest first. This is
@@ -5491,6 +5495,26 @@ def submit_inspection():
                         actual = 0
                 standards_total = actual or claimed
 
+            # Notes from the visit. Free text about the visit as a whole, with
+            # an optional photo. Not a standard and not a task, so it never
+            # reaches the score — the only thing it changes is what the
+            # community reads when the report arrives.
+            visit_notes = InputSanitizer.sanitize_description(
+                request.form.get('visit_notes', ''))[:2000]
+            notes_photo = None
+            nf = request.files.get('visit_notes_photo')
+            if nf and nf.filename:
+                ok_file, why = file_upload_handler.validate_file(nf)
+                if ok_file:
+                    try:
+                        notes_photo = file_upload_handler.save_file(nf, username, community)
+                    except Exception:
+                        # A photo attached to a note is never worth failing a
+                        # whole visit for — the walk is already done.
+                        app.logger.exception('Could not save the visit notes photo')
+                else:
+                    app.logger.warning(f'Visit notes photo rejected: {why}')
+
             submission = inspection_service.create_submission(
                 username=username,
                 community=community,
@@ -5498,7 +5522,9 @@ def submit_inspection():
                 survey_type_id=survey_type_id,
                 inspector_name=(session.get('display_name') or resolve_display_name(username)),
                 action_items=manual_items,
-                standards_total=standards_total
+                standards_total=standards_total,
+                notes=visit_notes,
+                notes_photo=notes_photo
             )
             
             # Clear survey type from session after successful submission
@@ -5551,15 +5577,20 @@ def submit_inspection():
                 # here and what to do about it — no score, no comparisons.
                 ed_emails = community_account_emails(community)
                 if ed_emails:
-                    failed = [r for r in (submission.get('responses') or [])
-                              if r.get('condition') == 'Fail']
+                    responses = submission.get('responses') or []
+                    failed = [r for r in responses if r.get('condition') == 'Fail']
+                    passed = [r for r in responses if r.get('condition') == 'Pass']
                     open_items = [i for i in (submission.get('action_items') or [])
                                   if not i.get('resolved')]
+                    done = len(passed) + len(failed)
                     email_service.send_community_findings(
                         ed_emails, community,
                         submission.get('inspector_name') or submission.get('username') or '',
                         (submission.get('submitted_at') or '')[:10],
-                        failed, open_items, criteria_map)
+                        failed, open_items, criteria_map,
+                        notes=submission.get('notes', ''),
+                        passed_items=passed,
+                        score=round(len(passed) / done * 100) if done else None)
 
                 # Route any item-level comments directed to a company-level team
                 for route in settings_service.ROUTES:

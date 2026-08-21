@@ -2957,6 +2957,8 @@
                     visitScore: sc.visit,
                     fixedSinceVisit: sc.fixed,
                     partial: partialInfo(latestSubmission),
+                    notes: latestSubmission.notes || '',
+                    notesPhoto: latestSubmission.notes_photo || '',
                     actionItems: actionItems,
                     responses: responses,
                     photos: photos,
@@ -3192,6 +3194,7 @@
             // Stats section
             html += renderStats(data.score, data.actionItems,
                                 data.visitScore, data.fixedSinceVisit, data.partial);
+            html += renderVisitNote(data.notes, data.notesPhoto);
             
             // Responses section
             html += renderResponses(data.responses);
@@ -3244,6 +3247,7 @@
                     </div>
                     <div class="hist-meta">
                         ${v.failed ? `<span class="hist-fails">${v.failed} failed${v.fixed ? ` · ${v.fixed} fixed` : ''}</span>` : '<span class="hist-clean">All passed</span>'}
+                        ${v.notes ? `<span class="hist-note" title="${escapeHtmlForAttr(v.notes)}"><i class="fas fa-comment-dots"></i> note</span>` : ''}
                         ${v.partial ? `<span class="hist-partial" title="Only ${v.answered} of the ${v.standards_total} standards were answered, so this score covers those">
                             <i class="fas fa-circle-half-stroke"></i> ${v.answered}/${v.standards_total}</span>` : ''}
                         ${v.action_items ? `<span class="hist-extra">${v.action_items} flagged</span>` : ''}
@@ -4715,6 +4719,27 @@
             item = item || { photoPath: 'x/a.jpg',
                              questionText: 'Tour Path is "show time" ready' };
             return `<img src="${photoUrl(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText)}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt)" onerror="this.style.display='none'">`;
+        }
+
+        // The note a regional left about the visit as a whole. Not a standard
+        // and not a task — the one thing here that isn't a problem, so it is
+        // styled to look unlike everything around it.
+        function renderVisitNote(notes, photo) {
+            notes = (notes || '').trim();
+            if (!notes && !photo) return '';
+            const shot = photo
+                ? `<img class="vnote-photo" src="${photoUrl(photo)}" alt="Photo from the visit note"
+                        style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt)"
+                        onerror="this.style.display='none'">`
+                : '';
+            return `
+                <div class="panel-section">
+                    <h3 class="panel-section-title"><i class="fas fa-comment-dots"></i> Notes from the visit</h3>
+                    <div class="vnote">
+                        ${notes ? `<div class="vnote-text">${escapeHtml(notes)}</div>` : ''}
+                        ${shot}
+                    </div>
+                </div>`;
         }
 
         // ===================== Photo viewer =====================

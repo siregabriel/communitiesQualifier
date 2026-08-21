@@ -358,6 +358,36 @@ html[data-theme="dark"] .cards-due-toggle.is-on {
     background: #b42318 !important; border-color: #b42318 !important; color: #fff !important;
 }
 
+/* A visit that carries a note. The full text is in the tooltip; the timeline
+   is a list of dates and scores and shouldn't turn into paragraphs. */
+.hist-note {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: #1f4f9e; background: #eaf1fd;
+    border-radius: 999px; padding: 1px 8px;
+    font-size: 11px; font-weight: 700; cursor: help;
+}
+html[data-theme="dark"] .hist-note { background: rgba(31,111,229,.18); color: #a9c8f7; }
+
+/* The regional's note on a visit. Blue and quiet — everything else in this
+   panel is a finding, and this deliberately doesn't look like one. */
+.vnote {
+    border-left: 3px solid var(--azure);
+    background: #f2f7ff;
+    border-radius: 0 10px 10px 0;
+    padding: 14px 16px;
+}
+.vnote-text {
+    font-size: 14px; color: var(--navy-700); line-height: 1.6;
+    white-space: pre-wrap;          /* keep the line breaks they typed */
+}
+.vnote-photo {
+    display: block; margin-top: 12px;
+    max-width: 100%; max-height: 260px;
+    border-radius: 8px; border: 1px solid var(--line);
+}
+html[data-theme="dark"] .vnote { background: rgba(31,111,229,.10); }
+html[data-theme="dark"] .vnote-text { color: #eef2f8; }
+
 /* ===== Photo viewer =====
    Opens over the page rather than in a new tab. Dark backdrop regardless of
    theme: a photo of a hallway reads better against black, and this is the one

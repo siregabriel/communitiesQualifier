@@ -1558,6 +1558,99 @@ def test_movein_emails_go_to_the_community_not_the_region():
         A.settings_service.set_email_settings(admin_notify=before_notify)
 
 
+def test_a_visit_note_travels_but_never_scores():
+    """Everything else on a visit is a problem. The note is the one place to
+    say it went well, or to explain a number — a community mid-renovation and
+    a community that isn't trying both score 60. It must reach the people who
+    read the visit, and must not move the score by a single point."""
+    import io, json as _json
+    c, comm = _visiting_client("smoke.notes")
+    NOTE = "Great visit - they had a wonderful event while I was there."
+    before = {x["id"] for x in A.inspection_service.get_all_submissions()}
+    made = set()
+    try:
+        payload = [
+            {"question_id": "nt_1", "question_text": "One", "condition": "Pass", "description": ""},
+            {"question_id": "nt_2", "question_text": "Two", "condition": "Fail", "description": "found it"},
+        ]
+        r = c.post("/api/inspections", headers=HDR, content_type="multipart/form-data", data={
+            "community": comm,
+            "responses": _json.dumps(payload),
+            "visit_notes": NOTE,
+            "visit_notes_photo": (io.BytesIO(b"\x89PNG\r\n\x1a\n" + b"0" * 40), "event.jpg"),
+        })
+        assert r.status_code in (200, 201), r.get_data(as_text=True)
+        new_subs = [x for x in A.inspection_service.get_all_submissions()
+                    if x["id"] not in before]
+        made = {x["id"] for x in new_subs}
+        sub = new_subs[0]
+
+        assert sub.get("notes") == NOTE, "the note was not stored"
+        assert sub.get("notes_photo"), "the photo attached to the note was lost"
+
+        # One Pass, one Fail — the note must not have changed that.
+        passed = sum(1 for x in sub["responses"] if x["condition"] == "Pass")
+        failed = sum(1 for x in sub["responses"] if x["condition"] == "Fail")
+        assert (passed, failed) == (1, 1)
+        assert not any(x.get("question_id", "").startswith("visit_notes")
+                       for x in sub["responses"]), "the note leaked in as a standard"
+        assert not sub.get("action_items"), "the note created a task"
+
+        # It reaches whoever opens the visit later.
+        _as_admin(c)
+        hist = c.get(f"/api/communities/{comm}/history").get_json()
+        v = next(v for v in hist["visits"] if v["id"] == sub["id"])
+        assert v["notes"] == NOTE, "the history does not carry the note"
+        assert v["visit_score"] == 50, "the note moved the score"
+    finally:
+        A.inspection_service.submissions = [
+            x for x in A.inspection_service.submissions if x.get("id") not in made]
+        A.inspection_service.save_to_file()
+        A.presence_service.forget("smoke.notes")
+        _sweep_test_photos()
+
+
+def test_the_note_leads_both_emails():
+    """The community used to receive a list of problems and nothing else, even
+    after a visit that went well. Intercepts real sends; nothing leaves."""
+    svc = A.email_service
+    captured = []
+    original_send, original_enabled = svc._send, svc.enabled
+    svc._send = lambda recipients, subject, html_body, text_body: (
+        captured.append((subject, html_body, text_body)) or (True, "captured"))
+    svc.enabled = True
+    NOTE = "Great visit - wonderful event while I was there."
+    try:
+        failed = [{"question_text": "Tour Path is show time ready", "description": "empty"}]
+        passed = [{"question_text": "Vacant Rooms are Rent Ready"}]
+
+        svc.send_community_findings(
+            ["ed@example.test"], "A Community", "Marissa Scott", "2026-08-20",
+            failed, [], None, notes=NOTE, passed_items=passed, score=50)
+        subject, body_html, body_text = captured[-1]
+        assert NOTE in body_text and NOTE in body_html, "the community never sees the note"
+        assert body_html.index("Note from") < body_html.index("Tour Path"), \
+            "the note has to lead — that is the whole point"
+        assert "Vacant Rooms are Rent Ready" in body_text, "what passed is missing"
+        assert "50%" in body_text, "the score is missing"
+        assert body_html.index("Tour Path") < body_html.index("Also checked and passed"), \
+            "context pushed the findings down the page"
+
+        # And the leadership report.
+        svc._build.__self__  # noqa: B018 - it is a bound method; just being explicit
+        _, lead_html, lead_text = svc._build({
+            "community": "A Community", "inspector_name": "Marissa Scott",
+            "submitted_at": "2026-08-20T09:00:00", "notes": NOTE,
+            "responses": [{"question_id": "a", "question_text": "Tour Path",
+                           "condition": "Fail", "description": "empty"}],
+            "action_items": [],
+        })
+        assert NOTE in lead_text and NOTE in lead_html, "leadership never sees the note"
+    finally:
+        svc._send = original_send
+        svc.enabled = original_enabled
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")

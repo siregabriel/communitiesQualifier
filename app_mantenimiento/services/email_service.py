@@ -104,6 +104,9 @@ class EmailService:
             f"Overall score: {score_txt}",
             f"Passed: {passed} / {total}    Failed: {failed}",
         ]
+        note_for_text = (submission.get('notes') or '').strip()
+        if note_for_text:
+            lines += ["", f"Note from {inspector}:", f"  {note_for_text}"]
         if fails:
             lines.append("")
             lines.append("Failed items:")
@@ -168,6 +171,17 @@ class EmailService:
             f"font-size:14px'>View full report</a>"
         ) if link else ""
 
+        # The regional's own note about the visit. Leadership reads this report
+        # to judge a community; the sentence explaining why it scored what it
+        # scored belongs above the numbers, not buried under them.
+        note = (submission.get('notes') or '').strip()
+        note_block = (f"<div style='margin:14px 0 4px;padding:13px 15px;background:#f2f7ff;"
+                      f"border-left:3px solid #1f6fe5;border-radius:0 8px 8px 0;"
+                      f"font-size:14px;color:#0f1e36;line-height:1.55'>"
+                      f"<div style='font-size:11.5px;font-weight:800;color:#1f4f9e;"
+                      f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px'>"
+                      f"Note from {esc(inspector)}</div>{esc(note)}</div>") if note else ""
+
         survey_row = (
             f"<tr><td style='color:#6b7280;padding:3px 12px 3px 0'>Survey type</td>"
             f"<td style='font-weight:600'>{esc(survey_type_name)}</td></tr>"
@@ -199,6 +213,7 @@ class EmailService:
       <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Date</td><td style="font-weight:600">{esc(when)}</td></tr>
       {survey_row}
     </table>
+    {note_block}
     {fail_block}
     {action_block}
     <div style="margin-top:20px">{button}</div>
@@ -554,18 +569,68 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
 
     def send_community_findings(self, recipients, community, inspector, when,
                                 failed_items, action_items, criteria_map=None,
-                                handover=False):
+                                handover=False, notes='', passed_items=None,
+                                score=None):
         """What the community itself needs after a visit.
 
-        Deliberately not the leadership report: no score, no pass counts, no
-        comparison with anyone else. Just what was found here and what to do
-        about it. An Executive Director opening this on a phone should be able
-        to act without decoding a scorecard."""
+        Still not the leadership report — what needs doing comes first and
+        nothing is allowed to push it down the page. But an Executive Director
+        used to open this and see only a list of problems, even after a visit
+        that went well. So the regional's note leads, and what passed sits
+        underneath as context rather than competing with the work."""
         if not self.enabled:
             return (False, 'disabled')
 
         def esc(s):
             return html.escape(str(s or ''))
+
+        # The note the regional left. First thing read, deliberately: it is
+        # the only part of this email that isn't a problem.
+        notes = (notes or '').strip()
+        notes_html = (f"<div style='margin:0 0 18px;padding:14px 16px;background:#f2f7ff;"
+                      f"border-left:3px solid #1f6fe5;border-radius:0 8px 8px 0'>"
+                      f"<div style='font-size:12px;font-weight:800;color:#1f4f9e;"
+                      f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px'>"
+                      f"Note from {esc(inspector) or 'your regional'}</div>"
+                      f"<div style='font-size:14.5px;color:#0f1e36;line-height:1.55'>"
+                      f"{esc(notes)}</div></div>") if notes else ""
+        notes_text = (f"NOTE FROM {(inspector or 'YOUR REGIONAL').upper()}\n  {notes}\n\n"
+                      if notes else "")
+
+        # What passed, and the score, underneath everything else.
+        #
+        # This email is a to-do list first — the findings keep the top of the
+        # page. But a list of problems with no counterweight was all a community
+        # ever received, however well the visit went. The score is here because
+        # they can already see it in the app; leaving it out of the email stopped
+        # protecting anyone a long time ago and only made the two disagree.
+        passed_items = passed_items or []
+        context_bits = []
+        if score is not None:
+            done = len(passed_items) + len(failed_items)
+            context_bits.append(f"<b>{score}%</b> — {len(passed_items)} of {done} standards passed")
+        if passed_items:
+            names = ''.join(
+                f"<li style='margin:3px 0'>{esc(i.get('question_text', 'Standard'))}</li>"
+                for i in passed_items)
+            context_bits.append(
+                f"<div style='margin-top:8px'>Also checked and passed:</div>"
+                f"<ul style='margin:4px 0 0;padding-left:18px'>{names}</ul>")
+        context_html = (
+            f"<div style='margin-top:24px;padding-top:16px;border-top:1px solid #e5e9f0;"
+            f"font-size:13px;color:#6b7280;line-height:1.55'>"
+            + ''.join(context_bits) + "</div>") if context_bits else ""
+
+        context_text = ""
+        if context_bits:
+            lines = [""]
+            if score is not None:
+                lines.append(f"{score}% — {len(passed_items)} of "
+                             f"{len(passed_items) + len(failed_items)} standards passed")
+            if passed_items:
+                lines.append("Also checked and passed:")
+                lines += [f"  - {i.get('question_text', 'Standard')}" for i in passed_items]
+            context_text = "\n".join(lines) + "\n"
 
         link = self.report_link(community)
         button = (f"<div style='margin-top:20px'><a href='{esc(link)}' "
@@ -577,21 +642,22 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         # community and needs to know where things stand. Same content, and the
         # opening line says which it is — arriving to a list of findings with no
         # explanation is disorienting on your first day.
+        needs_line = " Here's what needs attention." if (failed_items or action_items) else ""
         opener_html = (f"<p style='font-size:14px;margin:0 0 4px'>You've been set up for "
                        f"<b>{esc(community)}</b> in Atlas Excellence. Here's where things stand today"
                        f"{(' — from the last visit on ' + esc(when)) if when else ''}"
                        f"{(' by ' + esc(inspector)) if inspector else ''}.</p>"
                        ) if handover else (
                        f"<p style='font-size:14px;margin:0 0 4px'>{esc(inspector)} visited "
-                       f"<b>{esc(community)}</b>{(' on ' + esc(when)) if when else ''}. "
-                       f"Here's what needs attention.</p>")
+                       f"<b>{esc(community)}</b>{(' on ' + esc(when)) if when else ''}."
+                       f"{needs_line}</p>")
         opener_text = (f"You've been set up for {community} in Atlas Excellence. "
                        f"Here's where things stand today"
                        f"{(' — from the last visit on ' + when) if when else ''}"
                        f"{(' by ' + inspector) if inspector else ''}."
                        ) if handover else (
-                       f"{inspector} visited {community}{(' on ' + when) if when else ''}. "
-                       f"Here's what needs attention.")
+                       f"{inspector} visited {community}{(' on ' + when) if when else ''}."
+                       + needs_line)
 
         total = len(failed_items) + len(action_items)
         if not total:
@@ -603,10 +669,10 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 subject = f"Visit complete — {community}: nothing outstanding"
                 good = "Everything passed — nothing needs your attention."
                 header = "Visit complete"
-            body = (opener_html
+            body = (opener_html + notes_html
                     + f"<p style='font-size:15px;color:#0f8a5f;font-weight:700;margin:12px 0 0'>"
-                      f"{esc(good)}</p>{button}")
-            text = opener_text + "\n" + good + "\n"
+                      f"{esc(good)}</p>{context_html}{button}")
+            text = opener_text + "\n\n" + notes_text + good + "\n" + context_text
             return self._send(recipients, subject, self._shell(header, body), text)
 
         def crit_html(item):
@@ -649,8 +715,9 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         subject = (f"Welcome to Atlas Excellence — {total} open item{'s' if total != 1 else ''} at {community}"
                    if handover else
                    f"Action needed — {community}: {total} item{'s' if total != 1 else ''}")
-        body = (opener_html
+        body = (opener_html + notes_html
                 + f"{blocks}"
+                + context_html
                 + f"<div style='margin-top:22px;padding:12px 14px;background:#f6f9ff;"
                 f"border-left:3px solid #cfe0fb;font-size:13px;color:#1f2937'>"
                 f"<b>What to do next.</b> As each one is handled, open it in Atlas Excellence "
@@ -658,6 +725,9 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 f"review it and close it out.</div>{button}")
 
         text_lines = [opener_text, ""]
+        if notes_text:
+            text_lines.append(notes_text.rstrip("\n"))
+            text_lines.append("")
         if failed_items:
             text_lines.append(f"STANDARDS THAT NEED ATTENTION ({len(failed_items)})")
             for i in failed_items:
@@ -671,6 +741,9 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             for i in action_items:
                 text_lines.append(f"  - [{(i.get('priority') or 'medium').upper()}] {i.get('text')}"
                                   + (f" (for: {i.get('assigned_to')})" if i.get('assigned_to') else ""))
+            text_lines.append("")
+        if context_text:
+            text_lines.append(context_text.rstrip("\n"))
             text_lines.append("")
         text_lines.append("As each one is handled, comment on it in Atlas Excellence — a photo "
                           "helps. Your regional will review and close it out.")
