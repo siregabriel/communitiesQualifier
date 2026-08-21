@@ -2250,6 +2250,16 @@
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- Team-member profile popover -->
+    <!-- Photo viewer. Photos used to open in a new tab, which on a phone means
+         losing your place in a list you were working through. -->
+    <div id="photoLightbox" class="plb" onclick="closePhoto(event)" role="dialog" aria-label="Photo">
+        <button class="plb-close" type="button" onclick="closePhoto()" aria-label="Close photo">
+            <i class="fas fa-times"></i>
+        </button>
+        <img id="plbImg" class="plb-img" src="" alt="">
+        <div id="plbCap" class="plb-cap"></div>
+    </div>
+
     <!-- Search. Everything it looks through is already loaded and already
          scoped by the server, so there is no new way to reach another
          region's data through it. -->
@@ -3374,7 +3384,7 @@
                            <div>
                                <b>Addressed${response.addressedAt ? ' ' + escapeHtml(formatDate(response.addressedAt)) : ''}${response.addressedBy ? ' by ' + escapeHtml(response.addressedBy) : ''}</b>
                                ${response.addressedNote ? `<div class="resp-fixed-note">${escapeHtml(response.addressedNote)}</div>` : ''}
-                               ${response.addressedPhoto ? `<a class="resp-fixed-photo" href="${photoUrl(response.addressedPhoto)}" target="_blank"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                               ${response.addressedPhoto ? `<a class="resp-fixed-photo" href="#" onclick="event.preventDefault();openPhoto('${photoUrl(response.addressedPhoto)}','Photo of the fix')"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
                            </div>
                        </div>`
                     : '';
@@ -3388,7 +3398,7 @@
                             ${response.addressed ? '<span class="resp-chip-fixed"><i class="fas fa-wrench"></i> Fixed since</span>' : ''}
                         </div>
                         ${response.description ? `<div class="response-description">${escapeHtml(response.description)}</div>` : ''}
-                        ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" alt="Response photo" style="cursor:zoom-in" onclick="window.open(this.src,'_blank')" onerror="this.parentElement.style.display='none'"></div>` : ''}
+                        ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" alt="Response photo" style="cursor:zoom-in" onclick="openPhoto(this.src, ${JSON.stringify(response.questionText || 'Response photo')})" onerror="this.parentElement.style.display='none'"></div>` : ''}
                         ${outcome}
                         ${thread}
                     </div>
@@ -3429,7 +3439,7 @@
             for (const photo of photos) {
                 html += `
                     <div class="photo-item">
-                        <img src="${photoUrl(photo.path)}" alt="${escapeHtml(photo.alt)}" style="cursor:zoom-in" onclick="window.open(this.src,'_blank')" onerror="this.parentElement.style.display='none'">
+                        <img src="${photoUrl(photo.path)}" alt="${escapeHtml(photo.alt)}" style="cursor:zoom-in" onclick="openPhoto(this.src, ${JSON.stringify(photo.alt || '')})" onerror="this.parentElement.style.display='none'">
                     </div>
                 `;
             }
@@ -4687,6 +4697,42 @@
             }
         });
 
+        // ===================== Photo viewer =====================
+        // A photo is evidence, and it was opening in a new tab — which on a
+        // phone loses your place in the list you were working through, and
+        // leaves a trail of tabs behind. It opens over the page instead.
+
+        function openPhoto(src, caption) {
+            if (!src) return;
+            const box = document.getElementById('photoLightbox');
+            const img = document.getElementById('plbImg');
+            const cap = document.getElementById('plbCap');
+            if (!box || !img) return;
+            img.src = src;
+            img.alt = caption || 'Photo';
+            if (cap) cap.textContent = caption || '';
+            box.classList.add('show');
+            // Stop the page behind from scrolling under the viewer.
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePhoto(e) {
+            // Clicking the photo itself shouldn't dismiss it — only the
+            // backdrop or the close button.
+            if (e && e.target && e.target.id === 'plbImg') return;
+            const box = document.getElementById('photoLightbox');
+            if (!box) return;
+            box.classList.remove('show');
+            document.body.style.overflow = '';
+            const img = document.getElementById('plbImg');
+            if (img) img.src = '';   // stop it loading if it was still fetching
+        }
+
+        function photoIsOpen() {
+            const box = document.getElementById('photoLightbox');
+            return !!(box && box.classList.contains('show'));
+        }
+
         // ===================== Partial visits =====================
         // A visit can be filed with only some standards answered — a walk gets
         // interrupted. The score then covers only what was answered, so three
@@ -5576,7 +5622,7 @@
                 const hasPhoto = !!item.photoPath;
                 const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
                 const imageInner = hasPhoto
-                    ? `<img src="${photoUrl(item.photoPath)}" alt="Visit photo" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
+                    ? `<img src="${photoUrl(item.photoPath)}" alt="Visit photo" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, ${JSON.stringify(item.questionText || item.text || 'Visit photo')})" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
                     : `<i class="fas ${iconClass}"></i>`;
                 const isClosed = manual ? !!item.resolved : !!item.addressed;
                 const imageClass = (hasPhoto ? 'card-image' : 'card-image card-image-themed')
@@ -5616,7 +5662,7 @@
                         ? `<div class="ai-resolved">
                                <i class="fas fa-circle-check"></i> Addressed${item.addressedAt ? ' ' + formatDate(item.addressedAt) : ''}${item.addressedBy ? ' by ' + escapeHtml(item.addressedBy) : ''}
                                ${item.addressedNote ? `<div class="ai-resolved-note">${escapeHtml(item.addressedNote)}</div>` : ''}
-                               ${item.addressedPhoto ? `<a class="ai-fix-photo" href="${photoUrl(item.addressedPhoto)}" target="_blank"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                               ${item.addressedPhoto ? `<a class="ai-fix-photo" href="#" onclick="event.preventDefault();openPhoto('${photoUrl(item.addressedPhoto)}','Photo of the fix')"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
                                <div class="ai-resolved-hint">Still counts as failed on this visit — it clears when a later visit passes it.</div>
                                ${canVerifyFixes ? `<button class="ai-reopen" onclick="reopenStandard('${item.submissionId}','${qid}')">Reopen</button>` : ''}
                            </div>`
@@ -5662,7 +5708,7 @@
                             onclick="deleteComment('${item.submissionId}','${qid || ''}','${c.id}','${itemId || ''}')"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                     ${c.text ? `<div class="cm-text">${escapeHtml(c.text)}</div>` : ''}
-                    ${photo ? `<a class="cm-photo" href="${photoUrl(photo)}" target="_blank"><i class="fas fa-image"></i> Photo</a>` : ''}
+                    ${photo ? `<a class="cm-photo" href="#" onclick="event.preventDefault();openPhoto('${photoUrl(photo)}','Photo from a comment')"><i class="fas fa-image"></i> Photo</a>` : ''}
                 </div>`;
             }).join('');
             const n = (item.comments || []).length;
@@ -9276,6 +9322,10 @@
         // before reaching the line below, and the panel stayed open.
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                // The photo viewer sits on top of everything, so it closes
+                // first — otherwise Escape would shut the panel underneath it
+                // and leave the photo floating over nothing.
+                if (photoIsOpen()) { closePhoto(); return; }
                 const panel = document.getElementById('slidePanel');
                 if (panel && panel.classList.contains('show')) {
                     closeSlidePanel();

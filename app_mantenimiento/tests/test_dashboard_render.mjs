@@ -52,6 +52,7 @@ function elementFromTemplate(id) {
 }
 
 const searchMarkup = elementFromTemplate('searchOverlay');
+const lightboxMarkup = elementFromTemplate('photoLightbox');
 for (const needed of ['searchInput', 'searchResults']) {
   if (!searchMarkup.includes(needed)) {
     console.error(`The search markup no longer contains #${needed}.`);
@@ -63,6 +64,7 @@ const dom = new JSDOM(`<!doctype html><html><body>
   <div id="gallery"></div><div id="userInfo"></div><div id="userName"></div>
   <div id="attentionStrip"></div>
   ${searchMarkup}
+  ${lightboxMarkup}
 </body></html>`, { runScripts: 'dangerously', url: 'http://localhost/' });
 const w = dom.window;
 
@@ -323,6 +325,38 @@ const cardsHtml = gallery.innerHTML;
 ok((cardsHtml.match(/partial-chip/g) || []).length === 1,
    'only the partial visit is labelled, though both show 100%');
 ok(cardsHtml.includes('3 of 8 standards'), 'and it says what the number is based on');
+
+console.log('\nPhoto viewer');
+const lb = realGet('photoLightbox');
+const lbImg = realGet('plbImg');
+ok(!!lb && !!lbImg, 'the viewer markup is in the page');
+ok(!lb.classList.contains('show'), 'it starts closed');
+
+run(`openPhoto('/static/uploads/x/hallway.jpg', 'Tour Path is show time ready');`);
+ok(lb.classList.contains('show'), 'opening a photo shows it');
+ok(lbImg.getAttribute('src').endsWith('hallway.jpg'), 'and loads that photo');
+ok(realGet('plbCap').textContent.includes('Tour Path'), 'the caption says which standard');
+ok(w.document.body.style.overflow === 'hidden', 'the page behind stops scrolling');
+
+console.log('Photo viewer — dismissing');
+run(`closePhoto({ target: { id: 'plbImg' } });`);
+ok(lb.classList.contains('show'), 'clicking the photo itself does not close it');
+run(`closePhoto({ target: { id: 'photoLightbox' } });`);
+ok(!lb.classList.contains('show'), 'clicking the backdrop closes it');
+ok(w.document.body.style.overflow === '', 'and scrolling is given back');
+ok(lbImg.getAttribute('src') === '', 'the image is released');
+
+console.log('Photo viewer — Escape order');
+run(`window.__panelClosed = false; closeSlidePanel = () => { window.__panelClosed = true; };`);
+run(`openPhoto('/static/uploads/x/a.jpg', 'a');`);
+const esc = new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+w.document.dispatchEvent(esc);
+ok(!lb.classList.contains('show'), 'Escape closes the photo');
+ok(w.__panelClosed === false,
+   'and leaves the panel underneath open — otherwise you lose your place');
+
+run(`openPhoto('', 'nothing');`);
+ok(!lb.classList.contains('show'), 'an empty path opens nothing at all');
 
 console.log('');
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
