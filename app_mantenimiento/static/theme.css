@@ -371,8 +371,18 @@ html[data-theme="dark"] .hist-note { background: rgba(31,111,229,.18); color: #a
 /* What was said about a visit, opened in place from the timeline. */
 .hist-talk-btn {
     border: none; font: inherit; cursor: pointer;
-    transition: filter .12s ease;
+    padding: 0;
+    transition: filter .12s ease, color .12s ease;
 }
+/* A <button> comes with the browser's grey face and its own padding. The note
+   badge wants to keep its blue pill, so only the plain comment count is
+   stripped back — hence the two classes. */
+.hist-extra.hist-talk-btn {
+    background: none;
+    color: #94a3b8;
+}
+.hist-extra.hist-talk-btn:hover { color: var(--azure); filter: none; }
+.hist-note.hist-talk-btn { padding: 1px 8px; }
 .hist-talk-btn:hover { filter: brightness(.94); }
 .talk {
     margin: -4px 0 14px;
