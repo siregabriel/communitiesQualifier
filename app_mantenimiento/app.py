@@ -12,11 +12,13 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import os
 import re
+import requests
 from datetime import datetime #calendarios
 import json
 from services.question_manager import QuestionManager
 from services.inspection_service import InspectionService
 from services.input_sanitizer import InputSanitizer
+
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -6318,3 +6320,151 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'  # off by default; set FLASK_DEBUG=1 for local dev
     app.run(host='0.0.0.0', port=port, debug=debug)
+
+# ═══════════════════════════════════════════════════════════════════════
+# TRASPASO DE SESIÓN DESDE ATLERTS
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Pegar en app.py. Necesita `import os` y `import requests` arriba
+# (requests ya suele estar; si no: pip install requests).
+#
+# CÓMO FUNCIONA
+#   1. La app de Atlerts pide un código de un solo uso a nuestro servidor.
+#   2. Abre  https://standards.atlasseniorliving.net/sso?code=XXXX
+#   3. Esta ruta canjea el código SERVIDOR CONTRA SERVIDOR y recibe el
+#      correo verificado de esa persona.
+#   4. Busca la cuenta con ese correo y crea la MISMA sesión que /api/login.
+#
+# POR QUÉ EL CANJE Y NO EL CORREO DIRECTO EN LA URL: cualquiera podría
+# escribir ?email=keith@… y entrar como quien quisiera. El código no dice
+# nada por sí mismo; hay que preguntárselo a Atlerts, y para eso hace falta
+# el secreto compartido que solo tiene este servidor.
+
+
+ATLERTS_REDEEM_URL = (
+    "https://us-central1-atlertsapp.cloudfunctions.net/redeemExcellenceHandoff"
+)
+
+# ⚠️ Variable de entorno, NUNCA escrita aquí ni subida a git.
+#    Tiene que ser exactamente el mismo valor que EXCELLENCE_SSO_SECRET
+#    en los secretos de Firebase.
+ATLERTS_SSO_SECRET = os.environ.get("ATLERTS_SSO_SECRET", "")
+
+
+def _atlerts_account_by_email(email):
+    """Busca una cuenta por su correo. Devuelve (username, account) o None.
+
+    El diccionario `account` tiene la MISMA forma que devuelve
+    authenticate_user, para que la sesión salga idéntica a la del login
+    normal. Si aquí se inventara la forma, alguien acabaría con el
+    region_id vacío y sin entender por qué no ve su región.
+
+    Las cuentas de USERS_DB (admin/staff) NO se buscan: no guardan correo
+    —resolve_account_context devuelve email: None— así que esas personas
+    siguen entrando con su contraseña, como hasta ahora.
+    """
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+
+    # --- Cuentas creadas desde el panel (users.json) ---
+    #
+    # 👉 Si tu user_service llama distinto a "listar todas", cambia SOLO
+    #    esta línea. Es lo único que no pude ver desde aquí.
+    customs = user_service.get_all()
+
+    items = customs.items() if isinstance(customs, dict) else [
+        (u.get("username"), u) for u in (customs or [])
+    ]
+    for username, custom in items:
+        if not username or not custom:
+            continue
+        if (custom.get("email") or "").strip().lower() != email:
+            continue
+        return username, {
+            "role": custom.get("role", "staff"),
+            "community": custom.get("community"),
+            "communities": custom.get("communities")
+                or ([custom.get("community")] if custom.get("community") else []),
+            "region_id": custom.get("region_id"),
+            "display_name": profile_service.get_display_name(username)
+                or custom.get("display_name") or username,
+        }
+
+    # --- Cuentas regionales (por persona) ---
+    for username, acct in (get_regional_accounts() or {}).items():
+        if (acct.get("email") or "").strip().lower() != email:
+            continue
+        return username, {
+            "role": "regional",
+            "community": None,
+            "region_id": acct.get("region_id"),
+            "display_name": acct.get("display_name"),
+        }
+
+    return None
+
+
+@app.route("/sso")
+def atlerts_sso():
+    """Entrada desde Atlerts. Ante cualquier duda, login de siempre.
+
+    ⚠️ NUNCA crea cuentas. Solo empareja con las que ya existen. Si esta
+    ruta pudiera crear usuarios, Atlerts se convertiría sin querer en una
+    fábrica de cuentas de Excellence y nadie controlaría quién entra.
+
+    Y nunca muestra un error: quien no tenga cuenta aquí —o la tenga con
+    otro correo— ve la pantalla de acceso normal, que es lo que ha visto
+    siempre, en vez de un mensaje que no puede resolver.
+    """
+    code = (request.args.get("code") or "").strip()
+    if not code or not ATLERTS_SSO_SECRET:
+        return redirect("/login")
+
+    try:
+        resp = requests.post(
+            ATLERTS_REDEEM_URL,
+            headers={"X-Atlerts-Sso-Secret": ATLERTS_SSO_SECRET},
+            json={"code": code},
+            timeout=6,
+        )
+    except Exception as e:
+        app.logger.warning("SSO: no se pudo canjear el código: %s", e)
+        return redirect("/login")
+
+    if resp.status_code != 200:
+        # Caducado, ya usado o inexistente. Atlerts no distingue entre esos
+        # casos a propósito, y aquí tampoco hace falta.
+        return redirect("/login")
+
+    payload = resp.json() or {}
+    found = _atlerts_account_by_email(payload.get("email"))
+    if not found:
+        app.logger.info("SSO: sin cuenta de Excellence para ese correo")
+        return redirect("/login")
+
+    username, account = found
+
+    # A partir de aquí, IDÉNTICO a /api/login. Si algún día cambia allí,
+    # tiene que cambiar aquí: dos sesiones distintas para la misma persona
+    # es un error que solo aparece en la pantalla más rara de la app.
+    session["user"] = username
+    session["community"] = account["community"]
+    session["communities"] = account.get("communities") or (
+        [account["community"]] if account["community"] else []
+    )
+    session["role"] = account["role"]
+    session["region_id"] = account["region_id"]
+    session["display_name"] = account["display_name"]
+    session.permanent = True
+    session["admin_extra"] = profile_service.get_admin_extra(username)
+    must_change = profile_service.get_must_change(username)
+    session["must_change"] = bool(must_change)
+
+    presence_service.record_login(username)
+    activity_service.log(
+        username, "login", "Signed in from Atlerts",
+        meta={"ip": _client_ip()},
+    )
+
+    return redirect("/change-password" if must_change else "/")
