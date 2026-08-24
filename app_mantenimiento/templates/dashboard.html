@@ -329,9 +329,15 @@
         }
         .dashboard-container { position: relative; z-index: 1; }
 
+        /* The layer is pinned to the visible area, so any drift would slide an
+           edge into view — a hard line down the right of the page at the start
+           of the loop, where the scale was still 1.
+           Both ends are now scaled up enough that the overhang always exceeds
+           the travel: at scale s the layer spills (s-1)/2 past each side, so
+           1.20 covers the 6% step out and 1.35 covers the 7% back. */
         @keyframes ambientDrift {
-            from { transform: translate3d(-6%, -3%, 0) scale(1); }
-            to   { transform: translate3d( 7%,  5%, 0) scale(1.18); }
+            from { transform: translate3d(-6%, -3%, 0) scale(1.20); }
+            to   { transform: translate3d( 7%,  5%, 0) scale(1.35); }
         }
         @keyframes ambientTint {
             from { filter: hue-rotate(-40deg) saturate(1.15); }
