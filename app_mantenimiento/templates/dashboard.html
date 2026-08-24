@@ -3940,7 +3940,7 @@
                 canVerifyFixes = !!data.can_verify_fixes;
                 canRunVisits = !!data.can_run_visits;
                 if (data.visit_cadence_days) visitCadenceDays = data.visit_cadence_days;
-                if (data.view_as) showViewAsBanner(data.view_as);
+                if (data.view_as) showViewAsBanner(data.view_as, data.view_as_communities);
                 // The bottom tab bar offers New Visit; hide it for
                 // accounts that aren't allowed to run one.
                 if (!canRunVisits) {
@@ -4805,13 +4805,13 @@
         // way out — which matters, because the admin menu is hidden while
         // previewing and there would otherwise be no visible exit.
 
-        async function startViewAs(community) {
-            if (!community) return;
+        async function startViewAs(username) {
+            if (!username) return;
             try {
                 const r = await fetch('/api/view-as', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ community })
+                    body: JSON.stringify({ username })
                 });
                 const d = await r.json();
                 if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not start');
@@ -4830,16 +4830,17 @@
             location.reload();
         }
 
-        function showViewAsBanner(community) {
-            if (!community || document.getElementById('viewAsBar')) return;
+        function showViewAsBanner(label, communities) {
+            if (!label || document.getElementById('viewAsBar')) return;
+            const where = (communities || []).join(' and ');
             const bar = document.createElement('div');
             bar.id = 'viewAsBar';
             bar.className = 'viewas';
             bar.innerHTML = `
                 <i class="fas fa-eye"></i>
-                <span>You're seeing the app as the Executive Director of
-                      <b>${escapeHtml(community)}</b>. Anything you do here is real,
-                      and is recorded under your own name.</span>
+                <span>You're seeing the app as <b>${escapeHtml(label)}</b>${
+                    where ? ` — ${escapeHtml(where)}` : ''}. Anything you do here is
+                    real, and is recorded under your own name.</span>
                 <button type="button" onclick="stopViewAs()">Leave preview</button>`;
             document.body.appendChild(bar);
             document.body.classList.add('has-viewas');
@@ -7130,8 +7131,9 @@
                         </div>
                     </div>
                     <div class="ppl-actions">
-                        ${p.role === 'staff' && p.scope ? `<button class="region-edit-btn" title="See the app as this Executive Director sees it"
-                            onclick="startViewAs(${JSON.stringify(p.scope.split(' · ')[0])})"><i class="fas fa-eye"></i></button>` : ''}
+                        ${p.role === 'staff' && (p.communities || []).length ? `<button class="region-edit-btn"
+                            title="See the app as this Executive Director sees it"
+                            onclick="startViewAs('${safeU}')"><i class="fas fa-eye"></i></button>` : ''}
                         <button class="region-edit-btn" title="Edit" onclick="openPersonEdit('${safeU}')"><i class="fas fa-pen"></i></button>
                         <button class="region-edit-btn" title="Reset password" onclick="peopleResetPassword('${safeU}')"><i class="fas fa-key"></i></button>
                     </div>

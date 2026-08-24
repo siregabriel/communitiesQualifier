@@ -734,8 +734,14 @@ except Exception as _e:
 # directly, which the preview never touches.
 
 def viewing_as():
-    """The community being previewed, or None when not previewing."""
-    return session.get('view_as_community') or None
+    """The preview in progress, or None.
+
+    {'communities': [...], 'label': 'Jazmyn Frazier'} — a list, because an
+    Executive Director can stand in for a neighbouring community and a preview
+    that showed only one of them would be showing a different job than the one
+    that person actually does."""
+    v = session.get('view_as')
+    return v if isinstance(v, dict) and v.get('communities') else None
 
 
 def real_is_admin():
@@ -836,10 +842,10 @@ def session_communities():
     single string. An ED can now stand in for a neighbouring community, so the
     answer is a list — with the old single value as a fallback for sessions
     created before this existed."""
-    # A preview covers exactly the one community being looked at.
+    # A preview covers exactly what that account covers.
     previewing = viewing_as()
     if previewing:
-        return [previewing]
+        return list(previewing['communities'])
     comms = session.get('communities')
     if comms:
         return [c for c in comms if c]
@@ -4404,19 +4410,41 @@ def save_visit_cadence():
 @app.route('/api/view-as', methods=['POST'])
 @login_required
 def start_view_as():
-    """Look at the app as one community's Executive Director sees it."""
+    """Look at the app as one Executive Director sees it.
+
+    Takes the account rather than a community name, so the preview inherits
+    every community that person covers — including the second one when they
+    are standing in for a neighbour."""
     if not real_is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}
-    community = InputSanitizer.sanitize_community_name(data.get('community', ''))
-    if not community or community not in set(all_communities()):
-        return jsonify({'status': 'error', 'message': 'Pick a valid community'}), 400
 
-    session['view_as_community'] = community
+    username = InputSanitizer.sanitize_string(data.get('username', ''), max_length=80)
+    if username:
+        account = user_service.get(username)
+        if not account or account.get('role') != 'staff':
+            return jsonify({'status': 'error',
+                            'message': 'That is not an Executive Director account'}), 400
+        communities = [c for c in account_communities(account) if c]
+        label = account.get('display_name') or username
+    else:
+        # Straight to a community, for when there is no account yet.
+        one = InputSanitizer.sanitize_community_name(data.get('community', ''))
+        communities = [one] if one else []
+        label = one
+
+    known = set(all_communities())
+    communities = [c for c in communities if c in known]
+    if not communities:
+        return jsonify({'status': 'error',
+                        'message': 'That account has no community assigned'}), 400
+
+    session['view_as'] = {'communities': communities, 'label': label}
     session.modified = True
     activity_service.log(session.get('user'), 'view_as_started',
-                         f'Started previewing as {community}')
-    return jsonify({'status': 'success', 'community': community}), 200
+                         f"Started previewing as {label} ({', '.join(communities)})")
+    return jsonify({'status': 'success', 'label': label,
+                    'communities': communities}), 200
 
 
 @app.route('/api/view-as/stop', methods=['POST'])
@@ -4425,11 +4453,11 @@ def stop_view_as():
     """Leave the preview. Deliberately does not ask is_admin(), which answers
     False while a preview is running — that check would lock the door from the
     inside."""
-    was = session.pop('view_as_community', None)
+    was = session.pop('view_as', None)
     session.modified = True
     if was:
         activity_service.log(session.get('user'), 'view_as_stopped',
-                             f'Stopped previewing as {was}')
+                             f"Stopped previewing as {was.get('label', '')}")
     return jsonify({'status': 'success'}), 200
 
 @app.route('/api/user-info')
@@ -4476,7 +4504,8 @@ def get_user_info():
         'visit_cadence_days': settings_service.get_visit_cadence_days(),
         # Set only while an administrator is previewing as a community. The
         # banner and the way out are driven from this.
-        'view_as': viewing_as(),
+        'view_as': (viewing_as() or {}).get('label'),
+        'view_as_communities': (viewing_as() or {}).get('communities') or [],
         'communities': communities
     }), 200
 

@@ -1774,6 +1774,48 @@ def test_a_preview_cannot_reach_administrative_actions():
         assert not A.user_service.get("should.not.exist")
 
 
+def test_a_preview_inherits_every_community_that_account_covers():
+    """An Executive Director can stand in for a neighbouring community. A
+    preview that showed only one of them would be showing a different job than
+    the one that person actually does."""
+    first, second, _ = _two_communities()
+    ed = "smoke.preview.two"
+    A.user_service.create(ed, "Two Community ED", "staff", "x" * 20,
+                          community=first, communities=[first, second],
+                          email="two@example.test")
+    c = _client()
+    _as_admin(c)
+    try:
+        r = c.post("/api/view-as", json={"username": ed}, headers=HDR)
+        assert r.status_code == 200, r.get_data(as_text=True)
+        assert sorted(r.get_json()["communities"]) == sorted([first, second])
+
+        d = c.get("/api/user-info").get_json()
+        assert sorted(d["communities"]) == sorted([first, second]), \
+            "the preview dropped one of the communities they cover"
+        assert d["view_as"] == "Two Community ED", "the banner names the person"
+
+        # Both communities are genuinely reachable, not just listed.
+        for comm in (first, second):
+            assert c.get(f"/api/communities/{comm}/history").status_code == 200
+    finally:
+        c.post("/api/view-as/stop", json={}, headers=HDR)
+        if A.user_service.get(ed):
+            A.user_service.delete(ed)
+        A.presence_service.forget(ed)
+
+
+def test_a_preview_only_targets_an_executive_director():
+    c = _client()
+    _as_admin(c)
+    try:
+        for who in ("admin", "nobody.at.all"):
+            r = c.post("/api/view-as", json={"username": who}, headers=HDR)
+            assert r.status_code == 400, f"previewing as {who} was allowed"
+    finally:
+        c.post("/api/view-as/stop", json={}, headers=HDR)
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")
