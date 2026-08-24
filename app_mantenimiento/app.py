@@ -136,6 +136,20 @@ _MUST_CHANGE_ALLOW = {'/change-password', '/api/profile/password', '/logout',
                       '/api/user-info', '/login', '/api/login', '/api/forgot-password'}
 
 
+# The preview used to block every write. It doesn't any more, on purpose: the
+# point of training is to show the loop working, and a demonstration that stops
+# short of the result teaches half of it.
+#
+# Nothing is falsified by allowing it. A preview changes what an administrator
+# is shown, not who they are — session['user'] is untouched, so a comment left
+# during a preview is recorded and emailed under their own name, not the
+# Executive Director's.
+#
+# Administrative actions stay out of reach regardless: is_admin() answers False
+# while previewing, so every admin endpoint refuses on its own terms. What a
+# preview can do is exactly what that community can do.
+
+
 @app.before_request
 def _must_change_guard():
     """When an admin has reset an account, the user must set a new password
@@ -702,7 +716,48 @@ except Exception as _e:
     app.logger.error(f'People upkeep failed: {_e}')
 
 
+# ===================== Previewing the app as an Executive Director =====================
+#
+# An administrator can look at the app exactly as one community sees it —
+# useful for training, and for answering "what does my ED actually see?"
+# without creating a fake account that would then receive real emails and
+# appear as that community's director.
+#
+# Two rules make it safe, and both are enforced in one place each rather than
+# screen by screen:
+#   - Only a real administrator can start it (real_is_admin, below).
+#   - Nothing can be written while it is on (_preview_is_read_only).
+#
+# While previewing, is_admin() answers False on purpose: the point is to see
+# what they see, and an admin menu on screen would defeat that. Stopping the
+# preview therefore cannot depend on is_admin() — it reads the stored role
+# directly, which the preview never touches.
+
+def viewing_as():
+    """The community being previewed, or None when not previewing."""
+    return session.get('view_as_community') or None
+
+
+def real_is_admin():
+    """Admin status ignoring any preview in progress.
+
+    Everything else asks is_admin(), which deliberately says False while a
+    preview is running. Starting and stopping a preview has to ask this one, or
+    an administrator could enter a preview and never get out of it."""
+    if session.get('role') == 'admin':
+        return True
+    return bool(session.get('admin_extra'))
+
+
 def current_role():
+    # A preview makes every downstream check — capabilities, scoping, which
+    # menu items appear — behave as it does for that community.
+    if viewing_as():
+        return 'staff'
+    return _stored_role()
+
+
+def _stored_role():
     """Resolve the current session role, with backward-compatible fallback."""
     role = session.get('role')
     if role:
@@ -727,7 +782,12 @@ def is_leadership(role=None):
 
 def is_native_admin():
     """True only for real Administrator accounts. The admin accessory does NOT
-    count here — granting privileges is reserved for the main administrator."""
+    count here — granting privileges is reserved for the main administrator.
+
+    False while previewing as a community, so the preview shows what that
+    community sees rather than an administrator's view of it."""
+    if viewing_as():
+        return False
     return current_role() == 'admin'
 
 
@@ -735,6 +795,8 @@ def is_admin():
     """True when the user may perform administrative actions — either because
     they are an Administrator, or because the main administrator granted them
     the admin accessory on top of their own role (e.g. a Corporate member)."""
+    if viewing_as():
+        return False
     if is_native_admin():
         return True
     return bool(session.get('admin_extra'))
@@ -774,6 +836,10 @@ def session_communities():
     single string. An ED can now stand in for a neighbouring community, so the
     answer is a list — with the old single value as a fallback for sessions
     created before this existed."""
+    # A preview covers exactly the one community being looked at.
+    previewing = viewing_as()
+    if previewing:
+        return [previewing]
     comms = session.get('communities')
     if comms:
         return [c for c in comms if c]
@@ -4335,6 +4401,37 @@ def save_visit_cadence():
     return jsonify({'status': 'success', 'visit_cadence_days': days}), 200
 
 
+@app.route('/api/view-as', methods=['POST'])
+@login_required
+def start_view_as():
+    """Look at the app as one community's Executive Director sees it."""
+    if not real_is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    community = InputSanitizer.sanitize_community_name(data.get('community', ''))
+    if not community or community not in set(all_communities()):
+        return jsonify({'status': 'error', 'message': 'Pick a valid community'}), 400
+
+    session['view_as_community'] = community
+    session.modified = True
+    activity_service.log(session.get('user'), 'view_as_started',
+                         f'Started previewing as {community}')
+    return jsonify({'status': 'success', 'community': community}), 200
+
+
+@app.route('/api/view-as/stop', methods=['POST'])
+@login_required
+def stop_view_as():
+    """Leave the preview. Deliberately does not ask is_admin(), which answers
+    False while a preview is running — that check would lock the door from the
+    inside."""
+    was = session.pop('view_as_community', None)
+    session.modified = True
+    if was:
+        activity_service.log(session.get('user'), 'view_as_stopped',
+                             f'Stopped previewing as {was}')
+    return jsonify({'status': 'success'}), 200
+
 @app.route('/api/user-info')
 @login_required
 def get_user_info():
@@ -4377,6 +4474,9 @@ def get_user_info():
         # it to flag the ones falling behind, so it has to be here rather than
         # only in the attention payload — that one is dashboard-only.
         'visit_cadence_days': settings_service.get_visit_cadence_days(),
+        # Set only while an administrator is previewing as a community. The
+        # banner and the way out are driven from this.
+        'view_as': viewing_as(),
         'communities': communities
     }), 200
 

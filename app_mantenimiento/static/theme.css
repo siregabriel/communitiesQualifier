@@ -437,6 +437,40 @@ html[data-theme="dark"] .talk-text { color: #9fb0c4; }
 html[data-theme="dark"] .vnote { background: rgba(31,111,229,.10); }
 html[data-theme="dark"] .vnote-text { color: #eef2f8; }
 
+/* ===== Previewing as a community =====
+   Pinned to the bottom and impossible to mistake for part of the app. Amber
+   rather than blue: this is a state you are in, not a feature you are using,
+   and the admin menu is hidden while it lasts — so this bar is the only way
+   back out. */
+.viewas {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 4500;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px;
+    background: #7a5504; color: #fff;
+    font-size: 13.5px; font-weight: 600;
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, .22);
+}
+.viewas > i { font-size: 15px; opacity: .9; flex-shrink: 0; }
+.viewas span { flex: 1; min-width: 0; line-height: 1.45; }
+.viewas b { font-weight: 800; }
+.viewas button {
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, .5);
+    background: rgba(255, 255, 255, .14);
+    color: #fff; font-weight: 800; font-size: 13px;
+    padding: 8px 15px; border-radius: 8px; cursor: pointer;
+    transition: background .15s ease;
+}
+.viewas button:hover { background: rgba(255, 255, 255, .26); }
+/* Keep the bar off whatever sits at the bottom of the page — on a phone that
+   is the tab bar, which would otherwise be buried. */
+body.has-viewas { padding-bottom: 58px; }
+@media (max-width: 768px) {
+    .viewas { flex-wrap: wrap; gap: 8px; padding: 10px 14px; bottom: 74px; }
+    .viewas span { flex-basis: 100%; font-size: 12.5px; }
+    body.has-viewas { padding-bottom: 132px; }
+}
+
 /* ===== Photo viewer =====
    Opens over the page rather than in a new tab. Dark backdrop regardless of
    theme: a photo of a hallway reads better against black, and this is the one

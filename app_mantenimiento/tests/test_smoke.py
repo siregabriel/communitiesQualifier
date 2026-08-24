@@ -1651,6 +1651,129 @@ def test_the_note_leads_both_emails():
         svc.enabled = original_enabled
 
 
+# ---------------------------------------------------------------------------
+# Previewing the app as a community.
+#
+# The alternative was a fake ED account on a real community, which would then
+# receive that community's emails and show up as its director. This keeps the
+# administrator's own account and changes what they are shown — so the two
+# things that matter are that only an administrator can start it, and that
+# nothing can be written while it is on.
+
+def test_only_an_administrator_can_preview():
+    comm = _a_community()
+    for role, kwargs, name in (
+            ("regional", {"region_id": "coastal"}, "smoke.prev.reg"),
+            ("staff", {"community": comm}, "smoke.prev.ed")):
+        c = _client()
+        _as_role(c, role, name=name, **kwargs)
+        try:
+            r = c.post("/api/view-as", json={"community": comm}, headers=HDR)
+            assert r.status_code == 403, f"a {role} could start a preview"
+        finally:
+            A.presence_service.forget(name)
+
+    c = _client()
+    _as_admin(c)
+    try:
+        assert c.post("/api/view-as", json={"community": comm},
+                      headers=HDR).status_code == 200
+        # And not at a community that doesn't exist.
+        c.post("/api/view-as/stop", json={}, headers=HDR)
+        assert c.post("/api/view-as", json={"community": "Nowhere At All"},
+                      headers=HDR).status_code == 400
+    finally:
+        c.post("/api/view-as/stop", json={}, headers=HDR)
+
+
+def test_the_preview_shows_exactly_what_that_community_sees():
+    comm = _a_community()
+    c = _client()
+    _as_admin(c)
+    try:
+        before = c.get("/api/user-info").get_json()
+        assert before["is_admin"] is True
+
+        c.post("/api/view-as", json={"community": comm}, headers=HDR)
+        d = c.get("/api/user-info").get_json()
+        assert d["view_as"] == comm
+        assert d["role"] == "staff", "the preview did not take on the role"
+        assert d["is_admin"] is False, "an admin menu during the preview defeats the point"
+        assert d["communities"] == [comm], "the preview is not scoped to one community"
+        assert d["can_run_visits"] is False and d["can_verify_fixes"] is False
+
+        # The menu loses the administrator-only sections.
+        labels = [x[0] for x in _sidebar_nav(c.get("/dashboard").get_data(as_text=True))]
+        assert "People" not in labels and "Standards" not in labels
+
+        # Admin endpoints are refused, not merely hidden.
+        assert c.get("/questions/manage").status_code in (302, 403)
+        assert c.get("/api/leaderboard").status_code == 403
+    finally:
+        c.post("/api/view-as/stop", json={}, headers=HDR)
+        after = c.get("/api/user-info").get_json()
+        assert after["is_admin"] is True, "leaving the preview did not restore the admin"
+        assert after["view_as"] is None
+
+
+def test_a_preview_acts_under_the_administrator_s_own_name():
+    """The preview changes what an administrator is shown, not who they are.
+
+    That is what makes it safe to let them act: a comment left while previewing
+    is recorded and emailed under their own name, so nothing in the record
+    claims the community said something it didn't."""
+    comm = _a_community()
+    sub = _seed_failed_visit(comm)
+    sid = sub["id"]
+    c = _client()
+    _as_admin(c)
+    try:
+        c.post("/api/view-as", json={"community": comm}, headers=HDR)
+        r = c.post(f"/api/action-items/{sid}/standard/smoke_q4/comments",
+                   json={"text": "Training demo"}, headers=HDR)
+        assert r.status_code == 201, r.get_data(as_text=True)
+        comment = r.get_json()["comment"]
+        assert comment["username"] == "admin", (
+            "a comment made while previewing must carry the administrator's own "
+            f"name, not the community's: {comment['username']}")
+    finally:
+        c.post("/api/view-as/stop", json={}, headers=HDR)
+        A.inspection_service.submissions = [
+            x for x in A.inspection_service.submissions if x.get("id") != sid]
+        A.inspection_service.save_to_file()
+
+
+def test_a_preview_cannot_reach_administrative_actions():
+    """Nothing here is enforced by the preview itself — is_admin() answers False
+    while it runs, so every admin endpoint refuses on its own terms. This is
+    what stops a preview from being a way around the role."""
+    comm = _a_community()
+    c = _client()
+    _as_admin(c)
+    try:
+        c.post("/api/view-as", json={"community": comm}, headers=HDR)
+        blocked = [
+            ("POST", "/api/settings/visit-cadence", {"days": 45}),
+            ("POST", "/api/settings/email", {"admin_notify": "x@example.test"}),
+            ("POST", "/api/people", {"name": "Should Not Exist", "role": "staff",
+                                     "community": comm}),
+            ("DELETE", "/api/people/whoever", None),
+            ("POST", "/api/admin/reset-inspections", {"confirm": "RESET"}),
+        ]
+        for method, path, body in blocked:
+            r = c.open(path, method=method, json=body, headers=HDR)
+            assert r.status_code == 403, f"{method} {path} was allowed: {r.status_code}"
+
+        # A community cannot file its own visit, and neither can a preview of one.
+        assert c.post("/api/inspections", headers=HDR, data={}).status_code == 403
+
+        assert c.get("/api/inspections").status_code == 200
+        assert c.post("/api/view-as/stop", json={}, headers=HDR).status_code == 200
+    finally:
+        c.post("/api/view-as/stop", json={}, headers=HDR)
+        assert not A.user_service.get("should.not.exist")
+
+
 def test_leaderboard_hidden_from_community_accounts():
     c = _client()
     _as_role(c, "staff", community=_a_community(), name="smoke.ed")
