@@ -1083,6 +1083,14 @@
                 {% endif %}
             </div>
             <div style="display:flex;gap:10px;align-items:flex-start;">
+                <!-- The way out. Until this existed, choosing the wrong survey type
+                     left you with the browser's back button or logging out — and
+                     "Back to home" only appeared after submitting, which is no help
+                     to someone who hasn't started. Leaving is safe: the form saves
+                     itself as you go, so the visit is waiting when you return. -->
+                <a class="logout-btn" href="/dashboard"
+                   style="background:#eef2fb;border:1px solid #c7d6f0;color:#00285c;text-decoration:none;display:inline-flex;align-items:center;gap:7px;"
+                   title="Back to the dashboard — your answers are saved on this device"><i class="fas fa-house"></i> Home</a>
                 <button class="logout-btn" type="button" id="themeToggleBtn" onclick="toggleTheme()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#00285c;" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
                 <button class="logout-btn" type="button" onclick="startFormTour()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#00285c;" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
                 <button class="logout-btn" onclick="logout()">Logout</button>
