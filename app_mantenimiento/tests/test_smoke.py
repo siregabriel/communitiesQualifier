@@ -197,6 +197,7 @@ def test_community_rename_updates_moveins_and_cover():
     # seed a cover record for the old slug
     A.community_cover_service.set(A.community_slug(old), old,
                                   "community_covers/test.jpg", "test.jpg")
+    raised = A.raised_item_service.create(old, "Follows the rename", "admin", "Administrator")
     try:
         r = c.post("/api/regions/rename-community",
                    json={"old_name": old, "new_name": new}, headers=HDR)
@@ -207,12 +208,19 @@ def test_community_rename_updates_moveins_and_cover():
 
         assert A.community_cover_service.get(A.community_slug(new)) is not None
         assert A.community_cover_service.get(A.community_slug(old)) is None
+
+        # Anything the community raised for itself follows the rename too.
+        assert A.raised_item_service.for_communities([new]), \
+            "a raised item was left pointing at the old name"
+        assert not A.raised_item_service.for_communities([old])
     finally:
         # restore everything: rename back, drop cover + move-in
         c.post("/api/regions/rename-community",
                json={"old_name": new, "new_name": old}, headers=HDR)
         A.community_cover_service.delete(A.community_slug(old))
         A.community_cover_service.delete(A.community_slug(new))
+        if raised:
+            A.raised_item_service.delete(raised["id"])
         c.delete(f"/api/moveins/{mid}", headers=HDR)
 
 
@@ -1814,6 +1822,107 @@ def test_a_preview_only_targets_an_executive_director():
             assert r.status_code == 400, f"previewing as {who} was allowed"
     finally:
         c.post("/api/view-as/stop", json={}, headers=HDR)
+
+
+# ---------------------------------------------------------------------------
+# Items a community raises for itself.
+#
+# Until this existed an Executive Director could only comment on a finding that
+# already existed — so if nothing had failed in the living room, there was no
+# way to say the furniture needed replacing. Kept apart from what a regional
+# finds on a visit: one says "this is wrong, fix it", the other "I need this".
+
+def test_an_ed_can_raise_an_item_and_the_regional_sees_it():
+    region = A.region_service.get_all_regions()[0]
+    comm = region["communities"][0]
+    ed = _client()
+    _as_role(ed, "staff", community=comm, name="smoke.raise.ed")
+    with ed.session_transaction() as s:
+        s["communities"] = [comm]
+        s["display_name"] = "Smoke ED"
+    made = []
+    try:
+        r = ed.post("/api/raised-items",
+                    json={"text": "Living room furniture is worn", "priority": "high"},
+                    headers=HDR)
+        assert r.status_code == 201, r.get_data(as_text=True)
+        item = r.get_json()["item"]
+        made.append(item["id"])
+
+        # The community is inferred — somebody covering one shouldn't name it.
+        assert item["community"] == comm
+        assert item["raised_by_name"] == "Smoke ED", \
+            f"stored the login instead of the person's name: {item['raised_by_name']}"
+        assert item["priority"] == "high"
+
+        # Their regional sees it.
+        reg = _client()
+        _as_role(reg, "regional", region_id=region["id"], name="smoke.raise.reg")
+        seen = reg.get("/api/raised-items").get_json()["items"]
+        assert any(i["id"] == item["id"] for i in seen), "the regional cannot see it"
+
+        # It is not part of any visit, so no score can move because of it.
+        for sub in A.inspection_service.get_all_submissions():
+            assert item["id"] not in _json_dump(sub), "a raised item leaked into a visit"
+    finally:
+        for i in made:
+            A.raised_item_service.delete(i)
+        for u in ("smoke.raise.ed", "smoke.raise.reg"):
+            A.presence_service.forget(u)
+
+
+def _json_dump(obj):
+    import json as _json
+    return _json.dumps(obj)
+
+
+def test_a_raised_item_stays_inside_its_community():
+    first, second, _ = _two_communities()
+    a = _client()
+    _as_role(a, "staff", community=first, name="smoke.raise.a")
+    with a.session_transaction() as s:
+        s["communities"] = [first]
+    b = _client()
+    _as_role(b, "staff", community=second, name="smoke.raise.b")
+    with b.session_transaction() as s:
+        s["communities"] = [second]
+    made = []
+    try:
+        item = a.post("/api/raised-items", json={"text": "Ours only"},
+                      headers=HDR).get_json()["item"]
+        made.append(item["id"])
+
+        assert not b.get("/api/raised-items").get_json()["items"], \
+            "another community can see it"
+        assert b.post(f"/api/raised-items/{item['id']}/resolve", json={},
+                      headers=HDR).status_code == 403, \
+            "another community can close it"
+
+        # The community that raised it may close its own — closing a finding
+        # moves the score, which is why that stays with a regional; this does
+        # not, and the person who asked knows when it arrived.
+        assert a.post(f"/api/raised-items/{item['id']}/resolve",
+                      json={"note": "Done"}, headers=HDR).status_code == 200
+        assert not a.get("/api/raised-items").get_json()["items"], \
+            "a closed item is still listed as open"
+    finally:
+        for i in made:
+            A.raised_item_service.delete(i)
+        for u in ("smoke.raise.a", "smoke.raise.b"):
+            A.presence_service.forget(u)
+
+
+def test_raising_something_empty_is_refused():
+    comm = _a_community()
+    c = _client()
+    _as_role(c, "staff", community=comm, name="smoke.raise.empty")
+    with c.session_transaction() as s:
+        s["communities"] = [comm]
+    try:
+        assert c.post("/api/raised-items", json={"text": "   "},
+                      headers=HDR).status_code == 400
+    finally:
+        A.presence_service.forget("smoke.raise.empty")
 
 
 def test_leaderboard_hidden_from_community_accounts():

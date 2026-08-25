@@ -31,8 +31,9 @@
     .mtab-item:active .mtab-ic { transform: scale(.9); }
     /* Emphasized center action: New Visit is the primary task, so it becomes a
        larger, raised accent button that pops above the bar. */
-    .mtab-item[data-tab="new-visit"] { position: relative; }
-    .mtab-item[data-tab="new-visit"] .mtab-ic {
+    .mtab-item[data-tab="new-visit"], .mtab-item[data-tab="raise-item"] { position: relative; }
+    .mtab-item[data-tab="new-visit"] .mtab-ic,
+    .mtab-item[data-tab="raise-item"] .mtab-ic {
         width: 54px; height: 54px; margin-top: -24px; margin-bottom: 1px;
         border-radius: 50%; color: #fff !important; font-size: 21px;
         display: flex; align-items: center; justify-content: center;
@@ -40,10 +41,13 @@
         border: 4px solid #fff;
         box-shadow: 0 10px 22px rgba(0,40,92,.42), inset 0 1px 0 rgba(255,255,255,.45);
     }
-    .mtab-item[data-tab="new-visit"] .mtab-lb { color: #1f6fe5 !important; font-weight: 800; }
-    .mtab-item[data-tab="new-visit"].on { background: transparent; }
-    .mtab-item[data-tab="new-visit"]:active .mtab-ic { transform: scale(.94); }
-    html[data-theme="dark"] .mtab-item[data-tab="new-visit"] .mtab-ic { border-color: #131d2c; }
+    .mtab-item[data-tab="new-visit"] .mtab-lb,
+    .mtab-item[data-tab="raise-item"] .mtab-lb { color: #1f6fe5 !important; font-weight: 800; }
+    .mtab-item[data-tab="new-visit"].on, .mtab-item[data-tab="raise-item"].on { background: transparent; }
+    .mtab-item[data-tab="new-visit"]:active .mtab-ic,
+    .mtab-item[data-tab="raise-item"]:active .mtab-ic { transform: scale(.94); }
+    html[data-theme="dark"] .mtab-item[data-tab="new-visit"] .mtab-ic,
+    .mtab-item[data-tab="raise-item"] .mtab-ic { border-color: #131d2c; }
     /* Dark mode (only applies when a page sets data-theme="dark") */
     html[data-theme="dark"] .mtab {
         background: rgba(22,31,46,.72); border-color: rgba(255,255,255,.12);
@@ -63,6 +67,13 @@
     </a>
     <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'new-visit' else '' }}" data-tab="new-visit" href="/select-survey-type">
         <span class="mtab-ic"><i class="fas fa-plus"></i></span><span class="mtab-lb">New Visit</span>
+    </a>
+    {# The centre slot for the role that doesn't run visits. Only one of these
+       two is ever shown: the dashboard hides whichever doesn't apply. #}
+    <a class="mtab-item" data-tab="raise-item" href="#"
+       onclick="event.preventDefault(); if (typeof openRaiseItem === 'function') openRaiseItem();"
+       style="display:none;">
+        <span class="mtab-ic"><i class="fas fa-plus"></i></span><span class="mtab-lb">Raise</span>
     </a>
     <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'move-ins' else '' }}" data-tab="move-ins" data-view="move-ins" href="/dashboard?view=move-ins">
         <span class="mtab-ic"><i class="fas fa-house-circle-check"></i></span><span class="mtab-lb">Move-Ins</span>

@@ -437,6 +437,40 @@ ok(talk.hidden === true, 'and closes it again');
 ok(run(`visitTalkPanel({ id: 'v_2', comments: 0, comment_list: [], notes: '' })`) === '',
    'a visit with nothing said renders no panel at all');
 
+console.log('\nRaised by the community');
+const raised = [
+  { id: 'r1', community: "O'Brien Place", text: 'Living room furniture is "worn" and needs replacing',
+    priority: 'high', photo: 'x/sofa.jpg', raised_by_name: 'Jazmyn Frazier',
+    raised_at: new Date().toISOString(), resolved: false },
+  { id: 'r2', community: "O'Brien Place", text: 'Fire extinguisher tag is out of date',
+    priority: 'medium', photo: '', raised_by_name: 'Jazmyn Frazier',
+    raised_at: new Date().toISOString(), resolved: false },
+  { id: 'r3', community: "O'Brien Place", text: 'Already handled', priority: 'low',
+    photo: '', raised_by_name: 'Jazmyn Frazier', raised_at: new Date().toISOString(), resolved: true },
+];
+run(`raisedItems = ${JSON.stringify(raised)};`);
+const ri = run('raisedItemsHtml()');
+ok(ri.includes('Raised by the community'), 'the section renders');
+ok((ri.match(/ri-card/g) || []).length === 2, 'resolved ones are not shown');
+ok(ri.includes('>2<'), 'the count matches what is open');
+ok(ri.includes('no score changed'), 'it says plainly that this is not a finding');
+ok(ri.includes('Jazmyn Frazier'), 'it names who raised it');
+
+// The quoting trap again — parse it rather than trusting the string.
+const box = w.document.createElement('div');
+box.innerHTML = ri;
+const riPhoto = box.querySelector('.ri-photo');
+ok(!!riPhoto, 'a photo is shown when there is one');
+const stray = [...riPhoto.attributes].map(a => a.name)
+  .filter(n => !['class','src','alt','style','onclick','onerror'].includes(n));
+ok(stray.length === 0, `quotes in the text do not break out of the attribute (${stray.join(', ')})`);
+ok(box.querySelector('.ri-text').textContent.includes('"worn"'), 'and the text reads correctly');
+
+run('raisedItems = [];');
+ok(run('raisedItemsHtml()') === '', 'nothing raised, nothing rendered');
+run(`raisedItems = ${JSON.stringify([raised[2]])};`);
+ok(run('raisedItemsHtml()') === '', 'only resolved ones is the same as nothing');
+
 console.log('');
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

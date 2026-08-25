@@ -337,6 +337,12 @@ community_cover_service = CommunityCoverService(COVERS_FILE)
 
 # Move-In module: editable checklist template + per-resident move-in records
 MOVEIN_TEMPLATE_FILE = os.path.join(DATA_FOLDER, 'movein_template.json')
+# Things a community raises for itself, as opposed to what a regional finds on
+# a visit. Kept in their own store because they aren't part of any visit.
+from services.raised_item_service import RaisedItemService
+RAISED_FILE = os.path.join(DATA_FOLDER, 'raised_items.json')
+raised_item_service = RaisedItemService(RAISED_FILE)
+
 MOVEINS_FILE = os.path.join(DATA_FOLDER, 'moveins.json')
 from services.move_in_service import MoveInTemplateService, MoveInService
 movein_template_service = MoveInTemplateService(MOVEIN_TEMPLATE_FILE)
@@ -1054,6 +1060,19 @@ def leadership_names():
             if n and n.lower() != 'open':
                 names.add(n)
     return sorted(names)
+
+
+def _display_name_for(username):
+    """The best name we have for whoever is acting right now.
+
+    resolve_display_name() ends by returning the username when it finds nothing,
+    which would quietly store "jazmyn.frasier" where a person's name belongs —
+    and that string is then read for years. The session carries the real name
+    from sign-in, so try that before settling."""
+    resolved = resolve_display_name(username)
+    if resolved and resolved != username:
+        return resolved
+    return session.get('display_name') or resolved or username
 
 
 def resolve_display_name(username):
@@ -3053,6 +3072,125 @@ def attention():
         # means the strip doesn't render.
         return jsonify({'status': 'success', 'role': current_role(),
                         'groups': [], 'total': 0, 'cadence_days': 0}), 200
+
+
+# ===================== Items a community raises for itself =====================
+
+@app.route('/api/raised-items', methods=['GET'])
+@login_required
+def list_raised_items():
+    """Everything raised by the communities this account covers."""
+    include = request.args.get('resolved') in ('1', 'true', 'yes')
+    items = raised_item_service.for_communities(visible_communities(),
+                                               include_resolved=include)
+    return jsonify({'status': 'success', 'items': items}), 200
+
+
+@app.route('/api/raised-items', methods=['POST'])
+@login_required
+def create_raised_item():
+    """Raise something for your own community.
+
+    Open to anyone who can see the community — an Executive Director raising
+    what they need, a regional noting something between visits. It is not part
+    of any visit and never touches a score."""
+    community = InputSanitizer.sanitize_community_name(
+        (request.form.get('community') if request.files
+         else (request.get_json(silent=True) or {}).get('community', '')) or '')
+    if not community:
+        # Someone covering a single community shouldn't have to name it.
+        mine = session_communities()
+        community = mine[0] if len(mine) == 1 else ''
+    if not community or not _can_see_community(community):
+        return jsonify({'status': 'error', 'message': 'Pick a community you cover'}), 400
+
+    if request.files:
+        text = InputSanitizer.sanitize_description(request.form.get('text', ''))
+        priority = InputSanitizer.sanitize_string(request.form.get('priority', 'medium'),
+                                                  max_length=10)
+    else:
+        data = request.get_json(silent=True) or {}
+        text = InputSanitizer.sanitize_description(data.get('text', ''))
+        priority = InputSanitizer.sanitize_string(data.get('priority', 'medium'),
+                                                  max_length=10)
+    if not text.strip():
+        return jsonify({'status': 'error', 'message': 'Say what needs attention'}), 400
+
+    photo_path = ''
+    f = request.files.get('photo')
+    if f and f.filename:
+        ok_file, why = file_upload_handler.validate_file(f)
+        if not ok_file:
+            return jsonify({'status': 'error', 'message': why}), 400
+        try:
+            photo_path = file_upload_handler.save_file(f, session.get('user', 'user'), community)
+        except Exception:
+            # A photo is never worth losing the item over.
+            app.logger.exception('Could not save a raised item photo')
+
+    username = session.get('user')
+    item = raised_item_service.create(
+        community, text, username,
+        # Resolved once, at write time, so the item still reads correctly years
+        # later even if the person leaves. resolve_display_name() falls back to
+        # the username itself, so the session's own name is tried first — it is
+        # the one the person actually signed in under.
+        _display_name_for(username),
+        priority=priority, photo=photo_path)
+    if not item:
+        return jsonify({'status': 'error', 'message': 'Could not raise this'}), 400
+
+    activity_service.log(username, 'item_raised',
+                         f'Raised an item at {community}: {text[:60]}',
+                         meta={'community': community})
+    notify_raised_item(item)
+    return jsonify({'status': 'success', 'item': item}), 201
+
+
+@app.route('/api/raised-items/<item_id>/resolve', methods=['POST'])
+@login_required
+def resolve_raised_item(item_id):
+    """Close one out — or reopen it.
+
+    Unlike a failed standard, a community may close its own. Closing a finding
+    moves the score, which is why that stays with a regional; this doesn't
+    touch any score, and the person who asked for the furniture is the one who
+    knows it arrived."""
+    item = raised_item_service.get(item_id)
+    if not item:
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    if not _can_see_community(item.get('community', '')):
+        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+
+    data = request.get_json(silent=True) or {}
+    resolved = data.get('resolved', True) is not False
+    note = InputSanitizer.sanitize_description(data.get('note', ''))
+    updated = raised_item_service.resolve(item_id, session.get('user'), note, resolved)
+    activity_service.log(session.get('user'),
+                         'item_resolved' if resolved else 'item_reopened',
+                         f"{'Closed' if resolved else 'Reopened'} an item at "
+                         f"{item.get('community', '')}: {item.get('text', '')[:60]}",
+                         meta={'community': item.get('community', '')})
+    return jsonify({'status': 'success', 'item': updated}), 200
+
+
+def notify_raised_item(item):
+    """Tell the region's leadership that a community has raised something.
+
+    Best-effort, like every other notification here: a failed email must never
+    lose the item that was just raised."""
+    if not email_service.enabled:
+        return
+    try:
+        community = item.get('community', '')
+        recipients = region_leader_emails(community)
+        # Whoever raised it doesn't need to be told about their own item.
+        recipients = [a for a in recipients if a]
+        if not recipients:
+            return
+        email_service.send_raised_item(recipients, item)
+    except Exception:
+        app.logger.exception('Could not send the raised-item notification')
 
 
 @app.route('/api/communities/<path:community>/history')
@@ -5219,6 +5357,11 @@ def rename_region_community():
             inspection_service.rename_community(old_name, new_name)
             # Keep move-ins and the cover photo pointing at the renamed community
             movein_service.rename_community(old_name, new_name)
+            # Items the community raised for itself travel with it too. Left
+            # out, they would point at a name that no longer exists — the same
+            # way a community once lost its standards and a regional drove to a
+            # building she couldn't inspect.
+            raised_item_service.rename_community(old_name, new_name)
             community_cover_service.rename(
                 community_slug(old_name), community_slug(new_name), new_name)
         except Exception as e:

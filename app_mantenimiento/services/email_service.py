@@ -189,11 +189,11 @@ class EmailService:
 
         # Logo sits on its own white band (the logo is designed for light
         # backgrounds); the navy band with the community name goes below it.
-        logo_url = f"{self.app_base_url}/static/atlas-logo.png" if self.app_base_url else None
+        logo_url = f"{self.app_base_url}/static/arlas-excellence-logo.png" if self.app_base_url else None
         logo_band = (
             f"<div style='background:#fff;border:1px solid #d9dfe8;border-bottom:none;"
             f"border-radius:10px 10px 0 0;padding:16px 24px;text-align:center'>"
-            f"<img src='{esc(logo_url)}' alt='Atlas Senior Living' "
+            f"<img src='{esc(logo_url)}' alt='Atlas Excellence' "
             f"style='height:34px;display:inline-block'></div>"
         ) if logo_url else ""
         navy_radius = "0" if logo_band else "10px 10px 0 0"
@@ -301,11 +301,14 @@ and some checklist items are still open.</p>
         """Wrap body in the branded card (logo band + navy header)."""
         def esc(s):
             return html.escape(str(s or ''))
-        logo_url = f"{self.app_base_url}/static/atlas-logo.png" if self.app_base_url else None
+        # The product's own wordmark, not the parent company's. Served from
+        # /static, which is public — an email client fetches it without a
+        # session, so it has to be a URL nobody needs to sign in for.
+        logo_url = f"{self.app_base_url}/static/arlas-excellence-logo.png" if self.app_base_url else None
         logo_band = (
             f"<div style='background:#fff;border:1px solid #d9dfe8;border-bottom:none;"
             f"border-radius:10px 10px 0 0;padding:16px 24px;text-align:center'>"
-            f"<img src='{esc(logo_url)}' alt='Atlas Senior Living' style='height:34px'></div>"
+            f"<img src='{esc(logo_url)}' alt='Atlas Excellence' style='height:38px'></div>"
         ) if logo_url else ""
         navy_radius = "0" if logo_band else "10px 10px 0 0"
         return f"""\
@@ -563,6 +566,50 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         return self._send(admin_emails, subject,
                           self._shell("Daily activity", header + body_html),
                           f"Atlas Excellence — daily activity since {digest['since']}\n" + body_text)
+
+    def send_raised_item(self, recipients, item):
+        """A community has raised something for its regional to look at.
+
+        Not a finding — nobody marked this Fail and no score moved. The wording
+        keeps that clear, because a regional scanning their inbox should be
+        able to tell a request from a problem without opening it."""
+        if not self.enabled:
+            return (False, 'disabled')
+
+        def esc(s):
+            return html.escape(str(s or ''))
+
+        community = item.get('community', '')
+        who = item.get('raised_by_name') or item.get('raised_by') or 'The community'
+        text = item.get('text', '')
+        priority = (item.get('priority') or 'medium').lower()
+        colour = {'high': '#b42318', 'medium': '#92620a', 'low': '#475569'}.get(priority, '#92620a')
+
+        link = self.report_link(community)
+        button = (f"<div style='margin-top:20px'><a href='{esc(link)}' "
+                  f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                  f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
+                  f"Open in Atlas Excellence</a></div>") if link else ""
+
+        subject = f"Raised by {community}: {text[:60]}" + ('…' if len(text) > 60 else '')
+        body = (f"<p style='font-size:14px;margin:0 0 14px'><b>{esc(who)}</b> raised this at "
+                f"<b>{esc(community)}</b>.</p>"
+                f"<div style='padding:14px 16px;background:#f7f9fc;border-left:3px solid {colour};"
+                f"border-radius:0 8px 8px 0'>"
+                f"<div style='font-size:11.5px;font-weight:800;color:{colour};"
+                f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px'>"
+                f"{esc(priority)} priority</div>"
+                f"<div style='font-size:15px;color:#0f1e36;line-height:1.55'>{esc(text)}</div></div>"
+                f"<p style='font-size:13px;color:#6b7280;margin:16px 0 0;line-height:1.55'>"
+                f"This came from the community rather than from a visit, so nothing was marked "
+                f"Fail and no score has changed. It is here for you to look at.</p>"
+                f"{button}")
+        text_body = (f"{who} raised this at {community}.\n\n"
+                     f"[{priority.upper()}] {text}\n\n"
+                     f"This came from the community rather than from a visit, so nothing was "
+                     f"marked Fail and no score has changed.\n"
+                     + (f"\nOpen in Atlas Excellence: {link}\n" if link else ""))
+        return self._send(recipients, subject, self._shell("Raised by a community", body), text_body)
 
     # Company-level teams a comment can be directed to during a visit.
     ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations', 'sales': 'Sales'}

@@ -2250,6 +2250,14 @@
             <i class="fas fa-plus" aria-hidden="true"></i>
             <span>Start New Visit</span>
         </button>
+        <!-- The same spot, for the role that doesn't run visits. A community
+             had no way to raise anything on its own: the only way to write
+             was to comment on a finding that already existed, so if nothing
+             had failed there was no channel at all. -->
+        <button class="start-visit-btn" id="raiseItemBtn" onclick="openRaiseItem()" title="Raise an item for your regional" aria-label="Raise an item" style="display: none;">
+            <i class="fas fa-plus" aria-hidden="true"></i>
+            <span>Raise an Item</span>
+        </button>
     </div>
 
     <!-- Sidebar Overlay for Mobile -->
@@ -2506,6 +2514,22 @@
         // have no other code to do it. This page does, as part of loadUserInfo,
         // so tell it to stand down rather than making the same call twice.
         window.ATLAS_PAGE_FILLS_SIDEBAR = true;
+
+        // Which communities this account covers. An Executive Director can
+        // stand in for a neighbour, so raising an item has to ask which one.
+        let currentUserCommunities = [];
+        // Items the communities raised themselves, kept apart from what a
+        // regional found on a visit — different direction, different meaning.
+        let raisedItems = [];
+
+        async function loadRaisedItems() {
+            try {
+                const r = await fetch('/api/raised-items');
+                if (!r.ok) return;
+                const d = await r.json();
+                raisedItems = d.items || [];
+            } catch (e) { console.warn('Could not load raised items:', e); }
+        }
 
         let isAdmin = false;
         let canVerifyFixes = false;   // may close out a failed standard
@@ -3946,6 +3970,7 @@
                 canVerifyFixes = !!data.can_verify_fixes;
                 canRunVisits = !!data.can_run_visits;
                 if (data.visit_cadence_days) visitCadenceDays = data.visit_cadence_days;
+                currentUserCommunities = data.communities || [];
                 if (data.view_as) showViewAsBanner(data.view_as, data.view_as_communities);
                 // The bottom tab bar offers New Visit; hide it for
                 // accounts that aren't allowed to run one.
@@ -3992,6 +4017,15 @@
                 if (startVisitBtn && !isAdmin && canRunVisits) {
                     startVisitBtn.style.display = 'flex';
                 }
+                // Whoever doesn't run visits raises items instead — the main
+                // action of each role, in the same place.
+                const raiseBtn = document.getElementById('raiseItemBtn');
+                if (raiseBtn && !canRunVisits && (data.communities || []).length) {
+                    raiseBtn.style.display = 'flex';
+                }
+                document.querySelectorAll('.mtab-item[data-tab="raise-item"]').forEach(el => {
+                    el.style.display = (!canRunVisits && (data.communities || []).length) ? '' : 'none';
+                });
 
                 // People (user directory) is an admin-only area
                 const peopleNav = document.getElementById('peopleNavItem');
@@ -4090,7 +4124,7 @@
             'dashboard':     ['inspections', 'communities', 'regions', 'moveins'],
             'communities':   ['communities', 'covers'],
             'my-visits':     ['inspections'],
-            'action-items':  ['inspections'],
+            'action-items':  ['inspections', 'raised'],
             'reports':       ['inspections', 'reports'],
             'regions':       ['regions', 'communities'],
             'region-detail': ['regions', 'communities'],
@@ -4104,6 +4138,7 @@
             regions:     () => loadRegions(),
             moveins:     () => loadMoveInsRaw(),
             reports:     () => loadReports(),
+            raised:      () => loadRaisedItems(),
         };
 
         async function refreshDataFor(view) {
@@ -4891,6 +4926,133 @@
                 <button type="button" onclick="stopViewAs()">Leave preview</button>`;
             document.body.appendChild(bar);
             document.body.classList.add('has-viewas');
+        }
+
+        // What the communities raised, above what the visit found. Separate on
+        // purpose: one says "this is wrong, fix it" and travels down, the other
+        // says "I need this" and travels up. In one list a regional's queue
+        // stops meaning anything.
+        function raisedItemsHtml() {
+            const open = (raisedItems || []).filter(i => !i.resolved);
+            if (!open.length) return '';
+            const cards = open.map((i, idx) => {
+                const pr = (i.priority || 'medium').toLowerCase();
+                const cls = pr === 'high' ? 'badge-fail' : (pr === 'medium' ? 'badge-warn' : 'badge-low');
+                return `
+                    <div class="ri-card">
+                        <div class="ri-head">
+                            <span class="badge ${cls}">${escapeHtml(pr.toUpperCase())}</span>
+                            <span class="ri-where">${escapeHtml(i.community || '')}</span>
+                        </div>
+                        <div class="ri-text">${escapeHtml(i.text || '')}</div>
+                        ${i.photo ? `<img class="ri-photo" src="${photoUrl(i.photo)}"
+                            alt="${escapeHtmlForAttr(i.text || 'Photo')}" style="cursor:zoom-in"
+                            onclick="openPhoto(this.src, this.alt)" onerror="this.style.display='none'">` : ''}
+                        <div class="ri-foot">
+                            <span>${escapeHtml(i.raised_by_name || '')} · ${escapeHtml(timeAgo(i.raised_at))}</span>
+                            <button class="ri-done" onclick="closeRaisedItem(${idx})">
+                                <i class="fas fa-check"></i> Mark as done</button>
+                        </div>
+                    </div>`;
+            }).join('');
+            return `
+                <div class="ri-section">
+                    <div class="ri-title">
+                        <i class="fas fa-hand"></i> Raised by the community
+                        <span>${open.length}</span>
+                    </div>
+                    <p class="ri-note">Not from a visit — nothing was marked Fail and no score changed.</p>
+                    ${cards}
+                </div>`;
+        }
+
+        async function closeRaisedItem(idx) {
+            const item = (raisedItems || []).filter(i => !i.resolved)[idx];
+            if (!item) return;
+            try {
+                await fetch(`/api/raised-items/${item.id}/resolve`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resolved: true })
+                });
+            } catch (e) { /* the reload below will show whether it took */ }
+            await loadRaisedItems();
+            renderActionItems();
+        }
+
+        // ===================== Raising an item =====================
+        // Something the community itself needs looked at. Not a standard, not
+        // part of any visit, and it never touches a score — the wording says so
+        // out loud, because the word "item" is already used for what a regional
+        // found and the two must not be confused.
+
+        function openRaiseItem() {
+            const host = document.getElementById('personModal');
+            const body = document.getElementById('personModalBody');
+            if (!host || !body) return;
+            const mine = (currentUserCommunities || []);
+            const picker = mine.length > 1
+                ? `<div><label class="mi-label">Community</label>
+                     <select id="riCommunity" class="pw-input" style="width:100%;">
+                       ${mine.map(c => `<option value="${escapeHtmlForAttr(c)}">${escapeHtml(c)}</option>`).join('')}
+                     </select></div>`
+                : '';
+            body.innerHTML = `
+                <div>
+                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Raise an item</h2>
+                    <p style="font-size:12.5px;color:#64748b;line-height:1.5;margin-bottom:18px;">
+                        Something you'd like your regional to look at — a request, or something
+                        you've noticed. It isn't part of a visit and doesn't affect your score.
+                    </p>
+                    <div style="display:grid;gap:12px;">
+                        ${picker}
+                        <div><label class="mi-label">What needs attention</label>
+                            <textarea id="riText" class="pw-input" rows="4" style="width:100%;resize:vertical;"
+                                      maxlength="500" placeholder="e.g. The living room furniture is worn and needs replacing"></textarea></div>
+                        <div><label class="mi-label">Priority</label>
+                            <select id="riPriority" class="pw-input" style="width:100%;">
+                                <option value="high">High</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="low">Low</option>
+                            </select></div>
+                        <div><label class="mi-label">Photo <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
+                            <input id="riPhoto" type="file" accept="image/*" class="pw-input" style="width:100%;"></div>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;">
+                        <button class="btn btn-primary" onclick="submitRaiseItem()">
+                            <i class="fas fa-paper-plane"></i> Send to my regional</button>
+                        <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
+                        <span class="pw-msg" id="riMsg"></span>
+                    </div>
+                </div>`;
+            host.classList.add('show');
+            setTimeout(() => { const t = document.getElementById('riText'); if (t) t.focus(); }, 60);
+        }
+
+        async function submitRaiseItem() {
+            const msg = document.getElementById('riMsg');
+            const text = (document.getElementById('riText') || {}).value || '';
+            if (!text.trim()) {
+                if (msg) { msg.textContent = 'Say what needs attention.'; msg.style.color = '#b42318'; }
+                return;
+            }
+            const fd = new FormData();
+            fd.append('text', text.trim());
+            fd.append('priority', (document.getElementById('riPriority') || {}).value || 'medium');
+            const picker = document.getElementById('riCommunity');
+            if (picker) fd.append('community', picker.value);
+            const photo = document.getElementById('riPhoto');
+            if (photo && photo.files && photo.files[0]) fd.append('photo', photo.files[0]);
+
+            if (msg) { msg.textContent = 'Sending…'; msg.style.color = '#64748b'; }
+            try {
+                const r = await fetch('/api/raised-items', { method: 'POST', body: fd });
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not send it');
+                closePersonModal();
+                showView('action-items');
+            } catch (e) {
+                if (msg) { msg.textContent = e.message || 'Could not send it'; msg.style.color = '#b42318'; }
+            }
         }
 
         // ===================== Photo viewer =====================
@@ -5806,7 +5968,7 @@
             actionItems.sort((a, b) =>
                 (closed(a) === closed(b) ? 0 : (closed(a) ? 1 : -1)) || rank(a) - rank(b));
 
-            gallery.innerHTML = bar + actionItems.map(item => {
+            gallery.innerHTML = bar + raisedItemsHtml() + actionItems.map(item => {
                 const manual = item.type === 'manual-action';
 
                 // Priority badge — real levels for ad-hoc items; a failed standard
