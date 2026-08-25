@@ -4079,6 +4079,43 @@
         }
 
         // View Switching Function with Loading Indicator
+        // What each section needs re-read before it is drawn.
+        //
+        // Everything used to be fetched once when the page opened, and every
+        // view then drew from those variables — so a visit submitted while
+        // somebody had the app open stayed invisible until they reloaded the
+        // whole page. People and Move-Ins fetch their own data and are absent
+        // here on purpose.
+        const VIEW_DATA = {
+            'dashboard':     ['inspections', 'communities', 'regions', 'moveins'],
+            'communities':   ['communities', 'covers'],
+            'my-visits':     ['inspections'],
+            'action-items':  ['inspections'],
+            'reports':       ['inspections', 'reports'],
+            'regions':       ['regions', 'communities'],
+            'region-detail': ['regions', 'communities'],
+            'calendar':      ['inspections', 'moveins'],
+        };
+
+        const DATA_LOADERS = {
+            inspections: () => loadInspections(),
+            communities: () => loadCommunityData(),
+            covers:      () => loadCommunityCovers(),
+            regions:     () => loadRegions(),
+            moveins:     () => loadMoveInsRaw(),
+            reports:     () => loadReports(),
+        };
+
+        async function refreshDataFor(view) {
+            const needed = VIEW_DATA[view];
+            if (!needed) return;
+            // One failure must not stop the view drawing — stale numbers beat a
+            // blank screen, and the loaders log their own errors.
+            await Promise.allSettled(needed.map(k => {
+                try { return DATA_LOADERS[k](); } catch (e) { return Promise.resolve(); }
+            }));
+        }
+
         function showView(view) {
             console.log(`<i class="fas fa-location-dot card-emoji"></i> showView called with view: ${view}`);
             currentView = view;
@@ -4136,8 +4173,12 @@
             // render and guard with try/catch so a render error can never leave
             // the spinner stuck (which would freeze further navigation).
             if (viewRenderTimer) clearTimeout(viewRenderTimer);
-            viewRenderTimer = setTimeout(() => {
+            viewRenderTimer = setTimeout(async () => {
               try {
+                    // Re-read this section's data before drawing it, so opening
+                    // a section shows what is true now rather than what was
+                    // true when the page was opened.
+                    await refreshDataFor(view);
                     // Reset compact layout; only Action Items re-applies it.
                     const galleryEl = document.getElementById('gallery');
                     if (galleryEl) galleryEl.classList.remove('gallery-compact');
