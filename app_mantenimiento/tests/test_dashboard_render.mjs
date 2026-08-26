@@ -758,6 +758,36 @@ console.log('\nRaised items — the category, and filtering by it');
   run(`raisedCategoryFilter = '';`);
 }
 
+console.log('\nRaised items — the filter is visible from day one');
+{
+  // Every item that existed when this shipped predated the category field, so
+  // they all landed in one group. Hiding the chips until two groups existed
+  // made the whole feature look like it had never been built.
+  run(`raisedCategories = [{ id: 'capex', name: 'CapEx', active: true }];
+       raisedCategoryFilter = '';
+       raisedItems = [
+        { id: 'o1', community: 'K', text: 'From before categories', priority: 'low',
+          category: '', photo: '', raised_by_name: 'J',
+          raised_at: new Date().toISOString(), resolved: false },
+        { id: 'o2', community: 'K', text: 'Also from before', priority: 'low',
+          category: '', photo: '', raised_by_name: 'J',
+          raised_at: new Date().toISOString(), resolved: false }];`);
+  const box = w.document.createElement('div');
+  box.innerHTML = run('raisedItemsHtml()');
+  const chips = [...box.querySelectorAll('.ri-chip')].map(c => c.textContent.trim().replace(/\s+/g, ' '));
+  ok(chips.length >= 2, `the chips show even when everything is in one group (${chips.length})`);
+  ok(chips.some(c => c.startsWith('All 2')), 'with the total');
+  ok(chips.some(c => c.startsWith('Uncategorised 2')), 'and the one group there is');
+
+  // A single item is still enough for the row to appear.
+  run(`raisedItems = raisedItems.slice(0, 1);`);
+  const one = w.document.createElement('div');
+  one.innerHTML = run('raisedItemsHtml()');
+  ok(one.querySelectorAll('.ri-chip').length >= 2, 'one item is enough to show the filter exists');
+
+  run(`raisedItems = [];`);
+}
+
 console.log('\nRaised items — closing one closes the right one');
 {
   // It used to take a position in the list. Once the list can be filtered, a

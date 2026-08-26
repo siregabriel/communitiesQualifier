@@ -5224,11 +5224,17 @@
                 .filter(([id]) => !(raisedCategories || []).some(c => c.id === id))
                 .map(([id, n]) => chipFor(id, raisedCategoryLabel({ category: id,
                     category_name: (open.find(i => (i.category || '') === id) || {}).category_name }), n));
-            const filters = (known.length + strays.length) > 1
-                ? `<div class="ri-chips">
+            // Shown whenever there is anything at all in the section.
+            //
+            // They used to appear only once two different categories were in
+            // play, on the grounds that a single chip filters nothing. True,
+            // but on the day this shipped every existing item predated the
+            // field, so they all fell in one group and the filter was invisible
+            // — it read as though the feature had never been built. A row that
+            // is briefly redundant beats a feature nobody can find.
+            const filters = `<div class="ri-chips">
                        ${chipFor('', 'All', open.length)}${known.join('')}${strays.join('')}
-                   </div>`
-                : '';
+                   </div>`;
 
             const shown = raisedCategoryFilter
                 ? open.filter(i => (i.category || '') === raisedCategoryFilter)
