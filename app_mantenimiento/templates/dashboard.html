@@ -566,17 +566,6 @@
             gap: 24px;
         }
 
-        /* Compact layout (used by Action Items): smaller cards, ~4 columns */
-        .gallery.gallery-compact {
-            grid-template-columns: repeat(auto-fill, minmax(min(225px, 100%), 1fr));
-            gap: 16px;
-        }
-        .gallery-compact .card-image,
-        .gallery-compact .card-image-themed { height: 120px; font-size: 40px; }
-        .gallery-compact .card-content { padding: 16px; }
-        .gallery-compact .card-title { font-size: 15px; }
-        .gallery-compact .card-description { font-size: 12px; }
-
         .card {
             background: white;
             border-radius: 16px;
@@ -1921,7 +1910,6 @@
             100% { box-shadow: 0 0 0 3px rgba(31,111,229,0); }
         }
         @media (prefers-reduced-motion: reduce) { .card.ai-flash { animation: none; box-shadow: 0 0 0 3px rgba(31,111,229,.45); } }
-        .ai-scope { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
         .ai-chip { background: #fff; border: 1.5px solid #e4ebf5; color: #475569; border-radius: 999px;
             padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
         .ai-chip span { opacity: .6; margin-left: 3px; }
@@ -4448,7 +4436,6 @@
                     await refreshDataFor(view);
                     // Reset compact layout; only Action Items re-applies it.
                     const galleryEl = document.getElementById('gallery');
-                    if (galleryEl) galleryEl.classList.remove('gallery-compact');
                     switch(view) {
                         case 'dashboard':
                             headerTitle.innerHTML = '<i class="fas fa-gauge-high"></i> Dashboard';
@@ -5199,92 +5186,6 @@
         // purpose: one says "this is wrong, fix it" and travels down, the other
         // says "I need this" and travels up. In one list a regional's queue
         // stops meaning anything.
-        function raisedItemsHtml() {
-            const open = (raisedItems || []).filter(i => !i.resolved);
-            if (!open.length) return '';
-
-            // Filtering is the reason categories exist, so the chips are built
-            // from what is actually in the list — a category nobody has used
-            // would be a chip that always comes back empty.
-            const counts = new Map();
-            for (const i of open) {
-                const key = i.category || '';
-                counts.set(key, (counts.get(key) || 0) + 1);
-            }
-            const chipFor = (id, label, n) => `
-                <button class="ri-chip${raisedCategoryFilter === id ? ' on' : ''}"
-                        onclick="setRaisedCategoryFilter('${escapeHtmlForAttr(id)}')">
-                    ${escapeHtml(label)} <span>${n}</span></button>`;
-            const known = (raisedCategories || [])
-                .filter(c => counts.has(c.id))
-                .map(c => chipFor(c.id, c.name, counts.get(c.id)));
-            // Anything whose category was retired, or that predates the field,
-            // still needs somewhere to be found.
-            const strays = [...counts.entries()]
-                .filter(([id]) => !(raisedCategories || []).some(c => c.id === id))
-                .map(([id, n]) => chipFor(id, raisedCategoryLabel({ category: id,
-                    category_name: (open.find(i => (i.category || '') === id) || {}).category_name }), n));
-            // Shown whenever there is anything at all in the section.
-            //
-            // They used to appear only once two different categories were in
-            // play, on the grounds that a single chip filters nothing. True,
-            // but on the day this shipped every existing item predated the
-            // field, so they all fell in one group and the filter was invisible
-            // — it read as though the feature had never been built. A row that
-            // is briefly redundant beats a feature nobody can find.
-            const filters = `<div class="ri-chips">
-                       ${chipFor('', 'All', open.length)}${known.join('')}${strays.join('')}
-                   </div>`;
-
-            const shown = raisedCategoryFilter
-                ? open.filter(i => (i.category || '') === raisedCategoryFilter)
-                : open;
-            if (!shown.length) {
-                return `
-                <div class="ri-section">
-                    <div class="ri-title">
-                        <i class="fas fa-hand"></i> Raised by the community
-                        <span>${open.length}</span>
-                    </div>
-                    <p class="ri-note">Not from a visit — nothing was marked Fail and no score changed.</p>
-                    ${filters}
-                    <p class="ri-note">Nothing open in this category.</p>
-                </div>`;
-            }
-
-            const cards = shown.map((i, idx) => {
-                const pr = (i.priority || 'medium').toLowerCase();
-                const cls = pr === 'high' ? 'badge-fail' : (pr === 'medium' ? 'badge-warn' : 'badge-low');
-                return `
-                    <div class="ri-card">
-                        <div class="ri-head">
-                            <span class="badge ${cls}">${escapeHtml(pr.toUpperCase())}</span>
-                            <span class="ri-cat">${escapeHtml(raisedCategoryLabel(i))}</span>
-                            <span class="ri-where">${escapeHtml(i.community || '')}</span>
-                        </div>
-                        <div class="ri-text">${escapeHtml(i.text || '')}</div>
-                        ${i.photo ? `<img class="ri-photo" src="${photoUrl(i.photo)}" data-path="${escapeHtmlForAttr(i.photo)}"
-                            alt="${escapeHtmlForAttr(i.text || 'Photo')}" style="cursor:zoom-in"
-                            onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.style.display='none'">` : ''}
-                        <div class="ri-foot">
-                            <span>${escapeHtml(i.raised_by_name || '')} · ${escapeHtml(timeAgo(i.raised_at))}</span>
-                            <button class="ri-done" onclick="closeRaisedItem('${escapeHtmlForAttr(i.id)}')">
-                                <i class="fas fa-check"></i> Mark as done</button>
-                        </div>
-                    </div>`;
-            }).join('');
-            return `
-                <div class="ri-section">
-                    <div class="ri-title">
-                        <i class="fas fa-hand"></i> Raised by the community
-                        <span>${open.length}</span>
-                    </div>
-                    <p class="ri-note">Not from a visit — nothing was marked Fail and no score changed.</p>
-                    ${filters}
-                    ${cards}
-                </div>`;
-        }
-
         // ===================== Categories, for an admin =====================
         // Greg and Angie run this list. Everything here is deliberately plain:
         // rename in place, retire rather than delete, and move up or down.
@@ -6367,16 +6268,43 @@
             return 'fa-clipboard-check';
         }
 
+        /* ===================== Action Items =====================
+           A queue of work, laid out as a queue.
+
+           It used to be a four-column photo gallery: a 120px image on top of
+           every card, three badges, and the comment thread squeezed into a
+           225px column. A grid is read in a zigzag and gives everything the
+           same weight, which is the opposite of what a to-do list needs — and
+           on a phone it was one tall card after another.
+
+           Now: rows, grouped by the community they belong to, because that is
+           the unit a regional actually works in. The photo becomes a thumbnail.
+           Tapping a row opens its detail and its conversation at full width.
+           One filter bar instead of two. */
+
+        const _aiCollapsed = new Set();   // groups the person has folded away
+        const _aiOpenRows = new Set();    // rows they have opened
+
+        function aiToggleGroup(key) {
+            if (_aiCollapsed.has(key)) _aiCollapsed.delete(key); else _aiCollapsed.add(key);
+            renderActionItems();
+        }
+
+        function aiToggleRow(key) {
+            if (_aiOpenRows.has(key)) _aiOpenRows.delete(key); else _aiOpenRows.add(key);
+            renderActionItems();
+        }
+
         function renderActionItems() {
             const gallery = document.getElementById('gallery');
-            gallery.classList.add('gallery-compact');
+            // Not a gallery any more — the grid is what made this read as a
+            // photo wall rather than a list of work. The class is cleared in
+            // case an older page left it on.
+            gallery.classList.remove('gallery-compact');
 
-            // Action items come from two places: standards that failed, and
-            // items the inspector raised by hand during the visit.
             const actionConditions = ['Fail', 'Action'];
             let pool = allInspections.filter(item => actionConditions.includes(item.condition));
 
-            // Apply survey type filter if active
             if (currentSurveyTypeFilter !== 'all') {
                 pool = pool.filter(item => item.surveyTypeId === currentSurveyTypeFilter);
             }
@@ -6396,122 +6324,264 @@
                 (new Date(it.submittedAt).getTime() || 0) === latestByCommunity[it.community];
             const isClosedItem = it => it.type === 'manual-action' ? !!it.resolved : !!it.addressed;
 
+            // What a community asked for, folded into the same list. They were
+            // in a separate block above the grid with their own filter row, so
+            // the page had two filter bars that looked different and behaved
+            // differently. They are still marked apart on the row itself —
+            // a request and a finding travel in opposite directions.
+            const asks = (raisedItems || []).map(r => ({
+                kind: 'raised',
+                id: r.id,
+                community: r.community || '',
+                title: r.text || '',
+                category: r.category || '',
+                categoryName: raisedCategoryLabel(r),
+                priority: (r.priority || 'medium').toLowerCase(),
+                photoPath: r.photo || '',
+                who: r.raised_by_name || '',
+                at: r.raised_at,
+                closed: !!r.resolved,
+                resolvedBy: r.resolved_by || '',
+            }));
+
+            const findings = pool.map(it => ({
+                kind: 'finding',
+                raw: it,
+                community: it.community || '',
+                title: it.questionText || it.text || '',
+                closed: isClosedItem(it),
+                current: isCurrentVisit(it),
+                manual: it.type === 'manual-action',
+            }));
+
             const counts = {
-                open: pool.filter(it => isCurrentVisit(it) && !isClosedItem(it)).length,
-                done: pool.filter(it => isCurrentVisit(it) && isClosedItem(it)).length,
-                past: pool.filter(it => !isCurrentVisit(it)).length,
+                open: findings.filter(f => f.current && !f.closed).length
+                      + asks.filter(a => !a.closed).length,
+                done: findings.filter(f => f.current && f.closed).length
+                      + asks.filter(a => a.closed).length,
+                past: findings.filter(f => !f.current).length,
+                all: findings.length + asks.length,
             };
 
-            let actionItems;
-            if (aiScope === 'done') actionItems = pool.filter(it => isCurrentVisit(it) && isClosedItem(it));
-            else if (aiScope === 'past') actionItems = pool.filter(it => !isCurrentVisit(it));
-            else if (aiScope === 'all') actionItems = pool;
-            else actionItems = pool.filter(it => isCurrentVisit(it) && !isClosedItem(it));
+            let rows;
+            if (aiScope === 'done') {
+                rows = [...findings.filter(f => f.current && f.closed), ...asks.filter(a => a.closed)];
+            } else if (aiScope === 'past') {
+                // Requests are not tied to a visit, so "earlier visits" has
+                // nothing to say about them.
+                rows = findings.filter(f => !f.current);
+            } else if (aiScope === 'all') {
+                rows = [...findings, ...asks];
+            } else {
+                rows = [...findings.filter(f => f.current && !f.closed), ...asks.filter(a => !a.closed)];
+            }
 
-            const chip = (key, label, n) =>
+            // The category filter narrows the requests only; a finding has no
+            // category, so hiding findings when one is chosen would look like
+            // the list had lost them.
+            const inScopeAsks = rows.filter(r => r.kind === 'raised');
+            const catCounts = new Map();
+            for (const a of inScopeAsks) catCounts.set(a.category || '', (catCounts.get(a.category || '') || 0) + 1);
+            if (raisedCategoryFilter) {
+                rows = rows.filter(r => r.kind !== 'raised' || (r.category || '') === raisedCategoryFilter);
+            }
+
+            const scopeChip = (key, label, n) =>
                 `<button class="ai-chip ${aiScope === key ? 'on' : ''}" onclick="aiSetScope('${key}')">${label}${n !== undefined ? ` <span>${n}</span>` : ''}</button>`;
-            const bar = `<div class="ai-scope" style="grid-column:1/-1;">
-                    ${chip('open', 'Needs attention', counts.open)}
-                    ${chip('done', 'Addressed', counts.done)}
-                    ${chip('past', 'Earlier visits', counts.past)}
-                    ${chip('all', 'Everything', pool.length)}
+            const catChip = (id, label, n) =>
+                `<button class="ai-chip ai-chip-sm${raisedCategoryFilter === id ? ' on' : ''}"
+                         onclick="setRaisedCategoryFilter('${escapeHtmlForAttr(id)}')">${escapeHtml(label)} <span>${n}</span></button>`;
+
+            const catRow = inScopeAsks.length
+                ? `<div class="ai-chiprow ai-chiprow-sm">
+                       <span class="ai-chiprow-label">Asked for</span>
+                       ${catChip('', 'All', inScopeAsks.length)}
+                       ${[...catCounts.entries()].map(([id, n]) =>
+                           catChip(id, raisedCategoryLabel({ category: id,
+                               category_name: (inScopeAsks.find(a => (a.category || '') === id) || {}).categoryName }), n)).join('')}
+                   </div>`
+                : '';
+
+            const bar = `<div class="ai-bar">
+                    <div class="ai-chiprow">
+                        ${scopeChip('open', 'Needs attention', counts.open)}
+                        ${scopeChip('done', 'Addressed', counts.done)}
+                        ${scopeChip('past', 'Earlier visits', counts.past)}
+                        ${scopeChip('all', 'Everything', counts.all)}
+                    </div>
+                    ${catRow}
                 </div>`;
 
-            if (actionItems.length === 0) {
+            if (!rows.length) {
                 const msg = aiScope === 'open'
                     ? 'Nothing outstanding from the latest visits.'
                     : 'Nothing here.';
-                gallery.innerHTML = bar + `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-check-circle"></i><p>${msg}</p></div>`;
+                gallery.innerHTML = bar +
+                    `<div class="empty-state"><i class="fas fa-check-circle"></i><p>${msg}</p></div>`;
                 return;
             }
-            
-            // Sort: unresolved first, then by priority (failed standards are high).
+
+            // Open before closed; a request's own priority orders the requests.
             const prio = { high: 1, medium: 2, low: 3 };
-            const rank = it => it.type === 'manual-action' ? (prio[it.priority] || 2) : 1;
-            const closed = it => it.type === 'manual-action' ? !!it.resolved : !!it.addressed;
-            actionItems.sort((a, b) =>
-                (closed(a) === closed(b) ? 0 : (closed(a) ? 1 : -1)) || rank(a) - rank(b));
+            rows.sort((a, b) =>
+                (a.closed === b.closed ? 0 : (a.closed ? 1 : -1))
+                || (prio[a.priority] || 1) - (prio[b.priority] || 1));
 
-            gallery.innerHTML = bar + raisedItemsHtml() + actionItems.map(item => {
-                const manual = item.type === 'manual-action';
+            // Grouped by community: that is the unit of work, and a flat list
+            // of forty rows across twelve buildings is not one.
+            const groups = new Map();
+            for (const r of rows) {
+                const key = r.community || 'Unknown community';
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(r);
+            }
+            const ordered = [...groups.entries()].sort((a, b) => {
+                const openA = a[1].filter(r => !r.closed).length;
+                const openB = b[1].filter(r => !r.closed).length;
+                return openB - openA || a[0].localeCompare(b[0]);
+            });
 
-                // Priority badge — real levels for ad-hoc items; a failed standard
-                // is always high priority.
-                const pr = manual ? (item.priority || 'medium') : 'high';
-                const priorityClass = pr === 'high' ? 'badge-fail' : (pr === 'medium' ? 'badge-warn' : 'badge-low');
-                const priorityText = pr === 'high' ? 'HIGH PRIORITY' : (pr === 'medium' ? 'MEDIUM' : 'LOW');
+            // With one or two buildings, folding them away helps nobody. With
+            // a dozen, an all-open list is a very long scroll on a phone.
+            const foldByDefault = ordered.length > 3;
 
-                const hasPhoto = !!item.photoPath;
-                const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
-                const imageInner = hasPhoto
-                    ? `<img src="${photoUrl(item.photoPath)}" data-path="${escapeHtmlForAttr(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText || item.text || 'Visit photo')}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
-                    : `<i class="fas ${iconClass}"></i>`;
-                const isClosed = manual ? !!item.resolved : !!item.addressed;
-                const imageClass = (hasPhoto ? 'card-image' : 'card-image card-image-themed')
-                    + (isClosed ? ' ai-done-img' : '');
-
-                const typeBadge = manual
-                    ? `<div class="card-badge badge-manual"><i class="fas fa-hand-point-right"></i> Raised on visit</div>`
-                    : `<div class="card-badge ${getBadgeClass(item.condition)}">${getBadgeIcon(item.condition)} ${item.condition}</div>`;
-
-                const assigned = manual && item.assignedTo
-                    ? `<div class="card-location"><i class="fas fa-user-gear card-emoji"></i> ${escapeHtml(item.assignedTo)}</div>` : '';
-
-                // Follow-up control. Ad-hoc items are closed with "Mark as done";
-                // failed standards can be marked "addressed" between visits (which
-                // never changes the visit or the score), and still clear on their
-                // own once a later visit passes them.
-                let resolveUi = '';
-                if (manual) {
-                    // Same rule as a failed standard: the community reports
-                    // progress by commenting, a regional closes it out.
-                    const closeUi = item.resolved
-                        ? `<div class="ai-resolved">
-                               <i class="fas fa-circle-check"></i> Done${item.resolvedBy ? ' by ' + escapeHtml(item.resolvedBy) : ''}
-                               ${item.resolutionNote ? `<div class="ai-resolved-note">${escapeHtml(item.resolutionNote)}</div>` : ''}
-                               ${canVerifyFixes ? `<button class="ai-reopen" onclick="reopenActionItem('${item.submissionId}','${item.itemId}')">Reopen</button>` : ''}
-                           </div>`
-                        : (canVerifyFixes
-                            ? `<button class="ai-resolve-btn" onclick="resolveActionItem('${item.submissionId}','${item.itemId}')">
-                                   <i class="fas fa-check"></i> Mark as done</button>`
-                            : `<div class="ai-await">A regional will review and close this out.</div>`);
-                    resolveUi = closeUi + commentsUi(item, null, item.itemId);
-                } else {
-                    const qid = (item.questionId || '').replace(/'/g, "\\'");
-                    // Closing an item is leadership's call; a community reports
-                    // the fix through the comment thread instead.
-                    const closeUi = item.addressed
-                        ? `<div class="ai-resolved">
-                               <i class="fas fa-circle-check"></i> Addressed${item.addressedAt ? ' ' + formatDate(item.addressedAt) : ''}${item.addressedBy ? ' by ' + escapeHtml(item.addressedBy) : ''}
-                               ${item.addressedNote ? `<div class="ai-resolved-note">${escapeHtml(item.addressedNote)}</div>` : ''}
-                               ${item.addressedPhoto ? `<a class="ai-fix-photo" href="${photoUrl(item.addressedPhoto)}" data-path="${escapeHtmlForAttr(item.addressedPhoto)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo of the fix', this.dataset.path)"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
-                               <div class="ai-resolved-hint">Still counts as failed on this visit — it clears when a later visit passes it.</div>
-                               ${canVerifyFixes ? `<button class="ai-reopen" onclick="reopenStandard('${item.submissionId}','${qid}')">Reopen</button>` : ''}
-                           </div>`
-                        : (canVerifyFixes
-                            ? `<button class="ai-resolve-btn" onclick="addressStandard('${item.submissionId}','${qid}')">
-                                   <i class="fas fa-wrench"></i> Mark as addressed</button>`
-                            : `<div class="ai-await">A regional will review and close this out.</div>`);
-                    resolveUi = closeUi + commentsUi(item, qid, null);
-                }
-
-                const cardId = 'ai_' + item.submissionId + '_' + (item.questionId || item.itemId || '');
+            gallery.innerHTML = bar + `<div class="ail">` + ordered.map(([community, items]) => {
+                const openN = items.filter(r => !r.closed).length;
+                const collapsed = _aiCollapsed.has(community)
+                    || (foldByDefault && !_aiCollapsed.has('!' + community) && openN === 0);
+                const where = splitCommunityName(community);
                 return `
-                    <div class="card ${isClosed ? 'ai-done' : ''}" id="${cardId}">
-                        <div class="${imageClass}">${imageInner}</div>
-                        <div class="card-content">
-                            <div class="card-badge ${priorityClass}" style="margin-bottom: 8px;">${priorityText}</div>
-                            <div class="card-title"><i class="fas ${manual ? 'fa-triangle-exclamation' : 'fa-circle-question'} card-emoji"></i> ${escapeHtml(item.questionText)}</div>
-                            ${typeBadge}
-                            ${manual ? '' : `<div class="card-description">${item.description || 'No description provided'}</div>`}
-                            ${assigned}
-                            <div class="card-location"><i class="fas fa-user card-emoji"></i> ${escapeHtml(item.username)} | <i class="fas fa-building card-emoji"></i> ${escapeHtml(item.community)}</div>
-                            <div class="card-timestamp"><i class="fas fa-clock card-emoji"></i> ${item.timestamp}</div>
-                            ${resolveUi}
+                    <section class="ail-group${collapsed ? ' is-folded' : ''}">
+                        <button class="ail-head" onclick="aiToggleGroup('${escapeHtmlForAttr(community)}')"
+                                aria-expanded="${collapsed ? 'false' : 'true'}">
+                            <i class="fas fa-chevron-${collapsed ? 'right' : 'down'} ail-caret"></i>
+                            <span class="ail-where">${escapeHtml(where.name)}${
+                                where.place ? `<small>${escapeHtml(where.place)}</small>` : ''}</span>
+                            <span class="ail-count${openN ? '' : ' is-clear'}">${openN ? openN : '<i class="fas fa-check"></i>'}</span>
+                        </button>
+                        <div class="ail-rows">${items.map(r => aiRowHtml(r)).join('')}</div>
+                    </section>`;
+            }).join('') + `</div>`;
+        }
+
+        // One row. Everything that used to shout from a card is either gone or
+        // demoted to the meta line; what is left is the thing to act on.
+        function aiRowHtml(r) {
+            if (r.kind === 'raised') return aiAskRowHtml(r);
+            const item = r.raw;
+            const manual = item.type === 'manual-action';
+            const key = 'ai_' + item.submissionId + '_' + (item.questionId || item.itemId || '');
+            const open = _aiOpenRows.has(key);
+            const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
+            const thumb = item.photoPath
+                ? `<img src="${photoUrl(item.photoPath)}" data-path="${escapeHtmlForAttr(item.photoPath)}"
+                        alt="${escapeHtmlForAttr(item.questionText || 'Visit photo')}"
+                        onclick="event.stopPropagation();openPhoto(this.src, this.alt, this.dataset.path)"
+                        onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}))">`
+                : `<i class="fas ${iconClass}"></i>`;
+
+            const qid = (item.questionId || '').replace(/'/g, "\\'");
+            const nComments = (item.comments || []).length;
+
+            // The old card stamped HIGH PRIORITY on every failed standard —
+            // it was hard-coded, so it distinguished nothing and simply made
+            // the page red. The condition it actually carries says more.
+            const tag = manual
+                ? `<span class="ail-tag ail-tag-ask">Raised on the visit</span>`
+                : `<span class="ail-tag ail-tag-${(item.condition || '').toLowerCase() === 'fail' ? 'fail' : 'action'}">${escapeHtml(item.condition || '')}</span>`;
+
+            let resolveUi = '';
+            if (manual) {
+                // Same rule as a failed standard: the community reports
+                // progress by commenting, a regional closes it out.
+                resolveUi = (item.resolved
+                    ? `<div class="ai-resolved">
+                           <i class="fas fa-circle-check"></i> Done${item.resolvedBy ? ' by ' + escapeHtml(item.resolvedBy) : ''}
+                           ${item.resolutionNote ? `<div class="ai-resolved-note">${escapeHtml(item.resolutionNote)}</div>` : ''}
+                           ${canVerifyFixes ? `<button class="ai-reopen" onclick="event.stopPropagation();reopenActionItem('${item.submissionId}','${item.itemId}')">Reopen</button>` : ''}
+                       </div>`
+                    : (canVerifyFixes
+                        ? `<button class="ai-resolve-btn" onclick="event.stopPropagation();resolveActionItem('${item.submissionId}','${item.itemId}')">
+                               <i class="fas fa-check"></i> Mark as done</button>`
+                        : `<div class="ai-await">A regional will review and close this out.</div>`))
+                    + commentsUi(item, null, item.itemId);
+            } else {
+                // Closing an item is leadership's call; a community reports
+                // the fix through the comment thread instead.
+                resolveUi = (item.addressed
+                    ? `<div class="ai-resolved">
+                           <i class="fas fa-circle-check"></i> Addressed${item.addressedAt ? ' ' + formatDate(item.addressedAt) : ''}${item.addressedBy ? ' by ' + escapeHtml(item.addressedBy) : ''}
+                           ${item.addressedNote ? `<div class="ai-resolved-note">${escapeHtml(item.addressedNote)}</div>` : ''}
+                           ${item.addressedPhoto ? `<a class="ai-fix-photo" href="${photoUrl(item.addressedPhoto)}" data-path="${escapeHtmlForAttr(item.addressedPhoto)}" target="_blank" onclick="event.stopPropagation();event.preventDefault();openPhoto(this.href,'Photo of the fix', this.dataset.path)"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                           <div class="ai-resolved-hint">Still counts as failed on this visit — it clears when a later visit passes it.</div>
+                           ${canVerifyFixes ? `<button class="ai-reopen" onclick="event.stopPropagation();reopenStandard('${item.submissionId}','${qid}')">Reopen</button>` : ''}
+                       </div>`
+                    : (canVerifyFixes
+                        ? `<button class="ai-resolve-btn" onclick="event.stopPropagation();addressStandard('${item.submissionId}','${qid}')">
+                               <i class="fas fa-wrench"></i> Mark as addressed</button>`
+                        : `<div class="ai-await">A regional will review and close this out.</div>`))
+                    + commentsUi(item, qid, null);
+            }
+
+            return `
+                <article class="ail-row${r.closed ? ' is-done' : ''}${open ? ' is-open' : ''}" id="${key}">
+                    <div class="ail-line" onclick="aiToggleRow('${key}')">
+                        <div class="ail-thumb">${thumb}</div>
+                        <div class="ail-body">
+                            <div class="ail-title">${escapeHtml(item.questionText || '')}</div>
+                            <div class="ail-meta">
+                                ${tag}
+                                <span>${escapeHtml(item.timestamp || '')}</span>
+                                ${nComments ? `<span><i class="fas fa-comment-dots"></i> ${nComments}</span>` : ''}
+                                ${r.closed ? '<span class="ail-done-tag"><i class="fas fa-check"></i> Closed</span>' : ''}
+                            </div>
                         </div>
+                        <i class="fas fa-chevron-${open ? 'up' : 'down'} ail-more"></i>
                     </div>
-                `;
-            }).join('');
+                    <div class="ail-detail">
+                        ${manual ? '' : `<p class="ail-desc">${escapeHtml(item.description || 'No description provided')}</p>`}
+                        ${manual && item.assignedTo
+                            ? `<p class="ail-desc"><i class="fas fa-user-gear"></i> ${escapeHtml(item.assignedTo)}</p>` : ''}
+                        <p class="ail-desc ail-who"><i class="fas fa-user"></i> ${escapeHtml(item.username || '')}</p>
+                        ${resolveUi}
+                    </div>
+                </article>`;
+        }
+
+        function aiAskRowHtml(a) {
+            const key = 'ask_' + a.id;
+            const open = _aiOpenRows.has(key);
+            const thumb = a.photoPath
+                ? `<img src="${photoUrl(a.photoPath)}" data-path="${escapeHtmlForAttr(a.photoPath)}"
+                        alt="${escapeHtmlForAttr(a.title)}"
+                        onclick="event.stopPropagation();openPhoto(this.src, this.alt, this.dataset.path)"
+                        onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-hand'}))">`
+                : `<i class="fas fa-hand"></i>`;
+            return `
+                <article class="ail-row ail-row-ask${a.closed ? ' is-done' : ''}${open ? ' is-open' : ''}" id="${key}">
+                    <div class="ail-line" onclick="aiToggleRow('${key}')">
+                        <div class="ail-thumb">${thumb}</div>
+                        <div class="ail-body">
+                            <div class="ail-title">${escapeHtml(a.title)}</div>
+                            <div class="ail-meta">
+                                <span class="ail-tag ail-tag-ask">Asked for</span>
+                                <span class="ail-cat">${escapeHtml(a.categoryName)}</span>
+                                <span>${escapeHtml(timeAgo(a.at))}</span>
+                                ${a.closed ? '<span class="ail-done-tag"><i class="fas fa-check"></i> Done</span>' : ''}
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-${open ? 'up' : 'down'} ail-more"></i>
+                    </div>
+                    <div class="ail-detail">
+                        <p class="ail-desc">Raised by ${escapeHtml(a.who)} — not from a visit, so nothing
+                            was marked Fail and no score changed.</p>
+                        ${a.closed
+                            ? `<div class="ai-resolved"><i class="fas fa-circle-check"></i> Done${
+                                  a.resolvedBy ? ' by ' + escapeHtml(a.resolvedBy) : ''}</div>`
+                            : `<button class="ai-resolve-btn" onclick="event.stopPropagation();closeRaisedItem('${escapeHtmlForAttr(a.id)}')">
+                                   <i class="fas fa-check"></i> Mark as done</button>`}
+                    </div>
+                </article>`;
         }
 
         /* ----- Comments on a failed standard -----

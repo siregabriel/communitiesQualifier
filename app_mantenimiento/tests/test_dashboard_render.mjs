@@ -437,39 +437,136 @@ ok(talk.hidden === true, 'and closes it again');
 ok(run(`visitTalkPanel({ id: 'v_2', comments: 0, comment_list: [], notes: '' })`) === '',
    'a visit with nothing said renders no panel at all');
 
-console.log('\nRaised by the community');
-const raised = [
-  { id: 'r1', community: "O'Brien Place", text: 'Living room furniture is "worn" and needs replacing',
-    priority: 'high', photo: 'x/sofa.jpg', raised_by_name: 'Jazmyn Frazier',
-    raised_at: new Date().toISOString(), resolved: false },
-  { id: 'r2', community: "O'Brien Place", text: 'Fire extinguisher tag is out of date',
-    priority: 'medium', photo: '', raised_by_name: 'Jazmyn Frazier',
-    raised_at: new Date().toISOString(), resolved: false },
-  { id: 'r3', community: "O'Brien Place", text: 'Already handled', priority: 'low',
-    photo: '', raised_by_name: 'Jazmyn Frazier', raised_at: new Date().toISOString(), resolved: true },
-];
-run(`raisedItems = ${JSON.stringify(raised)};`);
-const ri = run('raisedItemsHtml()');
-ok(ri.includes('Raised by the community'), 'the section renders');
-ok((ri.match(/ri-card/g) || []).length === 2, 'resolved ones are not shown');
-ok(ri.includes('>2<'), 'the count matches what is open');
-ok(ri.includes('no score changed'), 'it says plainly that this is not a finding');
-ok(ri.includes('Jazmyn Frazier'), 'it names who raised it');
+/* Ahora todo pasa por renderActionItems: las peticiones viven dentro de la
+   misma lista agrupada, no en un bloque aparte. Se maneja la vista real y se
+   lee el DOM que sale, no una cadena. */
+function aiRender(state) {
+  run(`
+    allInspections = ${JSON.stringify(state.inspections || [])};
+    raisedItems = ${JSON.stringify(state.raised || [])};
+    raisedCategories = ${JSON.stringify(state.categories || [])};
+    raisedCategoryFilter = ${JSON.stringify(state.categoryFilter || '')};
+    aiScope = ${JSON.stringify(state.scope || 'open')};
+    currentSurveyTypeFilter = 'all';
+    canVerifyFixes = ${state.canVerify === false ? 'false' : 'true'};
+    _aiCollapsed.clear(); _aiOpenRows.clear();
+    renderActionItems();
+  `);
+  return gallery;
+}
 
-// The quoting trap again — parse it rather than trusting the string.
-const box = w.document.createElement('div');
-box.innerHTML = ri;
-const riPhoto = box.querySelector('.ri-photo');
-ok(!!riPhoto, 'a photo is shown when there is one');
-const stray = [...riPhoto.attributes].map(a => a.name)
-  .filter(n => !['class','src','alt','style','onclick','onerror','data-path'].includes(n));
-ok(stray.length === 0, `quotes in the text do not break out of the attribute (${stray.join(', ')})`);
-ok(box.querySelector('.ri-text').textContent.includes('"worn"'), 'and the text reads correctly');
+const NOW = new Date().toISOString();
+const finding = (over) => Object.assign({
+  community: 'Kelley Place, Enterprise', condition: 'Fail',
+  questionText: 'Fire extinguisher tags are current',
+  description: 'Two tags expired in hall B',
+  submissionId: 's1', questionId: 'q1', username: 'june',
+  submittedAt: NOW, timestamp: 'Aug 18, 2026', addressed: false,
+  comments: [], photoPath: '',
+}, over || {});
+const ask = (over) => Object.assign({
+  id: 'r1', community: 'Kelley Place, Enterprise',
+  text: 'Living room furniture is "worn" and needs replacing',
+  priority: 'high', photo: 'x/sofa.jpg', category: 'capex',
+  category_name: 'CapEx', raised_by_name: 'Jazmyn Frazier',
+  raised_at: NOW, resolved: false,
+}, over || {});
+const CATS = [{ id: 'capex', name: 'CapEx', active: true },
+              { id: 'clinical', name: 'Clinical', active: true }];
 
-run('raisedItems = [];');
-ok(run('raisedItemsHtml()') === '', 'nothing raised, nothing rendered');
-run(`raisedItems = ${JSON.stringify([raised[2]])};`);
-ok(run('raisedItemsHtml()') === '', 'only resolved ones is the same as nothing');
+console.log('\nAction Items — a queue, not a photo wall');
+{
+  const g = aiRender({ inspections: [finding()], raised: [ask()], categories: CATS });
+  ok(!g.classList.contains('gallery-compact'),
+     'the grid is gone — a to-do list is read top to bottom, not in a zigzag');
+  ok(g.querySelectorAll('.ail-group').length === 1, 'work is grouped by community');
+  ok(g.querySelector('.ail-where').textContent.includes('Kelley Place'), 'the group names it');
+  ok(g.querySelectorAll('.ail-row').length === 2,
+     'the finding and the request are in the same list');
+  ok(!g.querySelector('.card-image'),
+     'no 120px photo on top of every item');
+  ok(g.querySelectorAll('.ail-thumb').length === 2, 'a thumbnail instead');
+}
+
+console.log('\nAction Items — the fake priority badge is gone');
+{
+  const g = aiRender({ inspections: [finding()], raised: [], categories: CATS });
+  ok(!/HIGH PRIORITY/i.test(g.innerHTML),
+     'a failed standard no longer stamps HIGH PRIORITY on itself; it was hard-coded on every one');
+  ok(g.querySelector('.ail-tag-fail').textContent.trim() === 'Fail',
+     'it carries the condition it actually has');
+}
+
+console.log('\nAction Items — findings and requests are told apart');
+{
+  const g = aiRender({ inspections: [finding()], raised: [ask()], categories: CATS });
+  const rows = [...g.querySelectorAll('.ail-row')];
+  const askRow = rows.find(r => r.classList.contains('ail-row-ask'));
+  ok(!!askRow, 'a request is marked apart from a finding');
+  ok(askRow.querySelector('.ail-tag').textContent.trim() === 'Asked for', 'and says so');
+  ok(askRow.querySelector('.ail-cat').textContent.trim() === 'CapEx', 'with its category');
+  ok(askRow.querySelector('.ail-title').textContent.includes('"worn"'),
+     'quotes in the text survive');
+  const strayAttrs = [...askRow.querySelector('.ail-thumb img').attributes].map(a => a.name)
+    .filter(n => !['src','data-path','alt','onclick','onerror'].includes(n));
+  ok(strayAttrs.length === 0, `nothing broke out of an attribute (${strayAttrs.join(', ')})`);
+}
+
+console.log('\nAction Items — one filter bar, not two');
+{
+  const g = aiRender({ inspections: [finding()], raised: [ask()], categories: CATS });
+  ok(g.querySelectorAll('.ai-bar').length === 1, 'a single bar holds both filters');
+  ok(g.querySelectorAll('.ai-chiprow').length === 2,
+     'scope on one line, the categories under it');
+  ok(/Needs attention/.test(g.innerHTML) && /CapEx/.test(g.innerHTML), 'both are present');
+}
+
+console.log('\nAction Items — filtering by category keeps the findings');
+{
+  const g = aiRender({ inspections: [finding()], raised: [ask(), ask({ id: 'r2', category: 'clinical', category_name: 'Clinical', text: 'Med cart' })],
+                       categories: CATS, categoryFilter: 'clinical' });
+  const titles = [...g.querySelectorAll('.ail-title')].map(t => t.textContent.trim());
+  ok(titles.some(t => /Med cart/.test(t)), 'the chosen category is shown');
+  ok(!titles.some(t => /furniture/.test(t)), 'the other request is filtered out');
+  ok(titles.some(t => /Fire extinguisher/.test(t)),
+     'a finding has no category, so filtering must not silently drop it');
+}
+
+console.log('\nAction Items — the detail opens in place');
+{
+  const g = aiRender({ inspections: [finding()], raised: [], categories: CATS });
+  const row = g.querySelector('.ail-row');
+  ok(!row.classList.contains('is-open'), 'a row starts closed, so the list stays scannable');
+  ok(/Two tags expired/.test(row.querySelector('.ail-detail').textContent),
+     'the description is in the detail, not on the line');
+  run(`aiToggleRow('${row.id}')`);
+  ok(gallery.querySelector('#' + row.id).classList.contains('is-open'), 'tapping it opens it');
+  run(`aiToggleRow('${row.id}')`);
+  ok(!gallery.querySelector('#' + row.id).classList.contains('is-open'), 'and closes it again');
+}
+
+console.log('\nAction Items — closed work reads as closed');
+{
+  const g = aiRender({ scope: 'done', inspections: [finding({ addressed: true, addressedBy: 'Marissa' })],
+                       raised: [ask({ resolved: true, resolved_by: 'Marissa' })], categories: CATS });
+  ok(g.querySelectorAll('.ail-row.is-done').length === 2, 'both are marked done');
+  ok(g.querySelector('.ail-count.is-clear'),
+     'a community with nothing open shows a tick rather than a red zero');
+}
+
+console.log('\nAction Items — an ED is not offered the close button');
+{
+  const g = aiRender({ inspections: [finding()], raised: [], categories: CATS, canVerify: false });
+  ok(!g.querySelector('.ai-resolve-btn'), 'they cannot close a finding');
+  ok(/A regional will review/.test(g.innerHTML), 'and are told who does');
+}
+
+console.log('\nAction Items — nothing to do says so');
+{
+  const g = aiRender({ inspections: [], raised: [], categories: CATS });
+  ok(!!g.querySelector('.empty-state'), 'an empty queue renders an empty state');
+  ok(!g.querySelector('.ail-group'), 'and no stray group headers');
+}
 
 console.log('');
 /* ---- Descarga sellada: la ruta llega hasta el visor ------------------- */
@@ -696,116 +793,6 @@ console.log('\nCommunity card — each region wears its own mark');
     const slug = f.slice('region-'.length, -'.svg'.length);
     ok(/^[a-z0-9-]+$/.test(slug), `${f} is named the way the card asks for it`);
   }
-}
-
-/* ---- Categorías en los items levantados -------------------------------- */
-console.log('\nRaised items — the category, and filtering by it');
-{
-  run(`raisedCategories = [
-        { id: 'capex', name: 'CapEx', active: true },
-        { id: 'clinical', name: 'Clinical', active: true },
-        { id: 'other', name: 'Other', active: true }];
-       raisedCategoryFilter = '';
-       raisedItems = [
-        { id: 'c1', community: 'Kelley Place', text: 'New furniture', priority: 'high',
-          category: 'capex', category_name: 'CapEx', photo: '', raised_by_name: 'Jazmyn',
-          raised_at: new Date().toISOString(), resolved: false },
-        { id: 'c2', community: 'Kelley Place', text: 'Med cart wheel', priority: 'low',
-          category: 'clinical', category_name: 'Clinical', photo: '', raised_by_name: 'Jazmyn',
-          raised_at: new Date().toISOString(), resolved: false },
-        { id: 'c3', community: 'Kelley Place', text: 'Second capex thing', priority: 'medium',
-          category: 'capex', category_name: 'CapEx', photo: '', raised_by_name: 'Jazmyn',
-          raised_at: new Date().toISOString(), resolved: false },
-        { id: 'c4', community: 'Kelley Place', text: 'From before categories', priority: 'low',
-          category: '', photo: '', raised_by_name: 'Jazmyn',
-          raised_at: new Date().toISOString(), resolved: false }];`);
-
-  const box = w.document.createElement('div');
-  box.innerHTML = run('raisedItemsHtml()');
-
-  const cats = [...box.querySelectorAll('.ri-cat')].map(e => e.textContent.trim());
-  ok(cats.length === 4, `every item shows what it was filed under (${cats.length})`);
-  ok(cats.includes('CapEx') && cats.includes('Clinical'), 'by name, not by id');
-  ok(cats.includes('Uncategorised'),
-     'an item raised before categories existed says so instead of showing a blank chip');
-
-  const chips = [...box.querySelectorAll('.ri-chip')].map(c => c.textContent.trim().replace(/\s+/g, ' '));
-  ok(chips.some(c => c.startsWith('All 4')), 'the chips start with everything');
-  ok(chips.some(c => c.startsWith('CapEx 2')), 'and count what is actually in the list');
-  ok(!chips.some(c => c.startsWith('Other')),
-     'a category nobody has used gets no chip — it would always come back empty');
-  ok(chips.some(c => c.startsWith('Uncategorised 1')),
-     'the ones with no category are still reachable');
-
-  // Filtering
-  run(`setRaisedCategoryFilter('capex');`);
-  ok(run('raisedCategoryFilter') === 'capex', 'clicking a chip sets the filter');
-  const filtered = w.document.createElement('div');
-  filtered.innerHTML = run('raisedItemsHtml()');
-  ok(filtered.querySelectorAll('.ri-card').length === 2, 'and the list narrows to that category');
-  ok(filtered.querySelector('.ri-chip.on').textContent.includes('CapEx'), 'the chip shows as chosen');
-  ok(filtered.querySelector('.ri-title span').textContent.trim() === '4',
-     'while the heading still counts everything open, so nothing looks lost');
-
-  run(`setRaisedCategoryFilter('capex');`);
-  ok(run('raisedCategoryFilter') === '', 'clicking the same chip again clears it');
-
-  run(`raisedCategoryFilter = 'clinical'; raisedItems = raisedItems.filter(i => i.category !== 'clinical');`);
-  const empty = w.document.createElement('div');
-  empty.innerHTML = run('raisedItemsHtml()');
-  ok(/Nothing open in this category/.test(empty.innerHTML),
-     'a filter that matches nothing says so rather than rendering an empty section');
-  run(`raisedCategoryFilter = '';`);
-}
-
-console.log('\nRaised items — the filter is visible from day one');
-{
-  // Every item that existed when this shipped predated the category field, so
-  // they all landed in one group. Hiding the chips until two groups existed
-  // made the whole feature look like it had never been built.
-  run(`raisedCategories = [{ id: 'capex', name: 'CapEx', active: true }];
-       raisedCategoryFilter = '';
-       raisedItems = [
-        { id: 'o1', community: 'K', text: 'From before categories', priority: 'low',
-          category: '', photo: '', raised_by_name: 'J',
-          raised_at: new Date().toISOString(), resolved: false },
-        { id: 'o2', community: 'K', text: 'Also from before', priority: 'low',
-          category: '', photo: '', raised_by_name: 'J',
-          raised_at: new Date().toISOString(), resolved: false }];`);
-  const box = w.document.createElement('div');
-  box.innerHTML = run('raisedItemsHtml()');
-  const chips = [...box.querySelectorAll('.ri-chip')].map(c => c.textContent.trim().replace(/\s+/g, ' '));
-  ok(chips.length >= 2, `the chips show even when everything is in one group (${chips.length})`);
-  ok(chips.some(c => c.startsWith('All 2')), 'with the total');
-  ok(chips.some(c => c.startsWith('Uncategorised 2')), 'and the one group there is');
-
-  // A single item is still enough for the row to appear.
-  run(`raisedItems = raisedItems.slice(0, 1);`);
-  const one = w.document.createElement('div');
-  one.innerHTML = run('raisedItemsHtml()');
-  ok(one.querySelectorAll('.ri-chip').length >= 2, 'one item is enough to show the filter exists');
-
-  run(`raisedItems = [];`);
-}
-
-console.log('\nRaised items — closing one closes the right one');
-{
-  // It used to take a position in the list. Once the list can be filtered, a
-  // position means something different from what the button was drawn for.
-  run(`raisedCategories = [{ id: 'capex', name: 'CapEx', active: true },
-                           { id: 'clinical', name: 'Clinical', active: true }];
-       raisedCategoryFilter = 'clinical';
-       raisedItems = [
-        { id: 'first', community: 'K', text: 'A capex thing', priority: 'low', category: 'capex',
-          category_name: 'CapEx', photo: '', raised_by_name: 'J', raised_at: new Date().toISOString(), resolved: false },
-        { id: 'second', community: 'K', text: 'A clinical thing', priority: 'low', category: 'clinical',
-          category_name: 'Clinical', photo: '', raised_by_name: 'J', raised_at: new Date().toISOString(), resolved: false }];`);
-  const box = w.document.createElement('div');
-  box.innerHTML = run('raisedItemsHtml()');
-  const btn = box.querySelector('.ri-done').getAttribute('onclick');
-  ok(/'second'/.test(btn),
-     `the only card shown closes itself, not whatever sits first in the full list (${btn})`);
-  run(`raisedCategoryFilter = ''; raisedItems = [];`);
 }
 
 console.log('\nRaised items — the form requires a category');
