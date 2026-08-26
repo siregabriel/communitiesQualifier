@@ -771,9 +771,11 @@
 
         .community-card .card-image {
             width: 100%;
-            height: 200px;
+            height: 168px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            overflow: hidden;
+            /* No overflow clip here: the score medal hangs off the bottom edge
+               on purpose. The cover image is inset to 0 so it cannot spill, and
+               the card's own overflow rounds the top corners. */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -833,31 +835,93 @@
         }
 
         .community-card .card-content {
-            padding: 24px;
-            text-align: center;
+            padding: 16px 18px 18px;
+            text-align: left;
         }
 
         .community-card .card-title {
             color: #0f172a;
-            font-size: 20px;
+            font-size: 17px;
             font-weight: 800;
-            margin-bottom: 8px;
+            line-height: 1.25;
+            margin-bottom: 3px;
+            /* Room for the medal hanging off the photo above. */
+            padding-right: 62px;
             font-family: helvetica!important;
         }
 
         .community-card .card-date {
             color: #64748b;
-            font-size: 13px;
-            margin-bottom: 20px;
+            font-size: 12.5px;
+            margin-bottom: 0;
             font-weight: 500;
+        }
+
+        /* The score, worn on the edge of the cover photo. */
+        .cc-medal {
+            position: absolute;
+            right: 14px; bottom: -26px;
+            width: 62px; height: 62px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 4px 14px rgba(2, 12, 34, .16);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2;
+        }
+        html[data-theme="dark"] .cc-medal { background: #131c2b; }
+
+        .cc-chips:not(:empty) { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .cc-stats {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .cc-stat {
+            background: #f4f6fa;
+            border-radius: 10px;
+            padding: 8px 10px;
+            min-width: 0;
+        }
+        html[data-theme="dark"] .cc-stat { background: rgba(255,255,255,.06); }
+        .cc-stat-k {
+            display: block; font-size: 11px; color: #64748b;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        html[data-theme="dark"] .cc-stat-k { color: #9fb0c4; }
+        .cc-stat-v { display: block; font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 1px; }
+        html[data-theme="dark"] .cc-stat-v { color: #e8eefc; }
+        .cc-stat-good { color: #1d9e75; }
+        .cc-stat-bad { color: #b42318; }
+        html[data-theme="dark"] .cc-stat-good { color: #5dcaa5; }
+        html[data-theme="dark"] .cc-stat-bad { color: #ff9d85; }
+
+        .cc-foot {
+            margin-top: 12px;
+            padding-top: 11px;
+            border-top: 1px solid #e8edf5;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        }
+        html[data-theme="dark"] .cc-foot { border-top-color: #26324a; }
+        .cc-go { font-size: 12.5px; font-weight: 700; color: #2563eb; white-space: nowrap; }
+        html[data-theme="dark"] .cc-go { color: #9cc4ff; }
+        .cc-go i { font-size: 10px; margin-left: 3px; }
+        .cc-nodata { opacity: .82; }
+        .cc-nodata .card-title { color: #64748b; }
+
+        /* Three boxes do not fit across a phone; the footer already carries
+           the open count, which is the one that changes what you do today. */
+        @media (max-width: 600px) {
+            .cc-stats { display: none; }
         }
 
         /* Circular Progress Indicator */
         .circular-progress {
             position: relative;
-            width: 120px;
-            height: 120px;
-            margin: 20px auto;
+            width: 54px;
+            height: 54px;
+            margin: 0;
         }
 
         .circular-progress svg {
@@ -869,13 +933,13 @@
         .progress-bg {
             fill: none;
             stroke: #e5e7eb;
-            stroke-width: 8;
+            stroke-width: 7;
         }
 
         .progress-bar {
             fill: none;
             stroke: #10b981;
-            stroke-width: 8;
+            stroke-width: 7;
             stroke-linecap: round;
             stroke-dasharray: 283;
             stroke-dashoffset: 283;
@@ -895,7 +959,7 @@
         .progress-recovered {
             fill: none;
             stroke: #9fe1cb;
-            stroke-width: 8;
+            stroke-width: 7;
             stroke-dasharray: 283;
             transition: stroke-dashoffset 0.5s ease;
         }
@@ -906,8 +970,9 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 28px;
-            font-weight: 700;
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: -.2px;
             color: #111827;
         }
 
@@ -917,6 +982,14 @@
         }
 
         /* Action Items Display */
+        .community-card .action-items {
+            margin: 0; padding: 0; background: none; border: none;
+            font-size: 12.5px; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 6px;
+            min-width: 0;
+        }
+        .community-card .action-items span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
         .action-items {
             display: flex;
             align-items: center;
@@ -2480,6 +2553,16 @@
 
         // The small ageing chip on a community card. Silent while a community
         // is inside its window — a badge on every card would say nothing.
+        // "Legacy Reserve at Old Town, Columbus" wrapped onto two lines and
+        // read as one long name. The first comma separates the place from the
+        // name — the last one would leave "TX" behind for the longer names.
+        function splitCommunityName(full) {
+            const raw = String(full || '');
+            const i = raw.indexOf(',');
+            if (i === -1) return { name: raw.trim(), place: '' };
+            return { name: raw.slice(0, i).trim(), place: raw.slice(i + 1).trim() };
+        }
+
         function visitAgeBadge(c) {
             const d = daysSinceVisit(c);
             if (d === null) {
@@ -3887,49 +3970,73 @@
                                 </button>
                                 ${coverUrl ? `<button class="cover-btn cover-btn-remove" title="Remove cover photo" onclick="removeCover('${nameAttr}')"><i class="fas fa-trash"></i></button>` : ''}
                             </div>` : '';
+                const where = splitCommunityName(community.name);
+                // The score sits on the photo's edge like a medal. The old card
+                // spent about 250px of a phone screen drawing one number, which
+                // meant one community per screen.
+                const medal = `
+                            <div class="cc-medal" title="${community.fixedSinceVisit
+                                ? `${community.visitScore}% at the visit, ${community.fixedSinceVisit} fixed since`
+                                : 'Score from the latest visit'}">
+                                <div class="circular-progress">
+                                    <svg viewBox="0 0 100 100">
+                                        <circle class="progress-bg" cx="50" cy="50" r="45"></circle>
+                                        ${community.fixedSinceVisit ? `<circle class="progress-recovered" cx="50" cy="50" r="45"
+                                                style="stroke-dashoffset: ${strokeDashoffset}"></circle>` : ''}
+                                        <circle class="progress-bar ${progressClass}" cx="50" cy="50" r="45"
+                                                style="stroke-dashoffset: ${community.fixedSinceVisit ? visitOffset : strokeDashoffset}"></circle>
+                                    </svg>
+                                    <div class="progress-value ${scoreClass}">${score}${score !== 'N/A' ? '%' : ''}</div>
+                                </div>
+                            </div>`;
+
+                // Only worth three boxes when the score actually moved after the
+                // visit; otherwise they would be one number and two zeroes.
+                const stats = (hasData && community.fixedSinceVisit) ? `
+                            <div class="cc-stats">
+                                <div class="cc-stat">
+                                    <span class="cc-stat-k">At the visit</span>
+                                    <span class="cc-stat-v">${community.visitScore}%</span>
+                                </div>
+                                <div class="cc-stat">
+                                    <span class="cc-stat-k">Fixed since</span>
+                                    <span class="cc-stat-v cc-stat-good">${community.fixedSinceVisit}</span>
+                                </div>
+                                <div class="cc-stat">
+                                    <span class="cc-stat-k">Open</span>
+                                    <span class="cc-stat-v ${community.actionItems > 0 ? 'cc-stat-bad' : ''}">${community.actionItems}</span>
+                                </div>
+                            </div>` : '';
+
                 return `
-                    <div class="community-card">
+                    <div class="community-card${hasData ? '' : ' cc-nodata'}"
+                         data-community="${escapeHtmlForAttr(community.name)}">
                         <div class="card-image" style="background: ${community.photoUrl}">
                             <i class="fas fa-building"></i>
                             ${coverImg}
                             ${regionBadge}
                             ${coverControls}
+                            ${medal}
                         </div>
                         <div class="card-content">
-                            <div class="card-title">${community.name}</div>
-                            <div class="card-date">Last visit: ${lastVisitText}</div>
-                            ${visitAgeBadge(community)}
-
-                            <div class="circular-progress">
-                                <svg viewBox="0 0 100 100">
-                                    <circle class="progress-bg" cx="50" cy="50" r="45"></circle>
-                                    ${community.fixedSinceVisit ? `<circle class="progress-recovered" cx="50" cy="50" r="45"
-                                            style="stroke-dashoffset: ${strokeDashoffset}"></circle>` : ''}
-                                    <circle class="progress-bar ${progressClass}" cx="50" cy="50" r="45"
-                                            style="stroke-dashoffset: ${community.fixedSinceVisit ? visitOffset : strokeDashoffset}"></circle>
-                                </svg>
-                                <div class="progress-value ${scoreClass}">${score}${score !== 'N/A' ? '%' : ''}</div>
+                            <div class="card-title">${where.name}</div>
+                            <div class="card-date">${where.place ? `${where.place} · ` : ''}${
+                                community.lastVisit ? `visited ${lastVisitText}` : lastVisitText}</div>
+                            <div class="cc-chips">
+                                ${visitAgeBadge(community)}
+                                ${partialChip(community.partial)}
                             </div>
-                            ${community.fixedSinceVisit
-                                ? `<div class="score-note" title="The big number counts fixes a regional has verified since the visit">
-                                       ${community.visitScore}% at the visit ·
-                                       ${community.fixedSinceVisit} fixed since
-                                   </div>`
-                                : ''}
-                            ${partialChip(community.partial)}
                             ${trendBlock(community)}
-
-                            <div class="action-items ${actionClass}">
-                                <i class="fas ${community.actionItems > 0 ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
-                                <span>${community.actionItems} Open Action${community.actionItems !== 1 ? 's' : ''}</span>
+                            ${stats}
+                            <div class="cc-foot">
+                                <span class="action-items ${actionClass}">
+                                    <i class="fas ${community.actionItems > 0 ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
+                                    <span>${hasData
+                                        ? `${community.actionItems} open action${community.actionItems !== 1 ? 's' : ''}`
+                                        : 'No visits yet'}</span>
+                                </span>
+                                ${hasData ? '<span class="cc-go">View details <i class="fas fa-chevron-right"></i></span>' : ''}
                             </div>
-                            
-                            <button class="view-details-btn" 
-                                    onclick="openSlidePanel('${community.name.replace(/'/g, "\\'")}')" 
-                                    ${!hasData ? 'disabled' : ''}>
-                                <i class="fas fa-eye"></i>
-                                <span>${hasData ? 'View Details' : 'No Data Available'}</span>
-                            </button>
                         </div>
                     </div>
                 `;
@@ -9812,12 +9919,13 @@
         function openCommunityFromCard(card) {
             if (cardClickTimeout) clearTimeout(cardClickTimeout);
             cardClickTimeout = setTimeout(() => {
-                const titleElement = card.querySelector('.card-title');
-                if (titleElement) {
-                    const communityName = titleElement.textContent.trim();
-                    if (communityName) {
-                        openSlidePanel(communityName);
-                    }
+                // The stored name carries the city ("... , Columbus"); the
+                // title no longer prints it, so reading the heading back would
+                // hand openSlidePanel a name that matches nothing.
+                const communityName = (card.dataset.community || '').trim()
+                    || (card.querySelector('.card-title')?.textContent || '').trim();
+                if (communityName && !card.classList.contains('cc-nodata')) {
+                    openSlidePanel(communityName);
                 }
             }, 250);
         }

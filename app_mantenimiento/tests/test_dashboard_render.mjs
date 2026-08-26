@@ -503,5 +503,110 @@ console.log('\nPhoto download — the stored path reaches the viewer');
 
 }
 
+/* ---- La ficha de comunidad ------------------------------------------- */
+console.log('\nCommunity card — the score rides on the photo');
+{
+  run(`
+    communityData = [{
+      name: 'Legacy Reserve at Old Town, Columbus',
+      lastVisit: 'Aug 18, 2026', lastVisitTs: Date.now(),
+      score: 55, visitScore: 48, fixedSinceVisit: 3,
+      actionItems: 5, trend: [], partial: null, photoUrl: '#eee'
+    }, {
+      name: 'The Oscar at Georgetown',
+      lastVisit: null, lastVisitTs: 0,
+      score: null, actionItems: 0, trend: [], partial: null, photoUrl: '#eee'
+    }];
+    communitySort = 'name'; onlyDueForVisit = false;
+    renderCommunityCards();
+  `);
+  const cards = gallery.querySelectorAll('.community-card');
+  ok(cards.length === 2, `both communities render (${cards.length})`);
+
+  const first = cards[0];
+  ok(!!first.querySelector('.card-image .cc-medal'),
+     'the score hangs off the cover photo instead of filling the card');
+  ok(first.querySelector('.cc-medal .progress-value').textContent.trim() === '55%',
+     'and still reads the current score');
+  ok(first.querySelectorAll('.cc-medal circle').length === 3,
+     'two arcs plus the track, so recovered points are visible at a glance');
+
+  ok(first.querySelector('.card-title').textContent.trim() === 'Legacy Reserve at Old Town',
+     'the title drops the city, which was forcing a second line');
+  ok(/Columbus/.test(first.querySelector('.card-date').textContent),
+     'the city moves down beside the date');
+
+  ok(first.dataset.community === 'Legacy Reserve at Old Town, Columbus',
+     'the whole name is kept on the card, or opening it would find nothing');
+  ok(!first.querySelector('.view-details-btn'),
+     'the full-width button is gone — the card itself is the target');
+
+  const stats = first.querySelectorAll('.cc-stat-v');
+  ok(stats.length === 3 && stats[0].textContent.trim() === '48%'
+     && stats[1].textContent.trim() === '3' && stats[2].textContent.trim() === '5',
+     'at the visit, fixed since, and open — all three were buried before');
+
+  const never = cards[1];
+  ok(never.classList.contains('cc-nodata'), 'a community with no visit is marked');
+  ok(never.querySelectorAll('.cc-stat').length === 0,
+     'and shows no stat boxes, which would all be zero');
+  ok(!never.querySelector('.cc-go'), 'nor invites you into an empty panel');
+}
+
+console.log('\nCommunity card — clicking it opens the right community');
+{
+  let opened = null;
+  run(`window.__realOpen = openSlidePanel; openSlidePanel = n => { window.__opened = n; };`);
+  const card = gallery.querySelector('.community-card');
+  card.querySelector('.card-title').dispatchEvent(new w.Event('click', { bubbles: true }));
+  await new Promise(r => setTimeout(r, 300));
+  opened = w.__opened;
+  ok(opened === 'Legacy Reserve at Old Town, Columbus',
+     `the stored name is what gets opened, city included (${opened})`);
+
+  w.__opened = null;
+  const dead = gallery.querySelectorAll('.community-card')[1];
+  dead.querySelector('.card-title').dispatchEvent(new w.Event('click', { bubbles: true }));
+  await new Promise(r => setTimeout(r, 300));
+  ok(w.__opened === null, 'a community with no visit does not open an empty panel');
+  run(`openSlidePanel = window.__realOpen;`);
+}
+
+console.log('\nCommunity card — names with and without a city');
+{
+  const split = n => run(`JSON.stringify(splitCommunityName(${JSON.stringify(n)}))`);
+  const a = JSON.parse(split('Legacy Reserve at Old Town, Columbus'));
+  ok(a.name === 'Legacy Reserve at Old Town' && a.place === 'Columbus', 'one comma splits cleanly');
+  const b = JSON.parse(split('The Oscar at Georgetown'));
+  ok(b.name === 'The Oscar at Georgetown' && b.place === '', 'no comma, nothing invented');
+  const c = JSON.parse(split('The Enclave at Round Rock Senior Living, Round Rock, TX'));
+  ok(c.name === 'The Enclave at Round Rock Senior Living' && c.place === 'Round Rock, TX',
+     'the first comma splits, so the state does not become the whole place');
+}
+
+/* jsdom no calcula diseño, así que las trampas de CSS se comprueban leyendo la
+   hoja. Ésta en concreto ya me mordió: el medallón cuelga del borde inferior de
+   la foto, y un overflow:hidden en la foto lo recorta sin avisar. */
+console.log('\nCommunity card — the medal is not clipped away');
+{
+  const css = html_src.slice(html_src.indexOf('.community-card .card-image {'),
+                             html_src.indexOf('.community-card .card-image img {'));
+  ok(!/overflow:\s*hidden/.test(css),
+     'the cover photo does not clip, or the medal hanging off it would vanish');
+  ok(/height:\s*168px/.test(css), 'and the photo is shorter than the 200px it was');
+
+  const medal = html_src.slice(html_src.indexOf('.cc-medal {'), html_src.indexOf('.cc-chips'));
+  ok(/bottom:\s*-\d+px/.test(medal), 'the medal sits below the photo edge');
+  ok(/z-index/.test(medal), 'above the cover controls rather than under them');
+
+  ok(/@media \(max-width: 600px\) \{\s*\.cc-stats \{ display: none/.test(html_src),
+     'the three stat boxes stand down on a phone, where they do not fit');
+
+  const title = html_src.slice(html_src.indexOf('.community-card .card-title {'),
+                               html_src.indexOf('.community-card .card-date {'));
+  ok(/padding-right:\s*\d+px/.test(title),
+     'the title reserves room so a long name never runs under the medal');
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);
