@@ -4905,6 +4905,8 @@
         }
 
         async function stopViewAs() {
+            // Otherwise the next preview would open already collapsed.
+            sessionStorage.removeItem('viewAsCollapsed');
             try {
                 await fetch('/api/view-as/stop', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
@@ -4924,9 +4926,38 @@
                 <span>You're seeing the app as <b>${escapeHtml(label)}</b>${
                     where ? ` — ${escapeHtml(where)}` : ''}. Anything you do here is
                     real, and is recorded under your own name.</span>
-                <button type="button" onclick="stopViewAs()">Leave preview</button>`;
+                <button type="button" onclick="stopViewAs()">Leave preview</button>
+                <button type="button" class="viewas-x" onclick="collapseViewAs()"
+                        title="Hide this" aria-label="Hide this"><i class="fas fa-times"></i></button>`;
             document.body.appendChild(bar);
             document.body.classList.add('has-viewas');
+
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.id = 'viewAsChip';
+            chip.className = 'viewas-chip';
+            chip.title = 'You are still previewing — tap to show';
+            chip.setAttribute('aria-label', 'You are still previewing — tap to show');
+            chip.innerHTML = '<i class="fas fa-eye"></i>';
+            chip.onclick = expandViewAs;
+            document.body.appendChild(chip);
+
+            if (sessionStorage.getItem('viewAsCollapsed') === '1') collapseViewAs();
+        }
+
+        // Dismissing the bar is not the same as leaving the preview, so the
+        // eye stays on screen as a chip. Dropping has-viewas lets the floating
+        // + fall back to its normal place on its own.
+        function collapseViewAs() {
+            document.body.classList.add('viewas-collapsed');
+            document.body.classList.remove('has-viewas');
+            sessionStorage.setItem('viewAsCollapsed', '1');
+        }
+
+        function expandViewAs() {
+            document.body.classList.remove('viewas-collapsed');
+            document.body.classList.add('has-viewas');
+            sessionStorage.removeItem('viewAsCollapsed');
         }
 
         // What the communities raised, above what the visit found. Separate on

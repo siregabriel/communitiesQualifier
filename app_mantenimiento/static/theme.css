@@ -525,31 +525,59 @@ html[data-theme="dark"] .ri-done { background: rgba(15,107,74,.22); border-color
 .viewas {
     position: fixed; z-index: 4500;
     left: 10px; right: 10px; bottom: 10px;
-    display: flex; align-items: center; gap: 12px;
-    padding: 11px 16px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px;
     border-radius: 20px;
-    /* Same glass as the tab bar it sits beside: solid amber filled the screen
-       and buried the floating button behind it. Translucent, the page shows
-       through and the state still reads as a warning. */
-    background: rgba(122, 85, 4, .82);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    backdrop-filter: blur(20px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, .28);
-    box-shadow: 0 10px 28px rgba(2, 12, 34, .28), inset 0 1px 0 rgba(255, 255, 255, .22);
+    /* Real glass, not a tinted panel: the amber is a thin wash over a heavy
+       blur, so the page reads through it. At .82 it was still a solid block
+       and it buried whatever sat behind it. */
+    background: rgba(150, 106, 8, .34);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    backdrop-filter: blur(26px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, .4);
+    box-shadow: 0 12px 30px rgba(2, 12, 34, .22), inset 0 1px 0 rgba(255, 255, 255, .38);
     color: #fff; font-size: 13px; font-weight: 600;
+    /* Glass gives no contrast guarantee — the shadow carries the text over
+       whatever happens to scroll underneath. */
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
 }
-.viewas > i { font-size: 14px; opacity: .9; flex-shrink: 0; }
+.viewas > i { font-size: 14px; opacity: .95; flex-shrink: 0; }
 .viewas span { flex: 1; min-width: 0; line-height: 1.4; }
 .viewas b { font-weight: 800; }
 .viewas button {
     flex-shrink: 0;
-    border: 1px solid rgba(255, 255, 255, .45);
-    background: rgba(255, 255, 255, .16);
+    border: 1px solid rgba(255, 255, 255, .5);
+    background: rgba(255, 255, 255, .2);
     color: #fff; font-weight: 800; font-size: 12.5px;
     padding: 7px 13px; border-radius: 10px; cursor: pointer;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
     transition: background .15s ease;
 }
-.viewas button:hover { background: rgba(255, 255, 255, .3); }
+.viewas button:hover { background: rgba(255, 255, 255, .34); }
+
+/* Dismiss. Hides the bar without leaving the preview, so it collapses to the
+   chip below rather than vanishing — you should never be acting as someone
+   else with nothing on screen saying so. */
+.viewas .viewas-x {
+    padding: 0; width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; border-color: rgba(255, 255, 255, .34);
+    background: rgba(255, 255, 255, .14);
+}
+.viewas-chip {
+    position: fixed; z-index: 4500;
+    left: 18px; bottom: 24px;
+    width: 46px; height: 46px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(150, 106, 8, .42);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, .45);
+    box-shadow: 0 8px 22px rgba(2, 12, 34, .24), inset 0 1px 0 rgba(255, 255, 255, .34);
+    color: #fff; font-size: 16px; cursor: pointer;
+}
+body.viewas-collapsed .viewas-chip { display: flex; }
+body.viewas-collapsed .viewas { display: none; }
 /* Keep the bar off whatever sits at the bottom of the page — on a phone that
    is the tab bar, which would otherwise be buried. */
 body.has-viewas { padding-bottom: 58px; }
@@ -559,6 +587,8 @@ body.has-viewas { padding-bottom: 58px; }
     .viewas { gap: 10px; padding: 9px 12px; bottom: 84px; font-size: 12px; }
     .viewas span { font-size: 12px; line-height: 1.35; }
     .viewas button { padding: 6px 11px; font-size: 12px; }
+    .viewas .viewas-x { padding: 0; width: 24px; height: 24px; }
+    .viewas-chip { bottom: 88px; }
     body.has-viewas { padding-bottom: 156px; }
 }
 
