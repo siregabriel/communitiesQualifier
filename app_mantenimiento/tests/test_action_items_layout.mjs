@@ -13,12 +13,23 @@ const px = (r, prop) => Number((r.match(new RegExp(prop + ':\\s*(\\d+)px')) || [
 
 ok(px(rule('.ail-head'), 'min-height') >= 44, 'a group header is at least 44px — a real tap target');
 ok(px(rule('.ail-line'), 'min-height') >= 44, 'and so is a row');
-ok(/flex-direction:\s*column/.test(rule('.ail')), 'the list is one column, always');
-ok(!/grid-template-columns/.test(rule('.ail')), 'never a grid, at any width');
+ok(/flex-direction:\s*column/.test(rule('.ail')), 'one column by default — the phone case');
+ok(!/grid-template-columns/.test(rule('.ail')),
+   'and the base rule never introduces columns, whatever the screen');
 ok(px(rule('.ail-thumb'), 'width') <= 56, 'the photo is a thumbnail, not a banner');
-const wide = css.slice(css.indexOf('@media (min-width: 900px)', css.indexOf('Action Items, as a queue')));
-ok(/max-width:\s*900px/.test(wide), 'on a monitor the line is capped rather than stretched');
-ok(!/grid/.test(wide.slice(0, 400)), 'and a wide screen still gets a list, not columns');
+const from = css.indexOf('Action Items, as a queue');
+const mid = css.slice(css.indexOf('@media (min-width: 900px)', from), css.indexOf('@media (min-width: 1250px)', from));
+ok(/max-width:\s*900px/.test(mid), 'a laptop caps the line rather than stretching it');
+
+const wide = css.slice(css.indexOf('@media (min-width: 1250px)', from));
+ok(/grid-template-columns:\s*repeat\(2/.test(wide),
+   'a wide monitor gets two communities side by side, not half a page of nothing');
+ok(/align-items:\s*start/.test(wide),
+   'a short community stays short instead of stretching to match its neighbour');
+ok(!/columns:\s*2|column-count/.test(wide),
+   'built as a grid, not CSS columns — those re-balance and would shuffle the page when a row opens');
+ok(Number((wide.match(/max-width:\s*(\d+)px/) || [])[1]) > 900,
+   'and the cap is lifted to make room for the second column');
 /* Y en escritorio: la lista no puede quedar dentro de la rejilla de tarjetas.
    Metida ahí ocupaba una sola columna de 320px con media pantalla vacía al
    lado — el componente estaba bien y la página no. */

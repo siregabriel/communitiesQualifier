@@ -657,11 +657,27 @@ html[data-theme="dark"] .ail-desc { color: #cbd8ea; }
 .ail-who { font-size: 12.5px; color: #64748b; }
 
 @media (min-width: 900px) {
-    /* Wider screens get more room per line, not more columns: the list stays a
-       list. Capped so a title does not run the width of a monitor. */
     .ail { max-width: 900px; }
     .ail-line, .ail-head { padding-left: 18px; padding-right: 18px; }
     .ail-detail { padding: 0 18px 16px; }
+}
+
+@media (min-width: 1250px) {
+    /* Two communities side by side. On a wide monitor a single column left
+       half the page empty, which reads as though something failed to load.
+
+       A grid rather than CSS columns on purpose: multi-column re-balances its
+       content, so opening a row would shuffle unrelated communities around the
+       page under the reader's cursor. Here a group only ever grows downward in
+       its own column. align-items:start keeps a short group short instead of
+       stretching it to match its neighbour. */
+    .ail {
+        max-width: 1360px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+        gap: 14px 18px;
+    }
 }
 
 /* ===== Previewing as a community =====
