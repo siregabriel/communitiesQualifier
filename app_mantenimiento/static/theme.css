@@ -224,12 +224,21 @@ form#inspectionForm button[type="submit"],
 
 /* The region's own mark, in the pill. Each svg is a rounded tile with its own
    colour, so it needs no styling beyond a size — and at 14px it reads as a
-   small badge rather than a picture. */
+   small badge rather than a picture.
+
+   position and inset are not decoration here. The cover photo's rule,
+   ".community-card .card-image img { position: absolute; inset: 0 }", also
+   matches this image, because the pill lives inside the photo. Left alone it
+   was lifted out of the flex row and pinned to the pill's top-left corner,
+   sitting on top of the region name. */
 .community-card .card-region-badge .rb-icon {
+    position: static;
+    inset: auto;
     width: 14px;
     height: 14px;
     display: block;
-    flex-shrink: 0;
+    flex: 0 0 auto;
+    object-fit: contain;
 }
 .community-card .card-region-badge i { font-size: 10px; opacity: 0.9; }
 .community-card .card-region-badge-unassigned { background: rgba(100, 116, 139, 0.85); }

@@ -678,6 +678,18 @@ console.log('\nCommunity card — each region wears its own mark');
   ok(run(`regionIconHtml('')`) === '<i class="fas fa-sitemap"></i>',
      'and no region at all asks for no file at all');
 
+  // The mark is an <img> inside the cover photo, so the photo's own rule —
+  // position:absolute, inset:0 — matches it too and lifted it out of the pill
+  // onto the region name. It has to opt back into the flex row explicitly.
+  const themeCss = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
+  const iconRule = themeCss.slice(themeCss.indexOf('.community-card .card-region-badge .rb-icon {'),
+                                  themeCss.indexOf('}', themeCss.indexOf('.community-card .card-region-badge .rb-icon {')));
+  ok(/position:\s*static/.test(iconRule),
+     'the mark stays in the pill instead of being absolutely positioned onto the name');
+  ok(/inset:\s*auto/.test(iconRule), 'and is not pinned to the pill corner');
+  ok(/width:\s*14px/.test(iconRule) && /height:\s*14px/.test(iconRule),
+     'at a badge size, not the photo size the cover rule would give it');
+
   const files = fs.readdirSync(new URL('../static/', import.meta.url))
                   .filter(f => f.startsWith('region-') && f.endsWith('.svg'));
   for (const f of files) {
