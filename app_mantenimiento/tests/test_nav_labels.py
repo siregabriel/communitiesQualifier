@@ -129,3 +129,33 @@ def test_leaving_the_preview_puts_communities_back():
     with c.session_transaction() as s:
         s.pop("view_as", None)
     assert _sidebar_label(c.get("/dashboard").get_data(as_text=True)) == "Communities"
+
+
+# ------------------------------------------------- pages must not be reused
+
+def test_a_signed_in_page_is_never_cached():
+    """The menu is built on the server, so a cached page shows an old menu.
+
+    Worse than the confusion: the page stays on the device after sign-out.
+    """
+    (mine,) = _communities(1)
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user="smoke.nav", display_name="smoke.nav", role="staff",
+                 community=mine, communities=[mine], region_id=None)
+    cc = c.get("/dashboard").headers.get("Cache-Control", "")
+    assert "no-store" in cc, f"the dashboard may be kept by the browser: {cc!r}"
+
+
+def test_api_replies_are_not_cached_either():
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user="smoke.nav", display_name="smoke.nav", role="admin",
+                 community=None, region_id=None)
+    assert "no-store" in c.get("/api/user-info").headers.get("Cache-Control", "")
+
+
+def test_static_files_keep_their_normal_caching():
+    """Sending no-store for assets would make every page load slower."""
+    r = A.app.test_client().get("/static/theme.css")
+    assert "no-store" not in r.headers.get("Cache-Control", "")

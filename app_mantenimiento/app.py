@@ -177,6 +177,16 @@ def _security_headers(resp):
     resp.headers.setdefault('X-XSS-Protection', '0')
     # HSTS only matters over HTTPS; harmless to always send (browsers ignore on http).
     resp.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+
+    # Pages and API replies are built for one account and one moment. They went
+    # out with no cache header at all, which leaves the decision to the
+    # browser's heuristics — and Safari on a phone happily reused a dashboard,
+    # so a deploy that renamed a menu item looked like it had never landed.
+    # Worse than the confusion: one person's page sitting in a shared device's
+    # cache after they sign out. Static assets keep their normal caching.
+    if not request.path.startswith('/static/'):
+        resp.headers.setdefault('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+        resp.headers.setdefault('Pragma', 'no-cache')
     return resp
 
 
