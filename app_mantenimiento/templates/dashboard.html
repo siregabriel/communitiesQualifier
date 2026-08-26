@@ -2271,6 +2271,11 @@
     <!-- Photo viewer. Photos used to open in a new tab, which on a phone means
          losing your place in a list you were working through. -->
     <div id="photoLightbox" class="plb" onclick="closePhoto(event)" role="dialog" aria-label="Photo">
+        <a id="plbDownload" class="plb-dl" href="#" download
+           onclick="event.stopPropagation()" aria-label="Download this photo"
+           title="Download with the community and date on it">
+            <i class="fas fa-download"></i>
+        </a>
         <button class="plb-close" type="button" onclick="closePhoto()" aria-label="Close photo">
             <i class="fas fa-times"></i>
         </button>
@@ -3434,7 +3439,7 @@
                            <div>
                                <b>Addressed${response.addressedAt ? ' ' + escapeHtml(formatDate(response.addressedAt)) : ''}${response.addressedBy ? ' by ' + escapeHtml(response.addressedBy) : ''}</b>
                                ${response.addressedNote ? `<div class="resp-fixed-note">${escapeHtml(response.addressedNote)}</div>` : ''}
-                               ${response.addressedPhoto ? `<a class="resp-fixed-photo" href="${photoUrl(response.addressedPhoto)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo of the fix')"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                               ${response.addressedPhoto ? `<a class="resp-fixed-photo" href="${photoUrl(response.addressedPhoto)}" data-path="${escapeHtmlForAttr(response.addressedPhoto)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo of the fix', this.dataset.path)"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
                            </div>
                        </div>`
                     : '';
@@ -3448,7 +3453,7 @@
                             ${response.addressed ? '<span class="resp-chip-fixed"><i class="fas fa-wrench"></i> Fixed since</span>' : ''}
                         </div>
                         ${response.description ? `<div class="response-description">${escapeHtml(response.description)}</div>` : ''}
-                        ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" alt="${escapeHtmlForAttr(response.questionText || 'Response photo')}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt)" onerror="this.parentElement.style.display='none'"></div>` : ''}
+                        ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" data-path="${escapeHtmlForAttr(response.photoPath)}" alt="${escapeHtmlForAttr(response.questionText || 'Response photo')}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.parentElement.style.display='none'"></div>` : ''}
                         ${outcome}
                         ${thread}
                     </div>
@@ -3489,7 +3494,7 @@
             for (const photo of photos) {
                 html += `
                     <div class="photo-item">
-                        <img src="${photoUrl(photo.path)}" alt="${escapeHtmlForAttr(photo.alt)}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt)" onerror="this.parentElement.style.display='none'">
+                        <img src="${photoUrl(photo.path)}" data-path="${escapeHtmlForAttr(photo.path)}" alt="${escapeHtmlForAttr(photo.alt)}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.parentElement.style.display='none'">
                     </div>
                 `;
             }
@@ -4805,7 +4810,7 @@
         function renderActionItemCardPhotoForTest(item) {
             item = item || { photoPath: 'x/a.jpg',
                              questionText: 'Tour Path is "show time" ready' };
-            return `<img src="${photoUrl(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText)}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt)" onerror="this.style.display='none'">`;
+            return `<img src="${photoUrl(item.photoPath)}" data-path="${escapeHtmlForAttr(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText)}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.style.display='none'">`;
         }
 
         // Everything that was said about one visit, ready to open in place.
@@ -4824,9 +4829,9 @@
                 <div class="talk-note">
                     <div class="talk-label">Note from ${escapeHtml(v.inspector || 'the visit')}</div>
                     <div class="talk-text">${escapeHtml(note)}</div>
-                    ${v.notes_photo ? `<img class="talk-photo" src="${photoUrl(v.notes_photo)}"
+                    ${v.notes_photo ? `<img class="talk-photo" src="${photoUrl(v.notes_photo)}" data-path="${escapeHtmlForAttr(v.notes_photo)}"
                         alt="${escapeHtmlForAttr('Photo from the visit note')}" style="cursor:zoom-in"
-                        onclick="openPhoto(this.src, this.alt)" onerror="this.style.display='none'">` : ''}
+                        onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.style.display='none'">` : ''}
                 </div>` : '';
 
             // Grouped by standard: three replies about one item read as a
@@ -4844,9 +4849,9 @@
                             <div class="talk-who">${escapeHtml(c.author || '')}
                                 <span>${escapeHtml(timeAgo(c.at))}</span></div>
                             ${c.text ? `<div class="talk-text">${escapeHtml(c.text)}</div>` : ''}
-                            ${c.photo ? `<img class="talk-photo" src="${photoUrl(c.photo)}"
+                            ${c.photo ? `<img class="talk-photo" src="${photoUrl(c.photo)}" data-path="${escapeHtmlForAttr(c.photo)}"
                                 alt="${escapeHtmlForAttr(std)}" style="cursor:zoom-in"
-                                onclick="openPhoto(this.src, this.alt)"
+                                onclick="openPhoto(this.src, this.alt, this.dataset.path)"
                                 onerror="this.style.display='none'">` : ''}
                         </div>`).join('')}
                 </div>`).join('');
@@ -4867,8 +4872,9 @@
             notes = (notes || '').trim();
             if (!notes && !photo) return '';
             const shot = photo
-                ? `<img class="vnote-photo" src="${photoUrl(photo)}" alt="Photo from the visit note"
-                        style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt)"
+                ? `<img class="vnote-photo" src="${photoUrl(photo)}" data-path="${escapeHtmlForAttr(photo)}"
+                        alt="Photo from the visit note"
+                        style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)"
                         onerror="this.style.display='none'">`
                 : '';
             return `
@@ -4977,9 +4983,9 @@
                             <span class="ri-where">${escapeHtml(i.community || '')}</span>
                         </div>
                         <div class="ri-text">${escapeHtml(i.text || '')}</div>
-                        ${i.photo ? `<img class="ri-photo" src="${photoUrl(i.photo)}"
+                        ${i.photo ? `<img class="ri-photo" src="${photoUrl(i.photo)}" data-path="${escapeHtmlForAttr(i.photo)}"
                             alt="${escapeHtmlForAttr(i.text || 'Photo')}" style="cursor:zoom-in"
-                            onclick="openPhoto(this.src, this.alt)" onerror="this.style.display='none'">` : ''}
+                            onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.style.display='none'">` : ''}
                         <div class="ri-foot">
                             <span>${escapeHtml(i.raised_by_name || '')} · ${escapeHtml(timeAgo(i.raised_at))}</span>
                             <button class="ri-done" onclick="closeRaisedItem(${idx})">
@@ -5092,12 +5098,27 @@
         // phone loses your place in the list you were working through, and
         // leaves a trail of tabs behind. It opens over the page instead.
 
-        function openPhoto(src, caption) {
+        function openPhoto(src, caption, path) {
             if (!src) return;
             const box = document.getElementById('photoLightbox');
             const img = document.getElementById('plbImg');
             const cap = document.getElementById('plbCap');
             if (!box || !img) return;
+
+            // The download goes through the app, not straight to the file, so
+            // the copy that leaves carries the community and date underneath
+            // it. Without a stored path there is nothing to caption, so the
+            // button stays hidden rather than handing over a bare image.
+            const dl = document.getElementById('plbDownload');
+            if (dl) {
+                if (path) {
+                    dl.href = '/api/photo/download?path=' + encodeURIComponent(path);
+                    dl.style.display = '';
+                } else {
+                    dl.removeAttribute('href');
+                    dl.style.display = 'none';
+                }
+            }
             img.src = src;
             img.alt = caption || 'Photo';
             if (cap) cap.textContent = caption || '';
@@ -6012,7 +6033,7 @@
                 const hasPhoto = !!item.photoPath;
                 const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
                 const imageInner = hasPhoto
-                    ? `<img src="${photoUrl(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText || item.text || 'Visit photo')}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt)" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
+                    ? `<img src="${photoUrl(item.photoPath)}" data-path="${escapeHtmlForAttr(item.photoPath)}" alt="${escapeHtmlForAttr(item.questionText || item.text || 'Visit photo')}" style="cursor:zoom-in" onclick="event.stopPropagation();openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.closest('.card-image').classList.add('card-image-themed'); this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}));">`
                     : `<i class="fas ${iconClass}"></i>`;
                 const isClosed = manual ? !!item.resolved : !!item.addressed;
                 const imageClass = (hasPhoto ? 'card-image' : 'card-image card-image-themed')
@@ -6052,7 +6073,7 @@
                         ? `<div class="ai-resolved">
                                <i class="fas fa-circle-check"></i> Addressed${item.addressedAt ? ' ' + formatDate(item.addressedAt) : ''}${item.addressedBy ? ' by ' + escapeHtml(item.addressedBy) : ''}
                                ${item.addressedNote ? `<div class="ai-resolved-note">${escapeHtml(item.addressedNote)}</div>` : ''}
-                               ${item.addressedPhoto ? `<a class="ai-fix-photo" href="${photoUrl(item.addressedPhoto)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo of the fix')"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
+                               ${item.addressedPhoto ? `<a class="ai-fix-photo" href="${photoUrl(item.addressedPhoto)}" data-path="${escapeHtmlForAttr(item.addressedPhoto)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo of the fix', this.dataset.path)"><i class="fas fa-image"></i> Photo of the fix</a>` : ''}
                                <div class="ai-resolved-hint">Still counts as failed on this visit — it clears when a later visit passes it.</div>
                                ${canVerifyFixes ? `<button class="ai-reopen" onclick="reopenStandard('${item.submissionId}','${qid}')">Reopen</button>` : ''}
                            </div>`
@@ -6098,7 +6119,7 @@
                             onclick="deleteComment('${item.submissionId}','${qid || ''}','${c.id}','${itemId || ''}')"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                     ${c.text ? `<div class="cm-text">${escapeHtml(c.text)}</div>` : ''}
-                    ${photo ? `<a class="cm-photo" href="${photoUrl(photo)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo from a comment')"><i class="fas fa-image"></i> Photo</a>` : ''}
+                    ${photo ? `<a class="cm-photo" href="${photoUrl(photo)}" data-path="${escapeHtmlForAttr(photo)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo from a comment', this.dataset.path)"><i class="fas fa-image"></i> Photo</a>` : ''}
                 </div>`;
             }).join('');
             const n = (item.comments || []).length;

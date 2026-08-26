@@ -273,6 +273,27 @@ class FileUploadHandler:
         except (OSError, IOError) as e:
             raise IOError(f"Failed to save file: {str(e)}")
     
+    def read_bytes(self, relative_path: str) -> bytes:
+        """Read a stored object back into memory, whichever backend holds it.
+
+        Read-only on purpose. Callers transform the copy they get here and
+        leave the stored object alone — it is the record of what a visit found.
+        """
+        rel = (relative_path or '').lstrip('/')
+        if not rel or '..' in rel:
+            raise IOError('Refusing to read that path')
+        if self.use_s3:
+            obj = self.s3.get_object(Bucket=self.s3_bucket, Key=self._s3_key(rel))
+            return obj['Body'].read()
+        base = os.path.abspath(self.upload_folder)
+        full = os.path.abspath(os.path.join(base, rel))
+        # Belt and braces: even with '..' filtered, resolve and confirm the
+        # result is still inside the upload folder before opening it.
+        if not full.startswith(base + os.sep):
+            raise IOError('Refusing to read that path')
+        with open(full, 'rb') as fh:
+            return fh.read()
+
     def ensure_community_folder(self, community: str) -> str:
         """
         Create community folder if it doesn't exist.

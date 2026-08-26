@@ -4461,6 +4461,97 @@ def attach_resource(resource_id):
     return jsonify({'status': 'success'}), 200
 
 
+def _photo_context(relative_path):
+    """Work out which community a stored photo belongs to, and its story.
+
+    Everything needed is already in the path: uploads are written as
+    "<safe community>/<username>_<YYYYMMDD-HHMMSS>_<hex>.<ext>". Reading it
+    back beats threading community, date and author through ten call sites in
+    the template — and it cannot drift out of step with the stored file.
+
+    Returns (community or None, taken_on or None, username or None).
+    """
+    rel = (relative_path or '').strip().lstrip('/')
+    if rel.startswith('uploads/'):
+        rel = rel[len('uploads/'):]
+    if '/' not in rel:
+        return None, None, None
+    folder, filename = rel.split('/', 1)
+
+    # secure_filename() flattened the real name on the way in ("Foo, TX" ->
+    # "Foo_TX"), so match by putting the roster through the same funnel rather
+    # than trying to reverse it.
+    community = next((c for c in all_communities()
+                      if secure_filename(c) == folder), None)
+
+    stem = filename.rsplit('.', 1)[0]
+    parts = stem.split('_')
+    username, taken = None, None
+    if len(parts) >= 3 and re.fullmatch(r'\d{8}-\d{6}', parts[-2]):
+        username = '_'.join(parts[:-2])
+        try:
+            taken = datetime.strptime(parts[-2], '%Y%m%d-%H%M%S')
+        except ValueError:
+            taken = None
+    elif len(parts) >= 2 and parts[-1].isdigit():
+        # The older "<user>_<unix seconds>" names, from before the collision fix.
+        username = '_'.join(parts[:-1])
+        try:
+            taken = datetime.utcfromtimestamp(int(parts[-1]))
+        except (ValueError, OverflowError):
+            taken = None
+    return community, taken, username
+
+
+@app.route('/api/photo/download')
+@login_required
+def download_photo():
+    """Hand back a photo with its context printed underneath it.
+
+    A photo pasted into an email loses everything that made it mean something —
+    which community, which visit, who was standing there. The strip is added to
+    the copy being sent; the stored original is never rewritten.
+    """
+    rel = (request.args.get('path') or '').strip()
+    if not rel:
+        return jsonify({'status': 'error', 'message': 'No photo'}), 400
+
+    community, taken, username = _photo_context(rel)
+
+    # The path arrives from the browser, so trusting it would let any signed-in
+    # account read any community's photos by naming one. An unknown folder is
+    # refused outright rather than served without a caption.
+    if not community:
+        return jsonify({'status': 'error', 'message': 'Photo not found'}), 404
+    if community not in visible_communities():
+        return jsonify({'status': 'error', 'message': 'Not your community'}), 403
+
+    try:
+        raw = file_upload_handler.read_bytes(rel)
+    except Exception as e:
+        app.logger.error(f'Could not read photo {rel}: {e}')
+        return jsonify({'status': 'error', 'message': 'Photo not found'}), 404
+
+    # Filenames are stamped in UTC by the upload handler; showing that clock
+    # raw would push an evening visit onto the next day.
+    when = fmt_local(taken, '%b %d, %Y') if taken else ''
+    who = _display_name_for(username) if username else ''
+    secondary = ' · '.join(p for p in (when, who) if p)
+
+    import io
+    from services.photo_stamp import stamp
+    out, ext = stamp(raw, community, secondary)
+
+    ext = ext or (rel.rsplit('.', 1)[-1].lower() if '.' in rel else 'jpg')
+    mime = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+            'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/jpeg')
+    slug = community_slug(community) or 'photo'
+    datepart = (taken.strftime('%Y-%m-%d') if taken else 'photo')
+    name = f'{slug}-{datepart}.{ext}'
+    return send_file(io.BytesIO(out), mimetype=mime,
+                     as_attachment=True, download_name=name)
+
+
 @app.route('/api/resources/<resource_id>/download')
 @login_required
 def download_resource(resource_id):

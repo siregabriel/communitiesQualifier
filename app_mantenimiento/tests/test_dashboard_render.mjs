@@ -374,7 +374,7 @@ function attrsOf(html) {
   const img = d.querySelector('img') || d.querySelector('a');
   return img ? [...img.attributes].map(a => a.name) : [];
 }
-const KNOWN = ['src', 'alt', 'style', 'onclick', 'onerror', 'class', 'href', 'target', 'title'];
+const KNOWN = ['src', 'alt', 'style', 'onclick', 'onerror', 'class', 'href', 'target', 'title', 'data-path'];
 for (const shot of shots) {
   if (!shot.html) continue;
   const stray = attrsOf(shot.html).filter(n => !KNOWN.includes(n));
@@ -420,7 +420,7 @@ holder.innerHTML = panel;
 const shot = holder.querySelector('.talk-photo');
 ok(!!shot, 'a comment photo is shown');
 const strayAttrs = [...shot.attributes].map(a => a.name)
-  .filter(n => !['class','src','alt','style','onclick','onerror'].includes(n));
+  .filter(n => !['class','src','alt','style','onclick','onerror','data-path'].includes(n));
 ok(strayAttrs.length === 0, `no attribute broke out of its quotes (${strayAttrs.join(', ')})`);
 ok(holder.querySelector('.talk-text').textContent.includes('"wonderful event"'),
    'quotes inside a note survive intact');
@@ -462,7 +462,7 @@ box.innerHTML = ri;
 const riPhoto = box.querySelector('.ri-photo');
 ok(!!riPhoto, 'a photo is shown when there is one');
 const stray = [...riPhoto.attributes].map(a => a.name)
-  .filter(n => !['class','src','alt','style','onclick','onerror'].includes(n));
+  .filter(n => !['class','src','alt','style','onclick','onerror','data-path'].includes(n));
 ok(stray.length === 0, `quotes in the text do not break out of the attribute (${stray.join(', ')})`);
 ok(box.querySelector('.ri-text').textContent.includes('"worn"'), 'and the text reads correctly');
 
@@ -472,5 +472,28 @@ run(`raisedItems = ${JSON.stringify([raised[2]])};`);
 ok(run('raisedItemsHtml()') === '', 'only resolved ones is the same as nothing');
 
 console.log('');
+/* ---- Descarga sellada: la ruta llega hasta el visor ------------------- */
+/* El visor solo recibia la URL firmada de S3, que caduca y no dice de que
+   comunidad es. Sin la ruta guardada el servidor no puede poner el pie. */
+console.log('\nPhoto download — the stored path reaches the viewer');
+{
+  const tpl = html_src;
+  const calls = [...tpl.matchAll(/openPhoto\(([^)]*)\)/g)].map(m => m[1]);
+  const opens = calls.filter(c => !c.startsWith('src'));   // fuera la definicion
+  ok(opens.length >= 10, `every photo in the app opens the viewer (${opens.length} places)`);
+  const noPath = opens.filter(c => !/dataset\.path/.test(c));
+  ok(noPath.length === 0,
+     `each one hands over the stored path, or the download has nothing to caption (${noPath.join(' | ')})`);
+
+  const imgs = [...tpl.matchAll(/data-path="\$\{escapeHtmlForAttr\(([^)]+)\)\}"/g)];
+  ok(imgs.length >= 10, `and the path is escaped on the way into the attribute (${imgs.length})`);
+
+  ok(/id="plbDownload"[\s\S]{0,240}?download/.test(tpl), 'the viewer has a download control');
+  ok(/\/api\/photo\/download\?path=' \+ encodeURIComponent\(path\)/.test(tpl),
+     'it points at the app, not straight at the file');
+  ok(/dl\.style\.display = 'none'/.test(tpl),
+     'and hides itself when there is no path to caption');
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);
