@@ -190,21 +190,15 @@ form#inspectionForm button[type="submit"],
 /* A vivid top accent rail on community cards */
 .community-card {
     position: relative;
-    /* Not hidden: the score medal's halo reaches past the card's right edge,
-       and clipping it left a glow sliced flat down one side. The cover photo
-       used to rely on this to get its rounded top, so it now carries that
-       radius itself — see below. */
-    overflow: visible;
+    /* The card clips again, and this is the one thing that keeps the cover
+       photo's top corners exactly on the card's curve.
+       Letting the photo round itself instead does not work: the card has a 1px
+       border, so its inner corner is 17px while the photo's own radius is 18px.
+       One pixel of card shows through at each corner — the notch you can see.
+       Rather than chase concentric radii, the medal's halo was tucked in far
+       enough that it never needs to escape. */
+    overflow: hidden;
     cursor: pointer;
-}
-
-/* The photo did its own corner rounding once the card stopped clipping. */
-.community-card .card-image {
-    border-radius: var(--r-lg) var(--r-lg) 0 0;
-}
-.community-card .card-image img,
-.community-card .card-image::after {
-    border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
 
 /* Region badge overlaid on the community card photo */

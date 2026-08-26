@@ -613,20 +613,29 @@ console.log('\nCommunity card — the medal is not clipped away');
     ok(new RegExp('\\.cc-medal\\.' + state + ' \\{').test(html_src),
        `a ${state} score gets its own halo colour`);
   }
-  ok(/\.cc-medal \{[^}]*0 0 16px 2px rgba\(16, 185, 129/.test(html_src),
+  ok(/\.cc-medal \{[^}]*rgba\(16, 185, 129/.test(html_src),
      'and a passing score glows green by default');
 
-  // The card clipped too, one layer up, which sliced the halo flat down the
-  // right-hand side. Its rounded top now comes from the photo itself.
+  // The card itself must keep clipping: it is what holds the cover photo's
+  // top corners exactly on the card's curve. Letting the photo round itself
+  // left a pixel of card showing at each corner, because the 1px border makes
+  // the card's inner radius 17px against the photo's 18px.
   const theme = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
   const cardRule = theme.slice(theme.indexOf('/* A vivid top accent rail'),
                                theme.indexOf('/* Region badge overlaid'));
-  ok(/\.community-card \{[^}]*overflow:\s*visible/.test(cardRule),
-     'the card does not clip either, so the halo is whole');
-  ok(/\.community-card \.card-image \{[^}]*border-radius:[^}]*0 0/.test(cardRule),
-     'and the photo rounds its own top corners now that nothing clips it');
-  ok(/\.community-card \.card-image img[^{]*\{[^}]*border-radius/.test(cardRule),
-     'the cover image too, or a photo would square off the corners');
+  ok(/\.community-card \{[^}]*overflow:\s*hidden/.test(cardRule),
+     'the card clips, which is what keeps the photo corners true');
+  ok(!/\.community-card \.card-image \{[^}]*border-radius/.test(cardRule),
+     'and the photo does not fight it with a radius of its own');
+
+  // So the halo has to fit inside the card rather than escape it. Measured,
+  // not eyeballed — this is the whole reason the corners broke last time.
+  const geom = html_src.slice(html_src.indexOf('.cc-medal {'), html_src.indexOf('.cc-medal.warning'));
+  const right = Number((geom.match(/right:\s*(\d+)px/) || [])[1]);
+  const glow = geom.match(/0 0 (\d+)px (\d+)px rgba/);
+  const reach = Number(glow[1]) + Number(glow[2]);
+  ok(right - reach > 1,
+     `the halo stops ${right - reach}px short of the card edge, so nothing clips it`);
 
   ok(/@media \(max-width: 600px\) \{\s*\.cc-stats \{ display: none/.test(html_src),
      'the three stat boxes stand down on a phone, where they do not fit');

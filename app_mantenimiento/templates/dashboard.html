@@ -862,7 +862,9 @@
         /* The score, worn on the edge of the cover photo. */
         .cc-medal {
             position: absolute;
-            right: 14px; bottom: -26px;
+            /* Far enough in that the halo below stays inside the card, which
+               clips. A glow that needs to escape costs the corners. */
+            right: 24px; bottom: -26px;
             width: 62px; height: 62px;
             border-radius: 50%;
             background: #fff;
@@ -874,17 +876,17 @@
                glow on a failing community would say the wrong thing. */
             box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
                         0 0 0 3px rgba(16, 185, 129, .18),
-                        0 0 16px 2px rgba(16, 185, 129, .45);
+                        0 0 14px 1px rgba(16, 185, 129, .48);
         }
         .cc-medal.warning {
             box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
                         0 0 0 3px rgba(245, 158, 11, .20),
-                        0 0 16px 2px rgba(245, 158, 11, .50);
+                        0 0 14px 1px rgba(245, 158, 11, .52);
         }
         .cc-medal.danger {
             box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
                         0 0 0 3px rgba(239, 68, 68, .20),
-                        0 0 16px 2px rgba(239, 68, 68, .50);
+                        0 0 14px 1px rgba(239, 68, 68, .52);
         }
         .cc-medal.na {
             box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
