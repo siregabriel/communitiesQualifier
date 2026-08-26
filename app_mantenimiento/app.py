@@ -353,6 +353,14 @@ from services.raised_item_service import RaisedItemService
 RAISED_FILE = os.path.join(DATA_FOLDER, 'raised_items.json')
 raised_item_service = RaisedItemService(RAISED_FILE)
 
+# What kind of thing is being raised — CapEx, Clinical, Dining and so on. Its
+# own store because the list is Greg's and Angie's to run: renaming or retiring
+# one must never need a deploy, and an item points at an id rather than a name
+# so a rename cannot orphan it.
+from services.raised_category_service import RaisedCategoryService
+RAISED_CATEGORY_FILE = os.path.join(DATA_FOLDER, 'raised_categories.json')
+raised_category_service = RaisedCategoryService(RAISED_CATEGORY_FILE)
+
 MOVEINS_FILE = os.path.join(DATA_FOLDER, 'moveins.json')
 from services.move_in_service import MoveInTemplateService, MoveInService
 movein_template_service = MoveInTemplateService(MOVEIN_TEMPLATE_FILE)
@@ -3114,8 +3122,86 @@ def list_raised_items():
     """Everything raised by the communities this account covers."""
     include = request.args.get('resolved') in ('1', 'true', 'yes')
     items = raised_item_service.for_communities(visible_communities(),
-                                               include_resolved=include)
-    return jsonify({'status': 'success', 'items': items}), 200
+                                                include_resolved=include)
+    # The label is resolved here, at read time, so a rename reaches every past
+    # item at once. Items raised before categories existed carry nothing and
+    # say "Uncategorised" rather than showing an empty chip.
+    items = [{**i, 'category_name': raised_category_service.name_for(i.get('category'))}
+             for i in items]
+    return jsonify({'status': 'success', 'items': items,
+                    'categories': raised_category_service.active()}), 200
+
+
+@app.route('/api/raised-categories', methods=['GET'])
+@login_required
+def list_raised_categories():
+    """The categories a raised item can carry.
+
+    Everyone gets the choosable ones; an admin also gets the retired ones, so
+    the Settings list can show what exists and offer to bring it back.
+    """
+    if is_admin() and request.args.get('all') in ('1', 'true', 'yes'):
+        return jsonify({'status': 'success', 'categories': raised_category_service.all()}), 200
+    return jsonify({'status': 'success', 'categories': raised_category_service.active()}), 200
+
+
+@app.route('/api/raised-categories', methods=['POST'])
+@login_required
+def create_raised_category():
+    """Admin-only: add a category without a deploy."""
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=40)
+    cat = raised_category_service.create(name)
+    if not cat:
+        return jsonify({'status': 'error',
+                        'message': 'Give it a name that is not already in the list'}), 400
+    activity_service.log(session.get('user'), 'category_added',
+                         f'Added raised-item category "{cat["name"]}"')
+    return jsonify({'status': 'success', 'category': cat}), 201
+
+
+@app.route('/api/raised-categories/<category_id>', methods=['PUT'])
+@login_required
+def update_raised_category(category_id):
+    """Admin-only: rename, retire, or bring one back.
+
+    Renaming keeps the id, so every item that chose this category follows the
+    new name on its own — there is nothing to migrate.
+    """
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    cat = None
+    if 'name' in data:
+        name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=40)
+        cat = raised_category_service.rename(category_id, name)
+        if not cat:
+            return jsonify({'status': 'error',
+                            'message': 'Give it a name that is not already in the list'}), 400
+    if 'active' in data:
+        cat = raised_category_service.set_active(category_id, bool(data.get('active')))
+        if not cat:
+            return jsonify({'status': 'error',
+                            'message': 'Keep at least one category people can choose'}), 400
+    if not cat:
+        return jsonify({'status': 'error', 'message': 'Nothing to change'}), 400
+    return jsonify({'status': 'success', 'category': cat}), 200
+
+
+@app.route('/api/raised-categories/order', methods=['POST'])
+@login_required
+def reorder_raised_categories():
+    """Admin-only: the order they appear in the dropdown."""
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    ids = (request.get_json(silent=True) or {}).get('ids') or []
+    if not isinstance(ids, list):
+        return jsonify({'status': 'error', 'message': 'Send the ids in order'}), 400
+    return jsonify({'status': 'success',
+                    'categories': raised_category_service.reorder(
+                        [str(i)[:40] for i in ids])}), 200
 
 
 @app.route('/api/raised-items', methods=['POST'])
@@ -3140,13 +3226,23 @@ def create_raised_item():
         text = InputSanitizer.sanitize_description(request.form.get('text', ''))
         priority = InputSanitizer.sanitize_string(request.form.get('priority', 'medium'),
                                                   max_length=10)
+        category = InputSanitizer.sanitize_string(request.form.get('category', ''),
+                                                  max_length=40)
     else:
         data = request.get_json(silent=True) or {}
         text = InputSanitizer.sanitize_description(data.get('text', ''))
         priority = InputSanitizer.sanitize_string(data.get('priority', 'medium'),
                                                   max_length=10)
+        category = InputSanitizer.sanitize_string(data.get('category', ''), max_length=40)
     if not text.strip():
         return jsonify({'status': 'error', 'message': 'Say what needs attention'}), 400
+
+    # Required, because filtering was the whole point of asking for categories:
+    # an optional field fills the list with uncategorised items and the filter
+    # stops meaning anything. A retired category is refused too — it is still
+    # readable on older items, just no longer a choice.
+    if not raised_category_service.is_choosable(category):
+        return jsonify({'status': 'error', 'message': 'Pick a category'}), 400
 
     photo_path = ''
     f = request.files.get('photo')
@@ -3168,14 +3264,16 @@ def create_raised_item():
         # the username itself, so the session's own name is tried first — it is
         # the one the person actually signed in under.
         _display_name_for(username),
-        priority=priority, photo=photo_path)
+        priority=priority, photo=photo_path, category=category)
     if not item:
         return jsonify({'status': 'error', 'message': 'Could not raise this'}), 400
 
     activity_service.log(username, 'item_raised',
                          f'Raised an item at {community}: {text[:60]}',
                          meta={'community': community})
-    notify_raised_item(item)
+    # The email carries the label, not the id — nobody wants to read "capex".
+    notify_raised_item({**item,
+                        'category_name': raised_category_service.name_for(item.get('category'))})
     return jsonify({'status': 'success', 'item': item}), 201
 
 

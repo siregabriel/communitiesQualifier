@@ -20,6 +20,7 @@ Record:
     "id": "raised_...",
     "community": "Kelley Place, Enterprise",
     "text": "Living room furniture is worn and needs replacing",
+    "category": "capex",                  # id from raised_category_service
     "priority": "high" | "medium" | "low",
     "photo": "Community/file.jpg",        # optional, relative like every other
     "raised_by": "jazmyn.frasier",        # the account, never a display name
@@ -72,7 +73,8 @@ class RaisedItemService(JsonFileBacked):
     # ------------------------------------------------------------------
 
     def create(self, community: str, text: str, username: str, display_name: str,
-               priority: str = 'medium', photo: str = '') -> Optional[Dict]:
+               priority: str = 'medium', photo: str = '',
+               category: str = '') -> Optional[Dict]:
         community = (community or '').strip()
         text = (text or '').strip()
         if not community or not text:
@@ -85,6 +87,9 @@ class RaisedItemService(JsonFileBacked):
             'id': f"raised_{int(time.time() * 1000)}_{random.randint(1000, 9999)}",
             'community': community,
             'text': text[:MAX_TEXT],
+            # The category's id, never its name — see raised_category_service.
+            # Renaming a category must not orphan the items that chose it.
+            'category': (category or '').strip(),
             'priority': priority,
             'photo': (photo or '').strip(),
             'raised_by': (username or '').strip(),

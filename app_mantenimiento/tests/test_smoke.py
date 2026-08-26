@@ -1843,7 +1843,8 @@ def test_an_ed_can_raise_an_item_and_the_regional_sees_it():
     made = []
     try:
         r = ed.post("/api/raised-items",
-                    json={"text": "Living room furniture is worn", "priority": "high"},
+                    json={"text": "Living room furniture is worn", "priority": "high",
+                          "category": "capex"},
                     headers=HDR)
         assert r.status_code == 201, r.get_data(as_text=True)
         item = r.get_json()["item"]
@@ -1854,6 +1855,7 @@ def test_an_ed_can_raise_an_item_and_the_regional_sees_it():
         assert item["raised_by_name"] == "Smoke ED", \
             f"stored the login instead of the person's name: {item['raised_by_name']}"
         assert item["priority"] == "high"
+        assert item["category"] == "capex", "the id is stored, not the label"
 
         # Their regional sees it.
         reg = _client()
@@ -1888,7 +1890,8 @@ def test_a_raised_item_stays_inside_its_community():
         s["communities"] = [second]
     made = []
     try:
-        item = a.post("/api/raised-items", json={"text": "Ours only"},
+        item = a.post("/api/raised-items",
+                      json={"text": "Ours only", "category": "other"},
                       headers=HDR).get_json()["item"]
         made.append(item["id"])
 

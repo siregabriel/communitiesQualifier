@@ -491,6 +491,72 @@ html[data-theme="dark"] .vnote-text { color: #eef2f8; }
     body.has-viewas #raiseItemBtn.start-visit-btn { bottom: 150px; z-index: 4600; }
 }
 
+/* Settings: the admin list of categories. */
+.rc-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid #eef2f7;
+}
+html[data-theme="dark"] .rc-row { border-bottom-color: #26324a; }
+.rc-row:last-child { border-bottom: none; }
+.rc-row.rc-off .rc-name { opacity: .55; }
+.rc-move { display: flex; flex-direction: column; gap: 2px; }
+.rc-move button {
+    border: 1px solid #d9dfe8; background: #fff; color: #64748b;
+    width: 24px; height: 18px; line-height: 1; border-radius: 5px;
+    font-size: 9px; cursor: pointer; padding: 0;
+}
+.rc-move button:disabled { opacity: .35; cursor: default; }
+html[data-theme="dark"] .rc-move button { background: #131c2b; border-color: #26324a; color: #9fb0c4; }
+.rc-name { flex: 1; min-width: 0; }
+.rc-tag {
+    font-size: 11px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase;
+    color: #94a3b8; white-space: nowrap;
+}
+.rc-toggle {
+    border: 1px solid #d9dfe8; background: #fff; color: #475569;
+    font-size: 12px; font-weight: 700; padding: 6px 12px;
+    border-radius: 8px; cursor: pointer; white-space: nowrap;
+}
+.rc-toggle:hover:not(:disabled) { border-color: #00285c; color: #00285c; }
+.rc-toggle:disabled { opacity: .45; cursor: default; }
+html[data-theme="dark"] .rc-toggle { background: #131c2b; border-color: #26324a; color: #cbd8ea; }
+
+/* The category an item was filed under, and the chips that filter by it.
+   Filtering is what the categories were asked for; a label with no way to
+   narrow the list would just be another word on the card. */
+.ri-cat {
+    display: inline-flex; align-items: center;
+    background: #eef2f9; color: #334867;
+    font-size: 11px; font-weight: 800;
+    letter-spacing: .3px; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px;
+    white-space: nowrap;
+}
+html[data-theme="dark"] .ri-cat { background: rgba(255,255,255,.09); color: #cbd8ea; }
+
+.ri-chips {
+    display: flex; flex-wrap: wrap; gap: 7px;
+    margin: 2px 0 14px;
+}
+.ri-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fff; border: 1px solid #d9dfe8; color: #475569;
+    font-size: 12.5px; font-weight: 700;
+    padding: 5px 12px; border-radius: 999px; cursor: pointer;
+    transition: border-color .12s ease, background .12s ease, color .12s ease;
+}
+.ri-chip span {
+    background: #eef2f9; color: #64748b;
+    font-size: 11px; font-weight: 800;
+    padding: 1px 7px; border-radius: 999px;
+}
+.ri-chip:hover { border-color: #00285c; color: #00285c; }
+.ri-chip.on { background: #00285c; border-color: #00285c; color: #fff; }
+.ri-chip.on span { background: rgba(255,255,255,.22); color: #fff; }
+html[data-theme="dark"] .ri-chip { background: #131c2b; border-color: #26324a; color: #cbd8ea; }
+html[data-theme="dark"] .ri-chip span { background: rgba(255,255,255,.10); color: #9fb0c4; }
+html[data-theme="dark"] .ri-chip.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+
 /* ===== Raised by the community =====
    Above what the visit found, and visibly not the same thing: a request from
    a community reads differently from a finding against it, and a regional

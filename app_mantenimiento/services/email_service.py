@@ -598,14 +598,22 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 f"border-radius:0 8px 8px 0'>"
                 f"<div style='font-size:11.5px;font-weight:800;color:{colour};"
                 f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px'>"
-                f"{esc(priority)} priority</div>"
+                f"{esc(priority)} priority"
+                # The category travels with the item. A regional triaging their
+                # inbox can tell a CapEx request from a Clinical one without
+                # opening anything.
+                + (f" &middot; {esc(item.get('category_name'))}"
+                   if item.get('category_name') else "")
+                + "</div>"
                 f"<div style='font-size:15px;color:#0f1e36;line-height:1.55'>{esc(text)}</div></div>"
                 f"<p style='font-size:13px;color:#6b7280;margin:16px 0 0;line-height:1.55'>"
                 f"This came from the community rather than from a visit, so nothing was marked "
                 f"Fail and no score has changed. It is here for you to look at.</p>"
                 f"{button}")
         text_body = (f"{who} raised this at {community}.\n\n"
-                     f"[{priority.upper()}] {text}\n\n"
+                     f"[{priority.upper()}"
+                     + (f" | {item.get('category_name')}" if item.get('category_name') else "")
+                     + f"] {text}\n\n"
                      f"This came from the community rather than from a visit, so nothing was "
                      f"marked Fail and no score has changed.\n"
                      + (f"\nOpen in Atlas Excellence: {link}\n" if link else ""))

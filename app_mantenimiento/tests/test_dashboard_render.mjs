@@ -698,5 +698,95 @@ console.log('\nCommunity card — each region wears its own mark');
   }
 }
 
+/* ---- Categorías en los items levantados -------------------------------- */
+console.log('\nRaised items — the category, and filtering by it');
+{
+  run(`raisedCategories = [
+        { id: 'capex', name: 'CapEx', active: true },
+        { id: 'clinical', name: 'Clinical', active: true },
+        { id: 'other', name: 'Other', active: true }];
+       raisedCategoryFilter = '';
+       raisedItems = [
+        { id: 'c1', community: 'Kelley Place', text: 'New furniture', priority: 'high',
+          category: 'capex', category_name: 'CapEx', photo: '', raised_by_name: 'Jazmyn',
+          raised_at: new Date().toISOString(), resolved: false },
+        { id: 'c2', community: 'Kelley Place', text: 'Med cart wheel', priority: 'low',
+          category: 'clinical', category_name: 'Clinical', photo: '', raised_by_name: 'Jazmyn',
+          raised_at: new Date().toISOString(), resolved: false },
+        { id: 'c3', community: 'Kelley Place', text: 'Second capex thing', priority: 'medium',
+          category: 'capex', category_name: 'CapEx', photo: '', raised_by_name: 'Jazmyn',
+          raised_at: new Date().toISOString(), resolved: false },
+        { id: 'c4', community: 'Kelley Place', text: 'From before categories', priority: 'low',
+          category: '', photo: '', raised_by_name: 'Jazmyn',
+          raised_at: new Date().toISOString(), resolved: false }];`);
+
+  const box = w.document.createElement('div');
+  box.innerHTML = run('raisedItemsHtml()');
+
+  const cats = [...box.querySelectorAll('.ri-cat')].map(e => e.textContent.trim());
+  ok(cats.length === 4, `every item shows what it was filed under (${cats.length})`);
+  ok(cats.includes('CapEx') && cats.includes('Clinical'), 'by name, not by id');
+  ok(cats.includes('Uncategorised'),
+     'an item raised before categories existed says so instead of showing a blank chip');
+
+  const chips = [...box.querySelectorAll('.ri-chip')].map(c => c.textContent.trim().replace(/\s+/g, ' '));
+  ok(chips.some(c => c.startsWith('All 4')), 'the chips start with everything');
+  ok(chips.some(c => c.startsWith('CapEx 2')), 'and count what is actually in the list');
+  ok(!chips.some(c => c.startsWith('Other')),
+     'a category nobody has used gets no chip — it would always come back empty');
+  ok(chips.some(c => c.startsWith('Uncategorised 1')),
+     'the ones with no category are still reachable');
+
+  // Filtering
+  run(`setRaisedCategoryFilter('capex');`);
+  ok(run('raisedCategoryFilter') === 'capex', 'clicking a chip sets the filter');
+  const filtered = w.document.createElement('div');
+  filtered.innerHTML = run('raisedItemsHtml()');
+  ok(filtered.querySelectorAll('.ri-card').length === 2, 'and the list narrows to that category');
+  ok(filtered.querySelector('.ri-chip.on').textContent.includes('CapEx'), 'the chip shows as chosen');
+  ok(filtered.querySelector('.ri-title span').textContent.trim() === '4',
+     'while the heading still counts everything open, so nothing looks lost');
+
+  run(`setRaisedCategoryFilter('capex');`);
+  ok(run('raisedCategoryFilter') === '', 'clicking the same chip again clears it');
+
+  run(`raisedCategoryFilter = 'clinical'; raisedItems = raisedItems.filter(i => i.category !== 'clinical');`);
+  const empty = w.document.createElement('div');
+  empty.innerHTML = run('raisedItemsHtml()');
+  ok(/Nothing open in this category/.test(empty.innerHTML),
+     'a filter that matches nothing says so rather than rendering an empty section');
+  run(`raisedCategoryFilter = '';`);
+}
+
+console.log('\nRaised items — closing one closes the right one');
+{
+  // It used to take a position in the list. Once the list can be filtered, a
+  // position means something different from what the button was drawn for.
+  run(`raisedCategories = [{ id: 'capex', name: 'CapEx', active: true },
+                           { id: 'clinical', name: 'Clinical', active: true }];
+       raisedCategoryFilter = 'clinical';
+       raisedItems = [
+        { id: 'first', community: 'K', text: 'A capex thing', priority: 'low', category: 'capex',
+          category_name: 'CapEx', photo: '', raised_by_name: 'J', raised_at: new Date().toISOString(), resolved: false },
+        { id: 'second', community: 'K', text: 'A clinical thing', priority: 'low', category: 'clinical',
+          category_name: 'Clinical', photo: '', raised_by_name: 'J', raised_at: new Date().toISOString(), resolved: false }];`);
+  const box = w.document.createElement('div');
+  box.innerHTML = run('raisedItemsHtml()');
+  const btn = box.querySelector('.ri-done').getAttribute('onclick');
+  ok(/'second'/.test(btn),
+     `the only card shown closes itself, not whatever sits first in the full list (${btn})`);
+  run(`raisedCategoryFilter = ''; raisedItems = [];`);
+}
+
+console.log('\nRaised items — the form requires a category');
+{
+  const tpl = html_src;
+  ok(/id="riCategory"/.test(tpl), 'the raise form has a category dropdown');
+  ok(/Pick a category\./.test(tpl), 'and refuses to send without one');
+  ok(/fd\.append\('category', category\)/.test(tpl), 'sending the chosen id, not the label');
+  ok(/if \(!\(raisedCategories \|\| \[\]\)\.length\) await loadRaisedCategories\(\)/.test(tpl),
+     'and loads the list first, so a required field is never a dead end');
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

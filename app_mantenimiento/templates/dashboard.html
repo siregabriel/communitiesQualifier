@@ -2695,6 +2695,11 @@
         })();
 
         let raisedItems = [];
+        // The choosable categories, as the server sees them. Kept here so the
+        // dropdown and the filter always offer the same list, and so a category
+        // retired in Settings disappears from both at once.
+        let raisedCategories = [];
+        let raisedCategoryFilter = '';   // '' = everything
 
         async function loadRaisedItems() {
             try {
@@ -2702,7 +2707,26 @@
                 if (!r.ok) return;
                 const d = await r.json();
                 raisedItems = d.items || [];
+                if (Array.isArray(d.categories)) raisedCategories = d.categories;
             } catch (e) { console.warn('Could not load raised items:', e); }
+        }
+
+        async function loadRaisedCategories() {
+            try {
+                const r = await fetch('/api/raised-categories');
+                if (!r.ok) return;
+                const d = await r.json();
+                raisedCategories = d.categories || [];
+            } catch (e) { console.warn('Could not load categories:', e); }
+        }
+
+        // The label to show on an item. The server resolves it on read, so a
+        // renamed category reaches every past item; this is only the fallback
+        // for an item that arrived before that field existed.
+        function raisedCategoryLabel(item) {
+            if (item && item.category_name) return item.category_name;
+            const hit = (raisedCategories || []).find(c => c.id === (item || {}).category);
+            return hit ? hit.name : 'Uncategorised';
         }
 
         let isAdmin = false;
@@ -5178,13 +5202,58 @@
         function raisedItemsHtml() {
             const open = (raisedItems || []).filter(i => !i.resolved);
             if (!open.length) return '';
-            const cards = open.map((i, idx) => {
+
+            // Filtering is the reason categories exist, so the chips are built
+            // from what is actually in the list — a category nobody has used
+            // would be a chip that always comes back empty.
+            const counts = new Map();
+            for (const i of open) {
+                const key = i.category || '';
+                counts.set(key, (counts.get(key) || 0) + 1);
+            }
+            const chipFor = (id, label, n) => `
+                <button class="ri-chip${raisedCategoryFilter === id ? ' on' : ''}"
+                        onclick="setRaisedCategoryFilter('${escapeHtmlForAttr(id)}')">
+                    ${escapeHtml(label)} <span>${n}</span></button>`;
+            const known = (raisedCategories || [])
+                .filter(c => counts.has(c.id))
+                .map(c => chipFor(c.id, c.name, counts.get(c.id)));
+            // Anything whose category was retired, or that predates the field,
+            // still needs somewhere to be found.
+            const strays = [...counts.entries()]
+                .filter(([id]) => !(raisedCategories || []).some(c => c.id === id))
+                .map(([id, n]) => chipFor(id, raisedCategoryLabel({ category: id,
+                    category_name: (open.find(i => (i.category || '') === id) || {}).category_name }), n));
+            const filters = (known.length + strays.length) > 1
+                ? `<div class="ri-chips">
+                       ${chipFor('', 'All', open.length)}${known.join('')}${strays.join('')}
+                   </div>`
+                : '';
+
+            const shown = raisedCategoryFilter
+                ? open.filter(i => (i.category || '') === raisedCategoryFilter)
+                : open;
+            if (!shown.length) {
+                return `
+                <div class="ri-section">
+                    <div class="ri-title">
+                        <i class="fas fa-hand"></i> Raised by the community
+                        <span>${open.length}</span>
+                    </div>
+                    <p class="ri-note">Not from a visit — nothing was marked Fail and no score changed.</p>
+                    ${filters}
+                    <p class="ri-note">Nothing open in this category.</p>
+                </div>`;
+            }
+
+            const cards = shown.map((i, idx) => {
                 const pr = (i.priority || 'medium').toLowerCase();
                 const cls = pr === 'high' ? 'badge-fail' : (pr === 'medium' ? 'badge-warn' : 'badge-low');
                 return `
                     <div class="ri-card">
                         <div class="ri-head">
                             <span class="badge ${cls}">${escapeHtml(pr.toUpperCase())}</span>
+                            <span class="ri-cat">${escapeHtml(raisedCategoryLabel(i))}</span>
                             <span class="ri-where">${escapeHtml(i.community || '')}</span>
                         </div>
                         <div class="ri-text">${escapeHtml(i.text || '')}</div>
@@ -5193,7 +5262,7 @@
                             onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.style.display='none'">` : ''}
                         <div class="ri-foot">
                             <span>${escapeHtml(i.raised_by_name || '')} · ${escapeHtml(timeAgo(i.raised_at))}</span>
-                            <button class="ri-done" onclick="closeRaisedItem(${idx})">
+                            <button class="ri-done" onclick="closeRaisedItem('${escapeHtmlForAttr(i.id)}')">
                                 <i class="fas fa-check"></i> Mark as done</button>
                         </div>
                     </div>`;
@@ -5205,12 +5274,124 @@
                         <span>${open.length}</span>
                     </div>
                     <p class="ri-note">Not from a visit — nothing was marked Fail and no score changed.</p>
+                    ${filters}
                     ${cards}
                 </div>`;
         }
 
-        async function closeRaisedItem(idx) {
-            const item = (raisedItems || []).filter(i => !i.resolved)[idx];
+        // ===================== Categories, for an admin =====================
+        // Greg and Angie run this list. Everything here is deliberately plain:
+        // rename in place, retire rather than delete, and move up or down.
+
+        let _rcAll = [];
+
+        async function loadRaisedCategoryAdmin() {
+            const host = document.getElementById('rcList');
+            if (!host) return;
+            try {
+                const r = await fetch('/api/raised-categories?all=1');
+                const d = await r.json();
+                _rcAll = d.categories || [];
+            } catch (e) {
+                host.innerHTML = '<div class="activity-empty">Could not load them.</div>';
+                return;
+            }
+            if (!_rcAll.length) {
+                host.innerHTML = '<div class="activity-empty">No categories yet.</div>';
+                return;
+            }
+            const live = _rcAll.filter(c => c.active !== false).length;
+            host.innerHTML = _rcAll.map((c, idx) => `
+                <div class="rc-row${c.active === false ? ' rc-off' : ''}">
+                    <div class="rc-move">
+                        <button title="Move up" aria-label="Move up" ${idx === 0 ? 'disabled' : ''}
+                                onclick="moveRaisedCategory(${idx}, -1)"><i class="fas fa-chevron-up"></i></button>
+                        <button title="Move down" aria-label="Move down" ${idx === _rcAll.length - 1 ? 'disabled' : ''}
+                                onclick="moveRaisedCategory(${idx}, 1)"><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                    <input class="pw-input rc-name" maxlength="40"
+                           value="${escapeHtmlForAttr(c.name || '')}"
+                           data-id="${escapeHtmlForAttr(c.id)}"
+                           onchange="renameRaisedCategory('${escapeHtmlForAttr(c.id)}', this.value)">
+                    ${c.active === false ? '<span class="rc-tag">Retired</span>' : ''}
+                    <button class="rc-toggle" onclick="toggleRaisedCategory('${escapeHtmlForAttr(c.id)}', ${c.active === false})"
+                            ${(c.active !== false && live <= 1) ? 'disabled title="Keep at least one"' : ''}>
+                        ${c.active === false ? 'Bring back' : 'Retire'}</button>
+                </div>`).join('');
+        }
+
+        function _rcSay(text, bad) {
+            const m = document.getElementById('rcMsg');
+            if (m) { m.textContent = text || ''; m.style.color = bad ? '#b42318' : '#1d9e75'; }
+        }
+
+        async function _rcSend(url, method, body) {
+            const r = await fetch(url, {
+                method, headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body || {})
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not save it');
+            return d;
+        }
+
+        async function addRaisedCategory() {
+            const box = document.getElementById('rcNew');
+            const name = (box ? box.value : '').trim();
+            if (!name) { _rcSay('Give it a name.', true); return; }
+            try {
+                await _rcSend('/api/raised-categories', 'POST', { name });
+                if (box) box.value = '';
+                _rcSay('Added.');
+                await loadRaisedCategoryAdmin();
+                await loadRaisedCategories();
+            } catch (e) { _rcSay(e.message, true); }
+        }
+
+        async function renameRaisedCategory(id, name) {
+            try {
+                await _rcSend(`/api/raised-categories/${encodeURIComponent(id)}`, 'PUT',
+                              { name: (name || '').trim() });
+                _rcSay('Renamed — every item using it follows.');
+                await loadRaisedCategoryAdmin();
+                await loadRaisedCategories();
+            } catch (e) {
+                _rcSay(e.message, true);
+                await loadRaisedCategoryAdmin();   // put the old name back on screen
+            }
+        }
+
+        async function toggleRaisedCategory(id, bringBack) {
+            try {
+                await _rcSend(`/api/raised-categories/${encodeURIComponent(id)}`, 'PUT',
+                              { active: !!bringBack });
+                _rcSay(bringBack ? 'Back in the list.' : 'Retired — older items keep it.');
+                await loadRaisedCategoryAdmin();
+                await loadRaisedCategories();
+            } catch (e) { _rcSay(e.message, true); }
+        }
+
+        async function moveRaisedCategory(idx, delta) {
+            const to = idx + delta;
+            if (to < 0 || to >= _rcAll.length) return;
+            const ids = _rcAll.map(c => c.id);
+            [ids[idx], ids[to]] = [ids[to], ids[idx]];
+            try {
+                await _rcSend('/api/raised-categories/order', 'POST', { ids });
+                await loadRaisedCategoryAdmin();
+                await loadRaisedCategories();
+            } catch (e) { _rcSay(e.message, true); }
+        }
+
+        function setRaisedCategoryFilter(id) {
+            raisedCategoryFilter = (raisedCategoryFilter === id) ? '' : id;
+            renderActionItems();
+        }
+
+        // Takes the item's own id, not its position: the list can be filtered
+        // now, and an index into a filtered view closes the wrong item.
+        async function closeRaisedItem(itemId) {
+            const item = (raisedItems || []).find(i => i.id === itemId && !i.resolved);
             if (!item) return;
             try {
                 await fetch(`/api/raised-items/${item.id}/resolve`, {
@@ -5228,7 +5409,10 @@
         // out loud, because the word "item" is already used for what a regional
         // found and the two must not be confused.
 
-        function openRaiseItem() {
+        async function openRaiseItem() {
+            // Without this the dropdown can open empty on a cold load, and a
+            // required field with nothing in it is a dead end.
+            if (!(raisedCategories || []).length) await loadRaisedCategories();
             const host = document.getElementById('personModal');
             const body = document.getElementById('personModalBody');
             if (!host || !body) return;
@@ -5251,6 +5435,14 @@
                         <div><label class="mi-label">What needs attention</label>
                             <textarea id="riText" class="pw-input" rows="4" style="width:100%;resize:vertical;"
                                       maxlength="500" placeholder="e.g. The living room furniture is worn and needs replacing"></textarea></div>
+                        <div><label class="mi-label">Category</label>
+                            <select id="riCategory" class="pw-input" style="width:100%;">
+                                <option value="">Choose one…</option>
+                                ${(raisedCategories || []).map(c =>
+                                    `<option value="${escapeHtmlForAttr(c.id)}">${escapeHtml(c.name)}</option>`).join('')}
+                            </select>
+                            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">
+                                Pick "Other" if none of these fit.</div></div>
                         <div><label class="mi-label">Priority</label>
                             <select id="riPriority" class="pw-input" style="width:100%;">
                                 <option value="high">High</option>
@@ -5278,8 +5470,16 @@
                 if (msg) { msg.textContent = 'Say what needs attention.'; msg.style.color = '#b42318'; }
                 return;
             }
+            const category = (document.getElementById('riCategory') || {}).value || '';
+            if (!category) {
+                if (msg) { msg.textContent = 'Pick a category.'; msg.style.color = '#b42318'; }
+                const sel = document.getElementById('riCategory');
+                if (sel) sel.focus();
+                return;
+            }
             const fd = new FormData();
             fd.append('text', text.trim());
+            fd.append('category', category);
             fd.append('priority', (document.getElementById('riPriority') || {}).value || 'medium');
             const picker = document.getElementById('riCommunity');
             if (picker) fd.append('community', picker.value);
@@ -8856,6 +9056,23 @@
                         </div>
                     </div>
                     <div class="profile-section">
+                        <div class="profile-section-title"><i class="fas fa-tags"></i> Raised item categories</div>
+                        <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
+                            What an Executive Director picks from when they raise an item, and what
+                            the filters in Action Items are built from. Renaming one updates every
+                            item that already uses it. Retiring one takes it out of the list without
+                            touching the items that chose it.
+                        </p>
+                        <div id="rcList"><div class="activity-empty">Loading…</div></div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+                            <input id="rcNew" class="pw-input" maxlength="40" style="flex:1;min-width:180px;"
+                                   placeholder="New category, e.g. Transportation">
+                            <button class="btn btn-secondary" type="button" onclick="addRaisedCategory()">
+                                <i class="fas fa-plus"></i> Add</button>
+                            <span class="pw-msg" id="rcMsg"></span>
+                        </div>
+                    </div>
+                    <div class="profile-section">
                         <div class="profile-section-title"><i class="fas fa-list-check"></i>Notifications</div>
                         <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
                             Every address that receives email from Atlas Excellence, and exactly which notifications it gets —
@@ -8876,6 +9093,7 @@
                 if (document.getElementById('managedUsersList')) loadManagedUsers();
                 loadEmailSettings();
                 loadNotificationSummary();
+                loadRaisedCategoryAdmin();
             }
         }
 
