@@ -526,6 +526,8 @@ console.log('\nCommunity card — the score rides on the photo');
   const first = cards[0];
   ok(!!first.querySelector('.card-image .cc-medal'),
      'the score hangs off the cover photo instead of filling the card');
+  ok(first.querySelector('.cc-medal').classList.contains('warning'),
+     'a 55% wears the amber halo, not the green one');
   ok(first.querySelector('.cc-medal .progress-value').textContent.trim() === '55%',
      'and still reads the current score');
   ok(first.querySelectorAll('.cc-medal circle').length === 3,
@@ -547,6 +549,8 @@ console.log('\nCommunity card — the score rides on the photo');
      'at the visit, fixed since, and open — all three were buried before');
 
   const never = cards[1];
+  ok(never.querySelector('.cc-medal').classList.contains('na'),
+     'and a community never visited wears the neutral one');
   ok(never.classList.contains('cc-nodata'), 'a community with no visit is marked');
   ok(never.querySelectorAll('.cc-stat').length === 0,
      'and shows no stat boxes, which would all be zero');
@@ -591,13 +595,26 @@ console.log('\nCommunity card — the medal is not clipped away');
 {
   const css = html_src.slice(html_src.indexOf('.community-card .card-image {'),
                              html_src.indexOf('.community-card .card-image img {'));
-  ok(!/overflow:\s*hidden/.test(css),
-     'the cover photo does not clip, or the medal hanging off it would vanish');
+  // Not "no hidden here" — that passed while the medal was being sliced in
+  // half, because dropping the declaration handed the decision back to the
+  // base .card-image rule, which clips. It has to say visible out loud.
+  ok(/overflow:\s*visible/.test(css),
+     'the cover photo declares overflow visible, beating the base rule that clips');
   ok(/height:\s*168px/.test(css), 'and the photo is shorter than the 200px it was');
 
   const medal = html_src.slice(html_src.indexOf('.cc-medal {'), html_src.indexOf('.cc-chips'));
   ok(/bottom:\s*-\d+px/.test(medal), 'the medal sits below the photo edge');
-  ok(/z-index/.test(medal), 'above the cover controls rather than under them');
+  const medalZ = Number((medal.match(/z-index:\s*(\d+)/) || [])[1]);
+  const coverZ = Number((html_src.slice(html_src.indexOf('.cover-actions {'))
+                                 .match(/z-index:\s*(\d+)/) || [])[1]);
+  ok(medalZ > coverZ, `the medal sits above the cover controls (${medalZ} > ${coverZ})`);
+
+  for (const state of ['warning', 'danger', 'na']) {
+    ok(new RegExp('\\.cc-medal\\.' + state + ' \\{').test(html_src),
+       `a ${state} score gets its own halo colour`);
+  }
+  ok(/\.cc-medal \{[^}]*0 0 16px 2px rgba\(16, 185, 129/.test(html_src),
+     'and a passing score glows green by default');
 
   ok(/@media \(max-width: 600px\) \{\s*\.cc-stats \{ display: none/.test(html_src),
      'the three stat boxes stand down on a phone, where they do not fit');

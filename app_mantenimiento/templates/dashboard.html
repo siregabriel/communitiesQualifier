@@ -773,9 +773,11 @@
             width: 100%;
             height: 168px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            /* No overflow clip here: the score medal hangs off the bottom edge
-               on purpose. The cover image is inset to 0 so it cannot spill, and
-               the card's own overflow rounds the top corners. */
+            /* Explicitly visible, not merely unset: the base .card-image rule
+               clips, and dropping the declaration here just handed the decision
+               back to it — which sliced the medal in half along the photo edge.
+               The cover image is inset to 0, so nothing else can spill. */
+            overflow: visible;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -864,11 +866,48 @@
             width: 62px; height: 62px;
             border-radius: 50%;
             background: #fff;
-            box-shadow: 0 4px 14px rgba(2, 12, 34, .16);
             display: flex; align-items: center; justify-content: center;
-            z-index: 2;
+            /* Above the cover image (1) and the admin cover controls (3). */
+            z-index: 6;
+            /* Two shadows: the usual drop so it lifts off the photo, plus a
+               halo in the score's own colour. Set per state below — a green
+               glow on a failing community would say the wrong thing. */
+            box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
+                        0 0 0 3px rgba(16, 185, 129, .18),
+                        0 0 16px 2px rgba(16, 185, 129, .45);
+        }
+        .cc-medal.warning {
+            box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
+                        0 0 0 3px rgba(245, 158, 11, .20),
+                        0 0 16px 2px rgba(245, 158, 11, .50);
+        }
+        .cc-medal.danger {
+            box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
+                        0 0 0 3px rgba(239, 68, 68, .20),
+                        0 0 16px 2px rgba(239, 68, 68, .50);
+        }
+        .cc-medal.na {
+            box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
+                        0 0 0 3px rgba(148, 163, 184, .18);
         }
         html[data-theme="dark"] .cc-medal { background: #131c2b; }
+        /* The glow carries further on a dark card, so it is pulled back a
+           little to stop it reading as a smudge. */
+        html[data-theme="dark"] .cc-medal { box-shadow:
+            0 4px 14px rgba(0, 0, 0, .35),
+            0 0 0 3px rgba(16, 185, 129, .22),
+            0 0 14px 1px rgba(16, 185, 129, .38); }
+        html[data-theme="dark"] .cc-medal.warning { box-shadow:
+            0 4px 14px rgba(0, 0, 0, .35),
+            0 0 0 3px rgba(245, 158, 11, .24),
+            0 0 14px 1px rgba(245, 158, 11, .42); }
+        html[data-theme="dark"] .cc-medal.danger { box-shadow:
+            0 4px 14px rgba(0, 0, 0, .35),
+            0 0 0 3px rgba(239, 68, 68, .24),
+            0 0 14px 1px rgba(239, 68, 68, .42); }
+        html[data-theme="dark"] .cc-medal.na { box-shadow:
+            0 4px 14px rgba(0, 0, 0, .35),
+            0 0 0 3px rgba(148, 163, 184, .20); }
 
         .cc-chips:not(:empty) { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
 
@@ -3975,7 +4014,7 @@
                 // spent about 250px of a phone screen drawing one number, which
                 // meant one community per screen.
                 const medal = `
-                            <div class="cc-medal" title="${community.fixedSinceVisit
+                            <div class="cc-medal ${scoreClass || progressClass || ''}" title="${community.fixedSinceVisit
                                 ? `${community.visitScore}% at the visit, ${community.fixedSinceVisit} fixed since`
                                 : 'Score from the latest visit'}">
                                 <div class="circular-progress">
