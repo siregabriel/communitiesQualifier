@@ -3872,6 +3872,19 @@
         }
 
         // Find which region a community belongs to (by name)
+        // Each region has its own mark in /static/region-<id>.svg. Regions that
+        // have none — Corporate, Unassigned, anything added later — fall back to
+        // the generic icon rather than showing a broken image. Dropping a new
+        // region-<id>.svg into static is all it takes for that region to get
+        // its own; the cost is one 404 per render for the ones without.
+        function regionIconHtml(regionName) {
+            const slug = (regionName || '').toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            if (!slug) return '<i class="fas fa-sitemap"></i>';
+            return `<img class="rb-icon" src="/static/region-${slug}.svg" alt="" aria-hidden="true"
+                         onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-sitemap'}))">`;
+        }
+
         function getCommunityRegionName(name) {
             for (const r of regions) {
                 if ((r.communities || []).includes(name)) return r.name;
@@ -3996,7 +4009,7 @@
                 const photoSlug = getCommunitySlug(community.name);
                 const regionName = getCommunityRegionName(community.name);
                 const regionBadge = regionName
-                    ? `<span class="card-region-badge ${regionName === 'Unassigned' ? 'card-region-badge-unassigned' : ''}"><i class="fas fa-sitemap"></i> ${regionName}</span>`
+                    ? `<span class="card-region-badge ${regionName === 'Unassigned' ? 'card-region-badge-unassigned' : ''}">${regionIconHtml(regionName)} ${regionName}</span>`
                     : '';
                 const coverUrl = communityCovers[photoSlug];
                 const nameAttr = community.name.replace(/'/g, "\\'");

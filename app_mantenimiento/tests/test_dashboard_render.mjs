@@ -646,5 +646,45 @@ console.log('\nCommunity card — the medal is not clipped away');
      'the title reserves room so a long name never runs under the medal');
 }
 
+console.log('\nCommunity card — each region wears its own mark');
+{
+  // An earlier section pinned getCommunityRegionName to a single region;
+  // put a real lookup back before asking what each card shows.
+  run(`regions = [{ name: 'Innovia', communities: ['Legacy Reserve at Old Town, Columbus'] },
+                 { name: 'DMV', communities: ['Tribute at The Glen'] },
+                 { name: 'Unassigned', communities: ['The Oscar at Georgetown'] }];
+       getCommunityRegionName = n => (regions.find(r => r.communities.includes(n)) || {}).name || null;
+       communityData = [
+         { name: 'Legacy Reserve at Old Town, Columbus', lastVisit: 'Aug 18, 2026', lastVisitTs: 2,
+           score: 55, visitScore: 48, fixedSinceVisit: 3, actionItems: 5, trend: [], partial: null, photoUrl: '#eee' },
+         { name: 'Tribute at The Glen', lastVisit: 'Aug 12, 2026', lastVisitTs: 1,
+           score: 89, actionItems: 0, trend: [], partial: null, photoUrl: '#eee' },
+         { name: 'The Oscar at Georgetown', lastVisit: 'Aug 20, 2026', lastVisitTs: 3,
+           score: 92, actionItems: 0, trend: [], partial: null, photoUrl: '#eee' }];
+       communitySort = 'name'; onlyDueForVisit = false; renderCommunityCards();`);
+
+  const badges = [...gallery.querySelectorAll('.card-region-badge')];
+  ok(badges.length === 3, `every card still names its region (${badges.length})`);
+
+  const src = n => badges.find(b => b.textContent.trim() === n)?.querySelector('.rb-icon')?.getAttribute('src');
+  ok(src('Innovia') === '/static/region-innovia.svg', 'Innovia gets its own mark');
+  ok(src('DMV') === '/static/region-dmv.svg', 'and DMV, lowercased into a filename');
+
+  // Unassigned has no file. jsdom does not fire onerror for a missing image,
+  // so check the fallback the way the page would take it.
+  const un = badges.find(b => b.textContent.trim() === 'Unassigned');
+  ok(/replaceWith/.test(un.querySelector('.rb-icon').getAttribute('onerror')),
+     'a region with no mark falls back instead of showing a broken image');
+  ok(run(`regionIconHtml('')`) === '<i class="fas fa-sitemap"></i>',
+     'and no region at all asks for no file at all');
+
+  const files = fs.readdirSync(new URL('../static/', import.meta.url))
+                  .filter(f => f.startsWith('region-') && f.endsWith('.svg'));
+  for (const f of files) {
+    const slug = f.slice('region-'.length, -'.svg'.length);
+    ok(/^[a-z0-9-]+$/.test(slug), `${f} is named the way the card asks for it`);
+  }
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

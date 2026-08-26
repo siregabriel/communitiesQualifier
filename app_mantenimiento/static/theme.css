@@ -221,6 +221,16 @@ form#inspectionForm button[type="submit"],
     backdrop-filter: blur(4px);
     box-shadow: 0 2px 6px rgba(2, 32, 80, 0.25);
 }
+
+/* The region's own mark, in the pill. Each svg is a rounded tile with its own
+   colour, so it needs no styling beyond a size — and at 14px it reads as a
+   small badge rather than a picture. */
+.community-card .card-region-badge .rb-icon {
+    width: 14px;
+    height: 14px;
+    display: block;
+    flex-shrink: 0;
+}
 .community-card .card-region-badge i { font-size: 10px; opacity: 0.9; }
 .community-card .card-region-badge-unassigned { background: rgba(100, 116, 139, 0.85); }
 .community-card::before {
