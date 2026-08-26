@@ -96,3 +96,36 @@ def test_the_label_falls_back_when_a_session_has_no_community_yet():
     """A half-built session must not render an empty menu entry."""
     html = _dashboard_as(role="staff", community=None, region_id=None)
     assert _sidebar_label(html) == "Communities"
+
+
+# ------------------------------------------------------- inside a preview
+
+def _previewing(communities, label="Amy Bollier"):
+    """An admin who has pressed the eye to see the app as an ED."""
+    return dict(role="admin", community=None, region_id=None,
+                view_as={"communities": list(communities), "label": label})
+
+
+def test_the_menu_follows_the_preview_not_the_real_account():
+    """The point of the eye is to see what they see, menu wording included."""
+    (mine,) = _communities(1)
+    html = _dashboard_as(**_previewing([mine]))
+    assert _sidebar_label(html) == "My Community"
+
+
+def test_a_preview_of_an_ed_who_covers_two_says_so():
+    both = _communities(2)
+    html = _dashboard_as(**_previewing(both))
+    assert _sidebar_label(html) == "My Communities"
+
+
+def test_leaving_the_preview_puts_communities_back():
+    (mine,) = _communities(1)
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user="smoke.nav", display_name="smoke.nav", **_previewing([mine]))
+    assert _sidebar_label(c.get("/dashboard").get_data(as_text=True)) == "My Community"
+
+    with c.session_transaction() as s:
+        s.pop("view_as", None)
+    assert _sidebar_label(c.get("/dashboard").get_data(as_text=True)) == "Communities"
