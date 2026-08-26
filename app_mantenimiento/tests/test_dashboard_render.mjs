@@ -144,7 +144,8 @@ ok(strip.innerHTML.includes('See all 30'), 'then it hands off to the full view')
 
 console.log('\nNeeds you — clicking through');
 run(`_attnExpanded = {}; _attnData = ${JSON.stringify(data)}; renderAttention();`);
-run(`openSlidePanel = c => { window.__opened = c; };
+run(`window.__real = { openSlidePanel, openActivityTarget, showView };
+     openSlidePanel = c => { window.__opened = c; };
      openActivityTarget = (s, q) => { window.__target = [s, q]; };
      showView = v => { window.__view = v; };`);
 run(`openAttentionItem('overdue', 0);`);
@@ -803,6 +804,68 @@ console.log('\nRaised items — the form requires a category');
   ok(/fd\.append\('category', category\)/.test(tpl), 'sending the chosen id, not the label');
   ok(/if \(!\(raisedCategories \|\| \[\]\)\.length\) await loadRaisedCategories\(\)/.test(tpl),
      'and loads the list first, so a required field is never a dead end');
+}
+
+console.log('\nActivity feed — a row opens the exact item it is about');
+{
+  // An earlier section replaced these with spies. Left in place they would
+  // make this whole section a test of the spy — which is what happened the
+  // first time it was written.
+  // openActivityTarget itself is the real one — it is what widens the scope,
+  // clears the filter and marks the row to reveal. Only showView is stood in
+  // for: the real one wipes the page for a skeleton and reloads from the
+  // server, which here would just erase the fixture. What it does once the
+  // data is in hand is render the view, so that is what the stand-in does.
+  run(`openActivityTarget = window.__real.openActivityTarget;
+       openSlidePanel = window.__real.openSlidePanel;
+       showView = v => { window.__view = v; if (v === 'action-items') renderActionItems(); };`);
+  // The feed has linked into Action Items for a while. The list rewrite gave
+  // rows a closed state and groups a folded one, which quietly turned those
+  // links into a scroll to something with no height.
+  const many = [];
+  for (let i = 0; i < 5; i++) {
+    many.push(finding({ community: 'Community ' + i, submissionId: 's' + i, questionId: 'q' + i,
+                        questionText: 'Standard ' + i, addressed: true }));
+  }
+  many.push(finding({ community: 'Target Place', submissionId: 'sX', questionId: 'qX',
+                      questionText: 'The one being linked to', addressed: true,
+                      comments: [{ id: 'c1', author: 'Marissa Scott', at: NOW, text: 'Vendor comes Friday' }] }));
+  aiRender({ inspections: many, raised: [], categories: CATS, scope: 'all' });
+
+  ok(gallery.querySelectorAll('.ail-group').length === 6, 'enough groups that folding kicks in');
+  const folded = [...gallery.querySelectorAll('.ail-group.is-folded')].length;
+  ok(folded > 0, `groups with nothing open start folded (${folded})`);
+
+  run(`openActivityTarget('sX','qX','')`);
+  const row = gallery.querySelector('#ai_sX_qX');
+  ok(!!row, 'the linked row is rendered');
+  ok(!row.closest('.ail-group').classList.contains('is-folded'),
+     'its group is unfolded, or the link lands on something with no height');
+  ok(row.classList.contains('is-open'), 'and the row itself is open');
+  ok(/Vendor comes Friday/.test(row.querySelector('.ail-detail').textContent),
+     'so the comment they clicked through to read is actually on screen');
+}
+
+console.log('\nActivity feed — a filter left on cannot hide the target');
+{
+  aiRender({ inspections: [finding({ submissionId: 'sY', questionId: 'qY' })],
+             raised: [ask()], categories: CATS, categoryFilter: 'clinical', scope: 'open' });
+  run(`openActivityTarget('sY','qY','')`);
+  ok(run('raisedCategoryFilter') === '', 'the category filter is cleared on the way in');
+  ok(run('aiScope') === 'all', 'and the scope widens, in case the item is closed or from an earlier visit');
+  ok(!!gallery.querySelector('#ai_sY_qY'), 'the target is on screen');
+}
+
+console.log('\nActivity feed — one definition of a row key');
+{
+  // Drawing a row with one formula and linking to it with another is how a
+  // deep link starts landing on nothing.
+  const tpl = html_src;
+  const built = tpl.match(/'ai_' \+ [A-Za-z]+/g) || [];
+  ok(built.length === 2,
+     `the key is built in two places only — the row helper and the link that resolves one (${built.length})`);
+  ok(/const key = aiRowKey\(r\)/.test(tpl), 'the finding row uses the helper');
+  ok(/aiRowKey\(\{ kind: 'raised'/.test(tpl), 'and so does a request row');
 }
 
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');

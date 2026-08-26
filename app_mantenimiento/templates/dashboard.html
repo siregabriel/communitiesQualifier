@@ -1903,13 +1903,16 @@
         .live-row-link { cursor: pointer; }
         .live-row-link:hover { background: rgba(31,111,229,.05); }
         /* Brief highlight so the card you were sent to is obvious on arrival. */
-        .card.ai-flash { animation: aiFlash 2.2s ease-out 1; }
+        .card.ai-flash,
+        .ail-row.ai-flash { animation: aiFlash 2.2s ease-out 1; }
         @keyframes aiFlash {
             0%   { box-shadow: 0 0 0 3px rgba(31,111,229,.55); }
             70%  { box-shadow: 0 0 0 3px rgba(31,111,229,.18); }
             100% { box-shadow: 0 0 0 3px rgba(31,111,229,0); }
         }
-        @media (prefers-reduced-motion: reduce) { .card.ai-flash { animation: none; box-shadow: 0 0 0 3px rgba(31,111,229,.45); } }
+        @media (prefers-reduced-motion: reduce) {
+            .card.ai-flash, .ail-row.ai-flash { animation: none; box-shadow: inset 0 0 0 3px rgba(31,111,229,.45); }
+        }
         .ai-chip { background: #fff; border: 1.5px solid #e4ebf5; color: #475569; border-radius: 999px;
             padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
         .ai-chip span { opacity: .6; margin-left: 3px; }
@@ -6051,18 +6054,28 @@
            a comment on an older visit would land on a screen that doesn't
            contain it and look broken. Widening the filter first is what makes
            the link honest. */
+        // Open the exact thing an activity row is about.
+        //
+        // The list groups by community and its rows start closed, so it is not
+        // enough to scroll: the group has to be unfolded and the row opened,
+        // or the person arrives at a collapsed line and cannot see the comment
+        // they clicked through to read.
         function openActivityTarget(submissionId, questionId, itemId) {
             const cardId = 'ai_' + submissionId + '_' + (questionId || itemId || '');
-            aiScope = 'all';
+            _aiRevealRow = cardId;
+            _aiOpenRows.add(cardId);
+            aiScope = 'all';              // it may be closed, or from an earlier visit
             currentSurveyTypeFilter = 'all';
+            raisedCategoryFilter = '';    // a filter left on would hide it
             showView('action-items');
             setTimeout(() => {
                 const el = document.getElementById(cardId);
+                _aiRevealRow = '';
                 if (!el) return;
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 el.classList.add('ai-flash');
                 setTimeout(() => el.classList.remove('ai-flash'), 2200);
-            }, 120);
+            }, 160);
         }
 
         function startLiveActivity() {
@@ -6286,6 +6299,16 @@
 
         const _aiCollapsed = new Set();   // groups the person has folded away
         const _aiOpenRows = new Set();    // rows they have opened
+        let _aiRevealRow = '';            // a row arrived at from a deep link
+
+        // One definition, used both to draw a row and to find it again from
+        // the activity feed. Two copies of this drifting apart is exactly how
+        // a deep link starts landing on nothing.
+        function aiRowKey(r) {
+            if (r.kind === 'raised') return 'ask_' + r.id;
+            const it = r.raw;
+            return 'ai_' + it.submissionId + '_' + (it.questionId || it.itemId || '');
+        }
 
         function aiToggleGroup(key) {
             if (_aiCollapsed.has(key)) _aiCollapsed.delete(key); else _aiCollapsed.add(key);
@@ -6452,8 +6475,12 @@
 
             gallery.innerHTML = bar + `<div class="ail">` + ordered.map(([community, items]) => {
                 const openN = items.filter(r => !r.closed).length;
-                const collapsed = _aiCollapsed.has(community)
-                    || (foldByDefault && !_aiCollapsed.has('!' + community) && openN === 0);
+                // A row reached from the activity feed must be visible when the
+                // page settles: landing inside a folded group scrolls to
+                // something with no height, which looks like a dead link.
+                const holdsReveal = _aiRevealRow && items.some(r => aiRowKey(r) === _aiRevealRow);
+                const collapsed = !holdsReveal && (_aiCollapsed.has(community)
+                    || (foldByDefault && !_aiCollapsed.has('!' + community) && openN === 0));
                 const where = splitCommunityName(community);
                 return `
                     <section class="ail-group${collapsed ? ' is-folded' : ''}">
@@ -6475,7 +6502,7 @@
             if (r.kind === 'raised') return aiAskRowHtml(r);
             const item = r.raw;
             const manual = item.type === 'manual-action';
-            const key = 'ai_' + item.submissionId + '_' + (item.questionId || item.itemId || '');
+            const key = aiRowKey(r);
             const open = _aiOpenRows.has(key);
             const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
             const thumb = item.photoPath
@@ -6554,7 +6581,7 @@
         }
 
         function aiAskRowHtml(a) {
-            const key = 'ask_' + a.id;
+            const key = aiRowKey({ kind: 'raised', id: a.id });
             const open = _aiOpenRows.has(key);
             const thumb = a.photoPath
                 ? `<img src="${photoUrl(a.photoPath)}" data-path="${escapeHtmlForAttr(a.photoPath)}"
