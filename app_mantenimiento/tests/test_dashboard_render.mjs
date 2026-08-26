@@ -522,15 +522,35 @@ console.log('\nAction Items — one filter bar, not two');
   ok(/Needs attention/.test(g.innerHTML) && /CapEx/.test(g.innerHTML), 'both are present');
 }
 
-console.log('\nAction Items — filtering by category keeps the findings');
+console.log('\nAction Items — a category filter really filters');
 {
   const g = aiRender({ inspections: [finding()], raised: [ask(), ask({ id: 'r2', category: 'clinical', category_name: 'Clinical', text: 'Med cart' })],
                        categories: CATS, categoryFilter: 'clinical' });
-  const titles = [...g.querySelectorAll('.ail-title')].map(t => t.textContent.trim());
-  ok(titles.some(t => /Med cart/.test(t)), 'the chosen category is shown');
-  ok(!titles.some(t => /furniture/.test(t)), 'the other request is filtered out');
-  ok(titles.some(t => /Fire extinguisher/.test(t)),
-     'a finding has no category, so filtering must not silently drop it');
+  const titles = () => [...gallery.querySelectorAll('.ail-title')].map(t => t.textContent.trim());
+  ok(titles().some(t => /Med cart/.test(t)), 'the chosen category is shown');
+  ok(!titles().some(t => /furniture/.test(t)), 'another category is filtered out');
+
+  // Keeping the findings on screen made "CapEx" look like a filter that does
+  // nothing. They step aside — but the list says so rather than going quiet.
+  ok(!titles().some(t => /Fire extinguisher/.test(t)),
+     'and so are the findings, which never had a category to choose');
+  const note = g.querySelector('.ai-hidden');
+  ok(!!note && /1 visit finding hidden — it carries no category/.test(note.textContent),
+     `the list says what it took out, and says it in the singular (${
+        note ? note.textContent.trim().replace(/\s+/g, ' ').slice(0, 55) : 'no note'})`);
+
+  run('aiKeepFindings(true)');
+  ok(titles().some(t => /Fire extinguisher/.test(t)), 'and offers them back');
+  ok(/shown alongside/.test(gallery.querySelector('.ai-hidden').textContent),
+     'saying plainly that they are back');
+
+  run(`setRaisedCategoryFilter('capex')`);
+  ok(run('_aiKeepFindings') === false,
+     'choosing a different category asks the question again rather than carrying the last answer');
+
+  run(`setRaisedCategoryFilter('capex')`);
+  ok(!gallery.querySelector('.ai-hidden'),
+     'and with no category chosen there is nothing to explain');
 }
 
 console.log('\nAction Items — the detail opens in place');

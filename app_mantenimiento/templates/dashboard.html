@@ -5297,6 +5297,14 @@
 
         function setRaisedCategoryFilter(id) {
             raisedCategoryFilter = (raisedCategoryFilter === id) ? '' : id;
+            // Choosing a different category is a fresh question; carrying the
+            // last answer about findings into it would surprise people.
+            _aiKeepFindings = false;
+            renderActionItems();
+        }
+
+        function aiKeepFindings(keep) {
+            _aiKeepFindings = !!keep;
             renderActionItems();
         }
 
@@ -6300,6 +6308,7 @@
         const _aiCollapsed = new Set();   // groups the person has folded away
         const _aiOpenRows = new Set();    // rows they have opened
         let _aiRevealRow = '';            // a row arrived at from a deep link
+        let _aiKeepFindings = false;      // show visit findings despite a category
 
         // One definition, used both to draw a row and to find it again from
         // the activity feed. Two copies of this drifting apart is exactly how
@@ -6404,14 +6413,25 @@
                 rows = [...findings.filter(f => f.current && !f.closed), ...asks.filter(a => !a.closed)];
             }
 
-            // The category filter narrows the requests only; a finding has no
-            // category, so hiding findings when one is chosen would look like
-            // the list had lost them.
+            // Choosing a category narrows the list to that category, findings
+            // included — meaning they step aside, because a finding never had
+            // one to choose.
+            //
+            // The first version kept the findings on screen, reasoning that
+            // dropping them silently would look like the list had lost them.
+            // In practice picking "CapEx" and still facing a dozen failed
+            // standards reads as a filter that does not work. So they are
+            // hidden, and the list says so out loud with a way back.
             const inScopeAsks = rows.filter(r => r.kind === 'raised');
             const catCounts = new Map();
             for (const a of inScopeAsks) catCounts.set(a.category || '', (catCounts.get(a.category || '') || 0) + 1);
+            let hiddenFindings = 0;
             if (raisedCategoryFilter) {
-                rows = rows.filter(r => r.kind !== 'raised' || (r.category || '') === raisedCategoryFilter);
+                const findingsHere = rows.filter(r => r.kind !== 'raised').length;
+                rows = rows.filter(r => r.kind === 'raised'
+                    ? (r.category || '') === raisedCategoryFilter
+                    : _aiKeepFindings);
+                hiddenFindings = _aiKeepFindings ? 0 : findingsHere;
             }
 
             const scopeChip = (key, label, n) =>
@@ -6430,6 +6450,21 @@
                    </div>`
                 : '';
 
+            // Nothing leaves the list without saying so.
+            const hiddenNote = hiddenFindings
+                ? `<div class="ai-hidden">
+                       ${hiddenFindings === 1
+                           ? '1 visit finding hidden — it carries no category.'
+                           : hiddenFindings + ' visit findings hidden — they carry no category.'}
+                       <button type="button" onclick="aiKeepFindings(true)">Show them too</button>
+                   </div>`
+                : (raisedCategoryFilter && _aiKeepFindings
+                    ? `<div class="ai-hidden">
+                           Visit findings are shown alongside.
+                           <button type="button" onclick="aiKeepFindings(false)">Hide them</button>
+                       </div>`
+                    : '');
+
             const bar = `<div class="ai-bar">
                     <div class="ai-chiprow">
                         ${scopeChip('open', 'Needs attention', counts.open)}
@@ -6438,6 +6473,7 @@
                         ${scopeChip('all', 'Everything', counts.all)}
                     </div>
                     ${catRow}
+                    ${hiddenNote}
                 </div>`;
 
             if (!rows.length) {

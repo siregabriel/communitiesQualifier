@@ -545,6 +545,20 @@ html[data-theme="dark"] .ai-chiprow-sm { border-top-color: #26324a; }
 }
 .ai-chip-sm { font-size: 12px !important; padding: 5px 11px !important; }
 
+/* Says what a filter took out of the list, and offers it back. Nothing
+   disappears silently — that is what made the first version read as broken. */
+.ai-hidden {
+    font-size: 12.5px; color: #64748b;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+html[data-theme="dark"] .ai-hidden { color: #9fb0c4; }
+.ai-hidden button {
+    background: none; border: none; padding: 0;
+    color: #1f6fe5; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; text-decoration: underline;
+}
+html[data-theme="dark"] .ai-hidden button { color: #9cc4ff; }
+
 /* The page grid is for cards. A queue is not cards, and left inside the grid
    the whole list collapsed into a single 320px column on a wide screen. */
 .gallery.gallery-queue {
