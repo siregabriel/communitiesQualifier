@@ -616,6 +616,18 @@ console.log('\nCommunity card — the medal is not clipped away');
   ok(/\.cc-medal \{[^}]*0 0 16px 2px rgba\(16, 185, 129/.test(html_src),
      'and a passing score glows green by default');
 
+  // The card clipped too, one layer up, which sliced the halo flat down the
+  // right-hand side. Its rounded top now comes from the photo itself.
+  const theme = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
+  const cardRule = theme.slice(theme.indexOf('/* A vivid top accent rail'),
+                               theme.indexOf('/* Region badge overlaid'));
+  ok(/\.community-card \{[^}]*overflow:\s*visible/.test(cardRule),
+     'the card does not clip either, so the halo is whole');
+  ok(/\.community-card \.card-image \{[^}]*border-radius:[^}]*0 0/.test(cardRule),
+     'and the photo rounds its own top corners now that nothing clips it');
+  ok(/\.community-card \.card-image img[^{]*\{[^}]*border-radius/.test(cardRule),
+     'the cover image too, or a photo would square off the corners');
+
   ok(/@media \(max-width: 600px\) \{\s*\.cc-stats \{ display: none/.test(html_src),
      'the three stat boxes stand down on a phone, where they do not fit');
 
