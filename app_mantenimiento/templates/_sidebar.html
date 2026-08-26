@@ -10,6 +10,9 @@
   Parameters:
     active     the key of the current section, e.g. 'dashboard', 'standards'
     nav_admin  true when this account may reach admin-only sections
+    nav_community  {label, desc} for the Communities entry — an Executive
+               Director sees "My Community", since a list of everyone else's
+               is not something they can open
 
   Sections of the dashboard carry both a real href and a data-view. The
   dashboard's script binds to .nav-item[data-view] and handles those clicks
@@ -61,7 +64,7 @@
            {%- if item.get('id') %} id="{{ item.id }}"{% endif %}
            {%- if active == item.view %} aria-current="page"{% endif %}>
             <i class="fas {{ item.icon }}" aria-hidden="true"></i>
-            <span>{{ item.label }}</span>
+            <span>{%- if item.view == 'communities' and nav_community %}{{ nav_community.label }}{% else %}{{ item.label }}{% endif -%}</span>
             {%- if item.view == 'dashboard' %}
             <span class="nav-badge" id="dashNavBadge" style="display:none;" aria-label="new activity"></span>
             {%- endif %}

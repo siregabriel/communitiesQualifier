@@ -1408,6 +1408,7 @@ def dashboard():
                          username=session.get('user'),
                          is_admin=is_admin(),
                          nav_admin=is_admin(),
+                         nav_community=community_nav(),
                          community=session.get('community'))
 
 
@@ -2860,6 +2861,27 @@ def visible_communities():
     if is_leadership():
         return regional_communities()
     return session_communities()
+
+
+def community_nav():
+    """What to call the Communities section for whoever is signed in.
+
+    A regional or corporate account moves between many, so a list is exactly
+    what they want. An Executive Director only ever reaches their own, and
+    "Communities" reads like a directory they are being kept out of.
+
+    The count decides the wording, not the role: an ED can stand in for a
+    neighbouring community, and telling someone who covers two that they have
+    "My Community" is its own small lie.
+    """
+    if is_admin() or is_leadership():
+        return {'label': 'Communities', 'desc': 'All Communities Overview'}
+    mine = session_communities()
+    if len(mine) == 1:
+        return {'label': 'My Community', 'desc': 'Your community and its history'}
+    if len(mine) > 1:
+        return {'label': 'My Communities', 'desc': 'Your communities and their history'}
+    return {'label': 'Communities', 'desc': 'All Communities Overview'}
 
 
 def _community_account_usernames():
@@ -4949,6 +4971,7 @@ def question_manager_ui():
                          # Only admins reach this page at all, so the sidebar
                          # here always shows the full menu.
                          nav_admin=True,
+                         nav_community=community_nav(),
                          active='standards',
                          communities=all_communities() or ALL_COMMUNITIES)
 

@@ -2189,6 +2189,10 @@
 
 </head>
 <body>
+    {# What to call the Communities section for this account. Server-side
+       because that is where the roles are. #}
+    <script id="navCommunityData" type="application/json">{{ (nav_community or {'label': 'Communities', 'desc': 'All Communities Overview'})|tojson }}</script>
+
     <!-- Sidebar Navigation (shared with the Standards page — templates/_sidebar.html) -->
 {% set active = 'dashboard' %}
 {% include '_sidebar.html' %}
@@ -2554,6 +2558,18 @@
         let currentUserCommunities = [];
         // Items the communities raised themselves, kept apart from what a
         // regional found on a visit — different direction, different meaning.
+        // An Executive Director only ever reaches their own community, so the
+        // section is called "My Community" for them. Worked out server-side
+        // where the roles live (community_nav() in app.py) and read from the
+        // data block above rather than templated into this script, which has
+        // to stay plain JavaScript for the render tests to run it.
+        const COMMUNITY_NAV = (() => {
+            const el = document.getElementById('navCommunityData');
+            try { return JSON.parse(el.textContent); } catch (e) {
+                return { label: 'Communities', desc: 'All Communities Overview' };
+            }
+        })();
+
         let raisedItems = [];
 
         async function loadRaisedItems() {
@@ -4265,8 +4281,11 @@
                             renderMyVisits();
                             break;
                         case 'communities':
-                            headerTitle.innerHTML = '<i class="fas fa-building"></i> Communities';
-                            headerDesc.textContent = 'All Communities Overview';
+                            // Named by the server, so the heading and the menu
+                            // entry can never disagree about what this is.
+                            headerTitle.innerHTML =
+                                '<i class="fas fa-building"></i> ' + COMMUNITY_NAV.label;
+                            headerDesc.textContent = COMMUNITY_NAV.desc;
                             renderCommunityCards();
                             break;
                         case 'regions':
