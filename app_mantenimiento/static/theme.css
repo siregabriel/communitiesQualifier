@@ -545,6 +545,12 @@ html[data-theme="dark"] .ai-chiprow-sm { border-top-color: #26324a; }
 }
 .ai-chip-sm { font-size: 12px !important; padding: 5px 11px !important; }
 
+/* The page grid is for cards. A queue is not cards, and left inside the grid
+   the whole list collapsed into a single 320px column on a wide screen. */
+.gallery.gallery-queue {
+    display: block !important;
+}
+
 .ail { display: flex; flex-direction: column; gap: 12px; }
 
 .ail-group {
