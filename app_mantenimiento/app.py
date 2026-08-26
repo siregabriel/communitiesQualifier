@@ -4461,6 +4461,31 @@ def attach_resource(resource_id):
     return jsonify({'status': 'success'}), 200
 
 
+def _normalize_photo_path(value):
+    """Reduce whatever the page had to hand down to a stored path.
+
+    It is not always the stored path. Several views keep photo_url — the signed
+    S3 link — in the same field, because that is what the <img> tag needs; the
+    download button then sent a whole "https://...?X-Amz-Signature=..." where a
+    key belonged, and every download came back as a 404. The key is inside that
+    link, so take it here rather than making eleven call sites carry a second
+    field and trusting that none is ever missed.
+    """
+    rel = (value or '').strip()
+    if rel[:7] == 'http://' or rel[:8] == 'https://':
+        from urllib.parse import urlparse, unquote
+        rel = unquote(urlparse(rel).path or '')     # drops the signature query
+    rel = rel.lstrip('/')
+
+    # Local mode serves from /static/uploads/, S3 keys are uploads/<...>, and a
+    # path-style URL puts the bucket first. All of them agree from the last
+    # "uploads/" onward.
+    marker = rel.rfind('uploads/')
+    if marker != -1:
+        rel = rel[marker + len('uploads/'):]
+    return rel
+
+
 def _photo_context(relative_path):
     """Work out which community a stored photo belongs to, and its story.
 
@@ -4471,9 +4496,7 @@ def _photo_context(relative_path):
 
     Returns (community or None, taken_on or None, username or None).
     """
-    rel = (relative_path or '').strip().lstrip('/')
-    if rel.startswith('uploads/'):
-        rel = rel[len('uploads/'):]
+    rel = _normalize_photo_path(relative_path)
     if '/' not in rel:
         return None, None, None
     folder, filename = rel.split('/', 1)
@@ -4512,7 +4535,7 @@ def download_photo():
     which community, which visit, who was standing there. The strip is added to
     the copy being sent; the stored original is never rewritten.
     """
-    rel = (request.args.get('path') or '').strip()
+    rel = _normalize_photo_path(request.args.get('path'))
     if not rel:
         return jsonify({'status': 'error', 'message': 'No photo'}), 400
 

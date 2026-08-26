@@ -128,6 +128,55 @@ def test_an_unknown_folder_resolves_to_no_community():
     assert A._photo_context("Invented_Place/x_20260603-193000_aa.jpg")[0] is None
 
 
+def test_a_signed_s3_link_is_understood_as_well_as_a_path():
+    """What the page hands over is often photo_url, not the stored path.
+
+    Several views keep the signed link in the same field the <img> reads, so
+    the download button sent a whole https://... and every download 404'd.
+    """
+    (community,) = _first_communities(1)[:1]
+    folder = secure_filename(community)
+    name = "marissa.scott_20260603-193000_ab12cd34.jpg"
+    signed = (f"https://atlas-standards-uploads.s3.us-east-2.amazonaws.com/"
+              f"uploads/{folder}/{name}"
+              "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=deadbeef")
+    comm, taken, user = A._photo_context(signed)
+    assert comm == community
+    assert user == "marissa.scott"
+    assert taken is not None
+
+
+@pytest.mark.parametrize("shape", [
+    "{folder}/{name}",
+    "uploads/{folder}/{name}",
+    "/static/uploads/{folder}/{name}",
+    "https://bucket.s3.us-east-2.amazonaws.com/uploads/{folder}/{name}?X-Amz-Signature=x",
+    "https://s3.us-east-2.amazonaws.com/bucket/uploads/{folder}/{name}",
+])
+def test_every_shape_the_page_can_hand_over_resolves(shape):
+    (community,) = _first_communities(1)[:1]
+    path = shape.format(folder=secure_filename(community),
+                        name="marissa.scott_20260603-193000_ab12cd34.jpg")
+    assert A._photo_context(path)[0] == community
+
+
+def test_a_url_encoded_folder_still_resolves():
+    """Community names carry spaces and commas, so the link arrives escaped."""
+    (community,) = _first_communities(1)[:1]
+    from urllib.parse import quote
+    folder = quote(secure_filename(community))
+    path = f"https://b.s3.amazonaws.com/uploads/{folder}/x_20260603-193000_aa.jpg"
+    assert A._photo_context(path)[0] == community
+
+
+def test_the_host_in_a_link_is_ignored_not_fetched():
+    """Only the key is taken from a link; bytes always come from our bucket."""
+    (community,) = _first_communities(1)[:1]
+    folder = secure_filename(community)
+    hostile = f"https://evil.example.com/uploads/{folder}/x_20260603-193000_aa.jpg"
+    assert A._normalize_photo_path(hostile) == f"{folder}/x_20260603-193000_aa.jpg"
+
+
 # ------------------------------------------------------------ who may read
 
 def _as_ed(client, community):
@@ -163,3 +212,43 @@ def test_the_path_cannot_climb_out_of_the_uploads_folder():
 def test_signed_out_gets_nothing():
     r = A.app.test_client().get("/api/photo/download?path=x/y.jpg")
     assert r.status_code in (302, 401, 403)
+
+
+# ------------------------------------------------------- the whole journey
+
+def test_a_real_download_comes_back_as_a_stamped_image():
+    """End to end through the route, because the pieces passing alone is what
+    let the first version ship broken."""
+    if A.file_upload_handler.use_s3:
+        pytest.skip("this one writes a file; S3 mode is exercised in production")
+
+    (community,) = _first_communities(1)[:1]
+    folder = os.path.join(_APP_DIR, "static", "uploads", secure_filename(community))
+    os.makedirs(folder, exist_ok=True)
+    name = "smoke.photo_20260603-193000_ab12cd34.jpg"
+    full = os.path.join(folder, name)
+    with open(full, "wb") as fh:
+        fh.write(_photo())
+
+    try:
+        c = A.app.test_client()
+        with c.session_transaction() as s:
+            s.update(user="smoke.photo", role="admin", community=None,
+                     display_name="smoke.photo", region_id=None)
+        r = c.get("/api/photo/download?path="
+                  f"{secure_filename(community)}/{name}")
+        assert r.status_code == 200, r.data[:200]
+        assert r.mimetype.startswith("image/"), "an image, never a JSON error"
+
+        got = Image.open(io.BytesIO(r.data))
+        assert got.width == 900 and got.height > 600, "it came back stamped"
+        assert "attachment" in r.headers.get("Content-Disposition", "")
+
+        # And the file on disk is byte-for-byte what it was.
+        with open(full, "rb") as fh:
+            assert fh.read() == _photo(), "the stored photo was not rewritten"
+    finally:
+        try:
+            os.remove(full)
+        except OSError:
+            pass
