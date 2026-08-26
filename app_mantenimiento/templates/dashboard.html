@@ -1303,8 +1303,33 @@
         .response-photo {
             margin-top: 12px;
             border-radius: 8px;
+        }
+
+        /* Wraps just the image so the download sits on the photo's own corner
+           rather than the card's — the two are different widths. */
+        .rp-wrap {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 8px;
             overflow: hidden;
         }
+
+        .rp-dl {
+            position: absolute; right: 10px; bottom: 10px;
+            width: 36px; height: 36px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: rgba(17, 24, 39, .55);
+            -webkit-backdrop-filter: blur(14px) saturate(160%);
+            backdrop-filter: blur(14px) saturate(160%);
+            border: 1px solid rgba(255, 255, 255, .38);
+            color: #fff; font-size: 14px; text-decoration: none;
+            box-shadow: 0 6px 16px rgba(2, 12, 34, .3);
+            transition: background .15s ease;
+        }
+        .rp-dl:hover { background: rgba(17, 24, 39, .78); color: #fff; }
 
         .response-photo img {
             width: 100%;
@@ -3453,7 +3478,7 @@
                             ${response.addressed ? '<span class="resp-chip-fixed"><i class="fas fa-wrench"></i> Fixed since</span>' : ''}
                         </div>
                         ${response.description ? `<div class="response-description">${escapeHtml(response.description)}</div>` : ''}
-                        ${response.photoPath ? `<div class="response-photo"><img src="${photoUrl(response.photoPath)}" data-path="${escapeHtmlForAttr(response.photoPath)}" alt="${escapeHtmlForAttr(response.questionText || 'Response photo')}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.parentElement.style.display='none'"></div>` : ''}
+                        ${response.photoPath ? `<div class="response-photo"><div class="rp-wrap"><img src="${photoUrl(response.photoPath)}" data-path="${escapeHtmlForAttr(response.photoPath)}" alt="${escapeHtmlForAttr(response.questionText || 'Response photo')}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.closest('.response-photo').style.display='none'"><a class="rp-dl" href="/api/photo/download?path=${encodeURIComponent(response.photoPath)}" download onclick="event.stopPropagation()" title="Download with the community and date on it" aria-label="Download this photo"><i class="fas fa-download"></i></a></div></div>` : ''}
                         ${outcome}
                         ${thread}
                     </div>

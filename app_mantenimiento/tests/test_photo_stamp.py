@@ -91,6 +91,40 @@ def test_a_long_community_name_does_not_overflow():
     assert Image.open(io.BytesIO(out)).width == 900
 
 
+def test_the_wordmark_sits_on_the_right_of_the_strip():
+    """Navy on transparent would vanish here, so it is reversed to white."""
+    out, _ = stamp(_photo(), "Fairview", "Aug 20, 2026 · John Zimmerman")
+    res = Image.open(io.BytesIO(out))
+    right = res.crop((int(res.width * 0.72), 600, res.width, res.height)).convert("L")
+    assert max(right.getdata()) > 170, "the mark is visible against the dark strip"
+
+    # A short name leaves the right side to the logo alone.
+    left = res.crop((0, 600, int(res.width * 0.5), res.height)).convert("L")
+    assert max(left.getdata()) > 170, "and the caption still has its own space"
+
+
+def test_the_wordmark_is_left_off_when_it_would_be_too_small_to_read():
+    out, _ = stamp(_photo(180, 140), "Fairview", "Aug 20, 2026")
+    res = Image.open(io.BytesIO(out))
+    assert res.width == 180, "a thumbnail is still captioned, just without the mark"
+
+
+def test_a_name_too_long_to_shrink_is_cut_rather_than_run_under_the_logo():
+    """Shrinking the type has a floor; past it the name used to overlap."""
+    from PIL import ImageDraw
+    from services.photo_stamp import _elide, _load_font, _text_width
+
+    canvas = Image.new("RGB", (10, 10))
+    draw = ImageDraw.Draw(canvas)
+    font = _load_font(20)
+    long_name = "The Enclave at Round Rock Senior Living, Round Rock, TX"
+
+    cut = _elide(draw, long_name, font, 160)
+    assert cut.endswith("…"), "the reader can see something was trimmed"
+    assert _text_width(draw, cut, font) <= 160, "and what is left actually fits"
+    assert _elide(draw, "Fairview", font, 400) == "Fairview", "short names are untouched"
+
+
 def test_an_unreadable_file_comes_back_whole_instead_of_erroring():
     """A photo without its caption beats a download that 500s."""
     junk = b"this is not an image"

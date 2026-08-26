@@ -493,6 +493,14 @@ console.log('\nPhoto download — the stored path reaches the viewer');
      'it points at the app, not straight at the file');
   ok(/dl\.style\.display = 'none'/.test(tpl),
      'and hides itself when there is no path to caption');
+  // Segundo boton, sobre la esquina de la foto dentro de la visita.
+  ok(/class="rp-dl"[\s\S]{0,200}?\/api\/photo\/download\?path=\$\{encodeURIComponent\(response\.photoPath\)\}/.test(tpl),
+     'the photo inside a visit has its own download on the corner');
+  ok(/class="rp-wrap"/.test(tpl),
+     'wrapped so the button lands on the photo, not on the whole card');
+  ok(/onerror="this\.closest\('\.response-photo'\)\.style\.display='none'"/.test(tpl),
+     'a broken photo takes its download button with it');
+
 }
 
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
