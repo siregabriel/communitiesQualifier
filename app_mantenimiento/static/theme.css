@@ -437,6 +437,34 @@ html[data-theme="dark"] .talk-text { color: #9fb0c4; }
 html[data-theme="dark"] .vnote { background: rgba(31,111,229,.10); }
 html[data-theme="dark"] .vnote-text { color: #eef2f8; }
 
+/* "Raise an item", floating clear of the tab bar on a phone.
+   It started life inside the bar as the raised centre button, but that slot is
+   only centred when there are five tabs — an Executive Director doesn't see
+   "My Visits", so it landed off to one side. Floating, it sits in the same
+   place whatever the role, and keeps the look people liked. */
+@media (max-width: 768px) {
+    #raiseItemBtn.start-visit-btn {
+        position: fixed;
+        right: 18px;
+        bottom: 88px;                  /* clear of the bar, which sits at 10px */
+        width: 60px; height: 60px;
+        padding: 0;
+        border-radius: 50%;
+        justify-content: center;
+        border: 4px solid #fff !important;
+        background: linear-gradient(150deg, #2f86ff 0%, #00285c 100%) !important;
+        color: #fff !important;
+        box-shadow: 0 10px 24px rgba(0, 40, 92, .42) !important;
+        z-index: 901;                  /* above the bar, below the photo viewer */
+    }
+    #raiseItemBtn.start-visit-btn i { font-size: 22px; margin: 0; }
+    #raiseItemBtn.start-visit-btn span { display: none; }
+    #raiseItemBtn.start-visit-btn:active { transform: scale(.94); }
+    html[data-theme="dark"] #raiseItemBtn.start-visit-btn { border-color: #131d2c !important; }
+    /* The preview bar takes the space above the tabs, so step over it. */
+    body.has-viewas #raiseItemBtn.start-visit-btn { bottom: 152px; }
+}
+
 /* ===== Raised by the community =====
    Above what the visit found, and visibly not the same thing: a request from
    a community reads differently from a finding against it, and a regional

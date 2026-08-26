@@ -1573,8 +1573,12 @@
             .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 
             /* The floating "Start New Visit" button is redundant on mobile —
-               the bottom tab bar already has "New Visit". Hide it here. */
-            .start-visit-btn {
+               the bottom tab bar already has "New Visit". Hide it here.
+               "Raise an item" is exempt: it has no tab of its own, because the
+               raised centre slot is only centred when there are five tabs and
+               an Executive Director sees four. It floats instead — see
+               theme.css, which shapes it into the round button. */
+            .start-visit-btn:not(#raiseItemBtn) {
                 display: none !important;
             }
 
@@ -4023,9 +4027,6 @@
                 if (raiseBtn && !canRunVisits && (data.communities || []).length) {
                     raiseBtn.style.display = 'flex';
                 }
-                document.querySelectorAll('.mtab-item[data-tab="raise-item"]').forEach(el => {
-                    el.style.display = (!canRunVisits && (data.communities || []).length) ? '' : 'none';
-                });
 
                 // People (user directory) is an admin-only area
                 const peopleNav = document.getElementById('peopleNavItem');
