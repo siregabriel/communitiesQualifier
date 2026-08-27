@@ -244,16 +244,15 @@
             margin: 0 auto;
         }
 
+        /* No card behind the title: every other page sits straight on the
+           page's own background, and a white slab here made this screen look
+           like it belonged to a different product. */
         .header-section {
-            background: white;
-            border-radius: 20px;
             padding: 36px;
             margin-bottom: 36px;
-            box-shadow: none;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border: 1px solid #d9dfe8;
         }
 
         .header-left h1 {
@@ -388,15 +387,16 @@
             background: linear-gradient(135deg, #f8fafc, #f1f5f9);
         }
 
+        /* A column heading is a label, not a headline. In caps at weight 800
+           it read louder than the standards underneath it. */
         th {
-            padding: 16px;
+            padding: 12px 16px;
             text-align: left;
-            font-size: 11px;
-            font-weight: 800;
-            color: #475569;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 2px solid #e2e8f0;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: #64748b;
+            letter-spacing: 0;
+            border-bottom: 1px solid #e8edf5;
         }
 
         td {
@@ -1169,7 +1169,7 @@
         <div class="container">
         <div class="header-section">
             <div class="header-left">
-                <h1>❓ Question Manager</h1>
+                <h1><i class="fas fa-clipboard-check"></i> Standards Manager</h1>
                 <p>Create and manage visit questions</p>
                 <div class="user-info">👤 {{ username }}</div>
             </div>

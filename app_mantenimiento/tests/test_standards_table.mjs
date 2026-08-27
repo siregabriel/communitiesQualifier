@@ -138,5 +138,27 @@ console.log('\nStandards looks like the rest of the app');
      'and it still stops for anyone who asked for less movement');
 }
 
+console.log('\nThe page header sits on the page, like every other');
+{
+  const header = html.slice(html.indexOf('.header-section {'), html.indexOf('.header-left h1 {'));
+  ok(!/background:\s*white/.test(header),
+     'no white slab behind the title — the other pages have none');
+  ok(!/border:\s*1px solid/.test(header), 'and no card border either');
+
+  ok(/<h1><i class="fas fa-clipboard-check"><\/i> Standards Manager<\/h1>/.test(html),
+     'the page is called Standards Manager');
+  ok(!/❓/.test(html), 'and the question-mark emoji went with the old name');
+
+  // Only the heading changed: the route, the button that reaches it and the
+  // wording elsewhere are someone else's to rename.
+  ok(/\/questions\/manage/.test(fs.readFileSync(new URL('../templates/_sidebar.html', import.meta.url), 'utf8')),
+     'the route it lives at is untouched');
+
+  const th = html.slice(html.indexOf('        th {'), html.indexOf('        td {'));
+  ok(!/text-transform:\s*uppercase/.test(th),
+     'column headings are labels now, not headlines');
+  ok(/font-weight:\s*500/.test(th), 'and no heavier than what they sit above');
+}
+
 console.log(failures ? `\n${failures} failure(s)` : '\nSame table, with the volume where it belongs.');
 process.exit(failures ? 1 : 0);
