@@ -61,10 +61,13 @@
         /* Deeper, less saturated blobs: the light-mode colours read as muddy
            smears over a near-black page. */
         html[data-theme="dark"] .main-content::before {
+            /* The warm blobs carry over, at lower alpha: over a near-black page
+               a bright amber reads as a stain rather than as light. */
             background:
-                radial-gradient(1000px 700px at 15% 8%, rgba(31,111,229,.26), transparent 65%),
-                radial-gradient(900px 640px at 85% 2%,  rgba(30,64,120,.34), transparent 65%),
-                radial-gradient(850px 600px at 55% 55%, rgba(88,60,180,.24), transparent 65%);
+                radial-gradient(1000px 700px at 12% 6%, rgba(31,111,229,.26), transparent 65%),
+                radial-gradient(880px 620px at 88% 4%,  rgba(180,110,20,.20), transparent 65%),
+                radial-gradient(820px 580px at 62% 58%, rgba(64,110,30,.18), transparent 65%),
+                radial-gradient(760px 540px at 32% 78%, rgba(88,60,180,.22), transparent 65%);
         }
         /* The external theme.css paints the sidebar as a LIGHT theme with !important
            (incl. `.sidebar * { color:#1f2937 !important }`, which hits the label spans
@@ -330,10 +333,17 @@
                near the top edge would get a radius of a few dozen pixels and
                vanish. These are deliberately larger than the screen so the
                colour reads as an atmosphere rather than three visible circles. */
+            /* Warm and cool together, rather than three shades of blue that
+               hue-rotate has to drag all the way round the wheel to find a
+               yellow. Built in, the palette holds amber and green at every
+               moment of the loop and the rotation only shifts the mix — which
+               also keeps it away from a full-page red, a colour this app uses
+               to mean something. */
             background:
-                radial-gradient(1000px 700px at 15% 8%,  rgba(31,111,229,.22), transparent 65%),
-                radial-gradient(900px 640px at 85% 2%,   rgba(99,179,237,.22), transparent 65%),
-                radial-gradient(850px 600px at 55% 55%,  rgba(139,92,246,.15), transparent 65%);
+                radial-gradient(1000px 700px at 12% 6%,  rgba(31,111,229,.22), transparent 65%),
+                radial-gradient(880px 620px at 88% 4%,   rgba(245,158,11,.20), transparent 65%),
+                radial-gradient(820px 580px at 62% 58%,  rgba(101,163,13,.17), transparent 65%),
+                radial-gradient(760px 540px at 32% 78%,  rgba(139,92,246,.14), transparent 65%);
             animation: ambientDrift 16s ease-in-out infinite alternate,
                        ambientTint  16s ease-in-out infinite alternate;
         }
@@ -349,9 +359,13 @@
             from { transform: translate3d(-6%, -3%, 0) scale(1.20); }
             to   { transform: translate3d( 7%,  5%, 0) scale(1.35); }
         }
+        /* Same 16s as before, so the movement feels unchanged. The range is
+           wider than the old -40/+60 because the palette now spans warm to
+           cool: the sweep slides amber toward yellow-green and blue toward
+           teal, without anything landing on red. */
         @keyframes ambientTint {
-            from { filter: hue-rotate(-40deg) saturate(1.15); }
-            to   { filter: hue-rotate(60deg)  saturate(1.30); }
+            from { filter: hue-rotate(-32deg) saturate(1.12); }
+            to   { filter: hue-rotate(48deg)  saturate(1.28); }
         }
 
         /* Some people turn on "reduce motion" because movement makes them
