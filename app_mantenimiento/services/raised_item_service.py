@@ -27,7 +27,8 @@ Record:
     "raised_by_name": "Jazmyn Frazier",   # what to show, resolved at write time
     "raised_at": "ISO",
     "resolved": false,
-    "resolved_at": "", "resolved_by": "", "resolution_note": ""
+    "resolved_at": "", "resolved_by": "", "resolution_note": "",
+    "comments": [ {id, username, author, text, photo, at} ]
   }
 
 Persisted in data/raised_items.json (git-ignored; created on the first one).
@@ -99,6 +100,7 @@ class RaisedItemService(JsonFileBacked):
             'resolved_at': '',
             'resolved_by': '',
             'resolution_note': '',
+            'comments': [],
         }
         with self._lock:
             self._ensure_fresh()
@@ -142,6 +144,52 @@ class RaisedItemService(JsonFileBacked):
                 self.save_to_file()
                 return item
             return None
+
+    def add_comment(self, item_id: str, username: str, display_name: str,
+                    text: str, photo: str = '') -> Optional[Dict]:
+        """Append a reply to something a community raised.
+
+        The same conversation a failed standard already has, on this side of
+        the fence: the community says what they need, leadership answers. One
+        rule for both kinds of item is one thing to remember instead of two.
+
+        Older items carry no 'comments' key at all — they were written before
+        this existed — so it is created on first use rather than migrated.
+        """
+        text = (text or '').strip()
+        if not text and not photo:
+            return None
+        with self._lock:
+            self._ensure_fresh()
+            for item in self.items:
+                if item.get('id') != item_id:
+                    continue
+                comment = {
+                    'id': f"cm_{int(time.time() * 1000)}_{random.randint(1000, 9999)}",
+                    'username': (username or '').strip(),
+                    'author': (display_name or username or '').strip(),
+                    'text': text[:1000],
+                    'photo': (photo or '').strip(),
+                    'at': datetime.now().isoformat(),
+                }
+                item.setdefault('comments', []).append(comment)
+                self.save_to_file()
+                return comment
+            return None
+
+    def delete_comment(self, item_id: str, comment_id: str) -> bool:
+        with self._lock:
+            self._ensure_fresh()
+            for item in self.items:
+                if item.get('id') != item_id:
+                    continue
+                before = len(item.get('comments') or [])
+                item['comments'] = [c for c in (item.get('comments') or [])
+                                    if c.get('id') != comment_id]
+                if len(item['comments']) != before:
+                    self.save_to_file()
+                    return True
+            return False
 
     def delete(self, item_id: str) -> bool:
         with self._lock:

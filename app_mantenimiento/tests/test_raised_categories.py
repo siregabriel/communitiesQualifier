@@ -245,3 +245,138 @@ def test_an_older_item_without_a_category_still_emails_cleanly():
     assert sent, "the email was never built"
     assert "None" not in sent["html"], "an absent category must not print as None"
     assert "&middot;" not in sent["html"], "nor leave a dangling separator"
+
+
+# ---------------------------------------------- the conversation on an item
+
+def _regional_for(community):
+    """A regional who covers the community but does not belong to it."""
+    region = next((r for r in A.region_service.get_all_regions()
+                   if community in (r.get("communities") or [])), None)
+    if not region:
+        pytest.skip("that community is not in a region")
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user="smoke.cat.reg", role="regional", region_id=region["id"],
+                 community=None, display_name="Smoke Regional")
+    return c
+
+
+def _raise(client, community, text="Living room furniture is worn"):
+    r = client.post("/api/raised-items",
+                    json={"text": text, "category": "capex", "community": community},
+                    headers=HDR)
+    assert r.status_code == 201, r.get_data(as_text=True)
+    return r.get_json()["item"]
+
+
+def test_a_raised_item_has_a_thread_like_a_finding_does():
+    """Every ED was told they can comment back and forth on these."""
+    community = _a_community()
+    ed = _ed(community)
+    item = _raise(ed, community)
+    try:
+        r = ed.post(f"/api/raised-items/{item['id']}/comment",
+                    json={"text": "Quotes attached, waiting on the vendor"}, headers=HDR)
+        assert r.status_code == 201, r.get_data(as_text=True)
+
+        reg = _regional_for(community)
+        r = reg.post(f"/api/raised-items/{item['id']}/comment",
+                     json={"text": "Approved — go ahead"}, headers=HDR)
+        assert r.status_code == 201, "leadership answers in the same thread"
+
+        listed = ed.get("/api/raised-items").get_json()["items"]
+        mine = next(i for i in listed if i["id"] == item["id"])
+        assert [c["text"] for c in mine["comments"]] == [
+            "Quotes attached, waiting on the vendor", "Approved — go ahead"]
+        assert mine["comments"][1]["author"] == "Smoke Regional", \
+            "the name is resolved at write time, not the login"
+    finally:
+        A.raised_item_service.delete(item["id"])
+        try:
+            A.presence_service.forget("smoke.cat.reg")
+        except Exception:
+            pass
+
+
+def test_an_empty_comment_is_refused():
+    community = _a_community()
+    ed = _ed(community)
+    item = _raise(ed, community)
+    try:
+        r = ed.post(f"/api/raised-items/{item['id']}/comment", json={"text": "   "}, headers=HDR)
+        assert r.status_code == 400
+    finally:
+        A.raised_item_service.delete(item["id"])
+
+
+def test_you_can_delete_your_own_comment_but_not_someone_elses():
+    community = _a_community()
+    ed = _ed(community)
+    item = _raise(ed, community)
+    try:
+        mine = ed.post(f"/api/raised-items/{item['id']}/comment",
+                       json={"text": "Mine"}, headers=HDR).get_json()["comment"]
+        reg = _regional_for(community)
+        theirs = reg.post(f"/api/raised-items/{item['id']}/comment",
+                          json={"text": "Theirs"}, headers=HDR).get_json()["comment"]
+
+        assert ed.delete(f"/api/raised-items/{item['id']}/comment/{theirs['id']}",
+                         headers=HDR).status_code == 403
+        assert ed.delete(f"/api/raised-items/{item['id']}/comment/{mine['id']}",
+                         headers=HDR).status_code == 200
+    finally:
+        A.raised_item_service.delete(item["id"])
+        try:
+            A.presence_service.forget("smoke.cat.reg")
+        except Exception:
+            pass
+
+
+def test_the_community_closes_its_own_item():
+    """What the Executive Directors were told the rule is."""
+    community = _a_community()
+    ed = _ed(community)
+    item = _raise(ed, community)
+    try:
+        r = ed.post(f"/api/raised-items/{item['id']}/resolve",
+                    json={"resolved": True}, headers=HDR)
+        assert r.status_code == 200, r.get_data(as_text=True)
+        assert A.raised_item_service.get(item["id"])["resolved"] is True
+    finally:
+        A.raised_item_service.delete(item["id"])
+
+
+def test_a_regional_replies_but_does_not_close():
+    community = _a_community()
+    ed = _ed(community)
+    item = _raise(ed, community)
+    try:
+        reg = _regional_for(community)
+        assert reg.post(f"/api/raised-items/{item['id']}/comment",
+                        json={"text": "On it"}, headers=HDR).status_code == 201, \
+            "a regional can still answer"
+
+        r = reg.post(f"/api/raised-items/{item['id']}/resolve",
+                     json={"resolved": True}, headers=HDR)
+        assert r.status_code == 403, "but closing belongs to the community"
+        assert "comment" in r.get_json()["message"].lower(), "and they are told what to do instead"
+        assert A.raised_item_service.get(item["id"])["resolved"] is False
+    finally:
+        A.raised_item_service.delete(item["id"])
+        try:
+            A.presence_service.forget("smoke.cat.reg")
+        except Exception:
+            pass
+
+
+def test_an_admin_can_still_close_one():
+    """Someone has to be able to tidy up after a community account is gone."""
+    community = _a_community()
+    ed = _ed(community)
+    item = _raise(ed, community)
+    try:
+        assert _admin().post(f"/api/raised-items/{item['id']}/resolve",
+                             json={"resolved": True}, headers=HDR).status_code == 200
+    finally:
+        A.raised_item_service.delete(item["id"])

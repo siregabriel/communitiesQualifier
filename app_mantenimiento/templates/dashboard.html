@@ -6038,6 +6038,11 @@
             question_updated:       { icon: 'fa-pen',              color: '#64748b', verb: 'edited a standard' },
             question_deleted:       { icon: 'fa-trash',            color: '#d13212', verb: 'deleted a standard' },
             data_reset:             { icon: 'fa-triangle-exclamation', color: '#d13212', verb: 'reset visit data' },
+            item_raised:            { icon: 'fa-hand',             color: '#1f6fe5', verb: 'raised an item' },
+            item_resolved:          { icon: 'fa-circle-check',     color: '#0f8a5f', verb: 'closed an item' },
+            item_reopened:          { icon: 'fa-rotate-left',      color: '#92620a', verb: 'reopened an item' },
+            raised_item_commented:  { icon: 'fa-comment-dots',     color: '#1f6fe5', verb: 'replied on a raised item' },
+            category_added:         { icon: 'fa-tag',              color: '#64748b', verb: 'added a category' },
         };
 
         async function loadLiveActivity() {
@@ -6064,7 +6069,9 @@
                         // a dead link is worse than no link.
                         const target = e.submission_id && (e.question_id || e.item_id)
                             ? `openActivityTarget('${e.submission_id}','${e.question_id || ''}','${e.item_id || ''}')`
-                            : (e.community ? `openSlidePanel('${(e.community || '').replace(/'/g, "\\'")}')` : '');
+                            : (e.raised_item_id
+                                ? `openRaisedTarget('${e.raised_item_id}')`
+                                : (e.community ? `openSlidePanel('${(e.community || '').replace(/'/g, "\\'")}')` : ''));
                         return `<div class="live-row${target ? ' live-row-link' : ''}"${target ? ` onclick="${target}" title="Open"` : ''}>
                             <span class="live-icon" style="color:${meta.color}"><i class="fas ${meta.icon}"></i></span>
                             <div class="live-main">
@@ -6102,6 +6109,26 @@
             showView('action-items');
             setTimeout(() => {
                 const el = document.getElementById(cardId);
+                _aiRevealRow = '';
+                if (!el) return;
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('ai-flash');
+                setTimeout(() => el.classList.remove('ai-flash'), 2200);
+            }, 160);
+        }
+
+        // The same landing as a finding, for something a community raised.
+        // Its row key is built from the item's own id, not a visit's.
+        function openRaisedTarget(itemId) {
+            const key = 'ask_' + itemId;
+            _aiRevealRow = key;
+            _aiOpenRows.add(key);
+            aiScope = 'all';
+            currentSurveyTypeFilter = 'all';
+            raisedCategoryFilter = '';
+            showView('action-items');
+            setTimeout(() => {
+                const el = document.getElementById(key);
                 _aiRevealRow = '';
                 if (!el) return;
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -6403,6 +6430,10 @@
                 at: r.raised_at,
                 closed: !!r.resolved,
                 resolvedBy: r.resolved_by || '',
+                comments: r.comments || [],
+                // Only the community it belongs to may close it — a regional
+                // reading the same list replies instead.
+                mine: isAdmin || (currentUserCommunities || []).includes(r.community || ''),
             }));
 
             const findings = pool.map(it => ({
@@ -6659,6 +6690,8 @@
                                 <span class="ail-tag ail-tag-ask">Asked for</span>
                                 <span class="ail-cat">${escapeHtml(a.categoryName)}</span>
                                 <span>${escapeHtml(timeAgo(a.at))}</span>
+                                ${(a.comments || []).length
+                                    ? `<span><i class="fas fa-comment-dots"></i> ${a.comments.length}</span>` : ''}
                                 ${a.closed ? '<span class="ail-done-tag"><i class="fas fa-check"></i> Done</span>' : ''}
                             </div>
                         </div>
@@ -6670,8 +6703,14 @@
                         ${a.closed
                             ? `<div class="ai-resolved"><i class="fas fa-circle-check"></i> Done${
                                   a.resolvedBy ? ' by ' + escapeHtml(a.resolvedBy) : ''}</div>`
-                            : `<button class="ai-resolve-btn" onclick="event.stopPropagation();closeRaisedItem('${escapeHtmlForAttr(a.id)}')">
-                                   <i class="fas fa-check"></i> Mark as done</button>`}
+                            : (a.mine
+                                ? `<button class="ai-resolve-btn" onclick="event.stopPropagation();closeRaisedItem('${escapeHtmlForAttr(a.id)}')">
+                                       <i class="fas fa-check"></i> Mark as done</button>`
+                                // The mirror of a failed standard: there the
+                                // community reports and leadership closes; here
+                                // the community closes and leadership answers.
+                                : `<div class="ai-await">The community closes this one out. Reply below.</div>`)}
+                        ${raisedCommentsUi(a)}
                     </div>
                 </article>`;
         }
@@ -6681,38 +6720,60 @@
            attaches a photo; leadership replies or asks for more. Nothing here
            changes the verdict or the score — closing the item is separate. */
         function commentsUi(item, qid, itemId) {
-            const list = (item.comments || []).map(c => {
+            return commentThreadHtml({
+                comments: item.comments || [],
+                threadId: 'cmlist_' + (item.submissionId || '') + '_' + (qid || itemId || ''),
+                canDelete: c => c.username === currentUsername || isAdmin,
+                deleteCall: c => `deleteComment('${item.submissionId}','${qid || ''}','${c.id}','${itemId || ''}')`,
+                addCall: `openCommentBox('${item.submissionId}','${qid || ''}','${itemId || ''}')`,
+            });
+        }
+
+        /* One thread, whichever kind of item it hangs from.
+           A finding and a request are different things, but the conversation on
+           them is the same conversation, and the Executive Directors were told
+           it works the same way. Writing it twice is how the two drift apart. */
+        function commentThreadHtml({ comments, threadId, canDelete, deleteCall, addCall }) {
+            const list = comments.map(c => {
                 const photo = c.photo_url || c.photo;
-                const mine = c.username === currentUsername;
                 return `<div class="cm">
                     <div class="cm-head">
                         <b>${escapeHtml(c.author || c.username || '')}</b>
                         <span>${timeAgo(c.at)}</span>
-                        ${(mine || isAdmin) ? `<button class="cm-del" title="Delete this comment"
-                            onclick="deleteComment('${item.submissionId}','${qid || ''}','${c.id}','${itemId || ''}')"><i class="fas fa-trash"></i></button>` : ''}
+                        ${canDelete(c) ? `<button class="cm-del" title="Delete this comment"
+                            onclick="event.stopPropagation();${deleteCall(c)}"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                     ${c.text ? `<div class="cm-text">${escapeHtml(c.text)}</div>` : ''}
-                    ${photo ? `<a class="cm-photo" href="${photoUrl(photo)}" data-path="${escapeHtmlForAttr(photo)}" target="_blank" onclick="event.preventDefault();openPhoto(this.href,'Photo from a comment', this.dataset.path)"><i class="fas fa-image"></i> Photo</a>` : ''}
+                    ${photo ? `<a class="cm-photo" href="${photoUrl(photo)}" data-path="${escapeHtmlForAttr(photo)}" target="_blank" onclick="event.stopPropagation();event.preventDefault();openPhoto(this.href,'Photo from a comment', this.dataset.path)"><i class="fas fa-image"></i> Photo</a>` : ''}
                 </div>`;
             }).join('');
-            const n = (item.comments || []).length;
+            const n = comments.length;
             // A long thread pushed everything else off a phone screen — one
             // item could fill it entirely. Older comments are collapsed behind
             // a toggle, with the newest always visible because that is the one
             // that says where things stand. Every comment is still in the DOM,
-            // so the toggle is a class flip rather than a re-render, and
-            // nothing about posting or deleting changes.
+            // so the toggle is a class flip rather than a re-render.
             const collapsible = n >= 3;
-            const threadId = 'cmlist_' + (item.submissionId || '') + '_' + (qid || itemId || '');
             return `<div class="cm-wrap">
                 ${n ? `<div class="cm-list${collapsible ? ' is-collapsed' : ''}" id="${threadId}">${list}</div>` : ''}
-                ${collapsible ? `<button class="cm-toggle" onclick="toggleThread('${threadId}', this)">
+                ${collapsible ? `<button class="cm-toggle" onclick="event.stopPropagation();toggleThread('${threadId}', this)">
                     <i class="fas fa-chevron-down"></i> Show ${n - 1} earlier comment${n - 1 === 1 ? '' : 's'}
                 </button>` : ''}
-                <button class="cm-add" onclick="openCommentBox('${item.submissionId}','${qid || ''}','${itemId || ''}')">
+                <button class="cm-add" onclick="event.stopPropagation();${addCall}">
                     <i class="fas fa-comment-dots"></i> ${n ? 'Add a comment' : 'Comment on this'}
                 </button>
             </div>`;
+        }
+
+        /* ----- The same thread, on something a community raised ----- */
+        function raisedCommentsUi(a) {
+            return commentThreadHtml({
+                comments: a.comments || [],
+                threadId: 'cmlist_raised_' + a.id,
+                canDelete: c => c.username === currentUsername || isAdmin,
+                deleteCall: c => `deleteRaisedComment('${a.id}','${c.id}')`,
+                addCall: `openRaisedCommentBox('${a.id}')`,
+            });
         }
 
         function toggleThread(threadId, btn) {
@@ -6789,6 +6850,80 @@
                     renderActionItems();
                 } else { msg.textContent = d.message || 'Could not post.'; msg.classList.add('error'); }
             } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
+        }
+
+        /* ----- Commenting on something a community raised ----- */
+
+        function openRaisedCommentBox(itemId) {
+            const host = document.getElementById('personModal');
+            const body = document.getElementById('personModalBody');
+            body.innerHTML = `
+                <div>
+                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Add a comment</h2>
+                    <p style="font-size:12.5px;color:#64748b;line-height:1.5;margin-bottom:18px;">
+                        Add detail, answer a question, or say where this stands. The community
+                        marks it done when it is done.
+                    </p>
+                    <div style="display:grid;gap:12px;">
+                        <div><label class="mi-label">Comment</label>
+                            <textarea id="cmText" class="pw-input" rows="4" style="width:100%;resize:vertical;"
+                                      placeholder="e.g. Quotes attached — vendor comes Friday"></textarea></div>
+                        <div><label class="mi-label">Photo <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
+                            <input id="cmPhoto" type="file" accept="image/*" class="pw-input" style="width:100%;"></div>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;">
+                        <button class="btn btn-primary" onclick="submitRaisedComment('${itemId}')">
+                            <i class="fas fa-paper-plane"></i> Post comment</button>
+                        <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
+                        <span class="pw-msg" id="cmMsg"></span>
+                    </div>
+                </div>`;
+            host.classList.add('show');
+            setTimeout(() => { const t = document.getElementById('cmText'); if (t) t.focus(); }, 60);
+        }
+
+        async function submitRaisedComment(itemId) {
+            const msg = document.getElementById('cmMsg');
+            msg.className = 'pw-msg';
+            const text = (document.getElementById('cmText').value || '').trim();
+            const fileEl = document.getElementById('cmPhoto');
+            const file = fileEl && fileEl.files && fileEl.files[0];
+            if (!text && !file) {
+                msg.textContent = 'Write something or attach a photo.'; msg.classList.add('error'); return;
+            }
+            msg.textContent = 'Posting…';
+            const url = `/api/raised-items/${encodeURIComponent(itemId)}/comment`;
+            try {
+                let r;
+                if (file) {
+                    const fd = new FormData();
+                    fd.append('text', text);
+                    fd.append('photo', file);
+                    r = await fetch(url, { method: 'POST', body: fd });
+                } else {
+                    r = await fetch(url, { method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text }) });
+                }
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    closePersonModal();
+                    await loadRaisedItems();
+                    renderActionItems();
+                } else { msg.textContent = d.message || 'Could not post.'; msg.classList.add('error'); }
+            } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
+        }
+
+        async function deleteRaisedComment(itemId, commentId) {
+            if (!confirm('Delete this comment?')) return;
+            try {
+                const r = await fetch(
+                    `/api/raised-items/${encodeURIComponent(itemId)}/comment/${encodeURIComponent(commentId)}`,
+                    { method: 'DELETE' });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') { await loadRaisedItems(); renderActionItems(); }
+                else { alert(d.message || 'Could not delete the comment.'); }
+            } catch (e) { alert('Network error.'); }
         }
 
         async function deleteComment(submissionId, questionId, commentId, itemId) {

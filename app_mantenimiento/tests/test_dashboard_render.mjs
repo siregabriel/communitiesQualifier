@@ -888,5 +888,82 @@ console.log('\nActivity feed — one definition of a row key');
   ok(/aiRowKey\(\{ kind: 'raised'/.test(tpl), 'and so does a request row');
 }
 
+console.log('\nRaised items — the same conversation a finding has');
+{
+  // Every Executive Director was told they can comment back and forth on
+  // these. Until now there was no thread on a raised item at all.
+  run(`currentUserCommunities = ['Kelley Place, Enterprise']; currentUsername = 'jaz'; isAdmin = false;`);
+  const withThread = ask({
+    community: 'Kelley Place, Enterprise',
+    comments: [
+      { id: 'c1', username: 'jaz', author: 'Jazmyn Frazier', text: 'Quotes attached', at: NOW },
+      { id: 'c2', username: 'marissa', author: 'Marissa Scott', text: 'Approved', at: NOW },
+    ],
+  });
+  const g = aiRender({ inspections: [], raised: [withThread], categories: CATS });
+  const row = g.querySelector('.ail-row-ask');
+
+  ok(/Quotes attached/.test(row.textContent) && /Approved/.test(row.textContent),
+     'both sides of the thread are on the item');
+  ok(/Marissa Scott/.test(row.textContent), 'each reply is attributed');
+  ok(!!row.querySelector('.cm-add'), 'and there is a way to add one');
+  ok(/openRaisedCommentBox/.test(row.querySelector('.cm-add').getAttribute('onclick')),
+     'which posts against the raised item, not against a visit');
+  ok(/2/.test(row.querySelector('.ail-meta').textContent),
+     'the line shows how many replies there are without opening it');
+
+  const del = [...row.querySelectorAll('.cm-del')];
+  ok(del.length === 1, 'you can delete your own comment and not the other one');
+  ok(/deleteRaisedComment\('r1','c1'\)/.test(del[0].getAttribute('onclick')),
+     'and it targets that exact comment');
+}
+
+console.log('\nRaised items — who closes it');
+{
+  run(`currentUserCommunities = ['Kelley Place, Enterprise']; isAdmin = false;`);
+  const mine = aiRender({ inspections: [], raised: [ask({ community: 'Kelley Place, Enterprise' })],
+                          categories: CATS });
+  ok(!!mine.querySelector('.ail-row-ask .ai-resolve-btn'),
+     'the community that raised it can mark it done');
+
+  // A regional sees the same item in their queue and must not close it.
+  run(`currentUserCommunities = []; isAdmin = false;`);
+  const theirs = aiRender({ inspections: [], raised: [ask({ community: 'Kelley Place, Enterprise' })],
+                            categories: CATS });
+  ok(!theirs.querySelector('.ail-row-ask .ai-resolve-btn'),
+     'a regional is not offered the close button');
+  ok(/The community closes this one out/.test(theirs.querySelector('.ail-row-ask').textContent),
+     'and is told what to do instead');
+  ok(!!theirs.querySelector('.ail-row-ask .cm-add'), 'they can still reply');
+}
+
+console.log('\nRaised items — one thread renderer, not two');
+{
+  // A finding and a request are different things, but the conversation is the
+  // same conversation. Two copies would drift apart.
+  const tpl = html_src;
+  ok((tpl.match(/class="cm-wrap"/g) || []).length === 1,
+     'the thread markup exists once');
+  ok(/function commentsUi[\s\S]{0,400}commentThreadHtml\(/.test(tpl),
+     'a finding renders through it');
+  ok(/function raisedCommentsUi[\s\S]{0,400}commentThreadHtml\(/.test(tpl),
+     'and so does a request');
+}
+
+console.log('\nActivity feed — a raised item is reachable too');
+{
+  run(`openActivityTarget = window.__real.openActivityTarget;
+       openSlidePanel = window.__real.openSlidePanel;
+       showView = v => { window.__view = v; if (v === 'action-items') renderActionItems(); };`);
+  aiRender({ inspections: [], raised: [ask({ id: 'rZ', community: 'Kelley Place, Enterprise' })],
+             categories: CATS });
+  run(`openRaisedTarget('rZ')`);
+  const row = gallery.querySelector('#ask_rZ');
+  ok(!!row, 'the row the feed points at is rendered');
+  ok(row.classList.contains('is-open'),
+     'and opened, so the reply that was just posted is on screen');
+  ok(!row.closest('.ail-group').classList.contains('is-folded'), 'with its group unfolded');
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

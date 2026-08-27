@@ -3126,8 +3126,16 @@ def list_raised_items():
     # The label is resolved here, at read time, so a rename reaches every past
     # item at once. Items raised before categories existed carry nothing and
     # say "Uncategorised" rather than showing an empty chip.
-    items = [{**i, 'category_name': raised_category_service.name_for(i.get('category'))}
-             for i in items]
+    def _with_thread(i):
+        comments = i.get('comments') or []
+        if file_upload_handler.use_s3:
+            comments = [({**c, 'photo_url': file_upload_handler.generate_presigned_url(c['photo'])}
+                         if c.get('photo') else c) for c in comments]
+        return {**i,
+                'category_name': raised_category_service.name_for(i.get('category')),
+                'comments': comments}
+
+    items = [_with_thread(i) for i in items]
     return jsonify({'status': 'success', 'items': items,
                     'categories': raised_category_service.active()}), 200
 
@@ -3270,7 +3278,7 @@ def create_raised_item():
 
     activity_service.log(username, 'item_raised',
                          f'Raised an item at {community}: {text[:60]}',
-                         meta={'community': community})
+                         meta={'community': community, 'raised_item_id': item['id']})
     # The email carries the label, not the id — nobody wants to read "capex".
     notify_raised_item({**item,
                         'category_name': raised_category_service.name_for(item.get('category'))})
@@ -3282,15 +3290,27 @@ def create_raised_item():
 def resolve_raised_item(item_id):
     """Close one out — or reopen it.
 
-    Unlike a failed standard, a community may close its own. Closing a finding
-    moves the score, which is why that stays with a regional; this doesn't
-    touch any score, and the person who asked for the furniture is the one who
-    knows it arrived."""
+    The mirror image of a failed standard. Closing a finding moves the score,
+    so somebody outside the community signs it off; this touches no score, and
+    the person who asked for the furniture is the one who knows it arrived. So
+    the community closes its own, and leadership answers in the thread.
+
+    Anyone who could see the community used to be able to close one, regionals
+    and admins included. That is not what the Executive Directors were told the
+    rule is, and two rules nobody can remember is worse than one that holds.
+    """
     item = raised_item_service.get(item_id)
     if not item:
         return jsonify({'status': 'error', 'message': 'Not found'}), 404
-    if not _can_see_community(item.get('community', '')):
+    community = item.get('community', '')
+    if not _can_see_community(community):
         return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+    # An administrator keeps the keys — someone has to be able to tidy up — but
+    # a regional reads and replies here rather than closing on the ED's behalf.
+    if not is_admin() and community not in session_communities():
+        return jsonify({'status': 'error',
+                        'message': 'The community closes its own items. '
+                                   'Add a comment to reply.'}), 403
 
     data = request.get_json(silent=True) or {}
     resolved = data.get('resolved', True) is not False
@@ -3300,8 +3320,112 @@ def resolve_raised_item(item_id):
                          'item_resolved' if resolved else 'item_reopened',
                          f"{'Closed' if resolved else 'Reopened'} an item at "
                          f"{item.get('community', '')}: {item.get('text', '')[:60]}",
-                         meta={'community': item.get('community', '')})
+                         meta={'community': item.get('community', ''), 'raised_item_id': item_id})
     return jsonify({'status': 'success', 'item': updated}), 200
+
+
+@app.route('/api/raised-items/<item_id>/comment', methods=['POST'])
+@login_required
+def comment_on_raised_item(item_id):
+    """Reply on something a community raised.
+
+    The same back-and-forth a failed standard already has. Open to anyone who
+    can see the community: the ED adds detail, the regional answers. Closing is
+    separate and stays with the community.
+    """
+    item = raised_item_service.get(item_id)
+    if not item:
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    community = item.get('community', '')
+    if not _can_see_community(community):
+        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+
+    if request.files:
+        text = InputSanitizer.sanitize_description(request.form.get('text', ''))
+    else:
+        text = InputSanitizer.sanitize_description(
+            (request.get_json(silent=True) or {}).get('text', ''))
+
+    photo_path = ''
+    f = request.files.get('photo')
+    if f and f.filename:
+        ok_file, why = file_upload_handler.validate_file(f)
+        if not ok_file:
+            return jsonify({'status': 'error', 'message': why}), 400
+        try:
+            photo_path = file_upload_handler.save_file(f, session.get('user', 'user'), community)
+        except Exception:
+            # A photo is never worth losing the comment over.
+            app.logger.exception('Could not save a raised item comment photo')
+
+    if not text.strip() and not photo_path:
+        return jsonify({'status': 'error', 'message': 'Say something, or attach a photo'}), 400
+
+    username = session.get('user')
+    comment = raised_item_service.add_comment(
+        item_id, username, _display_name_for(username), text, photo_path)
+    if not comment:
+        return jsonify({'status': 'error', 'message': 'Could not add that'}), 400
+
+    if photo_path and file_upload_handler.use_s3:
+        comment = {**comment, 'photo_url': file_upload_handler.generate_presigned_url(photo_path)}
+
+    activity_service.log(username, 'raised_item_commented',
+                         f"Commented on {item.get('text', '')[:60]} at {community}",
+                         meta={'community': community, 'raised_item_id': item_id})
+    try:
+        notify_raised_item_comment(item, comment)
+    except Exception as e:
+        app.logger.error(f'Raised item comment notification failed: {e}')
+    return jsonify({'status': 'success', 'comment': comment}), 201
+
+
+@app.route('/api/raised-items/<item_id>/comment/<comment_id>', methods=['DELETE'])
+@login_required
+def delete_raised_item_comment(item_id, comment_id):
+    """Remove your own comment. An admin may remove any."""
+    item = raised_item_service.get(item_id)
+    if not item:
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    if not _can_see_community(item.get('community', '')):
+        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
+    comment = next((c for c in (item.get('comments') or []) if c.get('id') == comment_id), None)
+    if not comment:
+        return jsonify({'status': 'error', 'message': 'Comment not found'}), 404
+    if not is_admin() and comment.get('username') != session.get('user'):
+        return jsonify({'status': 'error', 'message': 'You can only delete your own'}), 403
+    raised_item_service.delete_comment(item_id, comment_id)
+    return jsonify({'status': 'success'}), 200
+
+
+def notify_raised_item_comment(item, comment):
+    """Tell the other side of the conversation that someone replied.
+
+    Travels both ways, like a comment on a standard: the community hears when
+    leadership answers, leadership hears when the community adds detail.
+    Without the return leg an ED would have to keep opening the app to notice a
+    question, which nobody does. Best-effort — never blocks the comment.
+    """
+    if not email_service.enabled:
+        return
+    community = item.get('community', '')
+    author = session.get('user')
+    recipients = []
+    for addr in region_leader_emails(community):
+        if addr not in recipients:
+            recipients.append(addr)
+    for addr in community_account_emails(community, exclude_username=author):
+        if addr not in recipients:
+            recipients.append(addr)
+    if not recipients:
+        return
+    email_service.send_standard_comment(
+        recipients, community,
+        # The item's own words stand in for the standard's name: that is what
+        # the conversation is about.
+        item.get('text', '')[:80],
+        comment.get('author', ''), comment.get('text', ''),
+        bool(comment.get('photo')))
 
 
 def notify_raised_item(item):
@@ -4171,6 +4295,9 @@ def activity_live():
             'submission_id': (e.get('meta') or {}).get('submission_id', ''),
             'question_id': (e.get('meta') or {}).get('question_id', ''),
             'item_id': (e.get('meta') or {}).get('item_id', ''),
+            # Something a community raised has no visit behind it, so it is
+            # found by its own id rather than by submission + question.
+            'raised_item_id': (e.get('meta') or {}).get('raised_item_id', ''),
         })
     online = [{'username': u, 'name': resolve_display_name(u) or u}
               for u in presence_service.active_usernames()]
