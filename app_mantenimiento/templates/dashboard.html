@@ -85,10 +85,16 @@
            disappear, so the current section is the lighter surface instead. */
         html[data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.09) !important; color: #ffffff !important; }
         html[data-theme="dark"] .nav-item:hover i { color: #ffffff !important; }
-        html[data-theme="dark"] .nav-item.active { background: #e8eefc !important; color: #0f1e36 !important; box-shadow: none !important; }
-        html[data-theme="dark"] .nav-item.active i { color: #0f1e36 !important; }
-        html[data-theme="dark"] .nav-item.active:hover { background: #e8eefc !important; color: #0f1e36 !important; }
-        html[data-theme="dark"] .nav-item.active:hover i { color: #0f1e36 !important; }
+        /* The label is a <span>, and `html[data-theme="dark"] .sidebar *` above
+           paints it near-white — a direct hit on the child, which outranks
+           anything the link passes down. On a light pill that leaves white on
+           near-white. So the children are named here too. */
+        html[data-theme="dark"] .nav-item.active,
+        html[data-theme="dark"] .nav-item.active *,
+        html[data-theme="dark"] .nav-item.active:hover,
+        html[data-theme="dark"] .nav-item.active:hover * { color: #0f1e36 !important; }
+        html[data-theme="dark"] .nav-item.active,
+        html[data-theme="dark"] .nav-item.active:hover { background: #e8eefc !important; box-shadow: none !important; }
         html[data-theme="dark"] .nav-item[href="/logout"] { border-top-color: #26324a !important; }
         html[data-theme="dark"] .nav-item[href="/logout"]:hover { background: rgba(180,35,24,0.18) !important; color: #ff9d85 !important; }
         html[data-theme="dark"] .nav-item[href="/logout"]:hover i { color: #ff9d85 !important; }

@@ -1885,18 +1885,27 @@ textarea:focus {
     padding: 11px 14px !important;
 }
 .nav-item i { color: #64748b !important; }
-.nav-item:hover { background: #e5e7eb !important; color: #0f1e36 !important; transform: none !important; }
-.nav-item:hover i { color: #0f1e36 !important; }
-.nav-item.active {
-    background: #17253f !important;
+/* The label is a <span>, and ".sidebar * { color: #1f2937 !important }" above
+   hits it directly — a direct match beats anything inherited from the anchor.
+   So every state has to name the children, not just the link, or the text sits
+   dark on a dark pill. The same trap is already documented for dark mode in
+   dashboard.html; this is the light side of it. */
+.nav-item:hover,
+.nav-item:hover * { background: transparent; color: #0f1e36 !important; }
+.nav-item:hover { background: #e5e7eb !important; transform: none !important; }
+.nav-item.active,
+.nav-item.active *,
+.nav-item.active:hover,
+.nav-item.active:hover * {
     color: #ffffff !important;
+}
+.nav-item.active,
+.nav-item.active:hover {
+    background: #17253f !important;
     font-weight: 700 !important;
     /* No left rail: the fill is the state. */
     box-shadow: none !important;
 }
-.nav-item.active i { color: #ffffff !important; }
-.nav-item.active:hover { background: #17253f !important; color: #ffffff !important; }
-.nav-item.active:hover i { color: #ffffff !important; }
 
 /* Log Out pinned to the bottom, visually separated */
 .navigation-menu { display: flex !important; flex-direction: column !important; }
