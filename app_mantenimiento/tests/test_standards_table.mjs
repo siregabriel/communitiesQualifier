@@ -111,5 +111,32 @@ console.log('\nNothing about the structure moved');
   ok(/Aug 24, 2026/.test(cells[5].textContent), 'the created date is still there, just quieter');
 }
 
+console.log('\nStandards looks like the rest of the app');
+{
+  /* It is a separate template with its own styles, so it never had the page's
+     ambient background and read as a different product. The definition lives
+     in theme.css now — one copy, keyed on .main-content, which only the
+     dashboard and this page use. Two copies would drift. */
+  const theme = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
+  const dash = fs.readFileSync(new URL('../templates/dashboard.html', import.meta.url), 'utf8');
+
+  ok(/@keyframes ambientDrift/.test(theme) && /@keyframes ambientTint/.test(theme),
+     'the animation is defined in the shared stylesheet');
+  ok(!/@keyframes ambientDrift/.test(dash),
+     'and not also in the dashboard — one definition, not two');
+  ok(/\.main-content::before/.test(theme), 'the colour layer is shared');
+  ok(/\.main-content > \.container/.test(theme),
+     "and this page's content is lifted above it, like the dashboard's");
+
+  const users = ['dashboard.html', 'question_manager.html', 'reporte.html', 'login.html'];
+  const withIt = users.filter(f =>
+    /class="main-content"/.test(fs.readFileSync(new URL('../templates/' + f, import.meta.url), 'utf8')));
+  ok(withIt.length === 2 && withIt.includes('question_manager.html'),
+     `only the two pages that should have it do (${withIt.join(', ')})`);
+
+  ok(/prefers-reduced-motion[\s\S]{0,160}animation: none/.test(theme),
+     'and it still stops for anyone who asked for less movement');
+}
+
 console.log(failures ? `\n${failures} failure(s)` : '\nSame table, with the volume where it belongs.');
 process.exit(failures ? 1 : 0);
