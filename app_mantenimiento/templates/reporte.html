@@ -499,6 +499,13 @@
             background: #fff; color: #00285c; border: 1.5px solid #d9dfe8; border-radius: 10px;
             padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
         }
+        /* Quieter than Save: it is the rarer choice, and an irreversible one. */
+        .draft-discard-btn {
+            background: none; color: #64748b; border: none; border-radius: 10px;
+            padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+            font-family: inherit;
+        }
+        .draft-discard-btn:hover { color: #b42318; }
         .draft-save-btn:hover { border-color: #00285c; }
         /* Floating save indicator. The reassurance has to be visible WHILE
            filling the form — everything else about drafts sits by the submit
@@ -1215,6 +1222,9 @@
                     <button type="button" class="draft-save-btn" onclick="saveDraftManually()">
                         <i class="fas fa-floppy-disk"></i> Save draft
                     </button>
+                    <button type="button" class="draft-discard-btn" onclick="discardDraft()">
+                        <i class="fas fa-trash-can"></i> Discard and start over
+                    </button>
                     <span class="draft-status" id="draftStatus"></span>
                 </div>
                 <p class="draft-hint">
@@ -1428,10 +1438,60 @@
             if (clear) clear.hidden = !name;
         }
 
-        function onNotesPhotoChosen(ev) {
+        /* ===================== Photos, made sendable =====================
+
+           A visit carries one photo per standard, and a phone camera writes
+           3-5MB each. A Standards visit has thirty-nine of them. Full size,
+           four or five photos already exceed the 16MB the server accepts for
+           the whole request — and when the server closes the connection while
+           the phone is still uploading, Safari reports "Load failed", which
+           tells the person nothing. That is what happened to a regional
+           standing in a building on LTE with a visit she could not send.
+
+           So every photo is redrawn at a sane size before it goes anywhere:
+           1600px on the long edge is more than enough to show a scuffed wall
+           or an expired tag, and turns 4MB into roughly 300KB. Ten photos
+           become 3MB instead of 40.
+
+           The original is never kept. Nothing downstream wants it: the app
+           shows these at a few hundred pixels, and storage is per-photo.
+        */
+        const PHOTO_MAX_EDGE = 1600;
+        const PHOTO_QUALITY = 0.82;
+
+        async function shrinkPhoto(file) {
+            if (!file || !file.type || !file.type.startsWith('image/')) return file;
+            // A small photo is already fine; re-encoding would only lose detail.
+            if (file.size <= 400 * 1024) return file;
+            try {
+                const bitmap = await createImageBitmap(file);
+                const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+                if (scale === 1 && file.size <= 1.5 * 1024 * 1024) { bitmap.close?.(); return file; }
+                const w = Math.round(bitmap.width * scale);
+                const h = Math.round(bitmap.height * scale);
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+                bitmap.close?.();
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', PHOTO_QUALITY));
+                // If the camera already wrote something smaller than we can, keep theirs.
+                if (!blob || blob.size >= file.size) return file;
+                const name = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+                return new File([blob], name, { type: 'image/jpeg', lastModified: Date.now() });
+            } catch (e) {
+                // An unreadable or unusual image still gets sent as it is —
+                // failing to shrink must never mean failing to submit.
+                console.warn('Could not shrink the photo, sending it as is:', e);
+                return file;
+            }
+        }
+
+        async function onNotesPhotoChosen(ev) {
             const f = ev.target.files && ev.target.files[0];
-            notesPhotoFile = f || null;
-            showNotesPhotoName(f ? f.name : '');
+            if (!f) { notesPhotoFile = null; showNotesPhotoName(''); draftScheduleSave(); return; }
+            showNotesPhotoName('Preparing…');
+            notesPhotoFile = await shrinkPhoto(f);
+            showNotesPhotoName(notesPhotoFile.name);
             draftScheduleSave();
         }
 
@@ -1544,6 +1604,28 @@
             const linger = _chipExplained ? 2200 : 5000;
             _chipExplained = true;
             _chipTimer = setTimeout(() => chip.classList.remove('show'), linger);
+        }
+
+        /* A draft lives in this phone's storage, so nobody else can clear it —
+           not an administrator, not support. Without a control here, a person
+           whose submission failed has no way to start clean; one asked for
+           hers to be deleted by someone who had no access to it. */
+        async function discardDraft() {
+            const ok = confirm('Discard this draft and start over?\n\n'
+                + 'Everything you have filled in on this visit will be cleared from this device. '
+                + 'This cannot be undone.');
+            if (!ok) return;
+            try {
+                clearTimeout(_draftTimer);
+                _draftReady = false;
+                const dk = draftKey();
+                if (dk) await draftDelete(dk);
+            } catch (e) {
+                console.warn('Could not delete the draft:', e);
+            }
+            // Reload rather than unpicking the form by hand: a half-cleared
+            // page is worse than a fresh one, and the draft is already gone.
+            window.location.reload();
         }
 
         function draftStatus(state, ts) {
@@ -2166,16 +2248,21 @@
             }
         }
 
-        function handlePhotoChange(event, questionId) {
-            const file = event.target.files[0];
-            if (file) {
-                // Validate file size (16MB max)
+        async function handlePhotoChange(event, questionId) {
+            const picked = event.target.files[0];
+            if (picked) {
+                const fileNameElEarly = document.getElementById(`fileName_${questionId}`);
+                if (fileNameElEarly) fileNameElEarly.textContent = 'Preparing…';
+                // Shrunk before it is stored, so the draft and the submission
+                // both carry the small one.
+                const file = await shrinkPhoto(picked);
                 if (file.size > 16 * 1024 * 1024) {
-                    alert('File too large. Maximum size is 16MB.');
+                    alert('That photo is too large to send, even after resizing.');
                     event.target.value = '';
+                    if (fileNameElEarly) fileNameElEarly.textContent = '';
                     return;
                 }
-                
+
                 // Store file reference
                 photoFiles[questionId] = file;
                 
@@ -2405,13 +2492,29 @@
                     document.getElementById('successScreen').classList.add('show');
                     document.body.style.overflow = 'hidden';
                     window.scrollTo({ top: 0 });
+                } else if (response.status === 413) {
+                    alert("That visit is too big to send — usually too many photos at once.\n\n"
+                        + "Your draft is saved on this phone, so nothing is lost. Remove a photo "
+                        + "or two and submit again.");
                 } else {
-                    const errorData = await response.json();
-                    alert('Error submitting visit: ' + (errorData.message || 'Unknown error'));
+                    let message = 'Unknown error';
+                    try { message = (await response.json()).message || message; } catch (e) {}
+                    alert('The visit could not be sent: ' + message
+                        + '\n\nYour draft is saved on this phone — nothing is lost.');
                 }
             } catch (error) {
+                /* A failed fetch is a dropped connection, and browsers word it
+                   unhelpfully — Safari just says "Load failed". A regional
+                   standing in a building read that and assumed her work was
+                   gone, then asked for her draft to be deleted so she could
+                   start over. Say what likely happened, and say the draft is
+                   safe, because it is: it lives in this phone's storage and is
+                   only cleared once the server has the visit. */
                 console.error('Error submitting visit:', error);
-                alert('Error: ' + error.message);
+                alert("Couldn't reach the server — the connection dropped part way.\n\n"
+                    + "This usually means a weak signal or too many photos at once. "
+                    + "Your draft is saved on this phone, so nothing is lost: move somewhere "
+                    + "with a better signal, or use Wi-Fi, and submit again.");
             } finally {
                 const submitBtn = document.querySelector('button[type="submit"]');
                 submitBtn.disabled = false;
