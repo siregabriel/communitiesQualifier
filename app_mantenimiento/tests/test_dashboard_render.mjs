@@ -888,5 +888,29 @@ console.log('\nActivity feed — one definition of a row key');
   ok(/aiRowKey\(\{ kind: 'raised'/.test(tpl), 'and so does a request row');
 }
 
+console.log('\nSidebar — the current section is a filled pill');
+{
+  // It used to be a pale tint plus a 3px rail on the left edge: two weak
+  // signals doing one job. The rail is still declared in an earlier rule, so
+  // this holds down which one wins.
+  const theme = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
+  const active = theme.slice(theme.lastIndexOf('.nav-item.active {'),
+                             theme.indexOf('}', theme.lastIndexOf('.nav-item.active {')));
+  ok(/background:\s*#17253f\s*!important/.test(active), 'the current section is filled, not tinted');
+  ok(/color:\s*#ffffff\s*!important/.test(active), 'with white text on it');
+  ok(/box-shadow:\s*none\s*!important/.test(active),
+     'and no left rail — the fill already says which section you are in');
+
+  const hover = theme.slice(theme.lastIndexOf('.nav-item:hover {'),
+                            theme.indexOf('}', theme.lastIndexOf('.nav-item:hover {')));
+  ok(/background:\s*#e5e7eb/.test(hover), 'hovering fills it grey');
+
+  ok(/\.nav-item\.active:hover \{[^}]*#17253f/.test(theme),
+     'hovering the current section does not lighten it back to grey');
+
+  ok(/\.nav-item\[href="\/logout"\][^}]*border-radius:\s*0/.test(theme),
+     'Log Out keeps square corners, since its top border is a full-width divider');
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

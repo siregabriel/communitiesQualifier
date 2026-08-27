@@ -1874,16 +1874,39 @@ textarea:focus {
 .user-role { color: #6b7280 !important; }
 .sidebar-avatar { background: #e4e7ec !important; color: #00285c !important; box-shadow: none !important; }
 
-.nav-item { color: #475569 !important; }
+/* Nav items as filled pills: grey on hover, solid on the current section.
+   The state used to be carried by a pale tint plus a 3px rail on the left
+   edge — two weak signals doing one job. A filled pill says it once, clearly.
+   Inset from the sidebar edges so the fill reads as a pill and not as a band
+   across the whole panel. */
+.nav-item {
+    color: #475569 !important;
+    margin: 1px 12px !important;
+    padding: 11px 14px !important;
+}
 .nav-item i { color: #64748b !important; }
-.nav-item:hover { background: #e9ebef !important; color: #0f1e36 !important; transform: none !important; }
+.nav-item:hover { background: #e5e7eb !important; color: #0f1e36 !important; transform: none !important; }
 .nav-item:hover i { color: #0f1e36 !important; }
-.nav-item.active { background: #e7edf7 !important; color: #00285c !important; font-weight: 700 !important; box-shadow: inset 3px 0 0 #00285c !important; }
-.nav-item.active i { color: #00285c !important; }
+.nav-item.active {
+    background: #17253f !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    /* No left rail: the fill is the state. */
+    box-shadow: none !important;
+}
+.nav-item.active i { color: #ffffff !important; }
+.nav-item.active:hover { background: #17253f !important; color: #ffffff !important; }
+.nav-item.active:hover i { color: #ffffff !important; }
 
 /* Log Out pinned to the bottom, visually separated */
 .navigation-menu { display: flex !important; flex-direction: column !important; }
-.nav-item[href="/logout"] { margin-top: auto !important; border-top: 1px solid #e4e7ec !important; }
+.nav-item[href="/logout"] {
+    margin-top: auto !important;
+    border-top: 1px solid #e4e7ec !important;
+    border-radius: 0 !important;   /* a full-width divider needs square corners */
+    margin-left: 0 !important; margin-right: 0 !important;
+    padding-left: 24px !important; padding-right: 24px !important;
+}
 .nav-item[href="/logout"]:hover { background: #fef2f2 !important; color: #b42318 !important; }
 .nav-item[href="/logout"]:hover i { color: #b42318 !important; }
 

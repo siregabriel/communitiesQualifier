@@ -81,10 +81,14 @@
         html[data-theme="dark"] .user-role { color: #7db0ff !important; }
         html[data-theme="dark"] .sidebar-avatar { background: #26324a !important; color: #cfe0ff !important; }
         html[data-theme="dark"] .nav-item i { color: rgba(255,255,255,0.72) !important; }
-        html[data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
+        /* Same filled-pill idea on a dark sidebar: a near-black fill would
+           disappear, so the current section is the lighter surface instead. */
+        html[data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.09) !important; color: #ffffff !important; }
         html[data-theme="dark"] .nav-item:hover i { color: #ffffff !important; }
-        html[data-theme="dark"] .nav-item.active { background: rgba(59,130,246,0.22) !important; color: #eaf2ff !important; box-shadow: inset 3px 0 0 #3b82f6 !important; }
-        html[data-theme="dark"] .nav-item.active i { color: #9cc4ff !important; }
+        html[data-theme="dark"] .nav-item.active { background: #e8eefc !important; color: #0f1e36 !important; box-shadow: none !important; }
+        html[data-theme="dark"] .nav-item.active i { color: #0f1e36 !important; }
+        html[data-theme="dark"] .nav-item.active:hover { background: #e8eefc !important; color: #0f1e36 !important; }
+        html[data-theme="dark"] .nav-item.active:hover i { color: #0f1e36 !important; }
         html[data-theme="dark"] .nav-item[href="/logout"] { border-top-color: #26324a !important; }
         html[data-theme="dark"] .nav-item[href="/logout"]:hover { background: rgba(180,35,24,0.18) !important; color: #ff9d85 !important; }
         html[data-theme="dark"] .nav-item[href="/logout"]:hover i { color: #ff9d85 !important; }
