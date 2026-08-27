@@ -400,11 +400,24 @@
         }
 
         td {
-            padding: 16px;
+            padding: 11px 16px;
             border-bottom: 1px solid #f1f5f9;
             color: #475569;
             font-size: 13px;
+            vertical-align: middle;
         }
+
+        /* The standard's wording is what someone comes here to read, and it was
+           the quietest thing on the row — plain grey, capped at 300px, wrapping
+           to three lines while the badges beside it took the full width. */
+        td.q-text {
+            font-size: 14.5px;
+            font-weight: 600;
+            color: #0f1e36;
+            line-height: 1.35;
+            max-width: 460px;
+        }
+        html[data-theme="dark"] td.q-text { color: #e8eefc; }
 
         tbody tr {
             transition: all 0.2s ease;
@@ -436,6 +449,13 @@
             border: 1px solid rgba(148, 163, 184, 0.3);
         }
 
+        /* A badge announcing that something is NOT required, on almost every
+           row. Marking the exception is enough. */
+        .photo-none { color: #cbd5e1; font-size: 15px; }
+        html[data-theme="dark"] .photo-none { color: #46566f; }
+        .photo-yes { color: #1f6fe5; font-size: 15px; }
+        html[data-theme="dark"] .photo-yes { color: #9cc4ff; }
+
         .community-badge {
             display: inline-block;
             padding: 4px 8px;
@@ -448,20 +468,43 @@
             border: 1px solid rgba(59, 130, 246, 0.2);
         }
 
+        /* This said the same thing on every row — it is the default, and a
+           saturated blue button made the default the loudest thing on the
+           page. Same control, same click, quieter: text with a dotted underline
+           to show it opens. The exception (a standard that covers only some
+           communities) gets the amber variant below, so what stands out is
+           what is actually unusual. */
         .community-count {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
+            gap: 5px;
+            padding: 2px 0;
+            background: none;
+            color: #64748b;
             border: none;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 700;
+            border-bottom: 1px dotted #94a3b8;
+            border-radius: 0;
+            font-size: 12px;
+            font-weight: 600;
             margin-right: 8px;
             cursor: pointer;
             font-family: inherit;
+        }
+        .community-count:hover { color: #00285c; border-bottom-color: #00285c; }
+        html[data-theme="dark"] .community-count { color: #9fb0c4; border-bottom-color: #46566f; }
+        html[data-theme="dark"] .community-count:hover { color: #cfe0ff; border-bottom-color: #cfe0ff; }
+
+        /* Not every community: worth noticing. */
+        .community-count.is-partial {
+            background: #fff4e3;
+            color: #92620a;
+            border: 1px solid rgba(146, 98, 10, .22);
+            border-radius: 999px;
+            padding: 3px 10px;
+        }
+        .community-count.is-partial:hover { color: #6b4707; border-color: rgba(146, 98, 10, .5); }
+        html[data-theme="dark"] .community-count.is-partial {
+            background: rgba(146,98,10,.25); color: #f5c26b; border-color: rgba(245,194,107,.3);
         }
 
         .community-count .dropdown-caret {
@@ -1548,9 +1591,12 @@
             });
 
             tbody.innerHTML = sortedQuestions.map(question => {
-                const photoRequired = question.photo_required ? 
-                    '<span class="badge badge-yes">✓ Yes</span>' : 
-                    '<span class="badge badge-no">No</span>';
+                // Mark the exception, not the norm: almost none of these
+                // require a photo, and a badge saying "NO" on every row is a
+                // row of noise.
+                const photoRequired = question.photo_required
+                    ? '<i class="fas fa-camera photo-yes" title="Photo required"></i>'
+                    : '<span class="photo-none" title="Photo not required">—</span>';
                 
                 const surveyTypeBadges = getSurveyTypeBadges(question);
                 
@@ -1559,14 +1605,15 @@
                 let communityDisplay;
                 if (communities.length > 3) {
                     // Collapsible: show a count that expands to the full community list
-                    const label = (totalCommunities > 0 && communities.length === totalCommunities)
-                        ? `🏘️ All Communities (${communities.length})`
+                    const isEveryone = totalCommunities > 0 && communities.length === totalCommunities;
+                    const label = isEveryone
+                        ? `All communities (${communities.length})`
                         : `${communities.length} communities`;
                     const listHtml = communities
                         .map(c => `<span class="community-badge">${escapeHtml(c)}</span>`)
                         .join('');
                     communityDisplay = `
-                        <button type="button" class="community-count" onclick="toggleCommunityList('${question.id}', this)">
+                        <button type="button" class="community-count${isEveryone ? '' : ' is-partial'}" onclick="toggleCommunityList('${question.id}', this)">
                             ${label} <span class="dropdown-caret">▼</span>
                         </button>
                         <div class="community-list-panel" id="communities_${question.id}" style="display:none;">
@@ -1588,11 +1635,11 @@
                             <input type="checkbox" class="row-select" value="${question.id}"
                                    onchange="updateBulkActions()" style="width:18px; height:18px; cursor:pointer;">
                         </td>
-                        <td style="max-width: 300px;">${escapeHtml(question.text)}</td>
+                        <td class="q-text">${escapeHtml(question.text)}</td>
                         <td>${photoRequired}</td>
                         <td>${surveyTypeBadges}</td>
                         <td>${communityDisplay}</td>
-                        <td>${createdDate}</td>
+                        <td style="color:#94a3b8; font-size:12px; white-space:nowrap;">${createdDate}</td>
                         <td>
                             <div class="action-buttons">
                                 <button class="btn-icon edit" onclick="openEditModal('${question.id}')" title="Edit">
