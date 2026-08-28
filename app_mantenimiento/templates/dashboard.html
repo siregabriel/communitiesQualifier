@@ -2652,20 +2652,35 @@
 
         function draftNoticesHtml() {
             if (!(draftNotices || []).length) return '';
+            // An administrator is also shown other people's. Those are on other
+            // people's phones, so they are read-only here.
+            const theirs = draftNotices.some(d => d.mine === false);
             const rows = draftNotices.map(d => {
                 const where = splitCommunityName(d.community || '');
                 const progress = d.total
                     ? `${d.answered} of ${d.total} answered`
                     : 'just started';
-                return `
-                    <a class="dn-row" href="/reporte/resume?community=${encodeURIComponent(d.community || '')}&survey_type=${encodeURIComponent(d.survey_type_id || '')}">
+                const body = `
                         <i class="fas fa-pen-to-square dn-icon"></i>
                         <span class="dn-body">
                             <span class="dn-where">${escapeHtml(where.name)}${
                                 where.place ? `<small>${escapeHtml(where.place)}</small>` : ''}</span>
                             <span class="dn-meta">${escapeHtml(progress)} · started ${escapeHtml(timeAgo(d.started_at))}${
                                 d.device ? ' · on ' + escapeHtml(d.device) : ''}</span>
-                        </span>
+                        </span>`;
+                // Not a link: the draft is in the browser storage on their
+                // device. Following one here would open an empty form on this
+                // one, which is the very confusion this feature exists to end.
+                if (d.mine === false) {
+                    return `
+                    <div class="dn-row is-theirs">
+                        ${body}
+                        <span class="dn-who">${escapeHtml(d.display_name || d.username || '')}</span>
+                    </div>`;
+                }
+                return `
+                    <a class="dn-row" href="/reporte/resume?community=${encodeURIComponent(d.community || '')}&survey_type=${encodeURIComponent(d.survey_type_id || '')}">
+                        ${body}
                         <i class="fas fa-chevron-right dn-go"></i>
                     </a>`;
             }).join('');
@@ -2674,8 +2689,8 @@
                     <h3 class="dn-title"><i class="fas fa-hourglass-half"></i>
                         Unfinished ${draftNotices.length === 1 ? 'visit' : 'visits'}
                         <span>${draftNotices.length}</span></h3>
-                    <p class="dn-note">Saved on the device you started them on — open one there to
-                        finish it. Nothing has been sent yet.</p>
+                    <p class="dn-note">Saved on the device they were started on — open one there to
+                        finish it. Nothing has been sent yet.${theirs ? ' Visits started by\n                        someone else are listed so you can tell them where the work is; only\n                        they can open or discard it, on their own device.' : ''}</p>
                     ${rows}
                 </section>`;
         }

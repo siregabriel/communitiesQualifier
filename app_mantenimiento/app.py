@@ -3180,17 +3180,41 @@ def list_raised_items():
 @app.route('/api/drafts', methods=['GET'])
 @login_required
 def list_draft_notices():
-    """Your own unfinished visits.
+    """Unfinished visits: your own, and for an administrator, everybody's.
 
-    Only ever your own: two people can be part-way through the same community
-    at once, and neither should see the other's.
+    A regional or an ED sees only their own — two people can be part-way
+    through the same community at once, and neither should see the other's.
+
+    An administrator sees all of them because the whole reason this exists is
+    support: somebody asks where their half-finished visit went, and without
+    this there is no way to answer. Note what an administrator can do with
+    that: read it. The visit itself is in the browser storage on that person's
+    phone, so nobody else can open it or throw it away — only point them at it.
+
+    is_admin() is already False during a preview, so 'view as' shows the
+    person's own view rather than leaking everyone's.
     """
+    me = session.get('user')
     # A region can be reassigned while a draft is sitting on somebody's phone.
     # Listing one they can no longer reach would offer a door that refuses to
     # open — the resume route checks the same thing and would turn them away.
-    mine = visible_communities()
-    drafts = [d for d in draft_notice_service.for_user(session.get('user'))
-              if d.get('community') in mine]
+    reachable = visible_communities()
+    drafts = [dict(d, mine=True) for d in draft_notice_service.for_user(me)
+              if d.get('community') in reachable]
+
+    if is_admin():
+        names = {}
+
+        def _name(username):
+            if username not in names:
+                names[username] = (resolve_account_context(username).get('display_name')
+                                   or username)
+            return names[username]
+
+        drafts += [dict(d, mine=False, display_name=_name(d.get('username', '')))
+                   for d in draft_notice_service.all()
+                   if d.get('username') != me]
+
     return jsonify({'status': 'success', 'drafts': drafts}), 200
 
 

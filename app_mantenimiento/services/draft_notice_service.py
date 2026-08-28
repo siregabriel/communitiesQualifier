@@ -96,6 +96,20 @@ class DraftNoticeService(JsonFileBacked):
             mine = [n for n in self.notices if n.get('username') == username]
         return sorted(mine, key=lambda n: n.get('updated_at', ''), reverse=True)
 
+    def all(self) -> List[Dict]:
+        """Everybody's unfinished visits, most recently touched first.
+
+        For administrators only. The reason this exists is support: somebody
+        asks where their half-finished visit went, and without this there is no
+        way to answer — the draft is on their phone and the person helping
+        cannot see that it exists, let alone which community it is under.
+        """
+        with self._lock:
+            self._ensure_fresh()
+            self._prune()
+            everyone = list(self.notices)
+        return sorted(everyone, key=lambda n: n.get('updated_at', ''), reverse=True)
+
     def get(self, notice_id: str) -> Optional[Dict]:
         self._ensure_fresh()
         return next((n for n in self.notices if n.get('id') == notice_id), None)

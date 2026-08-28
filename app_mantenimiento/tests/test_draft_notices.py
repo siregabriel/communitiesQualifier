@@ -162,6 +162,77 @@ def test_you_only_ever_see_your_own():
         A.draft_notice_service.clear("smoke.draft.a", community, "standards")
 
 
+def _admin(name="smoke.draft.admin"):
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user=name, role="admin", community=None, region_id=None,
+                 display_name=name)
+    return c
+
+
+def test_an_admin_sees_everyone_elses_so_they_can_say_where_the_work_is():
+    """The reason this feature exists.
+
+    A regional asked for her unfinished visit to be deleted by someone who
+    could not see that it existed. An administrator can now see it — and only
+    see it: the visit is in browser storage on her phone.
+    """
+    community = _communities(1)[0]
+    a = _client("smoke.draft.a", community)
+    try:
+        a.post("/api/drafts", json={"community": community,
+                                    "survey_type_id": "standards",
+                                    "answered": 7, "total": 39,
+                                    "device": "iPhone · Safari"}, headers=HDR)
+        seen = _admin().get("/api/drafts").get_json()["drafts"]
+        hers = next((d for d in seen if d.get("username") == "smoke.draft.a"), None)
+        assert hers, "the administrator cannot see the draft they are being asked about"
+        assert hers["community"] == community
+        assert hers["device"] == "iPhone · Safari", "which device to send her to"
+        assert hers["mine"] is False, "or the view would offer to resume it"
+        assert hers.get("display_name"), "a username alone does not identify the person"
+    finally:
+        A.draft_notice_service.clear("smoke.draft.a", community, "standards")
+
+
+def test_a_regional_still_sees_only_their_own():
+    """Widening it for admins must not widen it for anybody else."""
+    community = _communities(1)[0]
+    a = _client("smoke.draft.a", community)
+    b = _client("smoke.draft.b", community)
+    try:
+        a.post("/api/drafts", json={"community": community,
+                                    "survey_type_id": "standards", "answered": 4},
+               headers=HDR)
+        assert b.get("/api/drafts").get_json()["drafts"] == []
+        mine = a.get("/api/drafts").get_json()["drafts"]
+        assert len(mine) == 1 and mine[0]["mine"] is True
+    finally:
+        A.draft_notice_service.clear("smoke.draft.a", community, "standards")
+
+
+def test_a_preview_shows_that_persons_own_view_not_everyones():
+    """'View as' makes is_admin() False on purpose.
+
+    An administrator previewing an ED must see what the ED sees. If the drafts
+    list still answered as an administrator, the preview would be showing a
+    screen that person can never have.
+    """
+    community = _communities(1)[0]
+    a = _client("smoke.draft.a", community)
+    try:
+        a.post("/api/drafts", json={"community": community,
+                                    "survey_type_id": "standards", "answered": 4},
+               headers=HDR)
+        c = _admin()
+        with c.session_transaction() as s:
+            s["view_as"] = {"communities": [community], "label": "Somebody Else"}
+        assert c.get("/api/drafts").get_json()["drafts"] == [], \
+            "the preview leaked every draft in the company"
+    finally:
+        A.draft_notice_service.clear("smoke.draft.a", community, "standards")
+
+
 def test_a_community_you_do_not_cover_is_refused():
     comms = A.all_communities()
     mine = comms[0]

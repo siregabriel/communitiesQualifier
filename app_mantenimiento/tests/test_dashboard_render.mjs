@@ -1001,6 +1001,45 @@ console.log('\nUnfinished visits are shown where the person looks for their work
      'and sits above the rest — with no submitted visits it is all there is');
 }
 
+console.log("\nAn administrator seeing somebody else's unfinished visit");
+{
+  // The point is to be able to say where the work is. What must not happen is
+  // the row behaving like a way in: the draft is in browser storage on her
+  // phone, so following a link here would open an empty form on this device —
+  // the exact confusion the feature exists to end.
+  run(`draftNotices = [
+        { id: 'd1', community: 'Kelley Place, Enterprise', survey_type_id: 'standards',
+          answered: 12, total: 39, device: 'iPhone · Safari', mine: true,
+          started_at: new Date(Date.now() - 3600e3).toISOString() },
+        { id: 'd2', community: 'One Loudoun', survey_type_id: 'standards',
+          answered: 7, total: 39, device: 'iPhone · Safari', mine: false,
+          username: 'angie.surls', display_name: 'Angie Surls',
+          started_at: new Date(Date.now() - 7200e3).toISOString() }];
+       allSubmissions = []; isAdmin = true; currentUsername = 'gabriel';
+       renderMyVisits();`);
+  const rows = [...gallery.querySelectorAll('.dn-row')];
+  ok(rows.length === 2, 'both are listed');
+
+  const theirs = gallery.querySelector('.dn-row.is-theirs');
+  ok(!!theirs, "the one that is not theirs to open is marked as such");
+  ok(theirs.tagName !== 'A' && !theirs.hasAttribute('href'),
+     'and is not a link — it would open an empty form on this device');
+  ok(!theirs.querySelector('.dn-go'),
+     'and shows no chevron promising somewhere to go');
+  ok(/Angie Surls/.test(theirs.textContent),
+     'it names the person, so they can be told where their work is');
+  ok(/One Loudoun/.test(theirs.textContent) && /7 of 39/.test(theirs.textContent)
+     && /iPhone/.test(theirs.textContent),
+     'with the community, the progress and the device — everything needed to point her at it');
+
+  const own = rows.find(r => !r.classList.contains('is-theirs'));
+  ok(own.tagName === 'A' && /\/reporte\/resume/.test(own.getAttribute('href')),
+     'while their own is still a way back into it');
+
+  ok(/only\s+they can open or discard it/.test(gallery.querySelector('.dn-note').textContent),
+     'and the note says plainly that an administrator cannot delete it for them');
+}
+
 console.log('\nUnfinished visits — nothing to say, nothing shown');
 {
   run(`draftNotices = []; allSubmissions = []; renderMyVisits();`);
