@@ -965,5 +965,47 @@ console.log('\nActivity feed — a raised item is reachable too');
   ok(!row.closest('.ail-group').classList.contains('is-folded'), 'with its group unfolded');
 }
 
+console.log('\nUnfinished visits are shown where the person looks for their work');
+{
+  // A draft is keyed on community + survey type, so entering the form by any
+  // other route finds nothing and the work looks lost. This is the way back.
+  run(`draftNotices = [
+        { id: 'd1', community: 'Kelley Place, Enterprise', survey_type_id: 'standards',
+          answered: 12, total: 39, device: 'iPhone · Safari',
+          started_at: new Date(Date.now() - 3600e3).toISOString() }];
+       allSubmissions = []; isAdmin = false; currentUsername = 'marissa';
+       renderMyVisits();`);
+  const box = gallery.querySelector('.dn');
+  ok(!!box, 'the unfinished visit is on screen');
+  ok(/Kelley Place/.test(box.textContent), 'named by community');
+  ok(/12 of 39 answered/.test(box.textContent), 'with how far along it is');
+  ok(/iPhone/.test(box.textContent),
+     'and which device holds it — that is the part nobody could work out');
+  ok(/Nothing has been sent yet/.test(box.textContent),
+     'said plainly, because that is the fear');
+
+  // The first version of this pointed at /report — a route that does not
+  // exist — and the test passed anyway, because it only checked the string
+  // that had just been written. Check it against the routes the app declares.
+  const link = box.querySelector('.dn-row');
+  const href = link.getAttribute('href');
+  const appPy = fs.readFileSync(new URL('../app.py', import.meta.url), 'utf8');
+  const path = href.split('?')[0];
+  ok(new RegExp(`@app\\.route\\('${path}'`).test(appPy),
+     `the link points at a route that exists (${path})`);
+  ok(/community=Kelley/.test(href), 'naming the community');
+  ok(/survey_type=standards/.test(href),
+     'and the survey type — the draft is stored under both, so both are needed');
+
+  ok(gallery.innerHTML.indexOf('dn-row') < gallery.innerHTML.indexOf('empty-state'),
+     'and sits above the rest — with no submitted visits it is all there is');
+}
+
+console.log('\nUnfinished visits — nothing to say, nothing shown');
+{
+  run(`draftNotices = []; allSubmissions = []; renderMyVisits();`);
+  ok(!gallery.querySelector('.dn'), 'no section when there are none');
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

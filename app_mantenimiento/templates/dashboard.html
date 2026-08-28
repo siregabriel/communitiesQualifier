@@ -2633,6 +2633,53 @@
             }
         })();
 
+        /* Visits somebody started and has not sent.
+           The answers and photos live in the browser on the device they were
+           filled in on; what arrives here is only the note that they exist.
+           Without it an unfinished visit is findable only by re-entering
+           through exactly the same community and survey type — and entering by
+           any other route makes the work look lost. */
+        let draftNotices = [];
+
+        async function loadDraftNotices() {
+            try {
+                const r = await fetch('/api/drafts');
+                if (!r.ok) return;
+                const d = await r.json();
+                draftNotices = d.drafts || [];
+            } catch (e) { console.warn('Could not load unfinished visits:', e); }
+        }
+
+        function draftNoticesHtml() {
+            if (!(draftNotices || []).length) return '';
+            const rows = draftNotices.map(d => {
+                const where = splitCommunityName(d.community || '');
+                const progress = d.total
+                    ? `${d.answered} of ${d.total} answered`
+                    : 'just started';
+                return `
+                    <a class="dn-row" href="/reporte/resume?community=${encodeURIComponent(d.community || '')}&survey_type=${encodeURIComponent(d.survey_type_id || '')}">
+                        <i class="fas fa-pen-to-square dn-icon"></i>
+                        <span class="dn-body">
+                            <span class="dn-where">${escapeHtml(where.name)}${
+                                where.place ? `<small>${escapeHtml(where.place)}</small>` : ''}</span>
+                            <span class="dn-meta">${escapeHtml(progress)} · started ${escapeHtml(timeAgo(d.started_at))}${
+                                d.device ? ' · on ' + escapeHtml(d.device) : ''}</span>
+                        </span>
+                        <i class="fas fa-chevron-right dn-go"></i>
+                    </a>`;
+            }).join('');
+            return `
+                <section class="dn">
+                    <h3 class="dn-title"><i class="fas fa-hourglass-half"></i>
+                        Unfinished ${draftNotices.length === 1 ? 'visit' : 'visits'}
+                        <span>${draftNotices.length}</span></h3>
+                    <p class="dn-note">Saved on the device you started them on — open one there to
+                        finish it. Nothing has been sent yet.</p>
+                    ${rows}
+                </section>`;
+        }
+
         let raisedItems = [];
         // The choosable categories, as the server sees them. Kept here so the
         // dropdown and the filter always offer the same list, and so a category
@@ -4296,7 +4343,7 @@
         const VIEW_DATA = {
             'dashboard':     ['inspections', 'communities', 'regions', 'moveins'],
             'communities':   ['communities', 'covers'],
-            'my-visits':     ['inspections'],
+            'my-visits':     ['inspections', 'drafts'],
             'action-items':  ['inspections', 'raised'],
             'reports':       ['inspections', 'reports'],
             'regions':       ['regions', 'communities'],
@@ -4312,6 +4359,7 @@
             moveins:     () => loadMoveInsRaw(),
             reports:     () => loadReports(),
             raised:      () => loadRaisedItems(),
+            drafts:      () => loadDraftNotices(),
         };
 
         async function refreshDataFor(view) {
@@ -6195,7 +6243,10 @@
                 const message = isAdmin
                     ? 'No visits submitted yet by any user'
                     : 'No visits yet. Start your first one!';
-                gallery.innerHTML = `<div class="empty-state"><i class="fas fa-clipboard"></i><p>${message}</p></div>`;
+                // An unfinished visit still belongs on screen — it is the one
+                // thing the person most needs to see here.
+                gallery.innerHTML = draftNoticesHtml()
+                    + `<div class="empty-state"><i class="fas fa-clipboard"></i><p>${message}</p></div>`;
                 return;
             }
 
@@ -6233,7 +6284,7 @@
                     </div>`;
             }).join('');
 
-            gallery.innerHTML = `<div class="visits-list">${rows}</div>`;
+            gallery.innerHTML = draftNoticesHtml() + `<div class="visits-list">${rows}</div>`;
         }
 
         // Pick a relevant Font Awesome icon for a standard based on its wording,

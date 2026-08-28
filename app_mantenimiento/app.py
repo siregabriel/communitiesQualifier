@@ -357,6 +357,14 @@ raised_item_service = RaisedItemService(RAISED_FILE)
 # own store because the list is Greg's and Angie's to run: renaming or retiring
 # one must never need a deploy, and an item points at an id rather than a name
 # so a rename cannot orphan it.
+# A note that somebody has a visit in progress. The visit itself stays in the
+# browser on the device it is being filled in on — this is only the signpost,
+# so a person is told they have unfinished work instead of having to guess the
+# exact community and survey type that would make it reappear.
+from services.draft_notice_service import DraftNoticeService
+DRAFT_NOTICE_FILE = os.path.join(DATA_FOLDER, 'draft_notices.json')
+draft_notice_service = DraftNoticeService(DRAFT_NOTICE_FILE)
+
 from services.raised_category_service import RaisedCategoryService
 RAISED_CATEGORY_FILE = os.path.join(DATA_FOLDER, 'raised_categories.json')
 raised_category_service = RaisedCategoryService(RAISED_CATEGORY_FILE)
@@ -1334,6 +1342,35 @@ def index():
     else:
         # Staff and regional users start a visit via survey type selection
         return redirect(url_for('select_survey_type'))
+
+
+@app.route('/reporte/resume')
+@login_required
+def resume_draft():
+    """Pick up an unfinished visit from the list of them.
+
+    The survey type lives in the session, not in the URL, and the draft in the
+    browser is keyed on that type plus the community — so arriving at the form
+    by any other route silently finds nothing. This sets the session the way
+    the selection screen would have, then hands over to the form with the
+    community named, so the pair matches and the draft is offered back.
+    """
+    if is_native_admin() or not can_run_visits():
+        return redirect(url_for('dashboard'))
+
+    survey_type_id = InputSanitizer.sanitize_string(
+        request.args.get('survey_type', ''), max_length=60)
+    community = InputSanitizer.sanitize_community_name(request.args.get('community', ''))
+
+    if not survey_type_id or not survey_type_service.validate_survey_type(survey_type_id):
+        return redirect(url_for('select_survey_type'))
+    if not community or not _can_see_community(community):
+        return redirect(url_for('select_survey_type'))
+
+    st = survey_type_service.get_survey_type_by_id(survey_type_id)
+    session['survey_type_id'] = survey_type_id
+    session['survey_type_name'] = (st or {}).get('name', '')
+    return redirect(url_for('report_form', community=community))
 
 
 @app.route('/reporte')
@@ -3138,6 +3175,66 @@ def list_raised_items():
     items = [_with_thread(i) for i in items]
     return jsonify({'status': 'success', 'items': items,
                     'categories': raised_category_service.active()}), 200
+
+
+@app.route('/api/drafts', methods=['GET'])
+@login_required
+def list_draft_notices():
+    """Your own unfinished visits.
+
+    Only ever your own: two people can be part-way through the same community
+    at once, and neither should see the other's.
+    """
+    # A region can be reassigned while a draft is sitting on somebody's phone.
+    # Listing one they can no longer reach would offer a door that refuses to
+    # open — the resume route checks the same thing and would turn them away.
+    mine = visible_communities()
+    drafts = [d for d in draft_notice_service.for_user(session.get('user'))
+              if d.get('community') in mine]
+    return jsonify({'status': 'success', 'drafts': drafts}), 200
+
+
+@app.route('/api/drafts', methods=['POST'])
+@login_required
+def record_draft_notice():
+    """Note that a draft exists, or that it has moved along.
+
+    Deliberately carries no answers and no photos — those are the bulk of a
+    visit, and pushing them up progressively over a weak signal inside a
+    building is the thing that already fails. This is a signpost.
+    """
+    data = request.get_json(silent=True) or {}
+    community = InputSanitizer.sanitize_community_name(data.get('community', ''))
+    if not community or not _can_see_community(community):
+        return jsonify({'status': 'error', 'message': 'Pick a community you cover'}), 400
+
+    def _count(v):
+        try:
+            return max(0, min(int(v), 9999))
+        except (TypeError, ValueError):
+            return 0
+
+    notice = draft_notice_service.record(
+        session.get('user'), community,
+        InputSanitizer.sanitize_string(data.get('survey_type_id', ''), max_length=60),
+        answered=_count(data.get('answered')),
+        total=_count(data.get('total')),
+        device=InputSanitizer.sanitize_string(data.get('device', ''), max_length=60))
+    if not notice:
+        return jsonify({'status': 'error', 'message': 'Could not note that'}), 400
+    return jsonify({'status': 'success', 'draft': notice}), 200
+
+
+@app.route('/api/drafts', methods=['DELETE'])
+@login_required
+def clear_draft_notice():
+    """The draft is gone — submitted, or discarded by the person who owns it."""
+    data = request.get_json(silent=True) or {}
+    draft_notice_service.clear(
+        session.get('user'),
+        InputSanitizer.sanitize_community_name(data.get('community', '')),
+        InputSanitizer.sanitize_string(data.get('survey_type_id', ''), max_length=60))
+    return jsonify({'status': 'success'}), 200
 
 
 @app.route('/api/raised-categories', methods=['GET'])

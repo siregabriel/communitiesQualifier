@@ -1324,6 +1324,16 @@
                     const prompt = document.getElementById('communityPrompt');
                     if (prompt) prompt.style.display = 'block';
                     document.getElementById('loadingMessage').style.display = 'none';
+
+                    // Arriving from the list of unfinished visits: the community
+                    // is named in the URL. Without it the draft cannot be found,
+                    // because it is stored under community + survey type.
+                    const asked = new URLSearchParams(location.search).get('community');
+                    if (asked) {
+                        const sel = document.getElementById('communitySelect');
+                        const match = sel && [...sel.options].find(o => o.value === asked);
+                        if (match) { sel.value = asked; onCommunityChange(); }
+                    }
                 } else {
                     document.getElementById('userInfo').innerHTML = `<i class="fas fa-user"></i> ${currentUser} | ${userCommunity || 'Staff'}`;
                     selectedCommunity = userCommunity;
@@ -1526,13 +1536,78 @@
                 const data = draftCollect();
                 const store = await draftTx('readwrite');
                 // Nothing filled in yet? Don't leave an empty draft lying around.
-                if (draftIsEmpty(data)) { store.delete(key); draftStatus(''); return; }
+                if (draftIsEmpty(data)) {
+                    store.delete(key);
+                    draftStatus('');
+                    noticeClear();
+                    return;
+                }
                 store.put(data);
                 if (!silent) draftStatus('saved', data.savedAt);
+                noticeRecord(data);
             } catch (e) {
                 console.warn('draft save failed:', e);
                 draftStatus('error');
             }
+        }
+
+        /* ===================== The signpost =====================
+           The draft itself never leaves this device — the photos are the bulk
+           of a visit and pushing them up progressively over a weak signal
+           inside a building is the thing that already fails.
+
+           What the server is told is that a draft exists: which community,
+           which survey type, how far along, and which device holds it. Without
+           that, an unfinished visit is only findable by re-entering through
+           exactly the same community and survey type, because that pair is the
+           key it is stored under. Enter by any other route and the work looks
+           lost — which is what happened to a regional who then asked for her
+           draft to be deleted by someone with no way to see it.
+
+           Best-effort throughout: a signpost that fails to update must never
+           interfere with the draft it points at. */
+
+        function draftDevice() {
+            const ua = navigator.userAgent || '';
+            const device = /iPhone/.test(ua) ? 'iPhone'
+                : /iPad/.test(ua) ? 'iPad'
+                : /Android/.test(ua) ? 'Android phone'
+                : /Mac/.test(ua) ? 'Mac'
+                : /Windows/.test(ua) ? 'Windows PC' : 'this device';
+            const browser = /CriOS|Chrome/.test(ua) ? 'Chrome'
+                : /Firefox/.test(ua) ? 'Firefox'
+                : /Safari/.test(ua) ? 'Safari' : '';
+            return browser ? `${device} · ${browser}` : device;
+        }
+
+        let _noticeLast = '';
+
+        function noticeRecord(data) {
+            const community = selectedCommunity || userCommunity || '';
+            if (!community) return;
+            const answered = Object.keys((data && data.responses) || {}).length;
+            const total = (questions || []).length;
+            // One call per real change, not one per keystroke.
+            const shape = `${community}|${answered}|${total}`;
+            if (shape === _noticeLast) return;
+            _noticeLast = shape;
+            fetch('/api/drafts', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    community, survey_type_id: '{{ survey_type_id }}',
+                    answered, total, device: draftDevice(),
+                }),
+            }).catch(() => { _noticeLast = ''; });   // offline: try again next save
+        }
+
+        function noticeClear() {
+            const community = selectedCommunity || userCommunity || '';
+            if (!community) return;
+            _noticeLast = '';
+            fetch('/api/drafts', {
+                method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ community, survey_type_id: '{{ survey_type_id }}' }),
+            }).catch(() => {});
         }
 
         // Typing shouldn't hit the database on every keystroke.
@@ -1620,6 +1695,7 @@
                 _draftReady = false;
                 const dk = draftKey();
                 if (dk) await draftDelete(dk);
+                noticeClear();
             } catch (e) {
                 console.warn('Could not delete the draft:', e);
             }
@@ -2481,6 +2557,7 @@
                     // has done its job and would only confuse a future visit.
                     const dk = draftKey();
                     if (dk) { clearTimeout(_draftTimer); _draftReady = false; await draftDelete(dk); }
+                    noticeClear();
                     // Show the full-screen confirmation
                     const txt = document.getElementById('successText');
                     if (txt) {
