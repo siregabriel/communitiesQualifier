@@ -1310,7 +1310,7 @@
                             {% for community in communities %}
                             <div class="community-option">
                                 <input type="checkbox" id="community_{{ loop.index }}" value="{{ community }}" class="community-checkbox" onchange="updateSelectedCount()">
-                                <label for="community_{{ loop.index }}">{{ community }}</label>
+                                <label for="community_{{ loop.index }}">{{ community|plain }}</label>
                             </div>
                             {% endfor %}
                         </div>
@@ -2035,9 +2035,26 @@
             }
         }
 
+        /* The server escapes text on the way in (html.escape), so escaping it
+           again here would put the entity itself on screen — "Angie&#x27;s"
+           instead of "Angie's". Undo exactly what the server did, then escape
+           once. Not via innerHTML: assigning untrusted markup there would let
+           an <img onerror> run even on a detached node. &amp; goes last, or
+           "&amp;lt;" would come back as "<". */
+        function decodeEntities(text) {
+            return String(text)
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#x27;/g, "'")
+                .replace(/&#39;/g, "'")
+                .replace(/&amp;/g, '&');
+        }
+
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
-            div.textContent = text;
+            div.textContent = decodeEntities(text);
             return div.innerHTML;
         }
 

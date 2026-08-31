@@ -431,7 +431,7 @@
         </button>
         <div class="header-title">
             <h1>Start Visit</h1>
-            <p id="userCommunity">{% if community %}{{ community }}{% else %}You'll choose the community next{% endif %}</p>
+            <p id="userCommunity">{% if community %}{{ community|plain }}{% else %}You'll choose the community next{% endif %}</p>
         </div>
     </div>
 
