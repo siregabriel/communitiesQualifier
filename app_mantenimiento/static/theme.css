@@ -2167,9 +2167,22 @@ html[data-theme="dark"] .res-btn-ghost { background: #1b2537 !important; color: 
 html[data-theme="dark"] :where(.main-content,.slide-panel,.pm-card,.tour-card,.std-sheet,.modal-content,#calDayTip) :where(h1,h2,h3,h4,h5,h6,p,span,div,td,li,label,strong,b,small,i) { color: #d7e0ec; }
 /* Secondary/muted text stays a touch dimmer to preserve hierarchy. */
 html[data-theme="dark"] .main-content :where(.res-desc,.dash-row-sub,.pp-bar-val,.cal-daynum,.rail-up-sub,.panel-stat-label) { color: #9fb0c4; }
-/* Two-class selectors that outrank the catch-all — lift explicitly. */
-html[data-theme="dark"] .mini-cal-cell.mini-has,
-html[data-theme="dark"] .mini-cal-cell.mini-today { color: #eef2f8 !important; }
+/* Two-class selectors that outrank the catch-all — lift explicitly.
+
+   A day with something on it is a filled chip, and in the light skin that fill
+   is near-white (#f6f8fb). Lifting only the ink here is what broke it: the
+   number went to #eef2f8 and sat on a #f6f8fb chip, which is invisible. The
+   fill has to come down whenever the ink goes up, so the chip is darkened to
+   the same raised surface the rest of the dark skin uses. */
+html[data-theme="dark"] .mini-cal-cell.mini-has {
+    background: #1b2537 !important; color: #eef2f8 !important;
+}
+html[data-theme="dark"] .mini-cal-cell.mini-has:hover { background: #243147 !important; }
+/* Today is a ring, not a fill, so only the ink needed lifting — but the ring
+   itself was #00285c, which is all but invisible against a dark card. */
+html[data-theme="dark"] .mini-cal-cell.mini-today {
+    box-shadow: inset 0 0 0 2px #4f8ef7 !important; color: #eef2f8 !important;
+}
 /* Decorative navy icons → soft accent so they read on dark. */
 html[data-theme="dark"] .res-icon { color: #8ab4ff; }
 
