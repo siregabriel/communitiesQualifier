@@ -9993,8 +9993,17 @@
         function renderReports() {
             const gallery = document.getElementById('gallery');
 
-            // Calculate statistics
-            const totalInspections = allInspections.length;
+            // allInspections is one entry per answered standard, plus one per
+            // action item raised during a visit — not one per visit. Counting
+            // it and calling the result "Total Visits" put 263 on a screen
+            // where 24 visits had happened, which is what these cards are
+            // actually about: what was checked, not how often somebody went.
+            const totalVisits = allSubmissions.length;
+            const standardsChecked = allInspections.filter(i => i.type === 'inspection').length;
+            // The breakdown below counts the same rows, so its denominator stays
+            // what it was — the percentages there were never the thing that was
+            // wrong, only the word "Visits" above them.
+            const totalRows = allInspections.length;
             const conditionCounts = {
                 'Pass': 0,
                 'Fail': 0
@@ -10054,8 +10063,12 @@
                     <!-- Summary Cards -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
                         <div style="background: #00285c; color: white; padding: 24px; border-radius: 10px;">
-                            <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Total Visits</div>
-                            <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${totalInspections}</div>
+                            <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Visits</div>
+                            <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${totalVisits}</div>
+                        </div>
+                        <div style="background: #1f3a5f; color: white; padding: 24px; border-radius: 10px;">
+                            <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Standards checked</div>
+                            <div style="font-size: 36px; font-weight: 800; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${standardsChecked}</div>
                         </div>
                         <div style="background: #0f8a5f; color: white; padding: 24px; border-radius: 10px;">
                             <div style="font-size: 14px; font-weight: 600; opacity: 0.9; margin-bottom: 8px;">Pass</div>
@@ -10075,7 +10088,7 @@
                         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-chart-pie"></i> Survey Type Breakdown</h3>
                         <div style="display: grid; gap: 12px;">
                             ${Object.values(surveyTypeBreakdown).map(type => {
-                                const percentage = totalInspections > 0 ? Math.round((type.count / totalInspections) * 100) : 0;
+                                const percentage = totalRows > 0 ? Math.round((type.count / totalRows) * 100) : 0;
                                 return `
                                     <div style="display: flex; align-items: center; gap: 12px;">
                                         <div style="width: 40px; height: 40px; border-radius: 8px; background: ${type.color}15; display: flex; align-items: center; justify-content: center; color: ${type.color};">
