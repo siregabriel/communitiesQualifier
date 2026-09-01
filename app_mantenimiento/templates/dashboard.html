@@ -10000,10 +10000,7 @@
             // actually about: what was checked, not how often somebody went.
             const totalVisits = allSubmissions.length;
             const standardsChecked = allInspections.filter(i => i.type === 'inspection').length;
-            // The breakdown below counts the same rows, so its denominator stays
-            // what it was — the percentages there were never the thing that was
-            // wrong, only the word "Visits" above them.
-            const totalRows = allInspections.length;
+
             const conditionCounts = {
                 'Pass': 0,
                 'Fail': 0
@@ -10026,9 +10023,15 @@
                 };
             });
             
-            allInspections.forEach(item => {
-                if (item.surveyTypeId && surveyTypeBreakdown[item.surveyTypeId]) {
-                    surveyTypeBreakdown[item.surveyTypeId].count++;
+            // One per visit, not one per answer. Counting answers let the
+            // length of the questionnaire decide the ranking: the Sales New
+            // Hire Checklist has twenty standards where the others have eleven,
+            // so two visits showed as 17% of the work where the honest figure
+            // was 9%. A survey type is used or it is not; how many questions
+            // its author wrote is not a measure of anything.
+            allSubmissions.forEach(item => {
+                if (item.survey_type_id && surveyTypeBreakdown[item.survey_type_id]) {
+                    surveyTypeBreakdown[item.survey_type_id].count++;
                 }
             });
             
@@ -10088,7 +10091,7 @@
                         <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-chart-pie"></i> Survey Type Breakdown</h3>
                         <div style="display: grid; gap: 12px;">
                             ${Object.values(surveyTypeBreakdown).map(type => {
-                                const percentage = totalRows > 0 ? Math.round((type.count / totalRows) * 100) : 0;
+                                const percentage = totalVisits > 0 ? Math.round((type.count / totalVisits) * 100) : 0;
                                 return `
                                     <div style="display: flex; align-items: center; gap: 12px;">
                                         <div style="width: 40px; height: 40px; border-radius: 8px; background: ${type.color}15; display: flex; align-items: center; justify-content: center; color: ${type.color};">

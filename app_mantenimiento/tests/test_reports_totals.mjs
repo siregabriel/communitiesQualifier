@@ -117,6 +117,31 @@ ok(cards['Visits'] < cards['Standards checked'],
 ok(!('Total Visits' in cards),
    'and nothing is still labelled "Total Visits" while counting something else');
 
+console.log('\nThe survey-type breakdown counts visits, not answers');
+{
+  // The fixture is built so the two disagree: the sales visit carries 20
+  // standards where the standards visits carry 11 each. Counting answers made
+  // the longer questionnaire look like most of the work.
+  const rows = [...w.document.querySelectorAll('#gallery div')]
+    .map(d => d.textContent)
+    .filter(t => /Sales Quick Visit|^Standards/.test(t));
+
+  const text = w.document.getElementById('gallery').textContent;
+  // Two visits used 'standards', one used 'sales'.
+  ok(/Standards[\s\S]{0,80}?2 \(67%\)/.test(text.replace(/\s+/g, ' ')),
+     'the type used on two of three visits reads 2 (67%)');
+  ok(/Sales Quick Visit[\s\S]{0,80}?1 \(33%\)/.test(text.replace(/\s+/g, ' ')),
+     'and the one used once reads 1 (33%) — not the 20 answers it carried');
+
+  const numbers = [...text.replace(/\s+/g, ' ').matchAll(/(\d+) \((\d+)%\)/g)];
+  ok(numbers.length >= 2, 'both types are listed');
+  const counted = numbers.reduce((n, m) => n + Number(m[1]), 0);
+  ok(counted === expected.visits,
+     `the breakdown adds up to the visits, not the answers (${counted} vs ${expected.visits})`);
+  const pct = numbers.reduce((n, m) => n + Number(m[2]), 0);
+  ok(pct === 100, `and the percentages still make 100 (${pct})`);
+}
+
 console.log('\nThe number matches what the leaderboard would say');
 {
   // The leaderboard counts submissions server-side. The card is computed here.
