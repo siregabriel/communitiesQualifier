@@ -385,6 +385,11 @@ from services.raised_category_service import RaisedCategoryService
 RAISED_CATEGORY_FILE = os.path.join(DATA_FOLDER, 'raised_categories.json')
 raised_category_service = RaisedCategoryService(RAISED_CATEGORY_FILE)
 
+# Changing a sign-in name. Not a label — the username is what every record is
+# filed under, so this moves the account and its history together.
+from services.username_rename import UsernameRenamer, RenameError
+username_renamer = UsernameRenamer(DATA_FOLDER)
+
 MOVEINS_FILE = os.path.join(DATA_FOLDER, 'moveins.json')
 from services.move_in_service import MoveInTemplateService, MoveInService
 movein_template_service = MoveInTemplateService(MOVEIN_TEMPLATE_FILE)
@@ -536,6 +541,9 @@ def slugify_name(name):
     return s.strip('.')
 
 
+_regional_accounts_cache = {'mtime': None, 'accounts': None}
+
+
 def get_regional_accounts():
     """
     Build per-person regional login accounts from the region leadership.
@@ -543,7 +551,21 @@ def get_regional_accounts():
     communities in their region. Computed live from regions.json so edits to
     leadership are reflected immediately.
     Returns: { username: {'display_name','role','region_id','region_name','communities'} }
+
+    Held against the file's timestamp rather than rebuilt every call. Every
+    signed-in request now checks that the account behind the session still
+    exists, and for a region member that check lands here — so this went from
+    occasional to hot, while the answer only changes when regions.json is
+    written. A new timestamp drops the cache, so an edit is still immediate.
     """
+    try:
+        mtime = os.path.getmtime(REGIONS_FILE)
+    except OSError:
+        mtime = None
+    if (_regional_accounts_cache['accounts'] is not None
+            and _regional_accounts_cache['mtime'] == mtime):
+        return _regional_accounts_cache['accounts']
+
     accounts = {}
     for region in region_service.get_all_regions():
         if region.get('id') == 'unassigned':
@@ -570,6 +592,8 @@ def get_regional_accounts():
                 # Corporate members work across the whole organization.
                 'communities': all_communities() if is_corp else list(region.get('communities', []))
             }
+    _regional_accounts_cache['mtime'] = mtime
+    _regional_accounts_cache['accounts'] = accounts
     return accounts
 
 
@@ -1131,11 +1155,31 @@ def resolve_display_name(username):
 
 
 def login_required(f):
-    """Decorator to require login for routes"""
+    """Decorator to require login for routes.
+
+    A signed-in browser carries the username in its cookie, and a rename moves
+    that name out from under it. Left alone the session keeps working in a
+    half-real way: reads succeed, and anything written is filed under a person
+    who no longer exists — recreating the very orphans the rename cleaned up.
+    So a session holding a name that was renamed away is ended, and told why.
+
+    Deliberately narrow: it asks whether this exact name was retired, not
+    whether the account resolves. Those are different questions, and answering
+    the broader one here would sign out anyone whose account merely could not
+    be looked up at that moment.
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
             return redirect(url_for('login'))
+        renamed_to = username_renamer.retired(session['user'])
+        if renamed_to:
+            session.clear()
+            if request.path.startswith('/api/'):
+                return jsonify({'status': 'error', 'signed_out': True,
+                                'message': 'Your sign-in name changed to '
+                                           f'{renamed_to}. Please sign in again.'}), 401
+            return redirect(url_for('login', renamed=renamed_to))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -1170,7 +1214,10 @@ def login():
     # If already logged in, redirect to report form
     if 'user' in session:
         return redirect(url_for('report_form'))
-    return render_template('login.html')
+    # Set when a rename ended their session: says what happened, and fills in
+    # the name they should use now.
+    renamed = InputSanitizer.sanitize_string(request.args.get('renamed', ''), max_length=60)
+    return render_template('login.html', renamed=renamed or None)
 
 
 @app.route('/api/login', methods=['POST'])
@@ -4372,6 +4419,70 @@ def set_admin_privileges(username):
     return jsonify({'status': 'success', 'grant': grant,
                     'message': f'{acct.get("display_name") or username} '
                                f'{"now has" if grant else "no longer has"} admin privileges.'}), 200
+
+
+@app.route('/api/people/<username>/username', methods=['POST'])
+@login_required
+def change_username(username):
+    """Change somebody's sign-in name.
+
+    People marry, and names get typed wrong the first time. The username is the
+    key every record is filed under, so this moves the account and everything
+    pointing at it together — see services/username_rename.py, which takes a
+    copy first and puts it back if the result does not add up.
+    """
+    if not is_admin():
+        return jsonify({'status': 'error',
+                        'message': 'Only an administrator can change a username.'}), 403
+
+    data = request.get_json(silent=True) or {}
+    new_name = (data.get('new_username') or '').strip()
+
+    # The seeded administrator lives in code, not in the data files, so moving
+    # it here would leave the account behind and lock the door.
+    if username in USERS_DB:
+        return jsonify({'status': 'error',
+                        'message': 'The built-in administrator account cannot be renamed.'}), 400
+
+    acct = resolve_account_context(username)
+    if not acct.get('exists'):
+        return jsonify({'status': 'error', 'message': 'Person not found'}), 404
+
+    if username_taken(new_name.lower()):
+        return jsonify({'status': 'error',
+                        'message': f'"{new_name}" is already in use.'}), 400
+
+    try:
+        result = username_renamer.rename(username, new_name)
+    except RenameError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+    except Exception:
+        app.logger.exception('username rename failed')
+        return jsonify({'status': 'error',
+                        'message': 'Could not change the username. Nothing was changed.'}), 500
+
+    # The files were written underneath the services, so bring them back in
+    # step rather than waiting for something to notice the mtime.
+    for svc in (user_service, profile_service, region_service, inspection_service,
+                activity_service, raised_item_service, draft_notice_service,
+                presence_service):
+        try:
+            svc.load_from_file()
+        except Exception:
+            app.logger.exception('reload after rename: %s', type(svc).__name__)
+
+    who = acct.get('display_name') or result['to']
+    activity_service.log(session.get('user'), 'username_changed',
+                         f'Changed {who}\'s sign-in name from {result["from"]} '
+                         f'to {result["to"]}')
+
+    return jsonify({
+        'status': 'success',
+        'username': result['to'],
+        'records': result['total'],
+        'message': f'{who} now signs in as {result["to"]}. '
+                   f'They will need to sign in again.',
+    }), 200
 
 
 @app.route('/api/people/<username>', methods=['DELETE'])

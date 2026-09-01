@@ -1838,6 +1838,19 @@ html[data-theme="dark"] .age-chip-never { background: rgba(148, 163, 184, .16); 
 
 /* ----- User management (admin) ----------------------------------------- */
 .pw-msg.error { color: var(--danger-deep); }
+
+/* Changing a sign-in name: folded away behind a link, because it is rare and
+   it is the one field in that form that moves a person's whole history. */
+.pe-rename-link { color: #1f6fe5; font-weight: 700; cursor: pointer; }
+.pe-rename-link:hover { text-decoration: underline; }
+.pe-rename {
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px;
+    margin: -8px 0 18px; background: #f8fafc;
+}
+html[data-theme="dark"] .pe-rename { background: #131c2b; border-color: #2b3a52; }
+.pe-rename-note { font-size: 12px; color: #64748b; line-height: 1.5; margin: 8px 0 6px; }
+html[data-theme="dark"] .pe-rename-note { color: #9fb0c4; }
+.pe-rename-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .profile-section-wide { grid-column: 1 / -1; }
 .usermgmt { display: grid; gap: 16px; }
 .usermgmt-form { display: grid; gap: 10px; }

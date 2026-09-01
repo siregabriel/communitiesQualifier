@@ -8305,7 +8305,20 @@
             body.innerHTML = `
                 <div>
                     <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Edit person</h2>
-                    <p style="font-size:12.5px;color:#64748b;margin-bottom:18px;">Login <b>@${escapeHtml(p.username)}</b> never changes, so their history stays intact.</p>
+                    <p style="font-size:12.5px;color:#64748b;margin-bottom:18px;">Login <b>@${escapeHtml(p.username)}</b>${
+                        (isAdmin && p.username !== 'admin') ? ` · <a class="pe-rename-link" onclick="startUsernameChange()">Change</a>` : ''}</p>
+                    <div id="peUserWrap" class="pe-rename" style="display:none;">
+                        <label class="mi-label">New username</label>
+                        <input id="peUsername" class="pw-input" style="width:100%;"
+                               value="${escapeHtmlForAttr(p.username || '')}" spellcheck="false" autocapitalize="off">
+                        <p class="pe-rename-note">Their visits, photos and comments move with them.
+                            They will be signed out and will need to sign in again with the new name.</p>
+                        <div id="peUserMsg" class="pw-msg"></div>
+                        <div class="pe-rename-actions">
+                            <button class="btn btn-primary" onclick="saveUsername('${(p.username || '').replace(/'/g, "\\'")}')">Change username</button>
+                            <button class="btn btn-secondary" onclick="startUsernameChange(false)">Cancel</button>
+                        </div>
+                    </div>
                     <div style="display:grid;gap:12px;">
                         <div><label class="mi-label">Full name</label>
                             <input id="peName" class="pw-input" value="${escapeHtml(p.name)}" style="width:100%;"></div>
@@ -8410,6 +8423,56 @@
                     alert(d.message || 'Could not remove this person.');
                 }
             } catch (e) { alert('Network error.'); }
+        }
+
+        /* Changing somebody's sign-in name.
+
+           Folded away behind a link rather than sitting open in the form: it
+           is rare, and it is the one field here that is not a label — it moves
+           their whole history with it. */
+        function startUsernameChange(open = true) {
+            const wrap = document.getElementById('peUserWrap');
+            if (!wrap) return;
+            wrap.style.display = open ? 'block' : 'none';
+            const msg = document.getElementById('peUserMsg');
+            if (msg) { msg.textContent = ''; msg.className = 'pw-msg'; }
+            if (open) {
+                const input = document.getElementById('peUsername');
+                input.focus();
+                input.select();
+            }
+        }
+
+        async function saveUsername(current) {
+            const msg = document.getElementById('peUserMsg');
+            const value = (document.getElementById('peUsername').value || '').trim().toLowerCase();
+            msg.className = 'pw-msg';
+            if (!value || value === current) {
+                msg.textContent = 'Type the new username first.';
+                msg.classList.add('error');
+                return;
+            }
+            msg.textContent = 'Changing…';
+            try {
+                const r = await fetch(`/api/people/${encodeURIComponent(current)}/username`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_username: value })
+                });
+                const d = await r.json();
+                if (r.ok && d.status === 'success') {
+                    msg.textContent = d.message;
+                    msg.classList.add('ok');
+                    // The list still shows the name they had a moment ago.
+                    await renderPeople();
+                    setTimeout(() => { closePersonModal(); }, 1400);
+                } else {
+                    msg.textContent = d.message || 'Could not change the username.';
+                    msg.classList.add('error');
+                }
+            } catch (e) {
+                msg.textContent = 'Could not reach the server. Nothing was changed.';
+                msg.classList.add('error');
+            }
         }
 
         async function savePersonEdit(username) {
