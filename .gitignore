@@ -30,6 +30,11 @@ app_mantenimiento/data/*.json
 app_mantenimiento/data/.secret_key
 # Snapshots written before a data reset (contain real production data)
 app_mantenimiento/data/backups/
+# Copies taken before a username change. Same reason, and worth spelling out:
+# the pattern above only covers .json sitting directly in data/, so anything in
+# a sub-folder is not caught by it. These hold whole user records, password
+# hashes included.
+app_mantenimiento/data/renames/
 
 # ---- Uploaded media (persists on the server) ----
 app_mantenimiento/static/uploads/
