@@ -268,6 +268,31 @@ def test_the_old_name_is_remembered_so_the_session_can_be_ended(data):
     assert r.retired('someone.else') is None, 'nobody else is signed out'
 
 
+def test_undoing_a_rename_does_not_lock_the_person_out(data):
+    """The correction that gets corrected back.
+
+    An administrator fixes a spelling, then realises the first one was right
+    and puts it back. If the original name stayed on the retired list, she
+    would be thrown back to the sign-in page every time she got past it —
+    permanently, and with a working password.
+    """
+    r = UsernameRenamer(data)
+    r.rename(OLD, NEW)
+    r.rename(NEW, OLD)
+    assert OLD in read(data, 'users.json')['users'], 'the account came back'
+    assert r.retired(OLD) is None, 'and she is not signed out on sight'
+    assert r.retired(NEW) == OLD, 'while the name she no longer uses is retired'
+
+
+def test_a_name_given_to_somebody_new_is_no_longer_retired(data):
+    """Two people can share a spelling; the second one is not the first."""
+    r = UsernameRenamer(data)
+    r.rename(OLD, NEW)
+    assert r.retired(OLD) == NEW
+    r.un_retire(OLD)
+    assert r.retired(OLD) is None
+
+
 def test_a_refused_rename_does_not_sign_anybody_out(data):
     """A name is only retired once the move is known to have worked."""
     r = UsernameRenamer(data)
@@ -284,6 +309,41 @@ def test_it_reports_what_it_touched(data):
                      'presence.json'):
         assert expected in out['changed'], f'{expected} reported as untouched'
     assert out['total'] > 10
+
+
+def test_she_can_actually_sign_in_afterwards(data):
+    """The one that matters on Monday morning.
+
+    Every other test here checks that a field moved. This one checks the thing
+    those fields are for: it puts a real password hash in, renames, then loads
+    the stores from disk the way the app does and runs the same two lookups
+    authenticate_user runs. A hash that moved but cannot be found is the same
+    as a hash that did not move.
+    """
+    from werkzeug.security import check_password_hash, generate_password_hash
+
+    from services.profile_service import ProfileService
+    from services.user_service import UserService
+
+    real_hash = generate_password_hash('the-one-she-actually-uses')
+    doc = read(data, 'profiles.json')
+    doc['profiles'][OLD]['password_hash'] = real_hash
+    write(data, 'profiles.json', doc)
+
+    UsernameRenamer(data).rename(OLD, NEW)
+
+    users = UserService(os.path.join(data, 'users.json'))
+    profiles = ProfileService(os.path.join(data, 'profiles.json'))
+
+    assert users.get(NEW), 'the account is not there under the new name'
+    assert not users.get(OLD), 'and not still there under the old one'
+
+    override = profiles.get_password_hash(NEW)
+    assert override, 'her password did not come with her'
+    assert check_password_hash(override, 'the-one-she-actually-uses'), \
+        'the password she has been using no longer opens the account'
+    assert profiles.get_display_name(NEW) == 'Jazmyn Frazier'
+    assert profiles.get_photo(NEW) == 'uploads/jazmyn.jpg'
 
 
 # ---------------------------------------------------------------- the api
@@ -387,6 +447,45 @@ def test_that_notice_cannot_be_used_to_inject():
     page = A.app.test_client().get(
         '/login?renamed=%3Cscript%3Ealert(1)%3C/script%3E').get_data(as_text=True)
     assert '<script>alert(1)' not in page
+
+
+def test_a_photo_taken_before_the_rename_still_names_the_right_person(monkeypatch):
+    """Uploaded photos carry the author's username in the filename.
+
+    Those filenames are not rewritten — they are opaque keys, referenced by the
+    path stored on the visit. But the caption stamped onto a downloaded photo
+    reads the author out of that filename, so after a rename it was about to
+    print a name nobody recognises across the bottom of the picture.
+    """
+    monkeypatch.setattr(A.username_renamer, "retired",
+                        lambda n: NEW if n == OLD else None)
+    monkeypatch.setattr(A.profile_service, "get_display_name",
+                        lambda n: "Jazmyn Frazier" if n == NEW else None)
+    assert A.resolve_display_name(OLD) == "Jazmyn Frazier"
+
+
+def test_the_caption_names_the_photographer_not_whoever_downloads_it(monkeypatch):
+    """_display_name_for falls back to the session's own name.
+
+    That is right where it is used — recording who is acting — and wrong for a
+    photo, where the username came out of the filename and belongs to whoever
+    took it. Unresolved, the caption would carry the downloader's name.
+    """
+    monkeypatch.setattr(A.username_renamer, "retired", lambda n: None)
+    monkeypatch.setattr(A.profile_service, "get_display_name", lambda n: None)
+    monkeypatch.setattr(A, "get_regional_accounts", dict)
+
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user="smoke.rename.viewer", display_name="Somebody Else",
+                 role="admin", community=None, region_id=None)
+    with c.application.test_request_context('/'):
+        from flask import session as flask_session
+        flask_session['display_name'] = 'Somebody Else'
+        assert A.resolve_display_name('lauren.hamilton') == 'lauren.hamilton', \
+            'it does not borrow the viewer’s name'
+        assert A._display_name_for('lauren.hamilton') == 'Somebody Else', \
+            'which is exactly what the photo route must not use'
 
 
 def test_everyone_else_stays_signed_in(monkeypatch):

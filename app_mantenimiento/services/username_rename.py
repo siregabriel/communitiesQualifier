@@ -156,6 +156,10 @@ class UsernameRenamer:
         with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(doc, f, indent=2, ensure_ascii=False)
         os.replace(tmp, path)
+        if filename == self.RETIRED_FILE:
+            # This process just changed it; never answer from what it read
+            # before, whatever the timestamp says.
+            self._retired_cache = None
 
     # ------------------------------------------------------------------ read
 
@@ -295,28 +299,56 @@ class UsernameRenamer:
         doc = {k: v for k, v in doc.items()
                if isinstance(v, dict) and (v.get('ts') or 0) >= cutoff}
         doc[old] = {'to': new, 'at': now.isoformat(), 'ts': now.timestamp()}
+        # The name being moved onto is in use again, so it must stop being
+        # treated as retired. Undoing a rename — correcting a spelling the
+        # other way — otherwise leaves that person bounced back to the sign-in
+        # page every time they get past it.
+        doc.pop(new, None)
         self._write(self.RETIRED_FILE, doc)
+
+    def un_retire(self, name: str) -> None:
+        """This name belongs to somebody again.
+
+        Called when an account is created under a name that used to be
+        somebody else's, so the new owner is not signed out on their behalf.
+        """
+        name = (name or '').strip()
+        if not name:
+            return
+        try:
+            with open(self._retired_path(), encoding='utf-8') as f:
+                doc = json.load(f)
+        except (OSError, ValueError):
+            return
+        if isinstance(doc, dict) and name in doc:
+            doc.pop(name)
+            self._write(self.RETIRED_FILE, doc)
 
     def retired(self, name: str):
         """What this name became, or None if it is not a retired name.
 
-        Read on every signed-in request, so it is held against the file's
-        timestamp — the file only changes when somebody is renamed.
+        Read on every signed-in request, so the file is not parsed each time.
+        The cache is keyed on the file's timestamp *and its size*, not the
+        timestamp alone: two writes close together land on the same timestamp
+        — measured here, identical down to the nanosecond — and a timestamp
+        alone would have gone on serving the previous answer. Undoing a rename
+        does exactly that, and the stale answer signs the person out.
         """
         path = self._retired_path()
         try:
-            mtime = os.path.getmtime(path)
+            st = os.stat(path)
+            stamp = (st.st_mtime_ns, st.st_size)
         except OSError:
-            self._retired_cache = {'mtime': None, 'doc': {}}
+            self._retired_cache = None
             return None
         cache = getattr(self, '_retired_cache', None)
-        if not cache or cache.get('mtime') != mtime:
+        if not cache or cache.get('stamp') != stamp:
             try:
                 with open(path, encoding='utf-8') as f:
                     doc = json.load(f)
             except (OSError, ValueError):
                 doc = {}
-            cache = {'mtime': mtime, 'doc': doc if isinstance(doc, dict) else {}}
+            cache = {'stamp': stamp, 'doc': doc if isinstance(doc, dict) else {}}
             self._retired_cache = cache
         entry = cache['doc'].get(name)
         return entry.get('to') if isinstance(entry, dict) else None

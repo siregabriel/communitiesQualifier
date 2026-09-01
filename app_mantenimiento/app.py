@@ -1151,6 +1151,13 @@ def resolve_display_name(username):
     regionals = get_regional_accounts()
     if username in regionals:
         return regionals[username]['display_name']
+    # A name somebody used to have. Uploaded photos carry the author's username
+    # in the filename, so a photo taken before a rename still names the old
+    # one — follow it to the account it became rather than printing a string
+    # nobody recognises across the bottom of the picture.
+    moved_to = username_renamer.retired(username)
+    if moved_to:
+        return resolve_display_name(moved_to)
     return username
 
 
@@ -4209,6 +4216,9 @@ def create_person():
         return jsonify({'status': 'error', 'message': 'Pick a community for staff'}), 400
 
     username = generate_unique_username(name)
+    # This name may have been somebody else's before a rename. If it is still
+    # listed as retired, its new owner would be signed out on their behalf.
+    username_renamer.un_retire(username)
     password = generate_password()
     pw_hash = generate_password_hash(password)
 
@@ -5063,7 +5073,13 @@ def download_photo():
     # Filenames are stamped in UTC by the upload handler; showing that clock
     # raw would push an evening visit onto the next day.
     when = fmt_local(taken, '%b %d, %Y') if taken else ''
-    who = _display_name_for(username) if username else ''
+    # resolve_display_name, not _display_name_for: this username came out of
+    # the filename and is the person who took the photo, not the person asking
+    # for it. _display_name_for falls back to the session's own name, which
+    # would caption somebody else's photo with the name of whoever downloaded
+    # it — wrong on its own, and reliably wrong once a rename means the author
+    # no longer resolves.
+    who = resolve_display_name(username) if username else ''
     secondary = ' · '.join(p for p in (when, who) if p)
 
     import io
