@@ -493,9 +493,20 @@ html[data-theme="dark"] .vnote-text { color: #eef2f8; }
 
 /* Settings: the admin list of categories. */
 .rc-row {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 8px 0; border-bottom: 1px solid #eef2f7;
 }
+/* Who hears about this department. On its own line: it is a full email list,
+   not a word, and squeezing it beside the name left both unreadable. */
+.rc-to { flex: 1 0 100%; padding: 6px 0 2px 34px; }
+.rc-to label {
+    display: block; font-size: 11.5px; font-weight: 700; color: #64748b;
+    margin-bottom: 4px;
+}
+.rc-to label span { font-weight: 500; opacity: .8; }
+html[data-theme="dark"] .rc-to label { color: #9fb0c4; }
+.rc-to .pw-input { width: 100%; font-size: 12.5px; }
+@media (max-width: 640px) { .rc-to { padding-left: 0; } }
 html[data-theme="dark"] .rc-row { border-bottom-color: #26324a; }
 .rc-row:last-child { border-bottom: none; }
 .rc-row.rc-off .rc-name { opacity: .55; }

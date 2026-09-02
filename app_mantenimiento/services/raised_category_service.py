@@ -54,6 +54,21 @@ DEFAULT_CATEGORIES = [
     'Other',
 ]
 
+# The departments that used to be a hard-coded list in the visit form, under
+# "Who should handle it?". They were a separate list from these categories and
+# a person could pick one only to have it reach nobody — which is what Greg was
+# asking about. Folded in here so there is one list, and added rather than
+# swapped: an option that disappears is one nobody notices is missing, while a
+# spare one is something Greg can see and retire.
+LEGACY_DEPARTMENTS = [
+    'Nursing / Wellness',
+    'Dietary',
+    'Housekeeping',
+    'Business Office',
+    'Operations',
+    'Executive Director',
+]
+
 
 def _slug(name: str) -> str:
     s = re.sub(r'[^a-z0-9]+', '-', (name or '').lower()).strip('-')
@@ -92,10 +107,38 @@ class RaisedCategoryService(JsonFileBacked):
         now = datetime.now().isoformat()
         self.categories = [
             {'id': _slug(n), 'name': n, 'order': i, 'active': True,
+             'recipients': [],
              'created_at': now, 'updated_at': now}
-            for i, n in enumerate(DEFAULT_CATEGORIES)
+            for i, n in enumerate(DEFAULT_CATEGORIES + LEGACY_DEPARTMENTS)
         ]
         self.save_to_file()
+
+    def ensure_departments(self) -> List[Dict]:
+        """Add any department that exists only in the old hard-coded list.
+
+        Runs on an installation that was seeded before these were folded in.
+        Adding is safe in a way that replacing is not: somebody who has been
+        choosing "Housekeeping" for months keeps the option, and Greg can
+        retire what he does not want from Settings, where he can see it.
+        """
+        added = []
+        with self._lock:
+            self._ensure_fresh()
+            have = {(c.get('name') or '').strip().lower() for c in self.categories}
+            now = datetime.now().isoformat()
+            order = max([c.get('order', 0) for c in self.categories] + [-1])
+            for name in LEGACY_DEPARTMENTS:
+                if name.strip().lower() in have:
+                    continue
+                order += 1
+                cat = {'id': _slug(name), 'name': name, 'order': order,
+                       'active': True, 'recipients': [],
+                       'created_at': now, 'updated_at': now}
+                self.categories.append(cat)
+                added.append(cat)
+            if added:
+                self.save_to_file()
+        return added
 
     # ------------------------------------------------------------- reading
 
@@ -126,6 +169,53 @@ class RaisedCategoryService(JsonFileBacked):
     def is_choosable(self, category_id: str) -> bool:
         c = self.get(category_id)
         return bool(c and c.get('active', True))
+
+    def id_for_name(self, name: str) -> Optional[str]:
+        """Find a department by what it is called.
+
+        Needed in two places where only the name survives: the addresses
+        configured against the old fixed routes, and action items already
+        recorded with a department typed as text.
+        """
+        wanted = (name or '').strip().lower()
+        if not wanted:
+            return None
+        self._ensure_fresh()
+        return next((c['id'] for c in self.categories
+                     if (c.get('name') or '').strip().lower() == wanted), None)
+
+    def recipients_for(self, category_id: str) -> List[str]:
+        """Who to tell when something is filed under this department.
+
+        Empty is a real answer and not a failure: a department nobody has put
+        an address against simply adds no one, and the notice still goes to
+        whoever it would have gone to anyway.
+        """
+        c = self.get(category_id)
+        return list(c.get('recipients') or []) if c else []
+
+    def set_recipients(self, category_id: str, emails) -> Optional[Dict]:
+        """Replace the address list for one department."""
+        with self._lock:
+            self._ensure_fresh()
+            cat = self.get(category_id)
+            if not cat:
+                return None
+            if isinstance(emails, str):
+                emails = re.split(r'[\s,;]+', emails)
+            clean, seen = [], set()
+            for e in emails or []:
+                e = (e or '').strip()
+                # Deliberately forgiving: this is a person pasting a list, and
+                # refusing the whole box over one typo loses the other nine.
+                if not e or '@' not in e or e.lower() in seen:
+                    continue
+                seen.add(e.lower())
+                clean.append(e)
+            cat['recipients'] = clean
+            cat['updated_at'] = datetime.now().isoformat()
+            self.save_to_file()
+            return cat
 
     # ------------------------------------------------------------- writing
 

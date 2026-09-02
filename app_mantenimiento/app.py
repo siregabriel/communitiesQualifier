@@ -385,6 +385,65 @@ from services.raised_category_service import RaisedCategoryService
 RAISED_CATEGORY_FILE = os.path.join(DATA_FOLDER, 'raised_categories.json')
 raised_category_service = RaisedCategoryService(RAISED_CATEGORY_FILE)
 
+
+def _department(key):
+    """The department record for an id or a name.
+
+    Both turn up: new records store the id, while an action item saved before
+    this carries whatever the old fixed dropdown put there as text, and the
+    three old routes are named too. Accepting either is what lets one list
+    serve all of them without rewriting the records that already exist.
+    """
+    key = (key or '').strip()
+    if not key:
+        return None
+    return (raised_category_service.get(key)
+            or raised_category_service.get(raised_category_service.id_for_name(key) or ''))
+
+
+def _department_recipients(key):
+    """Who to tell about something filed under this department."""
+    dept = _department(key)
+    return list(dept.get('recipients') or []) if dept else []
+
+
+def _department_label(key):
+    """What to call it in an email. Falls back to whatever was stored, so a
+    department retired since still reads as itself rather than as blank."""
+    dept = _department(key)
+    return (dept or {}).get('name') or (key or '').strip()
+
+
+def _fold_routes_into_departments():
+    """Bring the old fixed routes into the department list, once.
+
+    Addresses used to live in Settings under three fixed headings — Clinical,
+    Ops and Sales — which reached only comments left on a standard. The
+    department a person actually picks lives on the category, so that is now
+    the one list, and these have to come with it or somebody quietly stops
+    being emailed without anyone having chosen that.
+
+    Idempotent by only filling a department that has no addresses yet: run
+    twice, or run after Greg has edited one, and it leaves his edit alone.
+    """
+    try:
+        raised_category_service.ensure_departments()
+        legacy = settings_service.get_email_settings()
+        for route, department in (('clinical', 'Clinical'),
+                                  ('sales', 'Sales'),
+                                  ('ops', 'Operations')):
+            addresses = legacy.get(route) or []
+            if not addresses:
+                continue
+            cid = raised_category_service.id_for_name(department)
+            if not cid or raised_category_service.recipients_for(cid):
+                continue
+            raised_category_service.set_recipients(cid, addresses)
+            app.logger.info('Departments: carried %d address(es) from "%s" to "%s"',
+                            len(addresses), route, department)
+    except Exception:
+        app.logger.exception('Could not fold the old routes into the departments')
+
 # Changing a sign-in name. Not a label — the username is what every record is
 # filed under, so this moves the account and its history together.
 from services.username_rename import UsernameRenamer, RenameError
@@ -441,6 +500,11 @@ from services.settings_service import SettingsService
 settings_service = SettingsService(SETTINGS_FILE)
 # First run: seed subscribers (all-regions) from MAIL_EXTRA_RECIPIENTS if empty.
 settings_service.seed_subscribers(_extra)
+
+# Departments were four separate lists that never met. One of them — the
+# "Who should handle it?" a person picks on an action item — reached nobody at
+# all. Defined above, called here because it needs settings_service.
+_fold_routes_into_departments()
 
 # Avatars folder for uploaded profile photos
 AVATARS_FOLDER = os.path.join(UPLOAD_FOLDER, '..', 'avatars')
@@ -1492,7 +1556,18 @@ def report_form():
                          role=current_role(),
                          username=session.get('display_name') or session.get('user'),
                          survey_type=survey_type,
-                         survey_type_id=survey_type_id)
+                         survey_type_id=survey_type_id,
+                         # "Who should handle it?" used to be a list written
+                         # into the page, which Greg could not edit and which
+                         # reached nobody. It is the department list now, so
+                         # what he sets in Settings is what a regional picks
+                         # from and where the notice goes.
+                         #
+                         # Id and name only: this is serialised into the page,
+                         # and the address list has no business being readable
+                         # in the source of a visit form.
+                         departments=[{'id': c['id'], 'name': c['name']}
+                                      for c in raised_category_service.active()])
 
 
 @app.route('/select-survey-type')
@@ -3341,7 +3416,12 @@ def list_raised_categories():
     """
     if is_admin() and request.args.get('all') in ('1', 'true', 'yes'):
         return jsonify({'status': 'success', 'categories': raised_category_service.all()}), 200
-    return jsonify({'status': 'success', 'categories': raised_category_service.active()}), 200
+    # Everyone else gets the list to choose from, without the address book.
+    # Who is emailed about maintenance is not a secret, but it is also not
+    # something every Executive Director needs handed to them by an endpoint.
+    public = [{k: v for k, v in c.items() if k != 'recipients'}
+              for c in raised_category_service.active()]
+    return jsonify({'status': 'success', 'categories': public}), 200
 
 
 @app.route('/api/raised-categories', methods=['POST'])
@@ -3384,6 +3464,13 @@ def update_raised_category(category_id):
         if not cat:
             return jsonify({'status': 'error',
                             'message': 'Keep at least one category people can choose'}), 400
+    if 'recipients' in data:
+        # Who hears about anything filed under this department. Sanitised
+        # loosely on purpose — see set_recipients: one bad address in a pasted
+        # list should not cost the other nine.
+        cat = raised_category_service.set_recipients(category_id, data.get('recipients'))
+        if not cat:
+            return jsonify({'status': 'error', 'message': 'No such department'}), 404
     if not cat:
         return jsonify({'status': 'error', 'message': 'Nothing to change'}), 400
     return jsonify({'status': 'success', 'category': cat}), 200
@@ -3628,12 +3715,21 @@ def notify_raised_item(item):
         return
     try:
         community = item.get('community', '')
-        recipients = region_leader_emails(community)
+        recipients = list(region_leader_emails(community))
+        # And whoever runs the department this was filed under. Greg's
+        # question was what happens when somebody picks Maintenance: until
+        # now, nothing — the choice was recorded and read by no one.
+        recipients += raised_category_service.recipients_for(item.get('category', ''))
         # Whoever raised it doesn't need to be told about their own item.
-        recipients = [a for a in recipients if a]
-        if not recipients:
+        seen, ordered = set(), []
+        for a in recipients:
+            a = (a or '').strip()
+            if a and a.lower() not in seen:
+                seen.add(a.lower())
+                ordered.append(a)
+        if not ordered:
             return
-        email_service.send_raised_item(recipients, item)
+        email_service.send_raised_item(ordered, item)
     except Exception:
         app.logger.exception('Could not send the raised-item notification')
 
@@ -6519,14 +6615,34 @@ def submit_inspection():
                         passed_items=passed,
                         score=round(len(passed) / done * 100) if done else None)
 
-                # Route any item-level comments directed to a company-level team
+                # Comments a visitor directed at a department, and the action
+                # items they raised for one. Both resolve through the same
+                # department list now — the addresses live on the department
+                # Greg edits, with the old fixed route lists behind them so an
+                # installation that has not been migrated still delivers.
                 for route in settings_service.ROUTES:
                     items = [r for r in submission.get('responses', [])
                              if r.get('route_to') == route and (r.get('description') or '').strip()]
                     if items:
-                        to = settings_service.recipients_for_route(route)
+                        to = _department_recipients(route) \
+                            or settings_service.recipients_for_route(route)
                         if to:
                             email_service.send_directed_comments(to, route, submission, items)
+
+                # "Who should handle it?" on an action item. Answering that
+                # and having it reach nobody is the thing Greg asked about.
+                by_department = {}
+                for it in (submission.get('action_items') or []):
+                    dept = (it.get('assigned_to') or '').strip()
+                    if dept and not it.get('resolved'):
+                        by_department.setdefault(dept, []).append(it)
+                for dept, items in by_department.items():
+                    to = _department_recipients(dept)
+                    if to:
+                        email_service.send_directed_comments(
+                            to, _department_label(dept), submission,
+                            [{'question_text': i.get('text', ''),
+                              'description': ''} for i in items])
             except Exception as e:
                 app.logger.error(f'Post-visit email step failed: {e}')
 

@@ -32,7 +32,13 @@ const SURVEY = 'standards';
 function boot(search) {
   const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .map((m) => m[1]).reduce((a, b) => (b.length > a.length ? b : a), '')
-    .replace(/\{\{\s*survey_type_id\s*\}\}/g, SURVEY);
+    .replace(/\{\{\s*survey_type_id\s*\}\}/g, SURVEY)
+    // The server also renders the department list into the page. Left as a
+    // Jinja placeholder it is a syntax error, and the whole script fails to
+    // load — which shows up as every function being undefined rather than as
+    // anything pointing at the template.
+    .replace(/\{\{\s*departments\s*\|\s*tojson\s*\}\}/g,
+             JSON.stringify([{ id: 'maintenance', name: 'Maintenance' }]));
 
   const dom = new JSDOM(`<!doctype html><html><body>
     <div id="userInfo"></div>

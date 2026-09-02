@@ -5292,6 +5292,15 @@
                     <button class="rc-toggle" onclick="toggleRaisedCategory('${escapeHtmlForAttr(c.id)}', ${c.active === false})"
                             ${(c.active !== false && live <= 1) ? 'disabled title="Keep at least one"' : ''}>
                         ${c.active === false ? 'Bring back' : 'Retire'}</button>
+                    <div class="rc-to">
+                        <label>Who hears about it
+                            <span>${(c.recipients || []).length
+                                ? (c.recipients || []).length + ' on the list'
+                                : 'nobody yet'}</span></label>
+                        <input class="pw-input" placeholder="michael@atlasseniorliving.com, ricky@…"
+                               value="${escapeHtmlForAttr((c.recipients || []).join(', '))}"
+                               onchange="setCategoryRecipients('${escapeHtmlForAttr(c.id)}', this.value)">
+                    </div>
                 </div>`).join('');
         }
 
@@ -5321,6 +5330,24 @@
                 await loadRaisedCategoryAdmin();
                 await loadRaisedCategories();
             } catch (e) { _rcSay(e.message, true); }
+        }
+
+        /* Who gets told when something is filed under this department.
+           Greg's question was where "Maintenance" goes; this is the answer,
+           and it sits next to the department itself so there is one place to
+           look rather than the four lists this replaced. */
+        async function setCategoryRecipients(id, value) {
+            try {
+                const r = await _rcSend(`/api/raised-categories/${encodeURIComponent(id)}`, 'PUT',
+                                        { recipients: value || '' });
+                const n = ((r && r.category && r.category.recipients) || []).length;
+                _rcSay(n ? `Saved — ${n} will be emailed.`
+                         : 'Saved — nobody is on this one, so it just goes to the regional.');
+                await loadRaisedCategoryAdmin();
+            } catch (e) {
+                _rcSay(e.message, true);
+                await loadRaisedCategoryAdmin();
+            }
         }
 
         async function renameRaisedCategory(id, name) {

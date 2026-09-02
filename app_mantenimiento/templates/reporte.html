@@ -1735,7 +1735,7 @@
                 const rows = document.querySelectorAll('#aiList .ai-item');
                 const row = rows[rows.length - 1];
                 row.querySelector('.ai-text').value = it.text || '';
-                row.querySelector('.ai-assignee').value = it.assigned_to || '';
+                setAssignee(row.querySelector('.ai-assignee'), it.assigned_to);
                 row.querySelector('.ai-priority').value = it.priority || 'medium';
             });
 
@@ -2617,9 +2617,32 @@
         });
 
         // ===== Additional action items (raised by hand, not tied to a standard) =====
-        const AI_DEPARTMENTS = ['Nursing / Wellness', 'Dietary', 'Maintenance', 'Housekeeping',
-                                'Lifestyles', 'Business Office', 'Executive Director', 'Sales',
-                                'Clinical', 'Operations (Ops)'];
+        /* Who should handle it. Comes from the department list the server
+           renders, which is the same one Greg edits in Settings and the same
+           one the notification is addressed by — picking "Maintenance" here
+           used to record a word and tell nobody.
+
+           The id is what gets stored, not the name, so renaming a department
+           later does not orphan the items already filed under it. */
+        const AI_DEPARTMENTS = {{ departments | tojson }};
+
+        /* Put a saved department back on the dropdown.
+
+           A draft sitting on somebody's phone was saved when this field held
+           the department's name; the options are ids now. Assigning a name to
+           a select whose options are ids silently selects nothing, and the
+           person would reopen their draft to find the answer gone with no
+           indication it had ever been there. So: try it as an id, and if that
+           does not land, look it up as a name. */
+        function setAssignee(select, saved) {
+            if (!select) return;
+            saved = (saved || '').trim();
+            select.value = saved;
+            if (select.value === saved) return;
+            const match = AI_DEPARTMENTS.find(
+                d => (d.name || '').toLowerCase() === saved.toLowerCase());
+            select.value = match ? match.id : '';
+        }
         let aiCounter = 0;
 
         function addActionItem() {
@@ -2641,7 +2664,7 @@
                         <label>Who should handle it?</label>
                         <select class="ai-assignee">
                             <option value="">— Select —</option>
-                            ${AI_DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('')}
+                            ${AI_DEPARTMENTS.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`).join('')}
                         </select>
                     </div>
                     <div>
