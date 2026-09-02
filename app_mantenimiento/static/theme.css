@@ -1850,17 +1850,16 @@ html[data-theme="dark"] .age-chip-never { background: rgba(148, 163, 184, .16); 
     .panel-responses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* The thread, read-only, under the finding it belongs to. */
+/* The thread, read-only, under the finding it belongs to.
+
+   Deliberately no .resp-thread rules here: that button already has its own,
+   a pill with its own dark mode, in the inline stylesheet. Restyling it from
+   this file only half worked — this sheet loads second so the colours won here
+   while `width: 100%` went on coming from there, which is a link and a bar at
+   the same time. */
 .resp-talk { margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 10px; }
 html[data-theme="dark"] .resp-talk { border-top-color: #2b3a52; }
 .resp-talk .cm-wrap { margin-top: 0; }
-.resp-thread {
-    display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
-    background: none; border: 0; padding: 2px 0; cursor: pointer;
-    font-size: 12.5px; font-weight: 700; color: #1f6fe5;
-}
-.resp-thread:hover { text-decoration: underline; }
-html[data-theme="dark"] .resp-thread { color: #7db0ff; }
 
 /* Changing a sign-in name: folded away behind a link, because it is rare and
    it is the one field in that form that moves a person's whole history. */

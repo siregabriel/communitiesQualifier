@@ -128,6 +128,29 @@ console.log('\nThe conversation is on the page, not one screen away');
      'and what was done about a finding still shows');
 }
 
+console.log('\nEach thread is its own');
+{
+  // The toggle that reveals older comments finds its list by id, so two
+  // threads sharing one id means opening the wrong conversation — and it
+  // would always look like the first one had been clicked. The id used to be
+  // built from the question id, which nothing sends for a response raised
+  // outside a standard.
+  const w = boot(1400);
+  const three = [
+    { submissionId: 's1', questionText: 'One', condition: 'Fail',
+      conditionClass: 'fail', conditionIcon: 'fa-times',
+      comments: [{ id: 'a', author: 'X', text: 'first', at: '2026-08-31T10:00:00' }] },
+    { submissionId: 's1', questionText: 'Two', condition: 'Fail',
+      conditionClass: 'fail', conditionIcon: 'fa-times',
+      comments: [{ id: 'b', author: 'Y', text: 'second', at: '2026-08-31T11:00:00' }] },
+  ];
+  w.document.getElementById('body').innerHTML = w.renderResponses(three);
+  const ids = [...w.document.querySelectorAll('.cm-list')].map(e => e.id);
+  ok(ids.length === 2, 'both threads rendered');
+  ok(new Set(ids).size === ids.length,
+     `and they do not share an id (${ids.join(', ')})`);
+}
+
 console.log('\nHow it is laid out');
 {
   // jsdom resolves no media queries in getComputedStyle — it answers `none`

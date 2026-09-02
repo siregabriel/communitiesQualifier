@@ -3620,7 +3620,7 @@
                     <div class="panel-responses">
             `;
 
-            for (const response of responses) {
+            responses.forEach((response, i) => {
                 const std = standardFor(response);
                 const stdBtn = std ? `<button class="std-info-btn" title="View the standard for this item" data-qid="${escapeHtml(response.questionId || '')}" data-qtext="${escapeHtml(response.questionText || '')}" onclick="openStandardSheetFor(this)"><i class="fas fa-circle-info"></i></button>` : '';
                 const nComments = (response.comments || []).length;
@@ -3638,7 +3638,13 @@
                     ? `<div class="resp-talk">
                            ${commentThreadHtml({
                                comments: response.comments || [],
-                               threadId: `cmlist_panel_${response.submissionId}_${response.questionId}`,
+                               // The position, not the question id. Both come
+                               // from the same list so both are unique, but a
+                               // response with no question id — nothing sends
+                               // one today, which is not the same as nothing
+                               // ever will — would give two threads the same
+                               // id, and the toggle works by getElementById.
+                               threadId: `cmlist_panel_${response.submissionId}_${i}`,
                                canDelete: () => false,
                                deleteCall: () => '',
                                addCall: null,
@@ -3673,7 +3679,7 @@
                         ${thread}
                     </div>
                 `;
-            }
+            });
 
             html += '</div></div>';
             return html;
