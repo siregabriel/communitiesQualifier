@@ -1444,21 +1444,27 @@
             display: block;
         }
 
+        /* A visit is nine standards with photos, what was done about each, and
+           the conversation that followed. At 600px that arrives as one long
+           ribbon and reads as cramped. Wider on a big screen, and it slides
+           by transform so the hidden position no longer has to be written out
+           as a matching negative number every time the width changes. */
         .slide-panel {
             position: fixed;
             top: 0;
-            right: -600px;
-            width: 600px;
+            right: 0;
+            width: min(920px, 100vw);
             height: 100vh;
             background: white;
             box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
             z-index: 3001;
             overflow-y: auto;
-            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(100%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .slide-panel.show {
-            right: 0;
+            transform: translateX(0);
         }
 
         .slide-panel-header {
@@ -1601,7 +1607,10 @@
         @media (max-width: 768px) {
             .slide-panel {
                 width: 100%;
-                right: -100%;
+                /* The old `right: -100%` paired with the old `right`-based
+                   slide. It now moves by transform, and leaving this here
+                   would park the panel off-screen with nothing to bring it
+                   back. */
             }
 
             .slide-panel-header {
@@ -3608,8 +3617,9 @@
                         <i class="fas fa-clipboard-list"></i>
                         Visit responses (${responses.length})
                     </h3>
+                    <div class="panel-responses">
             `;
-            
+
             for (const response of responses) {
                 const std = standardFor(response);
                 const stdBtn = std ? `<button class="std-info-btn" title="View the standard for this item" data-qid="${escapeHtml(response.questionId || '')}" data-qtext="${escapeHtml(response.questionText || '')}" onclick="openStandardSheetFor(this)"><i class="fas fa-circle-info"></i></button>` : '';
@@ -3618,10 +3628,25 @@
                 // it, so the two screens can't drift apart. Here we show the
                 // outcome and a way through to the thread.
                 const qid = (response.questionId || '').replace(/'/g, "\\'");
+                // Wyman asked to read the back-and-forth here rather than being
+                // sent somewhere else for it: opening a community, seeing an
+                // open item and having to jump screens to learn what was said
+                // about it is the whole friction. Shown, not written — replying
+                // still happens in Action Items, so the conversation keeps one
+                // home and the two screens cannot drift apart.
                 const thread = nComments
-                    ? `<button class="resp-thread" onclick="openActivityTarget('${response.submissionId}','${qid}','')">
-                           <i class="fas fa-comment-dots"></i> ${nComments} comment${nComments === 1 ? '' : 's'}
-                       </button>`
+                    ? `<div class="resp-talk">
+                           ${commentThreadHtml({
+                               comments: response.comments || [],
+                               threadId: `cmlist_panel_${response.submissionId}_${response.questionId}`,
+                               canDelete: () => false,
+                               deleteCall: () => '',
+                               addCall: null,
+                           })}
+                           <button class="resp-thread" onclick="openActivityTarget('${response.submissionId}','${qid}','')">
+                               <i class="fas fa-reply"></i> Reply in Action Items
+                           </button>
+                       </div>`
                     : '';
                 const outcome = response.addressed
                     ? `<div class="resp-fixed">
@@ -3649,8 +3674,8 @@
                     </div>
                 `;
             }
-            
-            html += '</div>';
+
+            html += '</div></div>';
             return html;
         }
 
@@ -6770,9 +6795,9 @@
                 ${collapsible ? `<button class="cm-toggle" onclick="event.stopPropagation();toggleThread('${threadId}', this)">
                     <i class="fas fa-chevron-down"></i> Show ${n - 1} earlier comment${n - 1 === 1 ? '' : 's'}
                 </button>` : ''}
-                <button class="cm-add" onclick="event.stopPropagation();${addCall}">
+                ${addCall ? `<button class="cm-add" onclick="event.stopPropagation();${addCall}">
                     <i class="fas fa-comment-dots"></i> ${n ? 'Add a comment' : 'Comment on this'}
-                </button>
+                </button>` : ''}
             </div>`;
         }
 
