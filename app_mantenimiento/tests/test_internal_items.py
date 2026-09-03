@@ -180,6 +180,50 @@ def test_a_preview_shows_what_that_person_really_sees(internal_item):
         "the preview handed an administrator's view to a community's screen"
 
 
+# ------------------------------------------------------ and by email
+
+def test_an_internal_item_is_not_emailed_to_the_community(monkeypatch):
+    """The screens hide it; the address lists are somebody else's to fill in.
+
+    Nothing stops an Executive Director's address being put against a
+    department — Greg fills those boxes, and the person who ticks "keep this
+    on our side" is not the person who filled them. If it still arrived in
+    their inbox the feature would be lying.
+    """
+    sent = {}
+    monkeypatch.setattr(A.email_service, "enabled", True)
+    monkeypatch.setattr(A.email_service, "send_raised_item",
+                        lambda to, item: sent.update(to=list(to)))
+    monkeypatch.setattr(A, "region_leader_emails", lambda c: ["marissa@atlas.com"])
+    monkeypatch.setattr(A, "community_account_emails", lambda c: ["jazmyn@atlas.com"])
+    # The department list has the ED's address on it, which is allowed.
+    monkeypatch.setattr(A.raised_category_service, "recipients_for",
+                        lambda cid: ["michael@atlas.com", "JAZMYN@atlas.com"])
+
+    A.notify_raised_item({"community": "Kelley Place", "category": "maintenance",
+                          "text": "not theirs to answer for",
+                          "visibility": "internal"})
+    assert sent.get("to") == ["marissa@atlas.com", "michael@atlas.com"], \
+        "the community was emailed an item raised behind them"
+
+
+def test_an_ordinary_item_still_reaches_them(monkeypatch):
+    """The filter is for internal items only — it must not quietly narrow
+    everything else."""
+    sent = {}
+    monkeypatch.setattr(A.email_service, "enabled", True)
+    monkeypatch.setattr(A.email_service, "send_raised_item",
+                        lambda to, item: sent.update(to=list(to)))
+    monkeypatch.setattr(A, "region_leader_emails", lambda c: ["marissa@atlas.com"])
+    monkeypatch.setattr(A, "community_account_emails", lambda c: ["jazmyn@atlas.com"])
+    monkeypatch.setattr(A.raised_category_service, "recipients_for",
+                        lambda cid: ["jazmyn@atlas.com"])
+
+    A.notify_raised_item({"community": "Kelley Place", "category": "maintenance",
+                          "text": "furniture", "visibility": "community"})
+    assert sent.get("to") == ["marissa@atlas.com", "jazmyn@atlas.com"]
+
+
 # --------------------------------------------------- who may raise one
 
 def test_a_community_account_cannot_raise_one_internally():

@@ -3758,6 +3758,22 @@ def notify_raised_item(item):
         # question was what happens when somebody picks Maintenance: until
         # now, nothing — the choice was recorded and read by no one.
         recipients += raised_category_service.recipients_for(item.get('category', ''))
+
+        # An item raised for the leadership side must not arrive in the
+        # community's inbox. The screens already hide it, but the address
+        # lists are Greg's to fill in and nothing stops an Executive
+        # Director's address being put against a department — at which point
+        # the feature would be lying. Dropped here rather than trusted to
+        # configuration, because the person who ticked the box is not the
+        # person who filled in the list.
+        if raised_item_service.is_internal(item):
+            theirs = {a.lower() for a in community_account_emails(community) if a}
+            dropped = [a for a in recipients if (a or '').lower() in theirs]
+            if dropped:
+                app.logger.info('Internal item: not emailing %d community address(es)',
+                                len(dropped))
+            recipients = [a for a in recipients if (a or '').lower() not in theirs]
+
         # Whoever raised it doesn't need to be told about their own item.
         seen, ordered = set(), []
         for a in recipients:
