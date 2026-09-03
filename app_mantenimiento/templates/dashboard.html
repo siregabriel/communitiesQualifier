@@ -1293,6 +1293,8 @@
         .tour-card p { font-size: 14px; line-height: 1.55; color: #475569; margin: 0; }
         .tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
         .tour-skip { background: none; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 4px; }
+        .tour-never { margin-left: 10px; text-decoration: underline; }
+        .tour-foot { font-size: 11.5px; color: #94a3b8; margin: 8px 0 0; line-height: 1.4; }
         .tour-btn { background: #00285c; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
         .tour-btn-ghost { background: #fff; color: #475569; border: 1px solid #d9dfe8; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
 
@@ -2481,11 +2483,16 @@
         <p id="tourText"></p>
         <div class="tour-actions">
             <button class="tour-skip" onclick="endTour()">Skip</button>
+            <!-- Says what it does. "Skip" closes this one; somebody who has
+                 seen enough of all of them needs a sentence, not a guess. -->
+            <button class="tour-skip tour-never" onclick="turnToursOff()"
+                    title="No walkthrough will open on its own again">Don't show again</button>
             <div style="margin-left:auto;display:flex;gap:8px;">
                 <button class="tour-btn-ghost" id="tourPrev" onclick="tourPrev()">Back</button>
                 <button class="tour-btn" id="tourNext" onclick="tourNext()">Next</button>
             </div>
         </div>
+        <p class="tour-foot">You can reopen any walkthrough from the help button.</p>
     </div>
 
     <!-- Standard / pass-criteria popup (drill-in from a Pass/Fail item) -->
@@ -4637,15 +4644,15 @@
                 { title: 'Two scores, one truth', text: 'A community shows the score it stands at today. Underneath, when fixes have been verified since, you\'ll see what the visit itself scored — that number never changes, so past results stay comparable and nobody\'s history moves on its own.' },
                 { target: '#dashMainGrid', title: 'Rearrange your dashboard', text: 'On desktop, grab the ⠿ handle on any card (or KPI) to drag it into the order you like — your layout is saved on this device. Use “Reset layout” to put everything back.' },
                 { target: '[data-card="live"]', title: 'Live activity', text: 'Admin-only: who is signed in right now and what everyone has been doing — sign-ins, visits submitted, items marked as addressed, password and account changes. It refreshes on its own every 30 seconds. You also get a digest of all this by email once a day.' },
-                { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Every community with its current score and open items. Open one and you get its latest visit in full, then its history: every past visit, and — most useful — which standards keep coming back. Anything marked "recurring" has failed three times or more.' },
+                { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Every community with its current score and open items. Open one and you get its latest visit in full — each standard with its photo, what was done about it, and the conversation that followed, without leaving the panel. Then its history: every past visit, and — most useful — which standards keep coming back. Anything marked "recurring" has failed three times or more.' },
                 { target: '.nav-item[data-view="regions"]', title: 'Regions & Leadership', text: "Organize communities into regions and manage each region's leaders. Click a region's name to see its communities' performance, or a leader's name to open their profile. The Corporate group at the end holds company-wide members who can visit any community." },
                 { target: '.nav-item[data-view="people"]', title: 'People', text: 'Everyone with access, in one list — admins, corporate, regionals and Executive Directors. Add someone (their login and temporary password are created automatically and emailed), change roles, reset passwords, or grant admin privileges to a corporate member. Each row also shows sign-in activity: a green "Active now" while someone is using the app, when they last signed in, or "Never signed in" if they haven\'t started yet. Open it for its own walkthrough.' },
                 { target: '#standardsLink', title: 'Standards', text: 'Create and edit the visit standards, their pass criteria, and survey types (the question groups each team uses).' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns, plus a team leaderboard (most inspections and best pass rate). Click any name to open their profile with stats and their global ranking. Export it all to CSV, Excel, or PDF — including any action items raised on visits.' },
-                { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything needing follow-up. It opens on what\'s still outstanding from each community\'s latest visit — use the chips to reach items already addressed or from earlier visits. When a community comments that something is fixed, you get an email; review it and use "Mark as addressed" to close it out. That\'s what lifts their current score, so the sign-off is yours, not theirs.' },
+                { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything needing follow-up. It opens on what\'s still outstanding from each community\'s latest visit — use the chips to reach items already addressed, items from earlier visits, or one department at a time. When a community comments that something is fixed, you get an email; review it and use "Mark as addressed" to close it out. That\'s what lifts their current score, so the sign-off is yours, not theirs. A row marked "Not shown to the community" was raised for our side only — they cannot see it, so answer it knowing they are not reading.' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident’s move-in as a phased checklist — with required compliance items, attachments, printable binder pages, and automatic email reminders. Open it for its own walkthrough.' },
                 { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'A monthly schedule that combines visits, move-in dates, and follow-up reminders. Click any day to see what’s happening.' },
-                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which visit emails (by region or inspector), set the visit target, configure Clinical/Ops/Sales routing, and decide who gets administrator notifications — new accounts, move-in reminders and completions, and the daily summary. "Who receives what" lists every address we send to and flags anyone missing an email. At the bottom, a Danger zone lets you wipe all visits to start fresh (a backup is saved first). People are managed in the People view.' },
+                { target: '.nav-item[data-view="settings"]', title: 'Settings', text: 'Choose who receives which visit emails (by region or inspector), set the visit target, say who hears about each department — put Michael on Maintenance, Ricky on Dining, Carol on Lifestyles and anything filed there reaches them — and decide who gets administrator notifications — new accounts, move-in reminders and completions, and the daily summary. "Who receives what" lists every address we send to and flags anyone missing an email. At the bottom, a Danger zone lets you wipe all visits to start fresh (a backup is saved first). People are managed in the People view.' },
                 { title: "You're all set", text: 'That’s the tour. Tap Help in the top bar to see it again whenever you want.' },
             ],
             // Regional and corporate: the people who actually carry out visits.
@@ -4655,12 +4662,13 @@
             regional: [
                 { title: 'Welcome to Atlas Excellence', text: 'A quick tour of how you run visits and follow them through. Replay it anytime from Help.' },
                 { target: '.nav-item[data-view="dashboard"]', title: 'Start with "Needs you"', text: 'The top of your dashboard is your queue: fixes a community has reported and is waiting on you to confirm, communities going too long without a visit, and findings nobody has followed up on. Click a line to go straight to it. When there is nothing pending, it isn\'t there.' },
-                { target: '#startVisitBtn', title: 'Start a visit', text: 'Begin here — pick the community and the survey type, then go item by item marking Pass or Fail. A Fail needs a comment saying what you found, so whoever fixes it knows where to start.' },
+                { target: '#fabMenuBtn', title: 'Start a visit, or raise one thing', text: 'The + asks which. <b>Start a visit</b> walks the standards: pick the community and survey type, then mark Pass or Fail item by item — a Fail needs a comment saying what you found, so whoever fixes it knows where to start. <b>Raise an issue</b> is for the one thing you noticed with no survey to fill in; tick "Keep this on our side" and it goes to the department and the regionals without the community seeing it. On a phone the same + sits in the bottom bar.' },
+                { target: '.nav-item[data-view="my-visits"]', title: 'A visit you did not finish', text: 'Answers and photos are saved on the phone as you go, so a visit interrupted mid-walk is not lost. It reappears at the top of My Visits with how far you got and which device holds it — open it there and carry on. Nothing has been sent until you submit.' },
                 { title: 'You can stop and come back', text: 'The form saves itself on your device as you go, photos included. Leave mid-walk, lose signal, take a call — when you return to that community you\'ll be offered the unfinished visit. Nothing is sent until you submit.' },
                 { target: '.nav-item[data-view="communities"]', title: 'Communities', text: 'Every community in your region with its current score and open items. Open one for its latest visit, then its history — including which standards keep coming back. Anything marked "recurring" has failed three times or more.' },
                 { title: 'Two scores, one truth', text: 'A community shows where it stands today, which rises as you verify fixes. The visit\'s own score is named underneath and never changes, so past results stay comparable.' },
                 { target: '.nav-item[data-view="action-items"]', title: 'Action Items', text: 'Everything needing follow-up, opening on what\'s still outstanding from the latest visit. When a community comments that something is fixed, you get an email — review it and use "Mark as addressed" to close it out. That sign-off is yours: it\'s what lifts their current score.' },
-                { target: '.nav-item[data-view="my-visits"]', title: 'My Visits', text: 'Everything you\'ve submitted, with scores and dates.' },
+                { target: '.nav-item[data-view="my-visits"]', title: 'My Visits', text: 'Everything you\'ve submitted, with scores and dates. Downloading a photo from a visit stamps the community, the date and who took it underneath the picture — so it still says where it came from once it is in an email.' },
                 { target: '.nav-item[data-view="reports"]', title: 'Reports', text: 'Trends and pass/fail breakdowns across your region, plus exports to CSV, Excel or PDF.' },
                 { target: '.nav-item[data-view="move-ins"]', title: 'Move-Ins', text: 'Track each new resident\'s move-in as a phased checklist, with reminders. Open it for its own walkthrough.' },
                 { target: '.nav-item[data-view="calendar"]', title: 'Calendar', text: 'Visits and move-in dates for your communities on a monthly calendar.' },
@@ -4689,6 +4697,7 @@
             { target: '.ppl-chips', title: 'Find people fast', text: 'Filter by role, or search by name, username, email or region. Handy once the list grows.' },
             { target: '.ppl-row', title: 'Everything at a glance', text: 'Each row shows their role, what they can reach, their email and how many visits they’ve done. Anyone missing an email is flagged — they can’t receive reports or reminders until you add it.' },
             { target: '.ppl-actions', title: 'Edit or reset', text: 'The pencil edits their name, email and role — you can move someone between Staff, Regional, Corporate and Administrator, and their login and password stay the same. The key resets their password and emails it to them.' },
+            { target: '.ppl-actions', title: 'Changing a sign-in name', text: 'Inside the pencil, next to their login, is <b>Change</b>. People marry, and names get typed wrong the first time. It moves the account and everything filed under it together — their visits, photos, comments and the password they set — so nothing is orphaned. They are signed out and sign back in under the new name, with the same password.' },
             { title: 'Admin privileges', text: 'When you edit someone, the main administrator can tick “Also has administrator privileges”. That lets a Corporate or Regional person manage standards, people and settings while still doing visits. Only the main administrator can grant it, so privileges never spread on their own.' },
             { title: 'That’s People', text: 'Use the Help button on this screen to replay this anytime.' },
         ];
@@ -4736,9 +4745,9 @@
         function startMoveInsTour() { runTour(MOVEINS_TOUR); }
         function startCalendarTour() { runTour(CALENDAR_TOUR); }
         function maybeStartCalendarTour() {
-            let seen = false;
-            try { seen = localStorage.getItem('atlasCalendarTourSeen_v1') === '1'; } catch (e) {}
-            if (!seen) { try { localStorage.setItem('atlasCalendarTourSeen_v1', '1'); } catch (e) {} setTimeout(startCalendarTour, 650); }
+            if (toursAreOff() || _tourRemembers('atlasCalendarTourSeen_v1')) return;
+            _tourRemember('atlasCalendarTourSeen_v1');
+            setTimeout(startCalendarTour, 650);
         }
         function contextHelp() {
             if (currentView === 'regions') startRegionsTour();
@@ -4748,19 +4757,19 @@
             else startTour();
         }
         function maybeStartPeopleTour() {
-            let seen = false;
-            try { seen = localStorage.getItem('atlasPeopleTourSeen_v1') === '1'; } catch (e) {}
-            if (!seen) { try { localStorage.setItem('atlasPeopleTourSeen_v1', '1'); } catch (e) {} setTimeout(startPeopleTour, 650); }
+            if (toursAreOff() || _tourRemembers('atlasPeopleTourSeen_v1')) return;
+            _tourRemember('atlasPeopleTourSeen_v1');
+            setTimeout(startPeopleTour, 650);
         }
         function maybeStartRegionsTour() {
-            let seen = false;
-            try { seen = localStorage.getItem('atlasRegionsTourSeen_v1') === '1'; } catch (e) {}
-            if (!seen) { try { localStorage.setItem('atlasRegionsTourSeen_v1', '1'); } catch (e) {} setTimeout(startRegionsTour, 650); }
+            if (toursAreOff() || _tourRemembers('atlasRegionsTourSeen_v1')) return;
+            _tourRemember('atlasRegionsTourSeen_v1');
+            setTimeout(startRegionsTour, 650);
         }
         function maybeStartMoveInsTour() {
-            let seen = false;
-            try { seen = localStorage.getItem('atlasMoveInsTourSeen_v3') === '1'; } catch (e) {}
-            if (!seen) { try { localStorage.setItem('atlasMoveInsTourSeen_v3', '1'); } catch (e) {} setTimeout(startMoveInsTour, 650); }
+            if (toursAreOff() || _tourRemembers('atlasMoveInsTourSeen_v3')) return;
+            _tourRemember('atlasMoveInsTourSeen_v3');
+            setTimeout(startMoveInsTour, 650);
         }
         // ---- Tour helpers ----------------------------------------------------
         function _tourIsMobile() { return window.matchMedia('(max-width: 640px)').matches; }
@@ -4914,12 +4923,38 @@
             document.getElementById('tourBlocker').style.display = 'none';
             document.getElementById('tourRing').style.display = 'none';
             document.getElementById('tourCard').style.display = 'none';
-            try { localStorage.setItem('atlasTourSeen_v2', '1'); } catch (e) {}
+            _tourRemember('atlasTourSeen_v2');
         }
+
+        function _tourRemember(key) {
+            try { localStorage.setItem(key, '1'); } catch (e) {}
+        }
+        function _tourRemembers(key) {
+            try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+        }
+
+        /* Off for good, on request. Separate from "seen" because they are
+           different sentences: seen is about this one tour, this is about
+           every tour there is and every one added later. An administrator
+           opening Regions, People, Move-Ins and the Calendar for the first
+           time on a new browser otherwise meets four more walkthroughs, one
+           at a time, having already said no to the first. */
+        const TOURS_OFF = 'atlasToursOff_v1';
+        function toursAreOff() { return _tourRemembers(TOURS_OFF); }
+        function turnToursOff() {
+            _tourRemember(TOURS_OFF);
+            endTour();
+        }
+
         function maybeStartTour() {
-            let seen = false;
-            try { seen = localStorage.getItem('atlasTourSeen_v2') === '1'; } catch (e) {}
-            if (!seen) setTimeout(startTour, 900);
+            if (toursAreOff() || _tourRemembers('atlasTourSeen_v2')) return;
+            // Remembered when it starts, not when it finishes. Marking it only
+            // in endTour() meant that reloading, navigating away, or a phone
+            // discarding the page mid-tour left it unmarked — so it opened
+            // again on the next visit, and the next. It had been asking
+            // Gabriel every single time.
+            _tourRemember('atlasTourSeen_v2');
+            setTimeout(startTour, 900);
         }
         /* Reposition on resize/rotate — but never replay the step. On a phone the
            address bar collapsing fires resize constantly, and re-running the step
