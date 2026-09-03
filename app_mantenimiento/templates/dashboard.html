@@ -9402,8 +9402,7 @@
                         <div class="profile-section">
                             <div class="profile-section-title"><i class="fas fa-users-gear"></i> User management</div>
                             <p style="font-size:13px;color:#64748b;line-height:1.55;margin:-4px 0 14px;">
-                                Adding people, changing roles, resetting passwords and removing access
-                                all live in one place now.
+                                Add people, change roles, reset passwords and remove access.
                             </p>
                             <button class="btn btn-primary" onclick="showView('people')"><i class="fas fa-users"></i> Open People</button>
                         </div>
@@ -9522,13 +9521,6 @@
             `;
 
             if (admin) {
-                // User creation/listing moved to the People view; these only run
-                // if their (now optional) Settings elements are present.
-                if (document.getElementById('newUserName')) {
-                    populateUserFormOptions();
-                    onNewUserRoleChange();
-                }
-                if (document.getElementById('managedUsersList')) loadManagedUsers();
                 loadEmailSettings();
                 loadNotificationSummary();
                 loadRaisedCategoryAdmin();
@@ -9738,102 +9730,6 @@
         }
 
         // ---- User management (admin only) -------------------------------
-        function onNewUserRoleChange() {
-            const roleEl = document.getElementById('newUserRole');
-            if (!roleEl) return;
-            const role = roleEl.value;
-            const comm = document.getElementById('newUserCommunity');
-            const reg = document.getElementById('newUserRegion');
-            if (comm) comm.style.display = (role === 'staff') ? '' : 'none';
-            if (reg) reg.style.display = (role === 'regional') ? '' : 'none';
-        }
-
-        async function populateUserFormOptions() {
-            const commSel = document.getElementById('newUserCommunity');
-            const regSel = document.getElementById('newUserRegion');
-            if (commSel) {
-                let comms = [];
-                try {
-                    const r = await fetch('/api/communities');
-                    const d = await r.json();
-                    if (d.status === 'success') comms = d.communities || [];
-                } catch (e) {}
-                comms.sort((a, b) => a.localeCompare(b));
-                commSel.innerHTML = '<option value="">Select a community…</option>' +
-                    comms.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-            }
-            if (regSel) {
-                let regs = regions || [];
-                if (!regs.length) {
-                    try {
-                        const r = await fetch('/api/regions');
-                        const d = await r.json();
-                        if (d.status === 'success') regs = d.regions || [];
-                    } catch (e) {}
-                }
-                regs = regs.filter(r => r.id !== 'unassigned');
-                regSel.innerHTML = '<option value="">Select a region…</option>' +
-                    regs.map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`).join('');
-            }
-        }
-
-        async function createUser() {
-            const nameEl = document.getElementById('newUserName');
-            const emailEl = document.getElementById('newUserEmail');
-            const msg = document.getElementById('createUserMsg');
-            const name = (nameEl.value || '').trim();
-            const email = (emailEl.value || '').trim();
-            const role = document.getElementById('newUserRole').value;
-            const community = document.getElementById('newUserCommunity').value;
-            const region_id = document.getElementById('newUserRegion').value;
-            msg.className = 'pw-msg';
-            if (!name) { msg.textContent = 'Enter a full name.'; msg.classList.add('error'); return; }
-            if (role === 'staff' && !community) { msg.textContent = 'Pick a community.'; msg.classList.add('error'); return; }
-            if (role === 'regional' && !region_id) { msg.textContent = 'Pick a region.'; msg.classList.add('error'); return; }
-
-            const body = { display_name: name, role: role };
-            if (email) body.email = email;
-            if (role === 'staff') body.community = community;
-            if (role === 'regional') body.region_id = region_id;
-
-            try {
-                const r = await fetch('/api/users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                const d = await r.json();
-                if (r.ok && d.status === 'success') {
-                    nameEl.value = '';
-                    emailEl.value = '';
-                    const heading = d.emailed ? 'Account created — login emailed' : 'Account created';
-                    showCredentialBox(d.display_name, d.username, d.password, heading);
-                    loadManagedUsers();
-                } else {
-                    msg.textContent = d.message || 'Could not create user.';
-                    msg.classList.add('error');
-                }
-            } catch (e) {
-                msg.textContent = 'Network error.';
-                msg.classList.add('error');
-            }
-        }
-
-        function showCredentialBox(displayName, username, password, heading, boxId) {
-            boxId = boxId || 'createUserResult';
-            const box = document.getElementById(boxId);
-            if (!box) return;
-            box.style.display = '';
-            box.innerHTML = `
-                <div class="cred-head"><i class="fas fa-circle-check"></i> ${escapeHtml(heading || 'Credentials')} — ${escapeHtml(displayName)}</div>
-                <div class="cred-note">Copy these now — the password is shown only once. The user will be asked to set a new one at sign-in.</div>
-                <div class="cred-row"><span class="cred-label">Username</span><code>${escapeHtml(username)}</code><button class="cred-copy" onclick="copyText('${username.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
-                <div class="cred-row"><span class="cred-label">Password</span><code>${escapeHtml(password)}</code><button class="cred-copy" onclick="copyText('${password.replace(/'/g, "\\'")}', this)"><i class="fas fa-copy"></i></button></div>
-                <button class="cred-dismiss" onclick="document.getElementById('${boxId}').style.display='none'">Done</button>
-            `;
-            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-
         // Remove an address from every list it can be removed from, then refresh
         // both the summary and the editable subscriber rows above it.
         async function removeNotificationRecipient(email, label) {
@@ -9949,29 +9845,6 @@
             }
         }
 
-        async function adminResetPassword() {
-            const el = document.getElementById('resetUsername');
-            const msg = document.getElementById('resetPwMsg');
-            const username = (el.value || '').trim();
-            msg.className = 'pw-msg';
-            if (!username) { msg.textContent = 'Enter the username to reset.'; msg.classList.add('error'); return; }
-            try {
-                const r = await fetch('/api/admin/reset-password', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username })
-                });
-                const d = await r.json();
-                if (r.ok && d.status === 'success') {
-                    el.value = '';
-                    const heading = d.emailed ? 'Password reset — temporary password emailed' : 'Password reset';
-                    showCredentialBox(d.display_name, d.username, d.password, heading, 'resetPwResult');
-                } else {
-                    msg.textContent = d.message || 'Could not reset password.'; msg.classList.add('error');
-                }
-            } catch (e) {
-                msg.textContent = 'Network error.'; msg.classList.add('error');
-            }
-        }
-
         function copyText(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
                 if (btn) {
@@ -9980,65 +9853,6 @@
                     setTimeout(() => { btn.innerHTML = old; }, 1200);
                 }
             }).catch(() => {});
-        }
-
-        async function loadManagedUsers() {
-            const list = document.getElementById('managedUsersList');
-            if (!list) return;
-            try {
-                const r = await fetch('/api/users');
-                const d = await r.json();
-                if (r.ok && d.status === 'success') renderManagedUsers(d.users || []);
-                else list.innerHTML = '<div class="activity-empty">Could not load users.</div>';
-            } catch (e) {
-                list.innerHTML = '<div class="activity-empty">Could not load users.</div>';
-            }
-        }
-
-        function renderManagedUsers(users) {
-            const list = document.getElementById('managedUsersList');
-            if (!list) return;
-            if (!users.length) { list.innerHTML = '<div class="activity-empty">No created accounts yet.</div>'; return; }
-            const roleLabel = { admin: 'Administrator', staff: 'Staff', regional: 'Regional' };
-            const regionName = (id) => { const r = (regions || []).find(x => x.id === id); return r ? r.name : id; };
-            list.innerHTML = `<div class="usermgmt-list-title">Created accounts (${users.length})</div>` + users.map(u => {
-                const scope = u.role === 'staff' ? (u.community || '')
-                            : (u.role === 'regional' ? (regionName(u.region_id) + ' region') : 'All communities');
-                const safe = u.username.replace(/'/g, "\\'");
-                const safeName = (u.display_name || '').replace(/'/g, "\\'");
-                return `
-                    <div class="umrow">
-                        <div class="umrow-avatar" style="background:${avatarColor(u.display_name || u.username)};">${profileInitials(u.display_name || u.username)}</div>
-                        <div class="umrow-main">
-                            <div class="umrow-name">${escapeHtml(u.display_name || u.username)}</div>
-                            <div class="umrow-sub">@${escapeHtml(u.username)} &middot; <span class="umrow-role um-${u.role}">${roleLabel[u.role] || u.role}</span> &middot; ${escapeHtml(scope)}</div>
-                        </div>
-                        <div class="umrow-actions">
-                            <button title="Reset password" onclick="resetUserPassword('${safe}','${safeName}')"><i class="fas fa-key"></i></button>
-                            <button title="Delete user" onclick="deleteManagedUser('${safe}','${safeName}')"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
-
-        async function resetUserPassword(username, displayName) {
-            if (!confirm('Generate a new password for ' + displayName + '? Their current password will stop working.')) return;
-            try {
-                const r = await fetch('/api/users/' + encodeURIComponent(username) + '/reset-password', { method: 'POST' });
-                const d = await r.json();
-                if (r.ok && d.status === 'success') showCredentialBox(displayName, d.username, d.password, 'New password');
-                else alert(d.message || 'Could not reset password.');
-            } catch (e) { alert('Network error.'); }
-        }
-
-        async function deleteManagedUser(username, displayName) {
-            if (!confirm('Delete ' + displayName + '? This cannot be undone.')) return;
-            try {
-                const r = await fetch('/api/users/' + encodeURIComponent(username), { method: 'DELETE' });
-                const d = await r.json();
-                if (r.ok && d.status === 'success') loadManagedUsers();
-                else alert(d.message || 'Could not delete user.');
-            } catch (e) { alert('Network error.'); }
         }
 
         // Download the inspection report in the requested format. The server
