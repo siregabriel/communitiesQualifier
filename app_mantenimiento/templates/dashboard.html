@@ -4329,9 +4329,17 @@
                 const raiseBtn = document.getElementById('raiseItemBtn');
                 const menuBtn = document.getElementById('fabMenuBtn');
                 const covers = (data.communities || []).length;
-                if (!isAdmin && canRunVisits && menuBtn) {
+                // canRunVisits on its own, deliberately. It used to read
+                // `!isAdmin && canRunVisits`, which was written when admin
+                // meant only the built-in account — and can_run_visits() is
+                // already false for that one. What the extra clause actually
+                // did was hide the button from anyone holding the admin
+                // accessory on top of a real role: Corporate and regional
+                // members, Greg and Gabriel among them. The people most likely
+                // to use it were the ones who could not see it.
+                if (canRunVisits && menuBtn) {
                     menuBtn.style.display = 'flex';
-                } else if (startVisitBtn && !isAdmin && canRunVisits) {
+                } else if (startVisitBtn && canRunVisits) {
                     startVisitBtn.style.display = 'flex';
                 } else if (raiseBtn && !canRunVisits && covers) {
                     raiseBtn.style.display = 'flex';
