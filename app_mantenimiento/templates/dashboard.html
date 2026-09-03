@@ -4345,6 +4345,20 @@
                     raiseBtn.style.display = 'flex';
                 }
 
+                // On a phone that floating button is hidden — the tab bar owns
+                // the bottom of the screen — and the tab bar's + is a link
+                // straight to Start Visit. So the second action was
+                // unreachable on mobile for everybody who can run visits,
+                // which is where the person who asked for it works. Take the
+                // click over and offer the same choice.
+                const mtabNew = document.getElementById('mtabNew');
+                if (mtabNew && canRunVisits) {
+                    mtabNew.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        toggleFabMenu();
+                    });
+                }
+
                 // People (user directory) is an admin-only area
                 const peopleNav = document.getElementById('peopleNavItem');
                 if (peopleNav && isAdmin) peopleNav.style.display = '';
@@ -5477,7 +5491,12 @@
         document.addEventListener('click', (e) => {
             const menu = document.getElementById('fabMenu');
             if (!menu || menu.hidden) return;
-            if (!menu.contains(e.target) && !e.target.closest('#fabMenuBtn')) {
+            // Both openers are exempt, or the same click that opens the menu
+            // bubbles up to here and closes it again — which reads as the
+            // button doing nothing at all.
+            if (!menu.contains(e.target)
+                && !e.target.closest('#fabMenuBtn')
+                && !e.target.closest('#mtabNew')) {
                 toggleFabMenu(false);
             }
         });

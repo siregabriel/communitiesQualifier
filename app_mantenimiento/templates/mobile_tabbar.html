@@ -61,7 +61,12 @@
     <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'my-visits' else '' }}" data-tab="my-visits" data-view="my-visits" href="/dashboard?view=my-visits">
         <span class="mtab-ic"><i class="fas fa-file-lines"></i></span><span class="mtab-lb">My Visits</span>
     </a>
-    <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'new-visit' else '' }}" data-tab="new-visit" href="/select-survey-type">
+    {# Stays a plain link on purpose. On the dashboard, JS takes the click over
+       and opens the menu instead — somebody who can run visits can also raise
+       an issue, and the floating button that offers both is hidden at this
+       width. Everywhere else the href is the whole behaviour, so a page that
+       never loads that script still works. #}
+    <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'new-visit' else '' }}" data-tab="new-visit" id="mtabNew" href="/select-survey-type">
         <span class="mtab-ic"><i class="fas fa-plus"></i></span><span class="mtab-lb">New Visit</span>
     </a>
     <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'move-ins' else '' }}" data-tab="move-ins" data-view="move-ins" href="/dashboard?view=move-ins">

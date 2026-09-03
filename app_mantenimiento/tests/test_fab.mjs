@@ -132,5 +132,65 @@ console.log('\nThe menu opens, closes, and does something');
   ok(menu.hidden, 'and it can be dismissed without choosing anything');
 }
 
+console.log('\nOn a phone, where the floating button is hidden');
+{
+  // The floating button carries class start-visit-btn, and a media query hides
+  // every one of those below 768px because the tab bar owns the bottom of the
+  // screen. So on mobile the only way in is the tab bar's +, which is a link
+  // straight to Start Visit. Wyman asked for this from an iPhone.
+  const head = html.slice(html.indexOf('<style>') + 7, html.indexOf('</style>'));
+  const hides = /\.start-visit-btn:not\(#raiseItemBtn\)\s*\{[^}]*display:\s*none/.test(head);
+  ok(hides, 'the floating button is still hidden at phone width (so the tab bar must work)');
+
+  const tabbar = fs.readFileSync(new URL('../templates/mobile_tabbar.html', import.meta.url), 'utf8');
+  ok(/id="mtabNew"/.test(tabbar), 'the tab bar\'s + can be found by the page');
+  ok(/href="\/select-survey-type"/.test(tabbar),
+     'and keeps its href, so a page without the menu still navigates');
+
+  // The handler, run: the click must open the menu rather than follow the link.
+  const block = html.slice(html.indexOf("const mtabNew = document.getElementById('mtabNew');"));
+  const src = block.slice(0, block.indexOf('\n\n'));
+
+  const dom = new JSDOM(`<!doctype html><body>
+    <div class="fab-menu" id="fabMenu" hidden></div>
+    <button id="fabMenuBtn" aria-expanded="false"></button>
+    <a id="mtabNew" href="/select-survey-type"><span id="inner">+</span></a>
+    </body>`, { runScripts: 'outside-only' });
+  const w = dom.window;
+  const grabFn = (name) => {
+    let i = html.indexOf(`function ${name}(`);
+    let p = 0, after = -1;
+    for (let k = html.indexOf('(', i); k < html.length; k++) {
+      if (html[k] === '(') p++;
+      else if (html[k] === ')' && --p === 0) { after = k + 1; break; }
+    }
+    let d = 0;
+    for (let k = html.indexOf('{', after); k < html.length; k++) {
+      if (html[k] === '{') d++;
+      else if (html[k] === '}' && --d === 0) return html.slice(i, k + 1);
+    }
+  };
+  // The dismiss-on-outside-click handler goes in too. Without it this tests
+  // half the interaction: the opener alone passes while the real page opens
+  // the menu and closes it again in the same tap, because the click bubbles
+  // to a handler that does not know this button is an opener.
+  const doc = html.slice(html.indexOf("document.addEventListener('click'"));
+  const outsideClick = doc.slice(0, doc.indexOf('});') + 3);
+
+  w.eval(`${grabFn('toggleFabMenu')}\nvar canRunVisits = true;\n${src}\n${outsideClick}`);
+
+  let followed = false;
+  w.document.getElementById('mtabNew').addEventListener('click', (e) => {
+    if (!e.defaultPrevented) followed = true;
+  });
+  // Tap the icon inside the link, the way a thumb actually lands.
+  w.document.getElementById('inner').dispatchEvent(
+    new w.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  ok(!w.document.getElementById('fabMenu').hidden,
+     'tapping + on a phone opens the choice');
+  ok(!followed, 'and does not navigate straight to Start Visit');
+}
+
 console.log(failures ? `\n${failures} failure(s)` : '\nEverybody who may raise an issue can reach it.');
 process.exit(failures ? 1 : 0);
