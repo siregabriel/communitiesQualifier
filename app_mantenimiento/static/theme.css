@@ -1861,6 +1861,53 @@ html[data-theme="dark"] .age-chip-never { background: rgba(148, 163, 184, .16); 
     .panel-responses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* ===== The + that asks which =====
+   Somebody who runs visits can also raise an issue. Two actions behind one
+   button, so it opens a menu rather than guessing. */
+.fab-menu {
+    position: fixed; right: 24px; bottom: 92px; z-index: 1002;
+    background: #fff; border: 1px solid #d9dfe8; border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(15, 30, 54, .18);
+    overflow: hidden; min-width: 264px;
+}
+html[data-theme="dark"] .fab-menu { background: #161f2e; border-color: #2b3a52; }
+.fab-menu button {
+    display: flex; align-items: flex-start; gap: 12px; width: 100%;
+    padding: 13px 16px; background: none; border: 0; cursor: pointer;
+    text-align: left; font: inherit; color: #0f1e36;
+}
+html[data-theme="dark"] .fab-menu button { color: #e7edf6; }
+.fab-menu button + button { border-top: 1px solid #eef2f7; }
+html[data-theme="dark"] .fab-menu button + button { border-top-color: #26324a; }
+.fab-menu button:hover { background: #f6f8fb; }
+html[data-theme="dark"] .fab-menu button:hover { background: #1b2537; }
+.fab-menu i { color: #1f6fe5; font-size: 15px; margin-top: 2px; flex-shrink: 0; }
+.fab-menu b { display: block; font-size: 14px; font-weight: 700; }
+.fab-menu small { display: block; font-size: 12px; color: #64748b; margin-top: 2px; line-height: 1.4; }
+html[data-theme="dark"] .fab-menu small { color: #9fb0c4; }
+#fabMenuBtn.is-open i { transform: rotate(45deg); transition: transform .18s ease; }
+@media (max-width: 640px) {
+    .fab-menu { right: 16px; left: 16px; bottom: 84px; min-width: 0; }
+}
+
+/* Raised for the leadership side only. */
+.ri-internal {
+    display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+    background: #fdfaf2; border: 1px solid #f0e3c0; border-radius: 10px; padding: 11px 12px;
+}
+html[data-theme="dark"] .ri-internal { background: #1a1c26; border-color: rgba(245,194,107,.24); }
+.ri-internal input { margin-top: 2px; flex-shrink: 0; }
+.ri-internal b { font-size: 13px; font-weight: 700; }
+.ri-internal small { display: block; font-size: 12px; color: #64748b; margin-top: 3px; line-height: 1.45; }
+html[data-theme="dark"] .ri-internal small { color: #9fb0c4; }
+.ail-tag-internal {
+    background: #f7edd4 !important; color: #6b5720 !important; border-color: #e8d7ae !important;
+}
+html[data-theme="dark"] .ail-tag-internal {
+    background: rgba(245,194,107,.16) !important; color: #f5c26b !important;
+    border-color: rgba(245,194,107,.3) !important;
+}
+
 /* The thread, read-only, under the finding it belongs to.
 
    Deliberately no .resp-thread rules here: that button already has its own,

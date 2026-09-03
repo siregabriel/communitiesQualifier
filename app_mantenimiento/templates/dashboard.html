@@ -2353,6 +2353,27 @@
             <i class="fas fa-plus" aria-hidden="true"></i>
             <span>Raise an Item</span>
         </button>
+        <!-- Somebody who runs visits can also raise an item, and the server
+             always allowed it — the button was only ever shown to the role
+             that cannot run visits, so a corporate member had to complete a
+             whole survey to record that a tree was down. Two actions, so the
+             button asks which. -->
+        <div class="fab-menu" id="fabMenu" hidden>
+            <button type="button" onclick="fabPick('visit')">
+                <i class="fas fa-clipboard-check"></i>
+                <span><b>Start a visit</b><small>Walk the standards for a community</small></span>
+            </button>
+            <button type="button" onclick="fabPick('raise')">
+                <i class="fas fa-circle-exclamation"></i>
+                <span><b>Raise an issue</b><small>One thing, no survey to fill in</small></span>
+            </button>
+        </div>
+        <button class="start-visit-btn" id="fabMenuBtn" onclick="toggleFabMenu()"
+                title="Start a visit or raise an issue" aria-label="Start a visit or raise an issue"
+                aria-expanded="false" style="display: none;">
+            <i class="fas fa-plus" aria-hidden="true"></i>
+            <span>New</span>
+        </button>
     </div>
 
     <!-- Sidebar Overlay for Mobile -->
@@ -4302,13 +4323,17 @@
                 // Visits belong to regional and corporate staff. Communities see
                 // their findings and comment on them, so don't offer them a
                 // button the server would refuse anyway.
-                if (startVisitBtn && !isAdmin && canRunVisits) {
-                    startVisitBtn.style.display = 'flex';
-                }
-                // Whoever doesn't run visits raises items instead — the main
-                // action of each role, in the same place.
+                // Whoever runs visits can also raise an issue, so they get the
+                // button that asks which. Whoever doesn't gets the single
+                // action that is theirs — no menu to read past.
                 const raiseBtn = document.getElementById('raiseItemBtn');
-                if (raiseBtn && !canRunVisits && (data.communities || []).length) {
+                const menuBtn = document.getElementById('fabMenuBtn');
+                const covers = (data.communities || []).length;
+                if (!isAdmin && canRunVisits && menuBtn) {
+                    menuBtn.style.display = 'flex';
+                } else if (startVisitBtn && !isAdmin && canRunVisits) {
+                    startVisitBtn.style.display = 'flex';
+                } else if (raiseBtn && !canRunVisits && covers) {
                     raiseBtn.style.display = 'flex';
                 }
 
@@ -5419,6 +5444,36 @@
         // out loud, because the word "item" is already used for what a regional
         // found and the two must not be confused.
 
+        /* The + for somebody who can do both. Closed by picking, by Escape, or
+           by clicking away — a menu that can only be dismissed by choosing is
+           a trap on a phone. */
+        function toggleFabMenu(open) {
+            const menu = document.getElementById('fabMenu');
+            const btn = document.getElementById('fabMenuBtn');
+            if (!menu || !btn) return;
+            const show = (open === undefined) ? menu.hidden : open;
+            menu.hidden = !show;
+            btn.setAttribute('aria-expanded', show ? 'true' : 'false');
+            btn.classList.toggle('is-open', show);
+        }
+
+        function fabPick(what) {
+            toggleFabMenu(false);
+            if (what === 'visit') navigateToStartNewVisit();
+            else openRaiseItem();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') toggleFabMenu(false);
+        });
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('fabMenu');
+            if (!menu || menu.hidden) return;
+            if (!menu.contains(e.target) && !e.target.closest('#fabMenuBtn')) {
+                toggleFabMenu(false);
+            }
+        });
+
         async function openRaiseItem() {
             // Without this the dropdown can open empty on a cold load, and a
             // required field with nothing in it is a dead end.
@@ -5435,10 +5490,13 @@
                 : '';
             body.innerHTML = `
                 <div>
-                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Raise an item</h2>
+                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">${canRunVisits ? 'Raise an issue' : 'Raise an item'}</h2>
                     <p style="font-size:12.5px;color:#64748b;line-height:1.5;margin-bottom:18px;">
-                        Something you'd like your regional to look at — a request, or something
-                        you've noticed. It isn't part of a visit and doesn't affect your score.
+                        ${canRunVisits
+                            ? `One thing you noticed, without walking a whole survey. It isn't part
+                               of a visit and never affects the community's score.`
+                            : `Something you'd like your regional to look at — a request, or something
+                               you've noticed. It isn't part of a visit and doesn't affect your score.`}
                     </p>
                     <div style="display:grid;gap:12px;">
                         ${picker}
@@ -5461,10 +5519,20 @@
                             </select></div>
                         <div><label class="mi-label">Photo <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
                             <input id="riPhoto" type="file" accept="image/*" class="pw-input" style="width:100%;"></div>
+                        ${canRunVisits ? `
+                        <label class="ri-internal">
+                            <input type="checkbox" id="riInternal">
+                            <span>
+                                <b>Keep this on our side</b>
+                                <small>Goes to the department and the regionals. The community
+                                    will not see it, so use it for what is not theirs to answer
+                                    for — not for something they need to fix.</small>
+                            </span>
+                        </label>` : ''}
                     </div>
                     <div style="display:flex;gap:10px;align-items:center;margin-top:20px;">
                         <button class="btn btn-primary" onclick="submitRaiseItem()">
-                            <i class="fas fa-paper-plane"></i> Send to my regional</button>
+                            <i class="fas fa-paper-plane"></i> ${canRunVisits ? 'Send it' : 'Send to my regional'}</button>
                         <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
                         <span class="pw-msg" id="riMsg"></span>
                     </div>
@@ -5495,6 +5563,11 @@
             if (picker) fd.append('community', picker.value);
             const photo = document.getElementById('riPhoto');
             if (photo && photo.files && photo.files[0]) fd.append('photo', photo.files[0]);
+            // Only offered to somebody who runs visits, and the server checks
+            // again — a community account asking for this would be hiding
+            // something from itself, and from its own regional.
+            const internal = document.getElementById('riInternal');
+            if (internal && internal.checked) fd.append('visibility', 'internal');
 
             if (msg) { msg.textContent = 'Sending…'; msg.style.color = '#64748b'; }
             try {
@@ -6500,6 +6573,10 @@
                 closed: !!r.resolved,
                 resolvedBy: r.resolved_by || '',
                 comments: r.comments || [],
+                // Raised for the leadership side only. Worth showing on the
+                // row: somebody replying here needs to know the community is
+                // not reading it, or they will write as if it were.
+                internal: r.visibility === 'internal',
                 // Only the community it belongs to may close it — a regional
                 // reading the same list replies instead.
                 mine: isAdmin || (currentUserCommunities || []).includes(r.community || ''),
@@ -6756,7 +6833,9 @@
                         <div class="ail-body">
                             <div class="ail-title">${escapeHtml(a.title)}</div>
                             <div class="ail-meta">
-                                <span class="ail-tag ail-tag-ask">Asked for</span>
+                                <span class="ail-tag ail-tag-ask">${a.internal ? 'Internal' : 'Asked for'}</span>
+                                ${a.internal ? `<span class="ail-tag ail-tag-internal"
+                                    title="The community cannot see this one"><i class="fas fa-eye-slash"></i> Not shown to the community</span>` : ''}
                                 <span class="ail-cat">${escapeHtml(a.categoryName)}</span>
                                 <span>${escapeHtml(timeAgo(a.at))}</span>
                                 ${(a.comments || []).length

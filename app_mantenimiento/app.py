@@ -3298,13 +3298,42 @@ def attention():
 
 # ===================== Items a community raises for itself =====================
 
+def can_see_internal():
+    """Who may see something raised for leadership only.
+
+    Regionals, corporate and administrators. Not a community account, which is
+    the entire point of the thing, and not a preview either: current_role()
+    answers 'staff' while an administrator is looking as an Executive
+    Director, so the preview shows what that person really sees rather than
+    quietly handing them the internal list.
+    """
+    return is_admin() or is_leadership()
+
+
+def _may_see_raised_item(item):
+    """One rule for reading, commenting on, and closing an item.
+
+    Three routes used to repeat the community check between them. Adding a
+    second condition to each of three places is how the fourth route — the one
+    somebody writes next month — ends up with only the first condition.
+    """
+    if not item:
+        return False
+    if not _can_see_community(item.get('community', '')):
+        return False
+    if raised_item_service.is_internal(item) and not can_see_internal():
+        return False
+    return True
+
+
 @app.route('/api/raised-items', methods=['GET'])
 @login_required
 def list_raised_items():
     """Everything raised by the communities this account covers."""
     include = request.args.get('resolved') in ('1', 'true', 'yes')
     items = raised_item_service.for_communities(visible_communities(),
-                                                include_resolved=include)
+                                                include_resolved=include,
+                                                include_internal=can_see_internal())
     # The label is resolved here, at read time, so a rename reaches every past
     # item at once. Items raised before categories existed carry nothing and
     # say "Uncategorised" rather than showing an empty chip.
@@ -3542,6 +3571,14 @@ def create_raised_item():
             # A photo is never worth losing the item over.
             app.logger.exception('Could not save a raised item photo')
 
+    # Raised for the leadership side only, if they asked for that and may.
+    # Checked here rather than trusted from the body: a community account
+    # posting visibility=internal would otherwise hide something from itself,
+    # which is nonsense, and from the regional, which is worse.
+    wanted = ((request.form.get('visibility') if request.files
+               else (request.get_json(silent=True) or {}).get('visibility', '')) or '').strip()
+    visibility = 'internal' if (wanted == 'internal' and can_see_internal()) else 'community'
+
     username = session.get('user')
     item = raised_item_service.create(
         community, text, username,
@@ -3550,7 +3587,8 @@ def create_raised_item():
         # the username itself, so the session's own name is tried first — it is
         # the one the person actually signed in under.
         _display_name_for(username),
-        priority=priority, photo=photo_path, category=category)
+        priority=priority, photo=photo_path, category=category,
+        visibility=visibility)
     if not item:
         return jsonify({'status': 'error', 'message': 'Could not raise this'}), 400
 
@@ -3578,11 +3616,12 @@ def resolve_raised_item(item_id):
     rule is, and two rules nobody can remember is worse than one that holds.
     """
     item = raised_item_service.get(item_id)
-    if not item:
+    # One answer for "there is no such item" and "that one is not yours to
+    # see": telling the two apart tells a community that an internal item
+    # exists, which is what it was raised internally to avoid.
+    if not _may_see_raised_item(item):
         return jsonify({'status': 'error', 'message': 'Not found'}), 404
     community = item.get('community', '')
-    if not _can_see_community(community):
-        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
     # An administrator keeps the keys — someone has to be able to tidy up — but
     # a regional reads and replies here rather than closing on the ED's behalf.
     if not is_admin() and community not in session_communities():
@@ -3612,11 +3651,12 @@ def comment_on_raised_item(item_id):
     separate and stays with the community.
     """
     item = raised_item_service.get(item_id)
-    if not item:
+    # One answer for "there is no such item" and "that one is not yours to
+    # see": telling the two apart tells a community that an internal item
+    # exists, which is what it was raised internally to avoid.
+    if not _may_see_raised_item(item):
         return jsonify({'status': 'error', 'message': 'Not found'}), 404
     community = item.get('community', '')
-    if not _can_see_community(community):
-        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
 
     if request.files:
         text = InputSanitizer.sanitize_description(request.form.get('text', ''))
@@ -3663,10 +3703,8 @@ def comment_on_raised_item(item_id):
 def delete_raised_item_comment(item_id, comment_id):
     """Remove your own comment. An admin may remove any."""
     item = raised_item_service.get(item_id)
-    if not item:
+    if not _may_see_raised_item(item):
         return jsonify({'status': 'error', 'message': 'Not found'}), 404
-    if not _can_see_community(item.get('community', '')):
-        return jsonify({'status': 'error', 'message': 'Not allowed for this community'}), 403
     comment = next((c for c in (item.get('comments') or []) if c.get('id') == comment_id), None)
     if not comment:
         return jsonify({'status': 'error', 'message': 'Comment not found'}), 404

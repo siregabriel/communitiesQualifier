@@ -75,7 +75,7 @@ class RaisedItemService(JsonFileBacked):
 
     def create(self, community: str, text: str, username: str, display_name: str,
                priority: str = 'medium', photo: str = '',
-               category: str = '') -> Optional[Dict]:
+               category: str = '', visibility: str = 'community') -> Optional[Dict]:
         community = (community or '').strip()
         text = (text or '').strip()
         if not community or not text:
@@ -91,6 +91,10 @@ class RaisedItemService(JsonFileBacked):
             # The category's id, never its name — see raised_category_service.
             # Renaming a category must not orphan the items that chose it.
             'category': (category or '').strip(),
+            # 'community' (everyone who covers it, as it has always been) or
+            # 'internal' (leadership only). Whether a person may ask for
+            # 'internal' is decided at the route, not here.
+            'visibility': 'internal' if visibility == 'internal' else 'community',
             'priority': priority,
             'photo': (photo or '').strip(),
             'raised_by': (username or '').strip(),
@@ -112,17 +116,36 @@ class RaisedItemService(JsonFileBacked):
         self._ensure_fresh()
         return next((i for i in self.items if i.get('id') == item_id), None)
 
-    def for_communities(self, communities, include_resolved: bool = False) -> List[Dict]:
+    def for_communities(self, communities, include_resolved: bool = False,
+                        include_internal: bool = False) -> List[Dict]:
         """Everything raised by the given communities, newest first.
 
         Takes a list rather than one name because a regional covers several and
-        an Executive Director can stand in for a neighbour."""
+        an Executive Director can stand in for a neighbour.
+
+        include_internal has to be asked for. A regional or corporate member
+        can raise something for their own side only — a note about a building
+        that is not the community's to answer for — and the community must not
+        find it here. Defaulting to False means a caller that has not thought
+        about it leaks nothing; the mistake it prevents is the silent one.
+        """
         self._ensure_fresh()
         wanted = set(communities or [])
         rows = [i for i in self.items
                 if i.get('community') in wanted
-                and (include_resolved or not i.get('resolved'))]
+                and (include_resolved or not i.get('resolved'))
+                and (include_internal or not self.is_internal(i))]
         return sorted(rows, key=lambda i: i.get('raised_at', ''), reverse=True)
+
+    @staticmethod
+    def is_internal(item) -> bool:
+        """True when only leadership may see this.
+
+        Read as "anything that is not explicitly internal is not" — an item
+        written before this existed carries no visibility at all and stays
+        exactly as visible as it has always been.
+        """
+        return (item or {}).get('visibility') == 'internal'
 
     def resolve(self, item_id: str, username: str, note: str = '',
                 resolved: bool = True) -> Optional[Dict]:

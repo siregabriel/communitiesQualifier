@@ -1897,9 +1897,16 @@ def test_a_raised_item_stays_inside_its_community():
 
         assert not b.get("/api/raised-items").get_json()["items"], \
             "another community can see it"
+        # Refused, and the item genuinely untouched. The code moved from 403 to
+        # 404 when reading, commenting and closing were put behind one rule:
+        # an item you may not see now answers the same as one that is not
+        # there, so nobody can probe for what exists. Pinning the number tested
+        # the wording of the refusal; this tests the refusal.
         assert b.post(f"/api/raised-items/{item['id']}/resolve", json={},
-                      headers=HDR).status_code == 403, \
+                      headers=HDR).status_code in (403, 404), \
             "another community can close it"
+        assert not A.raised_item_service.get(item["id"]).get("resolved"), \
+            "it was refused but closed anyway"
 
         # The community that raised it may close its own — closing a finding
         # moves the score, which is why that stays with a regional; this does
