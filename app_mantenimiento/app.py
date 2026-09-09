@@ -251,7 +251,7 @@ def _plain(value):
     """Text as the person typed it, for a template to print.
 
     Everything is escaped on the way in, so what is stored for "Angie's walk
-    through" is "Angie&#x27;s walk through". Printing that through Jinja
+    through" is "Angie's walk through". Printing that through Jinja
     escapes it a second time and the entity itself lands on the page. This
     undoes the storage escaping; Jinja's autoescaping then does the one pass
     that belongs at the point of output, so the result is safe and readable.

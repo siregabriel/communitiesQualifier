@@ -829,6 +829,49 @@
             box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
                         0 0 0 3px rgba(148, 163, 184, .18);
         }
+        /* A clean walk. Gold rather than the score's green, because it is
+           saying something the colour scale cannot: not "this is a good
+           number" but "there was nothing to fix".
+
+           It breathes in opacity, not in size. The card clips, and the medal
+           sits 24px in with about 15px of room — a halo that grows past that
+           loses its outer edge to the corner and looks broken rather than
+           bright. Same envelope as every other state, different colour and a
+           pulse. */
+        .cc-medal.cc-perfect {
+            box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
+                        0 0 0 3px rgba(212, 160, 23, .26),
+                        0 0 14px 1px rgba(212, 160, 23, .55);
+            animation: ccPerfectGlow 2.6s ease-in-out infinite;
+        }
+        @keyframes ccPerfectGlow {
+            0%, 100% { box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
+                                   0 0 0 3px rgba(212, 160, 23, .22),
+                                   0 0 11px 1px rgba(212, 160, 23, .40); }
+            50%      { box-shadow: 0 4px 14px rgba(2, 12, 34, .18),
+                                   0 0 0 3px rgba(212, 160, 23, .34),
+                                   0 0 15px 1px rgba(212, 160, 23, .72); }
+        }
+        html[data-theme="dark"] .cc-medal.cc-perfect {
+            box-shadow: 0 4px 14px rgba(0, 0, 0, .5),
+                        0 0 0 3px rgba(245, 194, 107, .30),
+                        0 0 13px 1px rgba(245, 194, 107, .60);
+            animation-name: ccPerfectGlowDark;
+        }
+        @keyframes ccPerfectGlowDark {
+            0%, 100% { box-shadow: 0 4px 14px rgba(0, 0, 0, .5),
+                                   0 0 0 3px rgba(245, 194, 107, .24),
+                                   0 0 10px 1px rgba(245, 194, 107, .44); }
+            50%      { box-shadow: 0 4px 14px rgba(0, 0, 0, .5),
+                                   0 0 0 3px rgba(245, 194, 107, .38),
+                                   0 0 15px 1px rgba(245, 194, 107, .78); }
+        }
+        /* Somebody who has asked their system to stop moving things keeps the
+           gold and loses the pulse. The distinction is the colour; the
+           animation only draws the eye to it. */
+        @media (prefers-reduced-motion: reduce) {
+            .cc-medal.cc-perfect { animation: none; }
+        }
         html[data-theme="dark"] .cc-medal { background: #131c2b; }
         /* The glow carries further on a dark card, so it is pulled back a
            little to stop it reading as a smudge. */
@@ -4133,8 +4176,23 @@
                 // The score sits on the photo's edge like a medal. The old card
                 // spent about 250px of a phone screen drawing one number, which
                 // meant one community per screen.
+                /* A clean walk: every standard passed on the day, with nothing
+                   to go back and fix. Reaching 100 by addressing findings
+                   afterwards is a real achievement too, and it already has its
+                   own telling — the recovered arc on the ring and the three
+                   boxes below. This is the other one, which the card had no
+                   way of showing: two communities at 100% looked identical
+                   when one earned it walking and the other by repairing.
+
+                   A partial visit is excluded. Three standards answered out of
+                   thirty-nine, all passing, is 100% by arithmetic and not by
+                   any other measure — handing it the same mark would make the
+                   mark worth nothing. */
+                const perfectWalk = community.visitScore === 100 && !community.partial;
                 const medal = `
-                            <div class="cc-medal ${scoreClass || progressClass || ''}" title="${community.fixedSinceVisit
+                            <div class="cc-medal ${scoreClass || progressClass || ''}${perfectWalk ? ' cc-perfect' : ''}" title="${
+                                perfectWalk ? 'Every standard passed on the visit — nothing to fix'
+                                : community.fixedSinceVisit
                                 ? `${community.visitScore}% at the visit, ${community.fixedSinceVisit} fixed since`
                                 : 'Score from the latest visit'}">
                                 <div class="circular-progress">
