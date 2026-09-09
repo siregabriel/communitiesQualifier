@@ -97,6 +97,48 @@ console.log('\nWhat it looks like');
      'somebody who asked their system to stop moving things keeps the gold and loses the pulse');
 }
 
+console.log('\nAnd it moves, visibly');
+{
+  // A pulse in opacity reads as "lit" rather than as moving. The sweep is the
+  // part that is unmistakably an animation — which is what was asked for.
+  ok(/\.cc-medal\.cc-perfect::before/.test(head), 'there is a sheen around the ring');
+  const sheen = head.slice(head.indexOf('.cc-medal.cc-perfect::before'));
+  const decl = sheen.slice(0, sheen.indexOf('}'));
+  ok(/animation:\s*ccPerfectSweep/.test(decl), 'and it travels');
+  ok(/conic-gradient/.test(decl), 'as a sheen going round, not another pulse');
+
+  // Without the mask the cone covers the white disc and the score with it.
+  ok(/mask:\s*radial-gradient/.test(decl),
+     'masked down to the outer band, so it does not cover the number');
+  const guard = head.slice(0, head.indexOf('.cc-medal.cc-perfect::before'));
+  ok(/@supports[^{]*mask[^{]*$/m.test(guard.slice(-260)),
+     'and guarded, so a browser without mask gets no sheen rather than a gold blob');
+
+  const inset = (decl.match(/inset:\s*-(\d+)px/) || [])[1];
+  ok(inset && Number(inset) <= 15,
+     `it stays inside the room the card's clipping allows (${inset}px of 15)`);
+
+  ok(/prefers-reduced-motion[\s\S]{0,260}::before\s*\{\s*animation:\s*none/.test(head),
+     'and it stops for somebody who asked their system to stop moving things');
+}
+
+console.log('\nThe words on the card');
+{
+  ok(/class="cc-clean"/.test(html), 'a clean visit is named, not left to a colour');
+  ok(/Clean visit/.test(html), 'in words');
+
+  // The chip lives in the footer, beside the state summary. Next to the name
+  // it wrapped onto a second line for a community called "The Goldton at
+  // Spring Hill, Spring Hill".
+  const foot = html.slice(html.indexOf('<div class="cc-foot">'));
+  ok(foot.slice(0, 400).includes('cc-clean'), 'in the footer row, with the rest of the state');
+
+  // The one that stops the two being merged into a single sentence.
+  ok(/perfectWalk \? `<span class="cc-clean"/.test(html) && /open action/.test(foot),
+     'and separate from the open-actions line: all standards can pass while an '
+     + 'item that does not score is still open');
+}
+
 console.log('\nIt says what it means');
 {
   // Search forward from the start of the block, not from the top of the file:

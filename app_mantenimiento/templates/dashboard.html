@@ -866,11 +866,64 @@
                                    0 0 0 3px rgba(245, 194, 107, .38),
                                    0 0 15px 1px rgba(245, 194, 107, .78); }
         }
+        /* A sheen travelling round the ring, on top of the pulse. The pulse
+           alone breathes in opacity and reads as "lit" rather than as moving —
+           this is the part that is unmistakably an animation.
+
+           It lives 7px outside the medal, inside the 15px the card's clipping
+           allows, and is masked down to that outer band: without the mask the
+           cone would cover the white disc and the score with it. Guarded by
+           @supports for exactly that reason — where mask is unavailable there
+           is no sheen rather than a gold blob over the number. */
+        @supports ((mask: radial-gradient(#000, #000)) or (-webkit-mask: radial-gradient(#000, #000))) {
+            .cc-medal.cc-perfect::before {
+                content: '';
+                position: absolute;
+                inset: -7px;
+                border-radius: 50%;
+                background: conic-gradient(from 0turn,
+                            rgba(212, 160, 23, 0) 0turn,
+                            rgba(212, 160, 23, 0) .30turn,
+                            rgba(247, 208, 96, .95) .50turn,
+                            rgba(212, 160, 23, 0) .70turn,
+                            rgba(212, 160, 23, 0) 1turn);
+                -webkit-mask: radial-gradient(closest-side, transparent 0 79%, #000 82%);
+                        mask: radial-gradient(closest-side, transparent 0 79%, #000 82%);
+                animation: ccPerfectSweep 3.4s linear infinite;
+                pointer-events: none;
+            }
+        }
+        @keyframes ccPerfectSweep {
+            to { transform: rotate(1turn); }
+        }
+
         /* Somebody who has asked their system to stop moving things keeps the
-           gold and loses the pulse. The distinction is the colour; the
-           animation only draws the eye to it. */
+           gold and loses both the pulse and the sweep. The distinction is the
+           colour and the words on the card; the animation only draws the eye. */
         @media (prefers-reduced-motion: reduce) {
             .cc-medal.cc-perfect { animation: none; }
+            .cc-medal.cc-perfect::before { animation: none; opacity: .55; }
+        }
+
+        /* "Clean visit", where the card already summarises its state. Next to
+           the open-actions line rather than beside the name: a community
+           called "The Goldton at Spring Hill, Spring Hill" pushes anything
+           sharing that line onto a second row.
+
+           It is a separate sentence from the open actions on purpose. A
+           regional can pass all thirty-nine standards and still raise an item
+           for something that does not score — the tree outside is down — so a
+           clean visit and nothing open are two different facts and the card
+           can truthfully show both at once. */
+        .cc-clean {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #fdf6e3; color: #8a6d1f; border: 1px solid #efe0b4;
+            border-radius: 999px; padding: 3px 9px;
+            font-size: 11px; font-weight: 800; white-space: nowrap;
+        }
+        html[data-theme="dark"] .cc-clean {
+            background: rgba(245, 194, 107, .14); color: #f5c26b;
+            border-color: rgba(245, 194, 107, .3);
         }
         html[data-theme="dark"] .cc-medal { background: #131c2b; }
         /* The glow carries further on a dark card, so it is pulled back a
@@ -922,8 +975,15 @@
             margin-top: 12px;
             padding-top: 11px;
             border-top: 1px solid #e8edf5;
-            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            /* Three things fit here now on a clean visit. Wrapping keeps a
+               long community name's card from squashing them into each other,
+               and pushing "View details" with a margin rather than relying on
+               space-between keeps the chip beside the line it belongs with
+               instead of stranded in the middle. */
+            flex-wrap: wrap;
         }
+        .cc-foot .cc-go { margin-left: auto; }
         html[data-theme="dark"] .cc-foot { border-top-color: #26324a; }
         .cc-go { font-size: 12.5px; font-weight: 700; color: #2563eb; white-space: nowrap; }
         html[data-theme="dark"] .cc-go { color: #9cc4ff; }
@@ -4246,6 +4306,7 @@
                             ${trendBlock(community)}
                             ${stats}
                             <div class="cc-foot">
+                                ${perfectWalk ? `<span class="cc-clean" title="Every standard passed on the visit — nothing to fix"><i class="fas fa-circle-check"></i> Clean visit</span>` : ''}
                                 <span class="action-items ${actionClass}">
                                     <i class="fas ${community.actionItems > 0 ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
                                     <span>${hasData
