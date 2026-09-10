@@ -611,9 +611,40 @@ html[data-theme="dark"] .rc-toggle { background: #131c2b; border-color: #26324a;
     .main-content::before { animation: none; }
 }
 
+/* Not on a phone.
+
+   The layer starts 260px in so it never tints the sidebar. On a phone the
+   sidebar is off-canvas but that offset stayed, so the colour began two
+   thirds of the way across and left a hard vertical seam down the screen —
+   the page looked like two backgrounds meeting rather than one atmosphere.
+
+   Starting it at 0 instead would fix the seam and cost more: it is a fixed,
+   filtered, animated layer under everything, which is the kind of thing a
+   phone pays for in battery on a page somebody keeps open all day. On a
+   screen this size the wash carries the look on its own. */
+@media (max-width: 768px) {
+    .main-content::before { display: none; }
+}
+
 
 html[data-theme="dark"] .main-content {
     background: linear-gradient(180deg, #0b1220 0%, #0c1424 42%, #0e1728 100%) !important;
+}
+
+/* The floating menu button on a phone.
+
+   Its icon is an <i> inside .main-content, so the dark-mode catch-all lifts
+   it to #d7e0ec — on a button whose background is still white. White on
+   white: the third time this exact shape has bitten, after the sidebar
+   labels and the calendar chips. Lifting ink without bringing the surface
+   with it is the pattern, so the surface comes too. */
+html[data-theme="dark"] .mobile-menu-toggle {
+    background: #161f2e !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .5), inset 0 0 0 1px #2b3a52;
+}
+html[data-theme="dark"] .mobile-menu-toggle,
+html[data-theme="dark"] .mobile-menu-toggle i {
+    color: #e7edf6 !important;
 }
 /* Deeper, less saturated blobs: the light-mode colours read as muddy
    smears over a near-black page. */
