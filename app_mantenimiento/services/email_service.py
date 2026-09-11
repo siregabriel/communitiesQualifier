@@ -151,7 +151,11 @@ class EmailService:
                 f"<li style='margin:6px 0'>"
                 f"<b style='color:{pr_color.get(i.get('priority'), '#92620a')}'>"
                 f"[{esc((i.get('priority') or 'medium').upper())}]</b> {esc(i.get('text'))}"
-                + (f"<br><span style='color:#6b7280;font-size:13px'>For: {esc(i.get('assigned_to'))}</span>"
+                # assigned_to holds the department's id; the resolver puts
+                # its name here. Falling back to the id keeps an older record
+                # readable rather than blank.
+                + (f"<br><span style='color:#6b7280;font-size:13px'>For: "
+                   f"{esc(i.get('assigned_to_name') or i.get('assigned_to'))}</span>"
                    if i.get('assigned_to') else "")
                 + "</li>"
                 for i in manual)
@@ -752,7 +756,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             f"<b style='color:{pr_color.get(i.get('priority'), '#92620a')};font-size:12px'>"
             f"[{esc((i.get('priority') or 'medium').upper())}]</b> "
             f"<span style='font-size:14px;color:#0f1e36'>{esc(i.get('text'))}</span>"
-            + (f"<div style='font-size:12.5px;color:#6b7280;margin-top:2px'>For: {esc(i.get('assigned_to'))}</div>"
+            + (f"<div style='font-size:12.5px;color:#6b7280;margin-top:2px'>For: "
+               f"{esc(i.get('assigned_to_name') or i.get('assigned_to'))}</div>"
                if i.get('assigned_to') else "")
             + "</li>"
             for i in action_items)
@@ -795,7 +800,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             text_lines.append(f"OTHER ITEMS FLAGGED ({len(action_items)})")
             for i in action_items:
                 text_lines.append(f"  - [{(i.get('priority') or 'medium').upper()}] {i.get('text')}"
-                                  + (f" (for: {i.get('assigned_to')})" if i.get('assigned_to') else ""))
+                                  + (f" (for: {i.get('assigned_to_name') or i.get('assigned_to')})"
+                                     if i.get('assigned_to') else ""))
             text_lines.append("")
         if context_text:
             text_lines.append(context_text.rstrip("\n"))

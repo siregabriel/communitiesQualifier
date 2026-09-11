@@ -414,6 +414,26 @@ def _department_label(key):
     return (dept or {}).get('name') or (key or '').strip()
 
 
+def _with_department_names(items):
+    """Action items with the department spelled out under assigned_to_name.
+
+    The dropdown stores the department's id, so renaming one cannot orphan the
+    items filed under it. That is right, and it meant every place printing the
+    field raw started showing people "admin-personnel" — including a visit
+    email that went to the whole leadership team.
+
+    Resolved in one place rather than at each of the five that display it: the
+    community email, the leadership report, its plain-text part, the activity
+    line, and the card in Action Items. Each reads assigned_to_name and keeps
+    assigned_to as the reference it always was.
+    """
+    out = []
+    for it in (items or []):
+        dept = (it.get('assigned_to') or '').strip()
+        out.append({**it, 'assigned_to_name': _department_label(dept)} if dept else it)
+    return out
+
+
 def _fold_routes_into_departments():
     """Bring the old fixed routes into the department list, once.
 
@@ -1112,7 +1132,8 @@ def send_community_handover(community, recipients):
     if latest:
         failed = [r for r in (latest.get('responses') or [])
                   if r.get('condition') == 'Fail' and not r.get('addressed')]
-        open_items = [i for i in (latest.get('action_items') or []) if not i.get('resolved')]
+        open_items = _with_department_names(
+            [i for i in (latest.get('action_items') or []) if not i.get('resolved')])
         inspector = latest.get('inspector_name') or resolve_display_name(latest.get('username', ''))
         when = (latest.get('submitted_at') or '')[:10]
 
@@ -6648,7 +6669,14 @@ def submit_inspection():
                         criteria_map[q['id']] = crit
                     if q.get('text'):
                         criteria_map['t:' + q['text'].strip().lower()] = crit
-                email_service.send_inspection_report(submission, recipients, survey_name, criteria_map)
+                # This one reads the action items off the submission itself, so
+                # the departments have to be resolved before it is handed over
+                # — otherwise the leadership report is the one place that still
+                # prints "admin-personnel", which is exactly where it was seen.
+                email_service.send_inspection_report(
+                    {**submission,
+                     'action_items': _with_department_names(submission.get('action_items'))},
+                    recipients, survey_name, criteria_map)
 
                 # The community gets its own, narrower email: what was found
                 # here and what to do about it — no score, no comparisons.
@@ -6657,8 +6685,9 @@ def submit_inspection():
                     responses = submission.get('responses') or []
                     failed = [r for r in responses if r.get('condition') == 'Fail']
                     passed = [r for r in responses if r.get('condition') == 'Pass']
-                    open_items = [i for i in (submission.get('action_items') or [])
-                                  if not i.get('resolved')]
+                    open_items = _with_department_names(
+                        [i for i in (submission.get('action_items') or [])
+                         if not i.get('resolved')])
                     done = len(passed) + len(failed)
                     email_service.send_community_findings(
                         ed_emails, community,
@@ -6791,6 +6820,11 @@ def get_inspections():
             uname = sub.get('username', '')
             name = sub.get('inspector_name') or resolve_display_name(uname)
             new_sub = {**sub, 'inspector_name': name}
+            # Unconditionally, unlike the signed-URL work below: that only
+            # matters with S3 configured, while a department reads as an id on
+            # every installation.
+            if isinstance(sub.get('action_items'), list):
+                new_sub['action_items'] = _with_department_names(sub['action_items'])
             if file_upload_handler.use_s3 and isinstance(sub.get('responses'), list):
                 new_responses = []
                 for resp in sub['responses']:
@@ -6907,7 +6941,7 @@ def _export_rows():
             note = (it.get('resolution_note') or '').replace('\r', ' ').replace('\n', ' ')
             detail = []
             if it.get('assigned_to'):
-                detail.append(f"For: {it['assigned_to']}")
+                detail.append(f"For: {_department_label(it['assigned_to'])}")
             detail.append(status)
             if status == 'Done' and note:
                 detail.append(f"Fix: {note}")

@@ -10439,8 +10439,12 @@
                                 submissionId: submission.id,
                                 questionText: item.text,
                                 condition: 'Action',
-                                description: item.assigned_to ? `Assigned to ${item.assigned_to}` : '',
-                                assignedTo: item.assigned_to || '',
+                                // The server resolves the department's name;
+                                // assigned_to itself is the id it is filed
+                                // under, which is not a thing to show anybody.
+                                description: item.assigned_to
+                                    ? `Assigned to ${item.assigned_to_name || item.assigned_to}` : '',
+                                assignedTo: item.assigned_to_name || item.assigned_to || '',
                                 priority: item.priority || 'medium',
                                 resolved: !!item.resolved,
                                 resolvedAt: item.resolved_at || '',
