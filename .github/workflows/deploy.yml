@@ -6,7 +6,64 @@ on:
   workflow_dispatch:   # lets you trigger a deploy manually from the Actions tab
 
 jobs:
+  # Runs first. The deploy below waits for it, so a push that breaks something
+  # the tests know about leaves production on the version that works rather
+  # than replacing it with the one that does not.
+  #
+  # It does not check whether anything looks right — no test knows that. It
+  # checks that what we decided still holds.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Run the Python suite
+        working-directory: app_mantenimiento
+        # test_smoke.py is excluded on purpose and not by accident: it performs
+        # around forty writes against real data, and one of its cases renames a
+        # real community. It is a suite for a machine that owns its own data,
+        # which is the argument for a staging environment and not for running
+        # it here.
+        #
+        # A fresh checkout has no data/*.json — those are git-ignored so a
+        # deploy never overwrites production. The app seeds itself from
+        # data/seeds/ on first run, which is why this is a real run and not a
+        # parade of skips. If that ever stops being true the count below drops
+        # sharply, so it is asserted rather than trusted.
+        run: |
+          python -m pytest tests/ --ignore=tests/test_smoke.py -q -rs | tee /tmp/py.log
+          if grep -qE '[0-9]+ skipped' /tmp/py.log; then
+            echo "::warning::Some Python tests skipped — the seed data may no longer be enough for them to run."
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install jsdom
+        working-directory: app_mantenimiento
+        # npm install, not npm ci: there is no lockfile, because this manifest
+        # exists only for the tests and the app ships no JavaScript build.
+        run: npm install --no-audit --no-fund
+
+      - name: Run the browser suites
+        working-directory: app_mantenimiento
+        # The runner finds the suites by looking in the directory, so a suite
+        # somebody adds is a suite that runs. It fails if it finds none — an
+        # empty pass and a real one look identical from out here.
+        run: npm test
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Deploy over SSH

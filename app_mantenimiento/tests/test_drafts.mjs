@@ -10,7 +10,11 @@
  * version, keyPath and the same put/get/cursor calls. If you change the store
  * there, change it here.
  *
- *   cd app_mantenimiento && npm install --no-save fake-indexeddb
+ *   cd app_mantenimiento && npm install
+ *
+ * It used to say --no-save, which is how this dependency came to exist on
+ * one machine and nowhere else: the suite passed locally for weeks and
+ * failed the moment it ran on a clean checkout. It is in package.json now.
  *   node tests/test_drafts.mjs
  */
 import 'fake-indexeddb/auto';

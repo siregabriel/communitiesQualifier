@@ -1,0 +1,12 @@
+{
+  "name": "atlas-excellence-tests",
+  "private": true,
+  "description": "Test-only manifest. The app itself ships no JavaScript build — the dashboard is a single template with inline script, served as it is written. This exists so the suites have a pinned jsdom and one command to run them all, here and in CI.",
+  "scripts": {
+    "test": "node tests/run-all.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "30.0.1",
+    "fake-indexeddb": "6.2.5"
+  }
+}
