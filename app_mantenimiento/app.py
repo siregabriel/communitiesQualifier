@@ -205,62 +205,53 @@ def _client_ip():
 
 
 def _client_device():
-    """The phone or computer somebody signed in from, as far as we can tell.
+    """The device somebody signed in from, as far as the User-Agent says.
 
-    Read off the User-Agent, which is whatever the client says it is — so this
-    is a reading, never a fact. When it does not match anything known it
-    returns '' and the sign-in is recorded without a device rather than with a
-    guess: a log that is confidently wrong is worse than one that is quiet.
+    Four answers, because four is what anyone does anything with: iPhone,
+    iPad, Android, or Desktop. The app is native on the two phones, so which
+    browser was used is not a question anybody here asks — and a device
+    problem reported from "Android" is already narrow enough to act on.
 
-    Worth having because of how device problems arrive. They come in as "on my
-    phone it looks like this", and the first question back is always which
-    phone — a question already answered on the line that recorded the sign-in.
+    Desktop is the catch-all rather than a fifth "unknown". Somebody signing
+    in from a computer is the ordinary case, and a log that says "unknown" for
+    the ordinary case teaches people to ignore the field.
 
-    Order matters. iPadOS puts "Macintosh" in its User-Agent, so the iPad test
-    has to come before the Mac one or every iPad reads as a laptop. Chrome on
-    iOS says "CriOS" and still contains "Safari"; Edge says "Edg" and contains
-    both "Chrome" and "Safari"; so the most specific name wins and the generic
-    ones are checked last.
+    Order matters, and each of these looks right when it is wrong. iPadOS puts
+    "Macintosh" in its User-Agent, so iPad has to be settled before anything
+    desktop or every iPad is filed as a laptop. And an Android tablet is told
+    from an Android phone only by the absence of "Mobile".
     """
     ua = request.headers.get('User-Agent', '') or ''
-    if not ua:
-        return ''
-
     if 'iPhone' in ua:
-        device = 'iPhone'
-    elif 'iPad' in ua or ('Macintosh' in ua and 'Mobile' in ua):
-        device = 'iPad'
-    elif 'Android' in ua:
-        device = 'Android tablet' if 'Mobile' not in ua else 'Android'
-    elif 'Macintosh' in ua or 'Mac OS X' in ua:
-        device = 'Mac'
-    elif 'Windows' in ua:
-        device = 'Windows'
-    elif 'Linux' in ua or 'X11' in ua:
-        device = 'Linux'
-    else:
-        return ''
+        return 'iPhone'
+    if 'iPad' in ua or ('Macintosh' in ua and 'Mobile' in ua):
+        return 'iPad'
+    if 'Android' in ua:
+        return 'Android' if 'Mobile' in ua else 'Android tablet'
+    return 'Desktop'
 
-    if 'Edg' in ua:
-        browser = 'Edge'
-    elif 'CriOS' in ua or 'Chrome' in ua:
-        browser = 'Chrome'
-    elif 'FxiOS' in ua or 'Firefox' in ua:
-        browser = 'Firefox'
-    elif 'Safari' in ua:
-        browser = 'Safari'
-    else:
-        browser = ''
 
-    return f'{device} · {browser}' if browser else device
+def _looks_like_a_browser():
+    """Whether the caller presented itself as one at all.
+
+    Desktop is the catch-all, which means curl, a bot or a monitoring probe
+    also lands there — and on a sign-in log, a scripted request reading as a
+    person at a computer is the one case worth being able to tell apart later.
+    When this is false the raw User-Agent is kept alongside, so an odd login
+    can still be accounted for.
+    """
+    ua = request.headers.get('User-Agent', '') or ''
+    return 'Mozilla/' in ua or 'AppleWebKit' in ua
 
 
 def _login_meta(**extra):
     """What to record alongside a sign-in: where from, and on what."""
-    meta = {'ip': _client_ip()}
-    device = _client_device()
-    if device:
-        meta['device'] = device
+    meta = {'ip': _client_ip(), 'device': _client_device()}
+    if not _looks_like_a_browser():
+        # Filed as Desktop like everything unrecognised, but kept verbatim so
+        # a sign-in that was not a person at a computer can be told from one
+        # that was. Truncated: this is a header the caller controls.
+        meta['ua'] = (request.headers.get('User-Agent', '') or '')[:200]
     meta.update(extra)
     return meta
 
@@ -269,15 +260,10 @@ def _signed_in_detail(via=''):
     """The sentence on the activity line.
 
     Built here so the two sign-in routes cannot drift into describing the same
-    event differently, and so an unreadable User-Agent simply leaves the
-    device out — "Signed in from Atlerts" is what it has always said and is
-    still true; "Signed in from Atlerts on unknown" is noise pretending to be
-    information.
+    event differently.
     """
     where = f' from {via}' if via else ''
-    device = _client_device()
-    on = f' on {device}' if device else ''
-    return f'Signed in{where}{on}'
+    return f'Signed in{where} on {_client_device()}'
 
 
 def _login_throttle_key():
