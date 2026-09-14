@@ -204,6 +204,82 @@ def _client_ip():
     return ip or 'unknown'
 
 
+def _client_device():
+    """The phone or computer somebody signed in from, as far as we can tell.
+
+    Read off the User-Agent, which is whatever the client says it is — so this
+    is a reading, never a fact. When it does not match anything known it
+    returns '' and the sign-in is recorded without a device rather than with a
+    guess: a log that is confidently wrong is worse than one that is quiet.
+
+    Worth having because of how device problems arrive. They come in as "on my
+    phone it looks like this", and the first question back is always which
+    phone — a question already answered on the line that recorded the sign-in.
+
+    Order matters. iPadOS puts "Macintosh" in its User-Agent, so the iPad test
+    has to come before the Mac one or every iPad reads as a laptop. Chrome on
+    iOS says "CriOS" and still contains "Safari"; Edge says "Edg" and contains
+    both "Chrome" and "Safari"; so the most specific name wins and the generic
+    ones are checked last.
+    """
+    ua = request.headers.get('User-Agent', '') or ''
+    if not ua:
+        return ''
+
+    if 'iPhone' in ua:
+        device = 'iPhone'
+    elif 'iPad' in ua or ('Macintosh' in ua and 'Mobile' in ua):
+        device = 'iPad'
+    elif 'Android' in ua:
+        device = 'Android tablet' if 'Mobile' not in ua else 'Android'
+    elif 'Macintosh' in ua or 'Mac OS X' in ua:
+        device = 'Mac'
+    elif 'Windows' in ua:
+        device = 'Windows'
+    elif 'Linux' in ua or 'X11' in ua:
+        device = 'Linux'
+    else:
+        return ''
+
+    if 'Edg' in ua:
+        browser = 'Edge'
+    elif 'CriOS' in ua or 'Chrome' in ua:
+        browser = 'Chrome'
+    elif 'FxiOS' in ua or 'Firefox' in ua:
+        browser = 'Firefox'
+    elif 'Safari' in ua:
+        browser = 'Safari'
+    else:
+        browser = ''
+
+    return f'{device} · {browser}' if browser else device
+
+
+def _login_meta(**extra):
+    """What to record alongside a sign-in: where from, and on what."""
+    meta = {'ip': _client_ip()}
+    device = _client_device()
+    if device:
+        meta['device'] = device
+    meta.update(extra)
+    return meta
+
+
+def _signed_in_detail(via=''):
+    """The sentence on the activity line.
+
+    Built here so the two sign-in routes cannot drift into describing the same
+    event differently, and so an unreadable User-Agent simply leaves the
+    device out — "Signed in from Atlerts" is what it has always said and is
+    still true; "Signed in from Atlerts on unknown" is noise pretending to be
+    information.
+    """
+    where = f' from {via}' if via else ''
+    device = _client_device()
+    on = f' on {device}' if device else ''
+    return f'Signed in{where}{on}'
+
+
 def _login_throttle_key():
     return _client_ip()
 
@@ -1386,8 +1462,8 @@ def api_login():
 
             # Record the sign-in for the People directory and the activity feed.
             presence_service.record_login(username)
-            activity_service.log(username, 'login', 'Signed in',
-                                 meta={'ip': _client_ip()})
+            activity_service.log(username, 'login', _signed_in_detail(),
+                                 meta=_login_meta())
 
             return jsonify({
                 'status': 'success',
@@ -7446,8 +7522,8 @@ def atlerts_sso():
 
     presence_service.record_login(username)
     activity_service.log(
-        username, "login", "Signed in from Atlerts",
-        meta={"ip": _client_ip()},
+        username, "login", _signed_in_detail('Atlerts'),
+        meta=_login_meta(via='atlerts'),
     )
 
     return redirect("/change-password" if must_change else "/")
