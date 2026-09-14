@@ -5,9 +5,13 @@ Device problems arrive as "on my phone it looks like this", and the first
 question back is always which phone. That question is answerable from the
 activity line, which already had the answer in the request and threw it away.
 
-Four answers and no more: iPhone, iPad, Android, Desktop. The app is native on
-the two phones, so which browser was used is not a question anybody here asks.
-Desktop is the catch-all rather than a fifth "unknown" — somebody at a
+Two layers, on purpose. The line says the platform — iOS, Android, Desktop —
+because that is how the app ships and how people here talk about it. The meta
+keeps the exact device, because an iPad is a different screen from an iPhone
+and the reason this field exists is that layout problems arrive as "on my
+phone it looks like this".
+
+Desktop is the catch-all rather than a fourth "unknown": somebody at a
 computer is the ordinary case, and a field that says "unknown" for the
 ordinary case is a field people learn to skip.
 
@@ -47,16 +51,33 @@ WINDOWS_EDGE = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 
 
 def read(ua):
+    """The exact device, which is what the meta records."""
     with A.app.test_request_context('/', headers={'User-Agent': ua}):
         return A._client_device()
+
+
+def platform(ua):
+    """The platform, which is what the line says."""
+    with A.app.test_request_context('/', headers={'User-Agent': ua}):
+        return A._client_platform()
 
 
 # ---------------------------------------------------------- what it reads
 
 def test_the_two_platforms_that_prompted_this():
     """Atlerts ships on both, and the log said neither."""
+    assert platform(IPHONE) == 'iOS'
+    assert platform(ANDROID) == 'Android'
     assert read(IPHONE) == 'iPhone'
     assert read(ANDROID) == 'Android'
+
+
+def test_an_ipad_is_ios_on_the_line_and_an_ipad_in_the_record():
+    """One word apart in the sentence, two different screens in practice."""
+    assert platform(IPAD) == 'iOS'
+    assert read(IPAD) == 'iPad'
+    assert platform(IPHONE) == platform(IPAD) == 'iOS'
+    assert read(IPHONE) != read(IPAD), 'the distinction is lost where it matters'
 
 
 def test_an_ipad_is_not_a_desktop():
@@ -82,6 +103,7 @@ def test_the_browser_is_not_part_of_the_answer():
     field has quietly gone back to being about software.
     """
     assert read(IPHONE) == read(IPHONE_CHROME) == 'iPhone'
+    assert platform(IPHONE) == platform(IPHONE_CHROME) == 'iOS'
     assert read(MAC) == read(WINDOWS_EDGE) == 'Desktop'
     for ua in (IPHONE, ANDROID, MAC, WINDOWS_EDGE):
         assert '·' not in read(ua) and 'Safari' not in read(ua)
@@ -128,10 +150,19 @@ def test_a_very_long_header_is_cut():
 
 # ------------------------------------------------------------ the sentence
 
-def test_the_sentence_always_says_a_device_now():
+def test_the_sentence_says_the_platform_not_the_hardware():
+    """iOS, because that is how the app ships and how people here talk.
+
+    The iPad proves it is the platform and not just a renamed iPhone: both
+    read the same on the line.
+    """
     with A.app.test_request_context('/', headers={'User-Agent': IPHONE}):
-        assert A._signed_in_detail() == 'Signed in on iPhone'
-        assert A._signed_in_detail('Atlerts') == 'Signed in from Atlerts on iPhone'
+        assert A._signed_in_detail() == 'Signed in on iOS'
+        assert A._signed_in_detail('Atlerts') == 'Signed in from Atlerts on iOS'
+    with A.app.test_request_context('/', headers={'User-Agent': IPAD}):
+        assert A._signed_in_detail('Atlerts') == 'Signed in from Atlerts on iOS'
+    with A.app.test_request_context('/', headers={'User-Agent': ANDROID_TABLET}):
+        assert A._signed_in_detail('Atlerts') == 'Signed in from Atlerts on Android'
     with A.app.test_request_context('/', headers={'User-Agent': 'curl/8.4.0'}):
         assert A._signed_in_detail() == 'Signed in on Desktop'
         assert A._signed_in_detail('Atlerts') == 'Signed in from Atlerts on Desktop'
@@ -141,8 +172,13 @@ def test_the_meta_carries_it_too():
     """The sentence is for reading; the meta is for filtering later."""
     with A.app.test_request_context('/', headers={'User-Agent': ANDROID}):
         meta = A._login_meta()
+        assert meta['platform'] == 'Android'
         assert meta['device'] == 'Android'
         assert 'ip' in meta
+    with A.app.test_request_context('/', headers={'User-Agent': ANDROID_TABLET}):
+        meta = A._login_meta()
+        assert meta['platform'] == 'Android', 'the line groups them'
+        assert meta['device'] == 'Android tablet', 'the record does not' 
 
 
 def test_extra_meta_is_kept():
@@ -186,5 +222,6 @@ def test_a_real_sign_in_records_the_device(monkeypatch):
                         'User-Agent': IPHONE})
     assert r.status_code == 200, r.get_data(as_text=True)[:200]
     assert seen.get('kind') == 'login'
-    assert seen['detail'] == 'Signed in on iPhone'
+    assert seen['detail'] == 'Signed in on iOS'
+    assert seen['meta']['platform'] == 'iOS'
     assert seen['meta']['device'] == 'iPhone'

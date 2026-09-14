@@ -205,16 +205,13 @@ def _client_ip():
 
 
 def _client_device():
-    """The device somebody signed in from, as far as the User-Agent says.
+    """The exact device, for the record rather than for the sentence.
 
-    Four answers, because four is what anyone does anything with: iPhone,
-    iPad, Android, or Desktop. The app is native on the two phones, so which
-    browser was used is not a question anybody here asks — and a device
-    problem reported from "Android" is already narrow enough to act on.
-
-    Desktop is the catch-all rather than a fifth "unknown". Somebody signing
-    in from a computer is the ordinary case, and a log that says "unknown" for
-    the ordinary case teaches people to ignore the field.
+    Kept finer than what the activity line says, and deliberately: an iPad is
+    a different screen from an iPhone, and the reason this field exists is
+    that layout problems arrive as "on my phone it looks like this". Rolled up
+    to a platform for reading, kept precise in the meta for the moment
+    somebody is actually chasing one.
 
     Order matters, and each of these looks right when it is wrong. iPadOS puts
     "Macintosh" in its User-Agent, so iPad has to be settled before anything
@@ -228,6 +225,23 @@ def _client_device():
         return 'iPad'
     if 'Android' in ua:
         return 'Android' if 'Mobile' in ua else 'Android tablet'
+    return 'Desktop'
+
+
+def _client_platform():
+    """What the activity line says: iOS, Android, or Desktop.
+
+    The platform, not the hardware, because that is how the app ships and how
+    people here talk about it — "the iOS one" and "the Android one". Three
+    answers and no fourth: anything unrecognised is Desktop rather than
+    unknown, since somebody at a computer is the ordinary case and a field
+    that says "unknown" for the ordinary case is a field people skip.
+    """
+    device = _client_device()
+    if device in ('iPhone', 'iPad'):
+        return 'iOS'
+    if device in ('Android', 'Android tablet'):
+        return 'Android'
     return 'Desktop'
 
 
@@ -246,7 +260,12 @@ def _looks_like_a_browser():
 
 def _login_meta(**extra):
     """What to record alongside a sign-in: where from, and on what."""
-    meta = {'ip': _client_ip(), 'device': _client_device()}
+    # Both: the platform is what the line says, the device is what somebody
+    # chasing a layout problem needs. An iPad and an iPhone are one word apart
+    # in the sentence and two different screens in practice.
+    meta = {'ip': _client_ip(),
+            'platform': _client_platform(),
+            'device': _client_device()}
     if not _looks_like_a_browser():
         # Filed as Desktop like everything unrecognised, but kept verbatim so
         # a sign-in that was not a person at a computer can be told from one
@@ -263,7 +282,7 @@ def _signed_in_detail(via=''):
     event differently.
     """
     where = f' from {via}' if via else ''
-    return f'Signed in{where} on {_client_device()}'
+    return f'Signed in{where} on {_client_platform()}'
 
 
 def _login_throttle_key():
