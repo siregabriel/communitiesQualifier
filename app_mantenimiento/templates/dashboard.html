@@ -8399,7 +8399,7 @@
                 `<button class="ppl-chip ${peopleFilter.role === key ? 'on' : ''}" onclick="peopleSetRole('${key}')">${label}${n !== undefined ? ` <span>${n}</span>` : ''}</button>`;
             const rows = list.map(p => {
                 const m = roleMeta[p.role] || roleMeta.staff;
-                const initials = (p.name || p.username).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+                const initials = profileInitials(p.name || p.username);
                 const avatar = p.photo
                     ? `<img class="ppl-avatar-img" src="/static/${escapeHtml(p.photo)}" alt="">`
                     : `<div class="ppl-avatar" style="background:${avatarColor(p.name || p.username)};">${escapeHtml(initials)}</div>`;
@@ -9228,7 +9228,7 @@
                 return;
             }
             host.innerHTML = list.map(p => {
-                const initials = (p.name || p.username).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+                const initials = profileInitials(p.name || p.username);
                 const avatar = p.photo
                     ? `<img class="al-av" src="/static/${escapeHtml(p.photo)}" alt="">`
                     : `<span class="al-av al-av-i" style="background:${avatarColor(p.name || p.username)};">${escapeHtml(initials)}</span>`;
@@ -9368,10 +9368,26 @@
             region_removed:       { icon: 'fa-sitemap',         label: 'Region updated' }
         };
 
+        /* One letter per name, which is what initials are.
+
+           This took the first two characters of the whole string, so Angie
+           Surls was AN and Kelse Henderson was KE — plausible enough at a
+           glance that it sat there for months, and wrong for everybody whose
+           avatar is not a photo.
+
+           The People view and the assign-leader list had the right version,
+           written out inline in both. They call this now: the same rule in
+           three places is how two of them end up disagreeing, which is
+           exactly what happened.
+
+           Splits on dots and @ as well as spaces so a username works too —
+           gabriel.rosales is GR, not GA. */
         function profileInitials(name) {
-            if (!name) return '?';
-            const s = name.trim();
-            return (s.length >= 2 ? s.slice(0, 2) : s.charAt(0)).toUpperCase();
+            const words = String(name || '').split(/[\s@.]+/).filter(Boolean);
+            if (!words.length) return '?';
+            // One name still gets two letters: a lone "C" reads as an error.
+            if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+            return (words[0][0] + words[1][0]).toUpperCase();
         }
         function avatarColor(name) {
             const palette = ['#1f6fe5', '#0bb8d4', '#7c3aed', '#db2777', '#059669', '#d97706', '#0ea5e9', '#e11d48'];
