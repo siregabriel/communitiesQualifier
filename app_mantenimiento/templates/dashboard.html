@@ -4868,6 +4868,16 @@
             _tourRemember('atlasCalendarTourSeen_v1');
             setTimeout(startCalendarTour, 650);
         }
+        /* A KPI tile that leads somewhere.
+
+           The reorder handle lives inside the tile, so a click that started
+           on it is a drag being finished and not a tile being pressed —
+           ignore it, or reordering your dashboard navigates away from it. */
+        function openKpi(event, view) {
+            if (event && event.target && event.target.closest('.dash-drag')) return;
+            showView(view);
+        }
+
         function contextHelp() {
             if (currentView === 'regions') startRegionsTour();
             else if (currentView === 'people') startPeopleTour();
@@ -5929,15 +5939,32 @@
             const visitedThisMonth = communityData.filter(c => c.lastVisitTs && inThisMonth(c.lastVisitTs)).length;
             const inspectionsThisMonth = (allSubmissions || []).filter(s => s.submitted_at && inThisMonth(s.submitted_at)).length;
 
+            /* Only the open items lead anywhere, and only because there is
+               one obvious place they lead. The other three have plausible
+               destinations and nobody has asked for them — a tile that takes
+               you somewhere you did not mean to go is worse than one that
+               does nothing, and it teaches people not to try the rest. */
             const kpis = [
                 { val: avgScore === null ? 'N/A' : avgScore + '%', lbl: 'Average score', color: scoreColor(avgScore) },
                 { val: `${visitedThisMonth}/${totalComms}`, lbl: 'Visited this month', color: 'var(--kpi-navy)' },
-                { val: totalActions, lbl: 'Open action items', color: totalActions > 0 ? '#d13212' : '#0f8a5f' },
+                { val: totalActions, lbl: 'Open action items', color: totalActions > 0 ? '#d13212' : '#0f8a5f',
+                  go: 'action-items', goLabel: 'Open Action Items' },
                 { val: inspectionsThisMonth, lbl: 'Visits this month', color: 'var(--kpi-navy)' },
             ];
-            const kpiHtml = kpis.map(k =>
-                `<div class="kpi" data-kpi="${k.lbl}"><div class="kpi-val" style="color:${k.color}">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`
-            ).join('');
+            const kpiHtml = kpis.map(k => {
+                if (!k.go) {
+                    return `<div class="kpi" data-kpi="${k.lbl}"><div class="kpi-val" style="color:${k.color}">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`;
+                }
+                // Reachable by keyboard as well as by mouse: it is a div doing
+                // a link's job, so it has to say so and answer to Enter.
+                return `<div class="kpi kpi-go" data-kpi="${k.lbl}" role="button" tabindex="0"
+                             aria-label="${escapeHtmlForAttr(k.goLabel)} — open Action Items"
+                             onclick="openKpi(event, '${k.go}')"
+                             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openKpi(event,'${k.go}');}">
+                            <div class="kpi-val" style="color:${k.color}">${k.val}</div>
+                            <div class="kpi-lbl">${k.lbl} <i class="fas fa-chevron-right kpi-chev"></i></div>
+                        </div>`;
+            }).join('');
 
             // --- Needs attention ---
             const attention = communityData
@@ -6051,6 +6078,19 @@
             <style>
                 .dash-wrap { grid-column: 1 / -1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
                 .dash-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+                /* A tile that goes somewhere has to look like it does. The
+                   number alone is what people were staring at without knowing
+                   it could be pressed. */
+                .kpi-go { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+                .kpi-go:hover { border-color: #1f6fe5; box-shadow: 0 2px 10px rgba(31,111,229,.14); }
+                .kpi-go:focus-visible { outline: 2px solid #1f6fe5; outline-offset: 2px; }
+                .kpi-chev { font-size: 9px; margin-left: 3px; color: #64748b;
+                    transition: transform .15s ease, color .15s ease; }
+                .kpi-go:hover .kpi-chev { color: #1f6fe5; transform: translateX(2px); }
+                html[data-theme="dark"] .kpi-go:hover { border-color: #7db0ff;
+                    box-shadow: 0 2px 10px rgba(125,176,255,.18); }
+                html[data-theme="dark"] .kpi-chev { color: #9fb0c4; }
+                html[data-theme="dark"] .kpi-go:hover .kpi-chev { color: #7db0ff; }
                 .kpi { background: #fff; border: 1px solid #d9dfe8; border-radius: 10px; padding: 18px 20px; }
                 .kpi-val { font-size: 30px; font-weight: 800; line-height: 1; }
                 .kpi-lbl { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; margin-top: 8px; }
@@ -6127,7 +6167,15 @@
                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .attn-sub { font-size: 11.5px; color: #6b7280;
                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .attn-chev { color: #c2cad6; font-size: 11px; flex-shrink: 0; }
+                /* The row was already clickable — cursor, hover, and this
+                   chevron. At #c2cad6 the chevron sat at 1.7:1 against the
+                   card, which is not a hint, it is a rumour: the feedback
+                   that reached Lauren was Executive Directors not knowing
+                   these lines went anywhere. 4.8:1 now, and it leans toward
+                   where it is taking you when the row is under the cursor. */
+                .attn-chev { color: #64748b; font-size: 11px; flex-shrink: 0;
+                    transition: transform .15s ease, color .15s ease; }
+                .attn-item:hover .attn-chev { color: #1f6fe5; transform: translateX(2px); }
                 .attn-more { font-size: 12px; font-weight: 700; color: #1f6fe5; background: none; border: none;
                     padding: 8px 0 0; cursor: pointer; }
                 .attn-more:hover { text-decoration: underline; }
@@ -6152,6 +6200,10 @@
                 html[data-theme="dark"] .attn-sub,
                 html[data-theme="dark"] .attn-count { color: #9fb0c4; }
                 html[data-theme="dark"] .attn-item:hover { background: rgba(90,150,255,.10); }
+                /* Same reasoning on the dark card, where #64748b would be the
+                   quiet one instead. */
+                html[data-theme="dark"] .attn-chev { color: #9fb0c4; }
+                html[data-theme="dark"] .attn-item:hover .attn-chev { color: #7db0ff; }
                 html[data-theme="dark"] .attn-tone-act   .attn-badge { background: rgba(209,50,18,.18); color: #f3b0a3; }
                 html[data-theme="dark"] .attn-tone-plan  .attn-badge { background: rgba(31,111,229,.18); color: #a9c8f7; }
                 html[data-theme="dark"] .attn-tone-watch .attn-badge { background: rgba(146,98,10,.20); color: #e8c78a; }
