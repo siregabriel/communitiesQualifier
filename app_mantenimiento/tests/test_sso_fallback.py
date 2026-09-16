@@ -112,6 +112,87 @@ def test_arriving_with_no_code_is_not_a_failure(logged):
 
 # ------------------------------------------------ what it does not change
 
+def test_somebody_coming_from_atlerts_still_gets_in(monkeypatch):
+    """The thing all of this was built around, asserted end to end.
+
+    Every edit above lives in a branch that gives up, so the way in should be
+    untouched — but "should be untouched" is what everybody says before
+    breaking something. This signs a regional in through the hand-off and
+    checks they end up with a working session on the dashboard, not merely
+    that a redirect was returned.
+
+    It also exists because the first version of this change put the new helper
+    between @app.route("/sso") and the function it decorates. Flask registered
+    the helper as the view, and every hand-off would have been a 500.
+    """
+    monkeypatch.setattr(A, 'ATLERTS_SSO_SECRET', 'x')
+    monkeypatch.setattr(A.presence_service, 'record_login', lambda u: None)
+    monkeypatch.setattr(A.profile_service, 'get_admin_extra', lambda u: False)
+    monkeypatch.setattr(A.profile_service, 'get_must_change', lambda u: False)
+
+    class Resp:
+        status_code = 200
+
+        def json(self):
+            return {'email': 'lauren@atlasseniorliving.com'}
+    monkeypatch.setattr(A.requests, 'post', lambda *a, **k: Resp())
+    monkeypatch.setattr(A, '_atlerts_account_by_email',
+                        lambda e: ('lauren.hamilton',
+                                   {'role': 'regional', 'community': None,
+                                    'communities': [], 'region_id': 'innovia',
+                                    'display_name': 'Lauren Hamilton'}))
+
+    c = A.app.test_client()
+    r = c.get('/sso?code=a-real-code')
+    assert r.status_code == 302, r.get_data(as_text=True)[:200]
+    assert r.headers['Location'].endswith('/'), \
+        f'landed on {r.headers["Location"]} instead of the app'
+
+    with c.session_transaction() as s:
+        assert s.get('user') == 'lauren.hamilton', 'no session was established'
+        assert s.get('role') == 'regional'
+        assert s.get('region_id') == 'innovia'
+
+    assert c.get('/dashboard').status_code == 200, \
+        'the session exists but does not open anything'
+
+
+def test_somebody_who_must_change_their_password_still_goes_there(monkeypatch):
+    """The other destination this route has, so the branch is not forgotten."""
+    monkeypatch.setattr(A, 'ATLERTS_SSO_SECRET', 'x')
+    monkeypatch.setattr(A.presence_service, 'record_login', lambda u: None)
+    monkeypatch.setattr(A.profile_service, 'get_admin_extra', lambda u: False)
+    monkeypatch.setattr(A.profile_service, 'get_must_change', lambda u: True)
+
+    class Resp:
+        status_code = 200
+
+        def json(self):
+            return {'email': 'new@atlasseniorliving.com'}
+    monkeypatch.setattr(A.requests, 'post', lambda *a, **k: Resp())
+    monkeypatch.setattr(A, '_atlerts_account_by_email',
+                        lambda e: ('new.person', {'role': 'staff', 'community': 'C',
+                                                  'communities': ['C'], 'region_id': None,
+                                                  'display_name': 'New Person'}))
+
+    r = A.app.test_client().get('/sso?code=a-real-code')
+    assert r.status_code == 302
+    assert '/change-password' in r.headers['Location']
+
+
+def test_the_route_is_wired_to_the_right_function():
+    """A decorator sitting above the wrong function is not a syntax error.
+
+    It reads as one function added above another, the app starts, and every
+    request to the route calls something that was never meant to answer one.
+    """
+    rules = [r for r in A.app.url_map.iter_rules() if r.rule == '/sso']
+    assert len(rules) == 1, f'/sso is registered {len(rules)} times'
+    assert rules[0].endpoint == 'atlerts_sso', \
+        f'/sso is answered by {rules[0].endpoint}'
+
+
+
 def test_the_person_still_lands_on_the_sign_in_page(logged, monkeypatch):
     """The whole design of this route. Recording the failure must not start
     showing anybody an error they cannot resolve."""
