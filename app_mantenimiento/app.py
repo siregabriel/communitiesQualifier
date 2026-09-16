@@ -1324,6 +1324,11 @@ def resolve_display_name(username):
     moved_to = username_renamer.retired(username)
     if moved_to:
         return resolve_display_name(moved_to)
+    # The hand-off itself, when it is the thing an entry is about. Last, after
+    # every real lookup, so a person who ever ends up with this username is
+    # still called by their own name.
+    if username == 'atlerts':
+        return 'Atlerts'
     return username
 
 
@@ -7469,6 +7474,30 @@ def _atlerts_account_by_email(email):
     return None
 
 
+def _atlerts_gave_up(reason, email=''):
+    """Deja rastro de un traspaso que no prosperó, y manda al login de siempre.
+
+    La persona no ve nada distinto: cae en la pantalla de acceso, escribe su
+    contraseña y entra. Pero entonces el registro decía "Signed in on iOS",
+    exactamente igual que quien nunca usó Atlerts — así que un traspaso roto
+    y alguien que prefiere la web se leían igual. Si el canje se rompiera
+    para todos, el feed mostraría una migración lenta hacia el login normal y
+    nadie lo leería como una falla.
+
+    El actor es "atlerts" y no la persona porque en cuatro de los cinco casos
+    no sabemos quién era: lo que falló fue el traspaso, y eso es lo que el
+    renglón nombra.
+    """
+    meta = {'reason': reason, 'ip': _client_ip(), 'device': _client_device()}
+    if email:
+        # Quién se quedó fuera. En el caso de "no tiene cuenta aquí" es el
+        # dato que resuelve el problema, y no hay nada más que lo diga.
+        meta['email'] = email
+    activity_service.log('atlerts', 'sso_failed',
+                         f'Atlerts hand-off did not complete — {reason}', meta=meta)
+    return redirect("/login")
+
+
 @app.route("/sso")
 def atlerts_sso():
     """Entrada desde Atlerts. Ante cualquier duda, login de siempre.
@@ -7482,8 +7511,11 @@ def atlerts_sso():
     siempre, en vez de un mensaje que no puede resolver.
     """
     code = (request.args.get("code") or "").strip()
-    if not code or not ATLERTS_SSO_SECRET:
+    if not code:
+        # Alguien llegó a esta URL sin venir de Atlerts. No es un fallo.
         return redirect("/login")
+    if not ATLERTS_SSO_SECRET:
+        return _atlerts_gave_up('no secret configured on this server')
 
     try:
         resp = requests.post(
@@ -7494,18 +7526,19 @@ def atlerts_sso():
         )
     except Exception as e:
         app.logger.warning("SSO: no se pudo canjear el código: %s", e)
-        return redirect("/login")
+        return _atlerts_gave_up('could not reach Atlerts')
 
     if resp.status_code != 200:
         # Caducado, ya usado o inexistente. Atlerts no distingue entre esos
         # casos a propósito, y aquí tampoco hace falta.
-        return redirect("/login")
+        return _atlerts_gave_up('the code was expired, used or unknown')
 
     payload = resp.json() or {}
-    found = _atlerts_account_by_email(payload.get("email"))
+    email = (payload.get("email") or '').strip()
+    found = _atlerts_account_by_email(email)
     if not found:
         app.logger.info("SSO: sin cuenta de Excellence para ese correo")
-        return redirect("/login")
+        return _atlerts_gave_up('no Excellence account with that email', email)
 
     username, account = found
 

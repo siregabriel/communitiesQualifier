@@ -6415,6 +6415,10 @@
             item_reopened:          { icon: 'fa-rotate-left',      color: '#92620a', verb: 'reopened an item' },
             raised_item_commented:  { icon: 'fa-comment-dots',     color: '#1f6fe5', verb: 'replied on a raised item' },
             category_added:         { icon: 'fa-tag',              color: '#64748b', verb: 'added a category' },
+            // Un traspaso de Atlerts que no llegó. Ámbar y no rojo: la
+            // persona sí entró, escribiendo su contraseña. Lo que falló
+            // fue el atajo.
+            sso_failed:             { icon: 'fa-link-slash',      color: '#92620a', verb: 'hand-off did not complete' },
         };
 
         async function loadLiveActivity() {
