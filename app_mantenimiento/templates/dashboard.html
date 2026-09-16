@@ -6419,6 +6419,11 @@
             // persona sí entró, escribiendo su contraseña. Lo que falló
             // fue el atajo.
             sso_failed:             { icon: 'fa-link-slash',      color: '#92620a', verb: 'hand-off did not complete' },
+            // A visit whose community never got its copy. Amber, not
+            // red: the visit itself is fine and on file — what is
+            // missing is an account or an address, which is fixable in
+            // People rather than by redoing anything.
+            findings_undelivered:   { icon: 'fa-envelope-circle-check', color: '#92620a', verb: 'findings not delivered' },
         };
 
         async function loadLiveActivity() {

@@ -1165,6 +1165,44 @@ def community_account_emails(community, exclude_username=None):
     return out
 
 
+def community_has_accounts(community):
+    """Whether anybody at all holds an account for this community.
+
+    Separate from having an address, because the two are different problems
+    with different answers: nobody here yet means create the account, while
+    somebody without an address means open their record and add one.
+    """
+    community = (community or '').strip()
+    if not community:
+        return False
+    return any(u.get('role') == 'staff' and community in account_communities(u)
+               for u in user_service.get_all())
+
+
+def note_findings_undelivered(submission):
+    """Record that a visit's findings never reached the community.
+
+    The send was already conditional — no addresses, no email — and said
+    nothing, so a community that has been silently missing every report since
+    its first visit looks exactly like one that reads them. The only way it
+    surfaced was Greg noticing an Executive Director was not on a thread and
+    asking, which is not a way of finding things out.
+
+    Filed under whoever ran the visit, because that is the visit it belongs
+    to and where somebody would look for it. Not a fault of theirs, and the
+    wording says what to do rather than what went wrong.
+    """
+    community = submission.get('community', '')
+    reason = ('nobody holds an account for this community yet'
+              if not community_has_accounts(community)
+              else 'the account for this community has no email address on it')
+    activity_service.log(
+        submission.get('username') or 'atlerts', 'findings_undelivered',
+        f'Findings for {community} were not emailed — {reason}',
+        meta={'community': community, 'reason': reason,
+              'submission_id': submission.get('id', '')})
+
+
 def local_dt(dt=None):
     """Move a moment into the timezone Atlas actually works in.
 
@@ -6767,7 +6805,9 @@ def submit_inspection():
                 # The community gets its own, narrower email: what was found
                 # here and what to do about it — no score, no comparisons.
                 ed_emails = community_account_emails(community)
-                if ed_emails:
+                if not ed_emails:
+                    note_findings_undelivered(submission)
+                else:
                     responses = submission.get('responses') or []
                     failed = [r for r in responses if r.get('condition') == 'Fail']
                     passed = [r for r in responses if r.get('condition') == 'Pass']
