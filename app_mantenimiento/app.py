@@ -1193,12 +1193,15 @@ def note_findings_undelivered(submission):
     wording says what to do rather than what went wrong.
     """
     community = submission.get('community', '')
-    reason = ('nobody holds an account for this community yet'
+    # Named first, and saying what to do about it: the detail line is a single
+    # row that truncates, so a sentence that opens by restating the row's own
+    # verb spends its whole width saying nothing.
+    reason = (f'{community} has no account here yet'
               if not community_has_accounts(community)
-              else 'the account for this community has no email address on it')
+              else f'the account for {community} has no email address')
     activity_service.log(
         submission.get('username') or 'atlerts', 'findings_undelivered',
-        f'Findings for {community} were not emailed — {reason}',
+        reason,
         meta={'community': community, 'reason': reason,
               'submission_id': submission.get('id', '')})
 
@@ -7533,8 +7536,10 @@ def _atlerts_gave_up(reason, email=''):
         # Quién se quedó fuera. En el caso de "no tiene cuenta aquí" es el
         # dato que resuelve el problema, y no hay nada más que lo diga.
         meta['email'] = email
-    activity_service.log('atlerts', 'sso_failed',
-                         f'Atlerts hand-off did not complete — {reason}', meta=meta)
+    # El detalle es una sola línea que se corta con puntos suspensivos, así que
+    # lo específico va primero. La primera versión empezaba repitiendo el verbo
+    # de la fila y lo único útil —el correo— quedaba fuera del corte.
+    activity_service.log('atlerts', 'sso_failed', reason, meta=meta)
     return redirect("/login")
 
 
@@ -7555,7 +7560,7 @@ def atlerts_sso():
         # Alguien llegó a esta URL sin venir de Atlerts. No es un fallo.
         return redirect("/login")
     if not ATLERTS_SSO_SECRET:
-        return _atlerts_gave_up('no secret configured on this server')
+        return _atlerts_gave_up('this server has no Atlerts key set')
 
     try:
         resp = requests.post(
@@ -7566,19 +7571,19 @@ def atlerts_sso():
         )
     except Exception as e:
         app.logger.warning("SSO: no se pudo canjear el código: %s", e)
-        return _atlerts_gave_up('could not reach Atlerts')
+        return _atlerts_gave_up("Atlerts didn't answer")
 
     if resp.status_code != 200:
         # Caducado, ya usado o inexistente. Atlerts no distingue entre esos
         # casos a propósito, y aquí tampoco hace falta.
-        return _atlerts_gave_up('the code was expired, used or unknown')
+        return _atlerts_gave_up('the sign-in link had expired or was already used')
 
     payload = resp.json() or {}
     email = (payload.get("email") or '').strip()
     found = _atlerts_account_by_email(email)
     if not found:
         app.logger.info("SSO: sin cuenta de Excellence para ese correo")
-        return _atlerts_gave_up('no Excellence account with that email', email)
+        return _atlerts_gave_up(f"{email or 'that email'} has no account here yet", email)
 
     username, account = found
 

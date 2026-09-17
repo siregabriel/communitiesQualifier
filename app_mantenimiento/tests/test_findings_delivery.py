@@ -52,7 +52,9 @@ def test_no_account_for_the_community_yet(logged, monkeypatch):
     assert len(logged) == 1
     e = logged[0]
     assert e['kind'] == 'findings_undelivered'
-    assert 'nobody holds an account' in e['meta']['reason']
+    assert e['meta']['reason'].startswith(VISIT['community']), \
+        'the detail line truncates, so the community has to lead'
+    assert 'no account here yet' in e['meta']['reason']
     assert e['meta']['community'] == VISIT['community']
 
 
@@ -62,7 +64,7 @@ def test_an_account_that_has_no_address_on_it(logged, monkeypatch):
     A.note_findings_undelivered(VISIT)
 
     assert 'no email address' in logged[0]['meta']['reason']
-    assert 'nobody holds an account' not in logged[0]['meta']['reason']
+    assert 'no account here yet' not in logged[0]['meta']['reason']
 
 
 def test_it_names_the_community_in_words_too(logged, monkeypatch):

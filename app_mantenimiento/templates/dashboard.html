@@ -6418,12 +6418,12 @@
             // Un traspaso de Atlerts que no llegó. Ámbar y no rojo: la
             // persona sí entró, escribiendo su contraseña. Lo que falló
             // fue el atajo.
-            sso_failed:             { icon: 'fa-link-slash',      color: '#92620a', verb: 'hand-off did not complete' },
+            sso_failed:             { icon: 'fa-link-slash',      color: '#92620a', verb: "couldn't sign someone in" },
             // A visit whose community never got its copy. Amber, not
             // red: the visit itself is fine and on file — what is
             // missing is an account or an address, which is fixable in
             // People rather than by redoing anything.
-            findings_undelivered:   { icon: 'fa-envelope-circle-check', color: '#92620a', verb: 'findings not delivered' },
+            findings_undelivered:   { icon: 'fa-envelope-circle-check', color: '#92620a', verb: 'ran a visit the community never got' },
         };
 
         async function loadLiveActivity() {

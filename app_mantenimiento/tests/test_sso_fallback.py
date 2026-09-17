@@ -50,7 +50,7 @@ def test_no_secret_configured(logged, monkeypatch):
     r = _get('/sso?code=abc123')
     assert r.status_code == 302 and '/login' in r.headers['Location']
     assert len(logged) == 1
-    assert 'secret' in logged[0]['meta']['reason']
+    assert 'Atlerts key' in logged[0]['meta']['reason']
 
 
 def test_atlerts_unreachable(logged, monkeypatch):
@@ -62,7 +62,7 @@ def test_atlerts_unreachable(logged, monkeypatch):
 
     r = _get('/sso?code=abc123')
     assert r.status_code == 302 and '/login' in r.headers['Location']
-    assert logged[0]['meta']['reason'] == 'could not reach Atlerts'
+    assert logged[0]['meta']['reason'] == "Atlerts didn't answer"
 
 
 def test_a_code_that_is_expired_used_or_unknown(logged, monkeypatch):
@@ -96,7 +96,9 @@ def test_an_email_with_no_account_here(logged, monkeypatch):
     assert r.status_code == 302
     assert logged[0]['meta']['email'] == 'someone.new@atlasseniorliving.com', \
         'without the address there is nothing to act on'
-    assert 'no Excellence account' in logged[0]['meta']['reason']
+    assert logged[0]['meta']['reason'].startswith('someone.new@atlasseniorliving.com'), \
+        'the detail line truncates, so the address has to lead'
+    assert 'no account here yet' in logged[0]['meta']['reason']
 
 
 def test_arriving_with_no_code_is_not_a_failure(logged):
