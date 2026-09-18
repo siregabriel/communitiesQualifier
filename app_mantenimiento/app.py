@@ -6760,9 +6760,13 @@ def submit_inspection():
             # Audit log
             # The event type stays as-is (it's a stored key other code filters
             # on); only the sentence people read changes.
+            # The id is recorded so the feed row can open the visit it is
+            # about rather than whichever one happens to be newest. Entries
+            # written before this carry no id and keep the old behaviour.
             activity_service.log(username, 'inspection_submitted',
                                  f'Submitted a visit for {community}',
-                                 meta={'community': community})
+                                 meta={'community': community,
+                                       'submission_id': submission.get('id')})
             
         except ValueError as e:
             return jsonify({

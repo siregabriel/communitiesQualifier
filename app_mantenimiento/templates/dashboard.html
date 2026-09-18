@@ -3256,7 +3256,20 @@
         }
 
         // Open Slide Panel
-        async function openSlidePanel(communityName) {
+        /* Open the panel for a community, or for one particular visit of it.
+
+           The second argument is what tells those two apart. A list that draws
+           one visit per row — Visits, the calendar, the feeds, search — names
+           the visit it drew, so clicking a row opens that row. A caller whose
+           subject is the community itself leaves it out and gets the most
+           recent visit, which is what every caller used to get.
+
+           That gap was the bug. A row for Lauren's visit and a row for Carol's
+           both said "open The Oscar at Georgetown" and the panel answered with
+           the newer of the two. It stayed invisible for as long as the visit
+           somebody clicked happened to be the latest one, which it usually is.
+        */
+        async function openSlidePanel(communityName, submissionId) {
             // Input validation
             if (!communityName || typeof communityName !== 'string' || communityName.trim() === '') {
                 console.warn('Invalid community name provided to openSlidePanel');
@@ -3285,36 +3298,49 @@
                     return;
                 }
                 
-                // Get the most recent submission
-                const latestSubmission = communitySubmissions.sort((a, b) => 
+                // Newest first, so [0] is the latest whatever else happens.
+                const byDate = communitySubmissions.sort((a, b) => 
                     new Date(b.submitted_at) - new Date(a.submitted_at)
-                )[0];
-                
-                /* This panel is about the most recent visit — that's what the
-                   header says, and it's the rule the score follows everywhere
-                   else. It used to merge the responses of every visit ever,
-                   which produced a lifetime average that disagreed with the
-                   number on the community card. Earlier visits now live in the
-                   History section further down, where they belong. */
-                const latestResponses = latestSubmission.responses || [];
+                );
+
+                /* An id naming a visit of this community wins; anything else
+                   falls back to the latest.
+
+                   Falling back rather than refusing is deliberate. An id can be
+                   stale — the visit was deleted, the link is old, the feed entry
+                   predates our recording ids at all — and opening the community
+                   is a better answer than opening nothing. It is also exactly
+                   what every caller got before this argument existed, so the
+                   ones that still leave it out are untouched.
+                */
+                const chosen = (submissionId
+                        && byDate.find(sub => String(sub.id) === String(submissionId)))
+                    || byDate[0];
+                const isLatest = chosen === byDate[0];
+
+                /* The panel is about one visit, not a lifetime. It used to merge
+                   the responses of every visit ever, which produced an average
+                   that disagreed with the number on the community card. The rest
+                   of them live in the History section further down. */
+                const latestResponses = chosen.responses || [];
 
                 const sc = scoreBoth(latestResponses);
-                const openManual = (latestSubmission.action_items || [])
+                const openManual = (chosen.action_items || [])
                     .filter(i => !i.resolved).length;
                 const actionItems = countActionItems(latestResponses) + openManual;
 
                 // Get latest timestamp
-                const lastVisitDate = latestSubmission.submitted_at
-                    ? new Date(latestSubmission.submitted_at).toLocaleDateString()
+                const lastVisitDate = chosen.submitted_at
+                    ? new Date(chosen.submitted_at).toLocaleDateString()
                     : 'N/A';
 
                 // Who performed the most recent visit
-                const inspectorName = latestSubmission.inspector_name
-                    || latestSubmission.username
+                const inspectorName = chosen.inspector_name
+                    || chosen.username
                     || '';
 
                 // Process responses and photos
-                const responses = groupResponsesByCondition(latestResponses, latestSubmission.id);
+                const responses = groupResponsesByCondition(latestResponses, chosen.id);
                 const photos = extractPhotos(latestResponses);
 
                 // Build data object
@@ -3325,9 +3351,10 @@
                     score: sc.current,
                     visitScore: sc.visit,
                     fixedSinceVisit: sc.fixed,
-                    partial: partialInfo(latestSubmission),
-                    notes: latestSubmission.notes || '',
-                    notesPhoto: latestSubmission.notes_photo || '',
+                    isLatest: isLatest,
+                    partial: partialInfo(chosen),
+                    notes: chosen.notes || '',
+                    notesPhoto: chosen.notes_photo || '',
                     actionItems: actionItems,
                     responses: responses,
                     photos: photos,
@@ -3552,9 +3579,13 @@
                 panelTitle.textContent = data.communityName;
             }
             if (panelSubtitle) {
+                /* "Last visit" is a claim, not a label. Saying it over an older
+                   visit is the same lie the panel used to tell by showing the
+                   wrong one, so it only says it when it is true. */
+                const lead = data.isLatest === false ? 'Visit' : 'Last visit';
                 panelSubtitle.innerHTML = data.inspectorName
-                    ? `Last visit: ${escapeHtml(data.lastVisitDate)} &middot; by ${inspectorAvatarHtml(data.inspectorName)}${escapeHtml(data.inspectorName)}`
-                    : `Last visit: ${escapeHtml(data.lastVisitDate)}`;
+                    ? `${lead}: ${escapeHtml(data.lastVisitDate)} &middot; by ${inspectorAvatarHtml(data.inspectorName)}${escapeHtml(data.inspectorName)}`
+                    : `${lead}: ${escapeHtml(data.lastVisitDate)}`;
             }
 
             // Build panel content (cover banner first, if one is set)
@@ -5204,7 +5235,7 @@
                     title: `${s.community || 'Unknown'} — ${formatDate(s.submitted_at)}`,
                     sub: `Visited by ${who}`,
                     key: `${s.community || ''} ${who} ${formatDate(s.submitted_at)}`,
-                    open: () => openSlidePanel(s.community),
+                    open: () => openSlidePanel(s.community, s.id),
                 });
             });
 
@@ -6033,10 +6064,11 @@
                 const score = calculateCommunityScore(s.responses || []);
                 const nm = s.inspector_name || s.username || 'Unknown';
                 const safe = (s.community || '').replace(/'/g, "\\'");
+                const safeId = String(s.id || '').replace(/'/g, "\\'");
                 const ts = new Date(s.submitted_at).getTime() || 0;
                 const isNew = recentSeenTs > 0 && ts > recentSeenTs;
                 const newBadge = isNew ? `<span class="dash-new-badge">NEW</span>` : '';
-                return `<div class="dash-row" onclick="openSlidePanel('${safe}')">
+                return `<div class="dash-row" onclick="openSlidePanel('${safe}','${safeId}')">
                     ${dashAvatarHtml(nm)}
                     <div class="dash-row-main"><div class="dash-row-name dash-row-name-flex"><span class="dash-row-name-text">${escapeHtml(s.community || 'Unknown')}</span>${newBadge}</div>
                     <div class="dash-row-sub">${escapeHtml(nm)} · ${escapeHtml(formatDate(s.submitted_at))}</div></div>
@@ -6452,7 +6484,7 @@
                             ? `openActivityTarget('${e.submission_id}','${e.question_id || ''}','${e.item_id || ''}')`
                             : (e.raised_item_id
                                 ? `openRaisedTarget('${e.raised_item_id}')`
-                                : (e.community ? `openSlidePanel('${(e.community || '').replace(/'/g, "\\'")}')` : ''));
+                                : (e.community ? `openSlidePanel('${(e.community || '').replace(/'/g, "\\'")}','${e.submission_id || ''}')` : ''));
                         return `<div class="live-row${target ? ' live-row-link' : ''}"${target ? ` onclick="${target}" title="Open"` : ''}>
                             <span class="live-icon" style="color:${meta.color}"><i class="fas ${meta.icon}"></i></span>
                             <div class="live-main">
@@ -6673,9 +6705,10 @@
                 const inspector = v.inspector_name || v.username || '';
                 const surveyBadge = getSurveyTypeBadge(v.survey_type_id);
                 const safeComm = (v.community || '').replace(/'/g, "\\'");
+                const safeId = String(v.id || '').replace(/'/g, "\\'");
 
                 return `
-                    <div class="visit-row" onclick="openSlidePanel('${safeComm}')" title="View visit details">
+                    <div class="visit-row" onclick="openSlidePanel('${safeComm}','${safeId}')" title="View visit details">
                         <div class="visit-main">
                             <div class="visit-community">${v.community || 'Unknown community'}</div>
                             <div class="visit-meta">
@@ -7938,7 +7971,7 @@
                     const score = calculateCommunityScore(s.responses || []);
                     const nm = s.inspector_name || s.username || '—';
                     const safe = (s.community || '').replace(/'/g, "\\'");
-                    rows.push(`<div class="cal-row" onclick="openSlidePanel('${safe}')"><span class="cal-dot cal-dot-insp"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(s.community || 'Unknown')}</div><div class="cal-row-sub">Visit · ${escapeHtml(nm)}</div></div><span class="cal-row-score" style="color:${_calScoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span></div>`);
+                    rows.push(`<div class="cal-row" onclick="openSlidePanel('${safe}','${String(s.id || '').replace(/'/g, "\\'")}')"><span class="cal-dot cal-dot-insp"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(s.community || 'Unknown')}</div><div class="cal-row-sub">Visit · ${escapeHtml(nm)}</div></div><span class="cal-row-score" style="color:${_calScoreColor(score)}">${score === null ? 'N/A' : score + '%'}</span></div>`);
                 });
                 mv.forEach(m => {
                     rows.push(`<div class="cal-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${m.id}'),250)"><span class="cal-dot cal-dot-mv"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(m.resident_name)}</div><div class="cal-row-sub">Move-in · ${escapeHtml(m.community)}${m.blockers ? ` · <span style="color:#b42318;font-weight:700;">${m.blockers} required pending</span>` : ''}</div></div><span class="cal-row-score" style="color:#d97706;"><i class="fas fa-house-circle-check"></i></span></div>`);
@@ -9672,9 +9705,13 @@
                     const community = (ev.meta && ev.meta.community) ? ev.meta.community : '';
                     const clickable = ev.type === 'inspection_submitted' && community;
                     const safeComm = community.replace(/'/g, "\\'");
+                    /* Entries written before we recorded the id carry none, and
+                       an empty one falls back to the community's latest visit —
+                       which is what this row has always opened. */
+                    const safeId = String((ev.meta && ev.meta.submission_id) || '').replace(/'/g, "\\'");
                     return `
                         <div class="activity-item ${clickable ? 'activity-clickable' : ''}"
-                             ${clickable ? `onclick="openSlidePanel('${safeComm}')" title="View this visit"` : ''}>
+                             ${clickable ? `onclick="openSlidePanel('${safeComm}','${safeId}')" title="View this visit"` : ''}>
                             <div class="activity-avatar">${feedAvatar}</div>
                             <div class="activity-body">
                                 <div class="activity-label"><i class="fas ${meta.icon}"></i> ${meta.label}</div>
