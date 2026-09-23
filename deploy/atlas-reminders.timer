@@ -1,0 +1,16 @@
+[Unit]
+Description=Daily check for action items that have gone quiet
+
+[Timer]
+# 12:00 UTC is 07:00 Central in summer and 06:00 in winter. Early enough to be
+# near the top of the inbox, late enough not to arrive overnight. The script
+# skips Saturday and Sunday itself rather than the schedule doing it, so that
+# a hand-run on a weekend behaves the same way.
+OnCalendar=*-*-* 12:00:00
+# A reboot at 11:59 should not cost that morning's run.
+Persistent=true
+# Everybody's mail arriving in the same second is a spike SES sees as a burst.
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

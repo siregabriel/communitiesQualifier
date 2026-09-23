@@ -1,0 +1,14 @@
+[Unit]
+Description=Atlas Excellence — remind about action items that have gone quiet
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/CommunitiesQualifier/app_mantenimiento
+# Same environment as the app: SES credentials, MAIL_FROM, APP_BASE_URL.
+EnvironmentFile=-/etc/atlas/atlas.env
+# --send is spelled out here on purpose. The script prints and exits without
+# it, so a hand-run for a look can never post to anybody by accident, and the
+# only thing that sends is this file.
+ExecStart=/home/ubuntu/CommunitiesQualifier/.venv/bin/python send_reminders.py --send

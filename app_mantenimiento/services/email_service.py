@@ -623,6 +623,137 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                      + (f"\nOpen in Atlas Excellence: {link}\n" if link else ""))
         return self._send(recipients, subject, self._shell("Raised by a community", body), text_body)
 
+    # ---------------------------------------------------- quiet action items
+
+    KIND_WORDS = {'standard': 'Failed standard',
+                  'manual': 'Raised during a visit',
+                  'raised': 'Raised by the community'}
+
+    def _quiet_rows_html(self, items, show_community=False):
+        """The list that both reminder emails share.
+
+        Days of silence rather than a date, because "28 days with no update"
+        is the fact being reported and a date makes the reader do the
+        subtraction.
+        """
+        def esc(s):
+            return html.escape(str(s or ''))
+        out = []
+        for it in items:
+            days = it.get('quiet_days', 0)
+            colour = '#b42318' if days >= 30 else '#92620a'
+            where = (f"<div style='font-size:12px;color:#6b7280;margin-top:3px'>"
+                     f"{esc(it.get('community'))}</div>") if show_community else ''
+            out.append(
+                f"<tr><td style='padding:11px 0;border-bottom:1px solid #e6ebf3'>"
+                f"<div style='font-size:14.5px;color:#0f1e36;line-height:1.5'>"
+                f"{esc(it.get('text'))}</div>"
+                f"<div style='font-size:11.5px;color:#8a94a6;margin-top:4px'>"
+                f"{esc(self.KIND_WORDS.get(it.get('kind'), 'Open item'))}</div>{where}</td>"
+                f"<td style='padding:11px 0 11px 14px;text-align:right;vertical-align:top;"
+                f"white-space:nowrap;font-size:13px;font-weight:700;color:{colour}'>"
+                f"{days} days</td></tr>")
+        return ("<table style='width:100%;border-collapse:collapse;margin:6px 0 0'>"
+                + ''.join(out) + "</table>")
+
+    @staticmethod
+    def _quiet_rows_text(items, show_community=False):
+        lines = []
+        for it in items:
+            where = f" ({it.get('community')})" if show_community else ''
+            lines.append(f"  - [{it.get('quiet_days', 0)} days]{where} {it.get('text')}")
+        return '\n'.join(lines)
+
+    def send_open_items_reminder(self, recipients, community, items, stage):
+        """To the Executive Director: what is open here and has gone quiet.
+
+        The wording avoids blame on purpose. Plenty of these are waiting on a
+        contractor or a budget, and an email that reads as an accusation gets
+        filtered — at which point the one channel we had is gone. It states
+        what is quiet and offers the place to answer.
+        """
+        if not self.enabled:
+            return (False, 'disabled')
+
+        def esc(s):
+            return html.escape(str(s or ''))
+
+        n = len(items)
+        link = self.report_link(community)
+        button = (f"<div style='margin-top:22px'><a href='{esc(link)}' "
+                  f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                  f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
+                  f"Open in Atlas Excellence</a></div>") if link else ''
+
+        subject = (f"{n} open item{'' if n == 1 else 's'} at {community} "
+                   f"with no update in {stage} days")
+        body = (f"<p style='font-size:14px;margin:0 0 16px;line-height:1.6'>"
+                f"{'This item has' if n == 1 else f'These {n} items have'} been open at "
+                f"<b>{esc(community)}</b> with nothing recorded against "
+                f"{'it' if n == 1 else 'them'} for {stage} days or more.</p>"
+                f"{self._quiet_rows_html(items)}"
+                f"<p style='font-size:13px;color:#6b7280;margin:18px 0 0;line-height:1.6'>"
+                f"A comment counts as an update. If something is waiting on a vendor or a "
+                f"budget, saying so on the item is enough to stop this reminder and tells "
+                f"whoever looks next where it stands.</p>"
+                f"{button}")
+        text_body = (f"{n} open item{'' if n == 1 else 's'} at {community} with no update "
+                     f"in {stage} days or more.\n\n"
+                     + self._quiet_rows_text(items)
+                     + "\n\nA comment counts as an update. If something is waiting on a "
+                       "vendor or a budget, saying so on the item is enough to stop this "
+                       "reminder.\n"
+                     + (f"\nOpen in Atlas Excellence: {link}\n" if link else ''))
+        return self._send(recipients, subject,
+                          self._shell(f"No update in {stage} days", body), text_body)
+
+    def send_regional_open_items(self, recipients, region_name, by_community, stage=30):
+        """To the regional: everything in their region past the second mark.
+
+        One email covering the whole region, not one per community — somebody
+        who covers six sites should be able to see all of it at once and
+        decide where to spend a phone call.
+
+        This is a separate message from the Executive Director's rather than
+        the same one with them copied, which is what lets it carry internal
+        items without those reaching the community.
+        """
+        if not self.enabled:
+            return (False, 'disabled')
+
+        def esc(s):
+            return html.escape(str(s or ''))
+
+        total = sum(len(v) for v in by_community.values())
+        blocks = []
+        text_blocks = []
+        for community in sorted(by_community):
+            items = sorted(by_community[community],
+                           key=lambda i: -i.get('quiet_days', 0))
+            blocks.append(
+                f"<div style='margin:0 0 20px'>"
+                f"<div style='font-size:13px;font-weight:800;color:#00285c;"
+                f"text-transform:uppercase;letter-spacing:.4px'>{esc(community)}</div>"
+                f"{self._quiet_rows_html(items)}</div>")
+            text_blocks.append(f"{community}\n" + self._quiet_rows_text(items))
+
+        where = f" in {region_name}" if region_name else ''
+        subject = (f"{total} open item{'' if total == 1 else 's'}{where} "
+                   f"past {stage} days with no update")
+        body = (f"<p style='font-size:14px;margin:0 0 18px;line-height:1.6'>"
+                f"{'One item' if total == 1 else f'{total} items'} across your communities "
+                f"{'has' if total == 1 else 'have'} had no update for {stage} days or more. "
+                f"The Executive Directors have been told about their own.</p>"
+                + ''.join(blocks)
+                + f"<p style='font-size:13px;color:#6b7280;margin:6px 0 0;line-height:1.6'>"
+                  f"Sent once per item when it passes {stage} days. A comment on an item "
+                  f"counts as an update and stops it repeating.</p>")
+        text_body = (f"{total} open item(s){where} with no update in {stage} days or more.\n"
+                     f"The Executive Directors have been told about their own.\n\n"
+                     + '\n\n'.join(text_blocks) + "\n")
+        return self._send(recipients, subject,
+                          self._shell(f"Past {stage} days{where}", body), text_body)
+
     # Company-level teams a comment can be directed to during a visit.
     ROUTE_LABELS = {'clinical': 'Clinical', 'ops': 'Operations', 'sales': 'Sales'}
 
