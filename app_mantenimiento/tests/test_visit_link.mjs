@@ -206,11 +206,11 @@ console.log('\nEvery list that draws one visit names it');
   const named = calls.filter(c => c.named);
   const place = calls.filter(c => !c.named);
 
-  ok(calls.length === 13, `every call accounted for (${calls.length})`);
+  ok(calls.length === 14, `every call accounted for (${calls.length})`);
   ok(named.length === 6,
      `six lists open the visit they drew (${named.length}: lines ${named.map(c => c.line).join(', ')})`);
-  ok(place.length === 7,
-     `seven callers mean the community itself (${place.length}: lines ${place.map(c => c.line).join(', ')})`);
+  ok(place.length === 8,
+     `eight callers mean the community itself (${place.length}: lines ${place.map(c => c.line).join(', ')})`);
 
   // Named individually too, so the counts above can't be satisfied by the
   // wrong six.
@@ -234,6 +234,14 @@ console.log('\nEvery list that draws one visit names it');
      'the community list still opens the community');
   ok(/openSlidePanel\(communityName\);/.test(html),
      'and the deep link still opens the community');
+
+  /* The map pin was the first new caller after this test was written, and it
+     is the reason the count is checked rather than the six being listed: it
+     forced the question out loud. A pin stands for the place, and the score
+     printed on it is the latest visit's, which is what an id-less call
+     opens — so it passes none, like the community card. */
+  ok(/cmap-pop-go" onclick="openSlidePanel\('\$\{escapeHtmlForAttr\(c\.community\)/.test(html),
+     'the map pin opens the community, not one visit of it');
 }
 
 console.log('\nThe id reaches the feed in the first place');

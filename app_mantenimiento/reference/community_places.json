@@ -1,0 +1,198 @@
+{
+  "_readme": [
+    "Where each community sits on a map.",
+    "",
+    "This file is reference data, not live data: it ships with the code, is",
+    "reviewed like code, and a correction is an edit and a push. That is on",
+    "purpose — a pin in the wrong state is the one failure this feature cannot",
+    "have, and putting it here means every change to it is visible in a diff.",
+    "",
+    "Coordinates are NOT derived from the community name at runtime. Of the 39",
+    "names, 14 carry no city at all and 9 of those name a development rather",
+    "than a town: 'The Goldton At Lake Nona' is in Orlando, 'Tribute at Melford'",
+    "is in Bowie, 'The Oscar at Veramendi' is in New Braunfels. Two more are",
+    "ambiguous across states — there is an Athens in Georgia, Alabama and",
+    "Tennessee, and a Madison in Alabama, Mississippi and Wisconsin. Guessing",
+    "would be right most of the time and confidently wrong the rest, which on a",
+    "map nobody questions.",
+    "",
+    "'verified' is false on every entry until a person who knows the community",
+    "has looked at the pin and agreed with it. Anything still false is a",
+    "proposal, and the map says so.",
+    "",
+    "A community missing from this file is not drawn and IS counted. It never",
+    "gets an approximate position 'for now'."
+  ],
+  "version": 1,
+  "places": {
+    "Kelley Place, Enterprise": {
+      "lat": 31.3152, "lng": -85.8552, "city": "Enterprise", "state": "AL",
+      "verified": false
+    },
+    "Madison Heights Enterprise, Enterprise": {
+      "lat": 31.3152, "lng": -85.8552, "city": "Enterprise", "state": "AL",
+      "verified": false
+    },
+    "Monark Grove Madison": {
+      "lat": 34.6993, "lng": -86.7483, "city": "Madison", "state": "AL",
+      "verified": false,
+      "note": "Madison, Alabama — there is also a Madison in MS and WI. Confirm."
+    },
+    "Monark Grove Greystone": {
+      "lat": 33.4179, "lng": -86.6716, "city": "Birmingham (Greystone)", "state": "AL",
+      "verified": false,
+      "note": "Greystone is a community within Hoover/Birmingham."
+    },
+    "Legacy Ridge Trussville, Trussville": {
+      "lat": 33.6198, "lng": -86.6089, "city": "Trussville", "state": "AL",
+      "verified": false
+    },
+    "Madison at The Range, Madison": {
+      "lat": 34.6993, "lng": -86.7483, "city": "Madison", "state": "AL",
+      "verified": false
+    },
+    "The Goldton at Athens": {
+      "lat": 34.8029, "lng": -86.9717, "city": "Athens", "state": "AL",
+      "verified": false,
+      "note": "Athens, Alabama assumed from the cluster of Alabama sites. There is also an Athens in GA and TN. CONFIRM THIS ONE."
+    },
+    "The Goldton at Jones Farm": {
+      "lat": 34.7009, "lng": -86.6608, "city": "Huntsville (Jones Farm)", "state": "AL",
+      "verified": false,
+      "note": "Jones Farm is a neighbourhood of Huntsville, not a town."
+    },
+    "Madison at Clermont, Clermont": {
+      "lat": 28.5494, "lng": -81.7729, "city": "Clermont", "state": "FL",
+      "verified": false
+    },
+    "Madison at Ocoee, Ocoee": {
+      "lat": 28.5692, "lng": -81.5434, "city": "Ocoee", "state": "FL",
+      "verified": false
+    },
+    "Madison at Oviedo, Oviedo": {
+      "lat": 28.6700, "lng": -81.2081, "city": "Oviedo", "state": "FL",
+      "verified": false
+    },
+    "The Goldton at Venice, Venice": {
+      "lat": 27.0998, "lng": -82.4543, "city": "Venice", "state": "FL",
+      "verified": false
+    },
+    "The Goldton at St. Petersburg, St. Petersburg": {
+      "lat": 27.7676, "lng": -82.6403, "city": "St. Petersburg", "state": "FL",
+      "verified": false
+    },
+    "Lake Howard Heights, Winter Haven": {
+      "lat": 28.0222, "lng": -81.7329, "city": "Winter Haven", "state": "FL",
+      "verified": false
+    },
+    "The Canopy At Beacon Woods": {
+      "lat": 28.3486, "lng": -82.6501, "city": "Hudson (Beacon Woods)", "state": "FL",
+      "verified": false,
+      "note": "Beacon Woods is a development in Hudson, Pasco County."
+    },
+    "The Goldton At Lake Nona": {
+      "lat": 28.3772, "lng": -81.2519, "city": "Orlando (Lake Nona)", "state": "FL",
+      "verified": false,
+      "note": "Lake Nona is a district of Orlando, not a town."
+    },
+    "The Goldton at Stuart": {
+      "lat": 27.1973, "lng": -80.2528, "city": "Stuart", "state": "FL",
+      "verified": false
+    },
+    "Madison Heights Evans, Evans": {
+      "lat": 33.5337, "lng": -82.1307, "city": "Evans", "state": "GA",
+      "verified": false
+    },
+    "Legacy at Savannah Quarters, Pooler": {
+      "lat": 32.1157, "lng": -81.2471, "city": "Pooler", "state": "GA",
+      "verified": false
+    },
+    "Legacy Reserve at Old Town, Columbus": {
+      "lat": 32.4610, "lng": -84.9877, "city": "Columbus", "state": "GA",
+      "verified": false
+    },
+    "Legacy Ridge at Alpharetta, Alpharetta": {
+      "lat": 34.0754, "lng": -84.2941, "city": "Alpharetta", "state": "GA",
+      "verified": false
+    },
+    "Legacy Ridge at Buckhead, Atlanta": {
+      "lat": 33.8484, "lng": -84.3733, "city": "Atlanta (Buckhead)", "state": "GA",
+      "verified": false
+    },
+    "Legacy Ridge at Marietta, Marietta": {
+      "lat": 33.9526, "lng": -84.5499, "city": "Marietta", "state": "GA",
+      "verified": false
+    },
+    "The Canopy at Westridge, McDonough": {
+      "lat": 33.4473, "lng": -84.1469, "city": "McDonough", "state": "GA",
+      "verified": false
+    },
+    "The Overlook at Suwanee": {
+      "lat": 34.0515, "lng": -84.0713, "city": "Suwanee", "state": "GA",
+      "verified": false
+    },
+    "Legacy Reserve at Fritz Farm, Lexington": {
+      "lat": 37.9856, "lng": -84.5064, "city": "Lexington", "state": "KY",
+      "verified": false
+    },
+    "The Goldton at Southaven, Southaven": {
+      "lat": 34.9890, "lng": -89.9873, "city": "Southaven", "state": "MS",
+      "verified": false
+    },
+    "The Goldton at Adelaide, Starkville": {
+      "lat": 33.4504, "lng": -88.8184, "city": "Starkville", "state": "MS",
+      "verified": false
+    },
+    "Oakview Park, Greenville": {
+      "lat": 34.8526, "lng": -82.3940, "city": "Greenville", "state": "SC",
+      "verified": false
+    },
+    "Spring Park, Travelers Rest": {
+      "lat": 34.9679, "lng": -82.4368, "city": "Travelers Rest", "state": "SC",
+      "verified": false
+    },
+    "Legacy Reserve Fairview Park, Simpsonville": {
+      "lat": 34.7368, "lng": -82.2543, "city": "Simpsonville", "state": "SC",
+      "verified": false
+    },
+    "Wildcat Senior Living, Summerville": {
+      "lat": 33.0185, "lng": -80.1756, "city": "Summerville", "state": "SC",
+      "verified": false
+    },
+    "The Goldton at Spring Hill, Spring Hill": {
+      "lat": 35.7512, "lng": -86.9300, "city": "Spring Hill", "state": "TN",
+      "verified": false,
+      "note": "Spring Hill, Tennessee assumed. There is also a Spring Hill in Florida, near the Canopy at Beacon Woods. CONFIRM THIS ONE."
+    },
+    "The Oscar at Georgetown": {
+      "lat": 30.6333, "lng": -97.6770, "city": "Georgetown", "state": "TX",
+      "verified": false,
+      "note": "Georgetown, Texas assumed from the two Texas pins on the map."
+    },
+    "The Oscar at Veramendi": {
+      "lat": 29.7266, "lng": -98.1512, "city": "New Braunfels (Veramendi)", "state": "TX",
+      "verified": false,
+      "note": "Veramendi is a master-planned development in New Braunfels."
+    },
+    "Tribute at Black Hill": {
+      "lat": 39.1935, "lng": -77.2405, "city": "Germantown", "state": "MD",
+      "verified": false,
+      "note": "Black Hill is a regional park area in Germantown, Montgomery County."
+    },
+    "Tribute at Melford": {
+      "lat": 38.9640, "lng": -76.7280, "city": "Bowie (Melford)", "state": "MD",
+      "verified": false,
+      "note": "Melford is a development in Bowie."
+    },
+    "Tribute at One Loudoun": {
+      "lat": 39.0437, "lng": -77.4400, "city": "Ashburn (One Loudoun)", "state": "VA",
+      "verified": false,
+      "note": "One Loudoun is a development in Ashburn, Loudoun County."
+    },
+    "Tribute at The Glen": {
+      "lat": 39.1157, "lng": -77.5636, "city": "Leesburg", "state": "VA",
+      "verified": false,
+      "note": "LEAST CONFIDENT OF ALL 39. 'The Glen' names no town I can place. Sited near the other two Tribute properties in the DMV cluster, which is a guess and nothing more."
+    }
+  }
+}

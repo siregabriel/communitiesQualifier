@@ -508,6 +508,50 @@
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
         }
 
+        /* ---- Communities: the same set, seen from above ---------------- */
+        .cmap-switch { display: flex; gap: 6px; margin: 0 0 14px; }
+        .cmap-tab {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 8px 15px; border: 1px solid #d9e2ef; border-radius: 9px;
+            background: #fff; color: #475569; font-size: 13.5px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+        }
+        .cmap-tab i { font-size: 13px; }
+        .cmap-tab.is-on { background: #00285c; border-color: #00285c; color: #fff; }
+        .cmap-tab:not(.is-on):hover { border-color: #b9c7db; }
+        .cmap-wrap { margin-bottom: 20px; }
+        .cmap {
+            height: 560px; border-radius: 12px; border: 1px solid #e4ebf5;
+            background: #eef2f7;
+        }
+        /* What the map left out, said above the map rather than below it —
+           the time to learn that three communities are missing is before you
+           read the picture, not after. */
+        .cmap-note {
+            padding: 11px 14px; margin-bottom: 10px; border-radius: 9px;
+            background: #fffbeb; border: 1px solid #fde68a; color: #7c5e10;
+            font-size: 13px; line-height: 1.55;
+        }
+        .cmap-key {
+            display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px;
+            font-size: 12.5px; color: #64748b;
+        }
+        .cmap-key span { display: inline-flex; align-items: center; gap: 7px; }
+        .cmap-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .cmap-dot-hollow { background: transparent; border: 2px solid #94a3b8; }
+        .cmap-pop b { font-size: 14px; color: #0f1e36; }
+        .cmap-pop-sub { font-size: 12px; color: #64748b; margin-top: 3px; }
+        .cmap-pop-go {
+            display: inline-block; margin-top: 9px; font-size: 12.5px;
+            font-weight: 700; color: #00285c; cursor: pointer;
+        }
+        html[data-theme="dark"] .cmap-tab { background: #16203a; border-color: #2b3a5c; color: #c7d3e8; }
+        html[data-theme="dark"] .cmap-tab.is-on { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+        html[data-theme="dark"] .cmap { background: #0f1729; border-color: #2b3a5c; }
+        html[data-theme="dark"] .cmap-note { background: #2a2312; border-color: #5c4a15; color: #e8d9a8; }
+        html[data-theme="dark"] .cmap-key { color: #94a3b8; }
+        @media (max-width: 768px) { .cmap { height: 420px; } }
+
         .gallery {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
@@ -2428,7 +2472,25 @@
             </div>
         </div>
 
+        <div id="cmapSwitch" class="cmap-switch" hidden>
+            <button class="cmap-tab is-on" data-layout="list" onclick="setCommunityLayout('list')">
+                <i class="fas fa-list"></i> List</button>
+            <button class="cmap-tab" data-layout="map" onclick="setCommunityLayout('map')">
+                <i class="fas fa-map-location-dot"></i> Map</button>
+        </div>
+
         <div class="gallery" id="gallery"></div>
+
+        <div id="cmapWrap" class="cmap-wrap" hidden>
+            <div id="cmapNote" class="cmap-note" hidden></div>
+            <div id="communityMap" class="cmap"></div>
+            <div class="cmap-key">
+                <span><i class="cmap-dot" style="background:#0f8a5f"></i> 90 and above</span>
+                <span><i class="cmap-dot" style="background:#d97706"></i> 75 to 89</span>
+                <span><i class="cmap-dot" style="background:#dc2626"></i> below 75</span>
+                <span><i class="cmap-dot cmap-dot-hollow"></i> not visited recently</span>
+            </div>
+        </div>
         <script>
         (function () {
             var kpi = '<div class="skel-card"><div class="skel" style="height:30px;width:55%"></div><div class="skel" style="height:11px;width:75%;margin-top:14px"></div></div>';
@@ -4141,6 +4203,168 @@
         }
 
         // Render Community Cards with Filters
+        /* ================= Communities, seen from above =================
+
+           The list answers "how is this one?". The map answers "where are the
+           ones that are not?". Same set, same scoping, different zoom — which
+           is why it lives here behind a switch rather than in a section of
+           its own: a map is not somewhere you go, it is a way of looking.
+
+           Three things it refuses to do:
+
+             - Guess a position. A community with no entry in the reference
+               file is named above the map, not dropped somewhere plausible.
+             - Call a stale score good. Nothing visited inside the window gets
+               a colour at all; it gets a hollow ring, because "we have not
+               looked" is not "it is fine".
+             - Show anybody a community they could not already open. The server
+               scopes the list; this only draws what it is handed.
+        */
+        let _cmapLayout = 'list';
+        let _cmap = null;             // the Leaflet map, built once
+        let _cmapLayer = null;        // the pins, replaced on each load
+        let _cmapLoaded = false;      // whether Leaflet itself is here yet
+
+        const CMAP_COLOURS = { good: '#0f8a5f', watch: '#d97706', poor: '#dc2626' };
+
+        /* Leaflet is fetched the first time somebody opens the map, not on
+           every dashboard load. Most people never open it, and it is not
+           worth a download to them. */
+        function ensureLeaflet() {
+            if (_cmapLoaded) return Promise.resolve(true);
+            if (window.L) { _cmapLoaded = true; return Promise.resolve(true); }
+            return new Promise(resolve => {
+                const css = document.createElement('link');
+                css.rel = 'stylesheet';
+                css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+                document.head.appendChild(css);
+                const js = document.createElement('script');
+                js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+                js.onload = () => { _cmapLoaded = true; resolve(true); };
+                js.onerror = () => resolve(false);
+                document.head.appendChild(js);
+            });
+        }
+
+        /* Only for somebody who covers more than one. For an Executive
+           Director the map is a single pin, which tells them nothing they did
+           not already know, and offering it would be the first step towards a
+           map of buildings that are not theirs. */
+        function updateCommunityLayoutSwitch() {
+            const sw = document.getElementById('cmapSwitch');
+            if (!sw) return;
+            const many = isAdmin || (currentUserCommunities || []).length > 1;
+            sw.hidden = !many;
+            if (!many && _cmapLayout === 'map') setCommunityLayout('list');
+        }
+
+        function setCommunityLayout(which) {
+            _cmapLayout = which === 'map' ? 'map' : 'list';
+            const gallery = document.getElementById('gallery');
+            const wrap = document.getElementById('cmapWrap');
+            if (gallery) gallery.hidden = _cmapLayout === 'map';
+            if (wrap) wrap.hidden = _cmapLayout !== 'map';
+            document.querySelectorAll('#cmapSwitch .cmap-tab').forEach(b => {
+                b.classList.toggle('is-on', b.dataset.layout === _cmapLayout);
+            });
+            try { localStorage.setItem('atlasCommunityLayout', _cmapLayout); } catch (e) {}
+            if (_cmapLayout === 'map') renderCommunityMap();
+        }
+
+        function cmapNote(text) {
+            const el = document.getElementById('cmapNote');
+            if (!el) return;
+            el.hidden = !text;
+            el.innerHTML = text || '';
+        }
+
+        async function renderCommunityMap() {
+            const host = document.getElementById('communityMap');
+            if (!host) return;
+
+            const ok = await ensureLeaflet();
+            if (!ok) {
+                cmapNote('The map could not load. The list has the same communities.');
+                return;
+            }
+
+            let data;
+            try {
+                const r = await fetch('/api/map/communities');
+                data = await r.json();
+                if (data.status !== 'success') throw new Error('bad response');
+            } catch (e) {
+                cmapNote('Could not load the map data. The list has the same communities.');
+                return;
+            }
+
+            const rows = data.communities || [];
+
+            // Said before the picture, not after it.
+            const notes = [];
+            if ((data.unplaced || []).length) {
+                notes.push(`<b>${data.unplaced.length} not on the map</b> — no location on
+                    file yet: ${data.unplaced.map(escapeHtml).join(', ')}.`);
+            }
+            if ((data.unverified || []).length) {
+                notes.push(`${data.unverified.length} of these positions are proposed and
+                    not yet confirmed by anyone.`);
+            }
+            cmapNote(notes.join('<br>'));
+
+            if (!_cmap) {
+                _cmap = L.map(host, { scrollWheelZoom: false });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 18,
+                    attribution: '&copy; OpenStreetMap',
+                }).addTo(_cmap);
+            }
+            if (_cmapLayer) _cmapLayer.remove();
+            _cmapLayer = L.layerGroup().addTo(_cmap);
+
+            rows.forEach(c => {
+                const stale = c.band === 'stale';
+                const colour = CMAP_COLOURS[c.band] || '#94a3b8';
+                const marker = L.circleMarker([c.lat, c.lng], {
+                    radius: 9,
+                    // A hollow ring for a score we cannot stand behind. It has
+                    // to read as different at a glance, not as a paler green.
+                    color: stale ? '#94a3b8' : colour,
+                    weight: stale ? 2 : 1,
+                    fillColor: stale ? 'transparent' : colour,
+                    fillOpacity: stale ? 0 : 0.85,
+                });
+                const score = c.score === null ? 'No score yet' : c.score + '%';
+                const when = c.last_visit
+                    ? `${formatDate(c.last_visit)} · ${c.days_since} days ago`
+                    : 'Never visited';
+                marker.bindPopup(
+                    `<div class="cmap-pop">
+                       <b>${escapeHtml(c.community)}</b>
+                       <div class="cmap-pop-sub">${escapeHtml(c.city)}${c.state ? ', ' + escapeHtml(c.state) : ''}</div>
+                       <div class="cmap-pop-sub" style="margin-top:7px">
+                         <b style="color:${stale ? '#64748b' : colour}">${score}</b>
+                         ${stale ? ' · not visited recently' : ''}
+                       </div>
+                       <div class="cmap-pop-sub">${escapeHtml(when)}</div>
+                       <div class="cmap-pop-sub">${c.open_items} open item${c.open_items === 1 ? '' : 's'}</div>
+                       <span class="cmap-pop-go" onclick="openSlidePanel('${escapeHtmlForAttr(c.community).replace(/'/g, "\\'")}')">
+                         Open this community &rsaquo;</span>
+                     </div>`);
+                marker.addTo(_cmapLayer);
+            });
+
+            if (rows.length) {
+                _cmap.fitBounds(L.latLngBounds(rows.map(c => [c.lat, c.lng])).pad(0.2));
+            } else {
+                _cmap.setView([33.5, -84.5], 5);
+            }
+            // Leaflet measures the container on creation; if it was hidden at
+            // that moment every tile lands in the wrong place until something
+            // resizes the window.
+            setTimeout(() => _cmap.invalidateSize(), 60);
+        }
+
         function renderCommunityCards() {
             const gallery = document.getElementById('gallery');
             
@@ -4437,6 +4661,7 @@
                 canRunVisits = !!data.can_run_visits;
                 if (data.visit_cadence_days) visitCadenceDays = data.visit_cadence_days;
                 currentUserCommunities = data.communities || [];
+                if (typeof updateCommunityLayoutSwitch === 'function') updateCommunityLayoutSwitch();
                 if (data.view_as) showViewAsBanner(data.view_as, data.view_as_communities);
                 // The bottom tab bar offers New Visit; hide it for
                 // accounts that aren't allowed to run one.
@@ -4646,6 +4871,23 @@
         function showView(view) {
             console.log(`<i class="fas fa-location-dot card-emoji"></i> showView called with view: ${view}`);
             currentView = view;
+
+            /* The map belongs to Communities and nowhere else. Leaving the
+               section has to put the list back, or the gallery stays hidden
+               underneath a map that is no longer on screen. */
+            if (view !== 'communities') {
+                const g = document.getElementById('gallery');
+                const w = document.getElementById('cmapWrap');
+                const sw = document.getElementById('cmapSwitch');
+                if (g) g.hidden = false;
+                if (w) w.hidden = true;
+                if (sw) sw.hidden = true;
+            } else {
+                if (typeof updateCommunityLayoutSwitch === 'function') updateCommunityLayoutSwitch();
+                let saved = 'list';
+                try { saved = localStorage.getItem('atlasCommunityLayout') || 'list'; } catch (e) {}
+                if (typeof setCommunityLayout === 'function') setCommunityLayout(saved);
+            }
             if (typeof updateMobileTab === 'function') updateMobileTab(view);
 
             // Keep the URL in sync with the current section so a refresh returns

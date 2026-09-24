@@ -374,9 +374,12 @@ inspection_service = InspectionService(INSPECTIONS_FILE, UPLOAD_FOLDER)
 # URLs; otherwise they fall back to the local static/uploads folder. This keeps
 # the app working in dev / before the bucket is configured.
 from services.file_upload_handler import FileUploadHandler
+from services.place_service import PlaceService
 S3_BUCKET = os.environ.get('S3_BUCKET', '').strip() or None
 AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
 S3_URL_EXPIRY = int(os.environ.get('S3_URL_EXPIRY', '3600'))
+place_service = PlaceService()
+
 file_upload_handler = FileUploadHandler(
     UPLOAD_FOLDER,
     s3_bucket=S3_BUCKET,
@@ -7417,6 +7420,118 @@ def export_reports_pdf():
 
 
 # ==================== ERROR HANDLERS ====================
+
+# How long a community's score stays worth showing in colour.
+#
+# A community nobody has visited in two months still has its last score on
+# file, and painting that green asserts something we do not know. Past this
+# many days the pin goes hollow: "we have not looked" reads differently from
+# "it is fine", which is the whole point of putting it on a map.
+MAP_STALE_DAYS = 60
+
+
+def _map_band(score, days_since):
+    """The colour a pin gets. Grey beats every other rule."""
+    if score is None or days_since is None or days_since > MAP_STALE_DAYS:
+        return 'stale'
+    if score >= 90:
+        return 'good'
+    if score >= 75:
+        return 'watch'
+    return 'poor'
+
+
+def _current_score(responses):
+    """The same arithmetic the community card uses — passes plus anything
+    since fixed, over everything answered.
+
+    Written out again here rather than approximated, because a map that
+    disagrees with the card it links to is a map nobody trusts twice.
+    """
+    passed = failed = fixed = 0
+    for r in (responses or []):
+        if r.get('condition') == 'Pass':
+            passed += 1
+        elif r.get('condition') == 'Fail':
+            failed += 1
+            if r.get('addressed') or r.get('addressed_at'):
+                fixed += 1
+    total = passed + failed
+    if not total:
+        return None
+    return round((passed + fixed) / total * 100)
+
+
+@app.route('/api/map/communities', methods=['GET'])
+@login_required
+def map_communities():
+    """The communities this session may see, positioned.
+
+    Scoped with visible_communities() — the same function every other view
+    uses — rather than sending the lot and letting the page filter. A map is
+    an easy way to show somebody a hundred buildings that are not theirs
+    without anybody noticing it happened.
+    """
+    from services import reminder_service as _reminders
+
+    mine = visible_communities()
+    placed = place_service.placed(mine)
+
+    # Latest visit per community, from the submissions themselves.
+    latest = {}
+    for sub in inspection_service.get_all_submissions():
+        c = sub.get('community')
+        if c not in mine:
+            continue
+        when = sub.get('submitted_at') or ''
+        if when > (latest.get(c) or {}).get('submitted_at', ''):
+            latest[c] = sub
+
+    # Open work, counted by the same definition the reminders use, so the
+    # number on a pin and the number in somebody's inbox agree.
+    raised = raised_item_service.for_communities(
+        mine, include_internal=can_see_internal())
+    open_count = {}
+    for it in _reminders.open_items(inspection_service.get_all_submissions(), raised):
+        if it['community'] in mine:
+            open_count[it['community']] = open_count.get(it['community'], 0) + 1
+
+    now = datetime.now()
+    rows = []
+    for rec in placed:
+        name = rec['community']
+        sub = latest.get(name)
+        score = _current_score((sub or {}).get('responses')) if sub else None
+        days = None
+        when = (sub or {}).get('submitted_at')
+        if when:
+            try:
+                days = (now - datetime.fromisoformat(when)).days
+            except ValueError:
+                days = None
+        rows.append({
+            'community': name,
+            'lat': rec['lat'], 'lng': rec['lng'],
+            'city': rec['city'], 'state': rec['state'],
+            'verified': rec['verified'],
+            'score': score,
+            'last_visit': when or '',
+            'days_since': days,
+            'band': _map_band(score, days),
+            'open_items': open_count.get(name, 0),
+        })
+
+    rows.sort(key=lambda r: r['community'])
+    return jsonify({
+        'status': 'success',
+        'communities': rows,
+        # Named, not swallowed. A community with no position is a gap in the
+        # reference file, and the only way it gets fixed is by being visible.
+        'unplaced': place_service.unplaced(mine),
+        'unverified': place_service.unverified(mine),
+        'stale_after_days': MAP_STALE_DAYS,
+    }), 200
+
 
 @app.errorhandler(404)
 def not_found(error):
