@@ -520,6 +520,15 @@
         .cmap-tab.is-on { background: #00285c; border-color: #00285c; color: #fff; }
         .cmap-tab:not(.is-on):hover { border-color: #b9c7db; }
         .cmap-wrap { margin-bottom: 20px; }
+        /* The hidden attribute hides an element through a browser default
+           rule, and a default rule loses to any author rule — so `.gallery {
+           display: grid }` beat it and setting gallery.hidden did nothing at
+           all. The list would have sat there with the map underneath it.
+           These two win on specificity and put that right. jsdom cannot show
+           the fault, because it resolves the cascade by document order rather
+           than specificity and gives the default rule the win; the test for
+           this reads the stylesheet and says why. */
+        .gallery[hidden], .cmap-wrap[hidden], .cmap-switch[hidden] { display: none; }
         .cmap {
             height: 560px; border-radius: 12px; border: 1px solid #e4ebf5;
             background: #eef2f7;
@@ -4348,9 +4357,20 @@
                        </div>
                        <div class="cmap-pop-sub">${escapeHtml(when)}</div>
                        <div class="cmap-pop-sub">${c.open_items} open item${c.open_items === 1 ? '' : 's'}</div>
-                       <span class="cmap-pop-go" onclick="openSlidePanel('${escapeHtmlForAttr(c.community).replace(/'/g, "\\'")}')">
-                         Open this community &rsaquo;</span>
+                       <span class="cmap-pop-go">Open this community &rsaquo;</span>
                      </div>`);
+                /* The handler is attached, not written into an attribute.
+                   escapeHtmlForAttr turns an apostrophe into &#39;, which the
+                   HTML parser hands back to JavaScript as a plain quote — so a
+                   community called O'Brien Place would have produced a broken
+                   onclick, and the name would have been parsed as code rather
+                   than passed as text. None of the 39 has one today. That is
+                   not a reason to leave it. */
+                marker.on('popupopen', ev => {
+                    const el = ev.popup.getElement &&
+                               ev.popup.getElement().querySelector('.cmap-pop-go');
+                    if (el) el.onclick = () => openSlidePanel(c.community);
+                });
                 marker.addTo(_cmapLayer);
             });
 
