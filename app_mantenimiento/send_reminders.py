@@ -59,17 +59,29 @@ def _plan(now):
     rows = R.due(items, now, LEDGER.armed(), LEDGER.already)
 
     # --- the Executive Director's own community, internal items removed ---
+    #
+    # One message per community per morning, not one per stage.
+    #
+    # Grouping by community *and* stage read fine until a real community had
+    # items at both marks: Tribute at One Loudoun would have sent its Executive
+    # Director a 15-day email with ten items and a 30-day email with three,
+    # minutes apart. Two emails from the same system about the same place on the
+    # same morning is how a sender gets filtered.
+    #
+    # The escalation is still visible — it is the separate message that goes to
+    # the regional, and the count of items past the second mark named in this
+    # one. Each item is still recorded at its own stage, so the ledger and the
+    # escalation are unaffected by the merge.
     ed_mail = []
     for community, group in sorted(R.for_executive_director(rows).items()):
-        by_stage = {}
-        for r in group:
-            by_stage.setdefault(r['stage'], []).append(r)
-        for stage, group_items in sorted(by_stage.items()):
-            to = A.community_account_emails(community)
-            ed_mail.append({
-                'community': community, 'stage': stage, 'to': to,
-                'items': sorted(group_items, key=lambda i: -i['quiet_days']),
-            })
+        items = sorted(group, key=lambda i: -i['quiet_days'])
+        ed_mail.append({
+            'community': community,
+            'stage': min(i['stage'] for i in items),
+            'past_second': sum(1 for i in items if i['stage'] == max(R.STAGES)),
+            'to': A.community_account_emails(community),
+            'items': items,
+        })
 
     # --- the regional, once for the whole region, second stage only ---
     regional_mail = []
@@ -108,7 +120,8 @@ def _print_plan(now, ed_mail, regional_mail, rows):
 
     for m in ed_mail:
         who = ', '.join(m['to']) if m['to'] else '*** NADIE — sin correo ***'
-        print(f"  ED · {m['community']} · {m['stage']} días → {who}")
+        extra = f" (+{m['past_second']} pasados los {max(R.STAGES)})" if m.get('past_second') else ''
+        print(f"  ED · {m['community']} · desde {m['stage']} días{extra} → {who}")
         for it in m['items']:
             print(f"        [{it['quiet_days']:>3}d] {it['kind']:<9} {it['text'][:64]}")
     for m in regional_mail:
@@ -198,7 +211,7 @@ def main(argv=None):
             _note_nobody_to_tell(m['community'], m['stage'])
             continue
         ok, detail = A.email_service.send_open_items_reminder(
-            m['to'], m['community'], m['items'], m['stage'])
+            m['to'], m['community'], m['items'], m['stage'], m.get('past_second', 0))
         if ok:
             ed_sent += 1
             sent_rows.extend(m['items'])

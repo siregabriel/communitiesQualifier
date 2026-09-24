@@ -664,7 +664,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             lines.append(f"  - [{it.get('quiet_days', 0)} days]{where} {it.get('text')}")
         return '\n'.join(lines)
 
-    def send_open_items_reminder(self, recipients, community, items, stage):
+    def send_open_items_reminder(self, recipients, community, items, stage, past_second=0):
         """To the Executive Director: what is open here and has gone quiet.
 
         The wording avoids blame on purpose. Plenty of these are waiting on a
@@ -685,12 +685,20 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                   f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
                   f"Open in Atlas Excellence</a></div>") if link else ''
 
-        subject = (f"{n} open item{'' if n == 1 else 's'} at {community} "
-                   f"with no update in {stage} days")
+        # The subject leads with the worse number when there is one, because
+        # that is what decides whether this gets opened now or later.
+        lead = (f"{past_second} past 30 days" if past_second
+                else f"no update in {stage} days")
+        subject = (f"{n} open item{'' if n == 1 else 's'} at {community} — {lead}")
+        escalated = (f"<p style='font-size:13.5px;margin:0 0 16px;line-height:1.6;"
+                     f"color:#b42318'><b>{past_second} of these"
+                     f"</b> {'has' if past_second == 1 else 'have'} now passed 30 days, "
+                     f"so your regional has the same list.</p>") if past_second else ''
         body = (f"<p style='font-size:14px;margin:0 0 16px;line-height:1.6'>"
                 f"{'This item has' if n == 1 else f'These {n} items have'} been open at "
                 f"<b>{esc(community)}</b> with nothing recorded against "
                 f"{'it' if n == 1 else 'them'} for {stage} days or more.</p>"
+                f"{escalated}"
                 f"{self._quiet_rows_html(items)}"
                 f"<p style='font-size:13px;color:#6b7280;margin:18px 0 0;line-height:1.6'>"
                 f"A comment counts as an update. If something is waiting on a vendor or a "
@@ -698,7 +706,10 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 f"whoever looks next where it stands.</p>"
                 f"{button}")
         text_body = (f"{n} open item{'' if n == 1 else 's'} at {community} with no update "
-                     f"in {stage} days or more.\n\n"
+                     f"in {stage} days or more.\n"
+                     + (f"{past_second} of them have passed 30 days, so your regional "
+                        f"has the same list.\n" if past_second else '')
+                     + "\n"
                      + self._quiet_rows_text(items)
                      + "\n\nA comment counts as an update. If something is waiting on a "
                        "vendor or a budget, saying so on the item is enough to stop this "

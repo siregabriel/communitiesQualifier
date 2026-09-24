@@ -414,3 +414,71 @@ def test_a_failed_send_is_not_recorded_as_done(tmp_path, monkeypatch):
                         lambda *a, **k: (False, 'SES said no'))
     S.main(['--send', '--force'])
     assert S.LEDGER.sent == {}, 'a send that failed was written down as sent'
+
+
+# ------------------------------------- one message per place, per morning
+
+def _plan_for(monkeypatch, tmp_path, subs, raised=(), armed_days=365):
+    """Run the real planner over made-up data.
+
+    The double-send this guards against was invisible in the unit tests and
+    obvious the first time it met a real community, so this drives the
+    planner itself rather than the pieces under it.
+    """
+    import app as A
+    import send_reminders as S
+    monkeypatch.setattr(S, 'LEDGER', R.ReminderLedger(str(tmp_path / 'r.json')))
+    S.LEDGER.arm(NOW - timedelta(days=armed_days))
+    monkeypatch.setattr(A.inspection_service, 'get_all_submissions', lambda: subs)
+    monkeypatch.setattr(A.raised_item_service, 'for_communities',
+                        lambda *a, **k: list(raised))
+    monkeypatch.setattr(A, 'all_communities', lambda: ['Tribute at One Loudoun'])
+    monkeypatch.setattr(A, 'community_account_emails', lambda *a, **k: ['ed@atlas.com'])
+    monkeypatch.setattr(A, 'region_leader_emails', lambda *a, **k: ['reg@atlas.com'])
+    monkeypatch.setattr(A, 'region_for_community',
+                        lambda c: {'id': 'dmv', 'name': 'DMV'})
+    return S._plan(NOW)
+
+
+def test_a_community_with_both_marks_gets_one_email(monkeypatch, tmp_path):
+    """Tribute at One Loudoun had ten items at fifteen days and three past
+    thirty. It was going to send its Executive Director two emails minutes
+    apart, which is how a sender ends up in a filter."""
+    subs = [submission(community='Tribute at One Loudoun',
+                       responses=[failed(qid='q1', days=16),
+                                  failed(qid='q2', days=17),
+                                  failed(qid='q3', days=36)])]
+    ed_mail, _, _, _ = _plan_for(monkeypatch, tmp_path, subs)
+    assert len(ed_mail) == 1, f'{len(ed_mail)} emails to the same person'
+    assert len(ed_mail[0]['items']) == 3
+    assert ed_mail[0]['past_second'] == 1, 'the escalated one is not counted'
+
+
+def test_the_worst_one_is_named_and_the_rest_ordered_behind_it(monkeypatch, tmp_path):
+    subs = [submission(community='Tribute at One Loudoun',
+                       responses=[failed(qid='q1', days=16),
+                                  failed(qid='q2', days=40)])]
+    ed_mail, _, _, _ = _plan_for(monkeypatch, tmp_path, subs)
+    assert [i['quiet_days'] for i in ed_mail[0]['items']] == [40, 16]
+
+
+def test_merging_did_not_cost_the_escalation(monkeypatch, tmp_path):
+    """The regional still gets their own message about the 30-day ones."""
+    subs = [submission(community='Tribute at One Loudoun',
+                       responses=[failed(qid='q1', days=16),
+                                  failed(qid='q2', days=36)])]
+    _, regional_mail, _, _ = _plan_for(monkeypatch, tmp_path, subs)
+    assert len(regional_mail) == 1
+    days = [i['quiet_days'] for v in regional_mail[0]['by_community'].values() for i in v]
+    assert days == [36], f'the regional list is wrong ({days})'
+
+
+def test_each_item_is_still_recorded_at_its_own_stage(monkeypatch, tmp_path):
+    """Merging the message must not merge the bookkeeping: the 15-day item
+    has to stay eligible for its own 30-day escalation later."""
+    subs = [submission(community='Tribute at One Loudoun',
+                       responses=[failed(qid='q1', days=16),
+                                  failed(qid='q2', days=36)])]
+    ed_mail, _, _, _ = _plan_for(monkeypatch, tmp_path, subs)
+    stages = sorted(i['stage'] for i in ed_mail[0]['items'])
+    assert stages == [15, 30], f'both items were filed under one stage ({stages})'
