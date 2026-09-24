@@ -51,6 +51,10 @@
       "lat": 34.6993, "lng": -86.7483, "city": "Madison", "state": "AL",
       "verified": false
     },
+    "The Georgian at Lakeside": {
+      "lat": 34.0232, "lng": -84.3616, "city": "Roswell", "state": "GA",
+      "verified": false
+    },
     "The Goldton at Athens": {
       "lat": 34.8029, "lng": -86.9717, "city": "Athens", "state": "AL",
       "verified": false,

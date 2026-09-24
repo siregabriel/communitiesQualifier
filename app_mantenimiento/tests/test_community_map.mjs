@@ -232,8 +232,8 @@ console.log('\nWhat is missing is said above the map');
   ok(note.hidden === false, 'the note is shown');
   ok(/1 not on the map/.test(note.innerHTML), 'it counts them');
   ok(/Tribute at The Glen/.test(note.innerHTML), 'and names them');
-  ok(/2 of these positions are proposed/.test(note.innerHTML),
-     'and says how many positions nobody has confirmed');
+  ok(!/proposed/.test(note.innerHTML),
+     'and does not nag about unconfirmed positions, which never change');
 
   const clean = makeWorld();
   await clean.renderCommunityMap();

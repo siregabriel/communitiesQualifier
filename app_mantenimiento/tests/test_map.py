@@ -50,8 +50,15 @@ def visit(community, score_passes=9, fails=1, days=5, sid='s1'):
 
 # ------------------------------------------------------- the reference file
 
-def test_every_community_has_a_position():
-    """The whole list, or the map is a picture with holes nobody counted."""
+def test_every_community_this_machine_knows_about_has_a_position():
+    """Worth having, and weaker than it looks.
+
+    all_communities() reads the roster on *this* machine, and a development
+    roster is not production's. The Georgian at Lakeside was live and missing
+    from the reference file, and this test was green the whole time — the
+    banner above the map is what found it, which is the argument for keeping
+    that banner rather than trusting this.
+    """
     svc = PlaceService()
     missing = svc.unplaced(A.all_communities())
     assert missing == [], f'no location on file for: {missing}'
@@ -101,13 +108,16 @@ def test_a_broken_file_does_not_take_the_app_down(tmp_path):
     assert svc.unplaced(['Anything']) == ['Anything']
 
 
-def test_every_position_starts_out_unconfirmed():
-    """They are proposals until somebody who knows the community has looked
-    at the pin. The map says so, and it can only say so if this is true."""
+def test_the_confirmed_flag_still_means_something():
+    """The map stopped showing a count of unconfirmed positions — it said the
+    same thing every morning until somebody reviewed all forty, and a banner
+    that never changes is a banner nobody reads. The flag stayed in the data
+    so it can be surfaced per pin the day that is worth doing, and a flag
+    nothing reads is a flag that quietly becomes wrong."""
     svc = PlaceService()
-    unverified = svc.unverified()
-    assert len(unverified) == len(A.all_communities()), \
-        'something was marked verified without a person confirming it'
+    everything = list(svc._places)
+    assert svc.unverified(everything), \
+        'every position is marked confirmed, which nobody has done'
 
 
 # --------------------------------------------------------------- the colour

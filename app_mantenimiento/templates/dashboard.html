@@ -4315,10 +4315,18 @@
                 notes.push(`<b>${data.unplaced.length} not on the map</b> — no location on
                     file yet: ${data.unplaced.map(escapeHtml).join(', ')}.`);
             }
-            if ((data.unverified || []).length) {
-                notes.push(`${data.unverified.length} of these positions are proposed and
-                    not yet confirmed by anyone.`);
-            }
+            /* The "not yet confirmed" count used to be here. It was true and
+               it was useless: until somebody sits down and reviews all forty
+               it reads the same every single morning, and a banner that never
+               changes is a banner nobody reads. The `verified` flag is still
+               on every entry and still comes down in the response, so it can
+               be surfaced per pin the day that is worth doing.
+
+               What stays is the count of communities with no position at all,
+               because that one is actionable and it goes away when somebody
+               acts on it. It is also what found The Georgian at Lakeside,
+               which the tests could not: they read a development roster, and
+               production's had one more community in it. */
             cmapNote(notes.join('<br>'));
 
             if (!_cmap) {
