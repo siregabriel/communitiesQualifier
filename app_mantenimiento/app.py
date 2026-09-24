@@ -3667,6 +3667,30 @@ def reorder_raised_categories():
                         [str(i)[:40] for i in ids])}), 200
 
 
+def _field(name, default=''):
+    """One value from the request, however it happened to be sent.
+
+    A browser posting a form with no file attached still sends multipart, and
+    `request.files` is empty — so branching on request.files to decide where
+    to read is wrong exactly half the time. Every field of a raised item with
+    no photo was being read from the JSON body of a multipart request, which
+    has none, so all of them arrived empty.
+
+    What people saw was an error about the part they had filled in: a regional
+    got "Pick a community you cover" under a dropdown showing the community,
+    and an Executive Director got "Say what needs attention" under the text
+    they had just typed. It had been that way since the feature shipped, and
+    nobody had ever managed to raise one without attaching a photo.
+
+    Reading the form first and the JSON second needs no branch at all: a JSON
+    request has an empty form, and a multipart one has no JSON.
+    """
+    val = request.form.get(name)
+    if val is None:
+        val = (request.get_json(silent=True) or {}).get(name)
+    return default if val is None else val
+
+
 @app.route('/api/raised-items', methods=['POST'])
 @login_required
 def create_raised_item():
@@ -3675,9 +3699,7 @@ def create_raised_item():
     Open to anyone who can see the community — an Executive Director raising
     what they need, a regional noting something between visits. It is not part
     of any visit and never touches a score."""
-    community = InputSanitizer.sanitize_community_name(
-        (request.form.get('community') if request.files
-         else (request.get_json(silent=True) or {}).get('community', '')) or '')
+    community = InputSanitizer.sanitize_community_name(_field('community'))
     if not community:
         # Someone covering a single community shouldn't have to name it.
         mine = session_communities()
@@ -3685,18 +3707,9 @@ def create_raised_item():
     if not community or not _can_see_community(community):
         return jsonify({'status': 'error', 'message': 'Pick a community you cover'}), 400
 
-    if request.files:
-        text = InputSanitizer.sanitize_description(request.form.get('text', ''))
-        priority = InputSanitizer.sanitize_string(request.form.get('priority', 'medium'),
-                                                  max_length=10)
-        category = InputSanitizer.sanitize_string(request.form.get('category', ''),
-                                                  max_length=40)
-    else:
-        data = request.get_json(silent=True) or {}
-        text = InputSanitizer.sanitize_description(data.get('text', ''))
-        priority = InputSanitizer.sanitize_string(data.get('priority', 'medium'),
-                                                  max_length=10)
-        category = InputSanitizer.sanitize_string(data.get('category', ''), max_length=40)
+    text = InputSanitizer.sanitize_description(_field('text'))
+    priority = InputSanitizer.sanitize_string(_field('priority', 'medium'), max_length=10)
+    category = InputSanitizer.sanitize_string(_field('category'), max_length=40)
     if not text.strip():
         return jsonify({'status': 'error', 'message': 'Say what needs attention'}), 400
 
@@ -3723,8 +3736,7 @@ def create_raised_item():
     # Checked here rather than trusted from the body: a community account
     # posting visibility=internal would otherwise hide something from itself,
     # which is nonsense, and from the regional, which is worse.
-    wanted = ((request.form.get('visibility') if request.files
-               else (request.get_json(silent=True) or {}).get('visibility', '')) or '').strip()
+    wanted = _field('visibility').strip()
     visibility = 'internal' if (wanted == 'internal' and can_see_internal()) else 'community'
 
     username = session.get('user')
@@ -3806,11 +3818,7 @@ def comment_on_raised_item(item_id):
         return jsonify({'status': 'error', 'message': 'Not found'}), 404
     community = item.get('community', '')
 
-    if request.files:
-        text = InputSanitizer.sanitize_description(request.form.get('text', ''))
-    else:
-        text = InputSanitizer.sanitize_description(
-            (request.get_json(silent=True) or {}).get('text', ''))
+    text = InputSanitizer.sanitize_description(_field('text'))
 
     photo_path = ''
     f = request.files.get('photo')
