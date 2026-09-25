@@ -509,6 +509,16 @@
         }
 
         /* ---- Communities: the same set, seen from above ---------------- */
+        /* An account that reaches nothing says so, rather than leaving
+           somebody to deduce it from screens that are all empty. */
+        .profile-region.is-empty { color: #b42318; font-weight: 700; }
+        .profile-scope-warn {
+            display: block; margin-top: 6px; font-size: 12.5px;
+            color: #b42318; line-height: 1.5;
+        }
+        html[data-theme="dark"] .profile-region.is-empty,
+        html[data-theme="dark"] .profile-scope-warn { color: #fca5a5; }
+
         .cmap-switch { display: flex; gap: 6px; margin: 0 0 14px; }
         .cmap-tab {
             display: inline-flex; align-items: center; gap: 7px;
@@ -10014,9 +10024,23 @@
                             <div class="profile-username">@${username}</div>
                             <div class="profile-meta">
                                 <span class="profile-role-badge ${admin ? 'is-admin' : ''}">${role}</span>
-                                ${community
-                                    ? `<span class="profile-region"><i class="fas fa-building"></i> ${community}</span>`
-                                    : `<span class="profile-region"><i class="fas fa-globe"></i> All communities</span>`}
+                                ${(() => {
+                                    /* The server works out the sentence, because
+                                       the server is where the answer lives. This
+                                       line used to read "the community, or else
+                                       All communities", and a regional has no
+                                       single community — so it told every one of
+                                       them they covered everything, including the
+                                       ones covering nothing. */
+                                    const scope = community || 'No community assigned';
+                                    const empty = p ? !!p.covers_nothing : false;
+                                    const icon = empty ? 'fa-circle-exclamation'
+                                        : (/All communities|region/.test(scope) ? 'fa-globe' : 'fa-building');
+                                    return `<span class="profile-region${empty ? ' is-empty' : ''}">`
+                                        + `<i class="fas ${icon}"></i> ${escapeHtml(scope)}</span>`
+                                        + (empty ? `<span class="profile-scope-warn">This account cannot see `
+                                            + `any communities yet — an administrator needs to set its scope.</span>` : '');
+                                })()}
                             </div>
                             ${lastActive ? `<div class="profile-lastactive">Last active ${timeAgo(lastActive)}</div>` : ''}
                         </div>

@@ -1879,20 +1879,43 @@ def get_profile():
             'total_actions': activity_service.count_for_user(username)
         }
 
-        # For regionals, surface their region in place of a single community
+        # What this account actually reaches, said accurately.
+        #
+        # The page used to print the community, or "All communities" when
+        # there was none. A regional never has a single community — that field
+        # belongs to Executive Directors — so every regional read as covering
+        # everything, including one with no region, who covers nothing at all.
+        # Michael Hamilton was created that way, was told he had all of them,
+        # and wrote in asking whether there was some other way in.
+        #
+        # So the sentence is built here, where the answer is known, rather than
+        # guessed at from an empty field on the page.
+        covers_nothing = False
         display_community = community
         if is_leadership(role):
-            display_community = session.get('region_id') and \
-                next((r.get('name') for r in region_service.get_all_regions()
-                      if r.get('id') == session.get('region_id')), None)
-            if display_community:
-                display_community = f"{display_community} region"
+            region = next((r for r in region_service.get_all_regions()
+                           if r.get('id') == session.get('region_id')), None)
+            if region is None:
+                display_community = 'No region assigned'
+                covers_nothing = True
+            elif region.get('kind') == CORPORATE_KIND:
+                display_community = 'All communities'
+            else:
+                display_community = f"{region.get('name')} region"
+        elif has_admin_access:
+            display_community = display_community or 'All communities'
+        elif not display_community:
+            display_community = 'No community assigned'
+            covers_nothing = True
 
         return jsonify({
             'status': 'success',
             'username': username,
             'display_name': profile_service.get_display_name(username) or session.get('display_name') or '',
             'community': display_community,
+            # True when this account reaches nothing. The page says so plainly
+            # rather than leaving somebody to work it out from empty screens.
+            'covers_nothing': covers_nothing,
             'is_admin': has_admin_access,
             'role': role_label,
             'photo': profile_service.get_photo(username),
@@ -4498,6 +4521,36 @@ def list_people():
                     'communities': all_communities()}), 200
 
 
+def _scope_complaint(role, region_id, community):
+    """Why this account would reach nothing, or None if it is fine.
+
+    A regional's scope *is* their region — regional_communities() returns an
+    empty list without one, and an empty list is what every screen filters
+    against. So an account created this way sees no communities, no visits and
+    no raised items, and nothing anywhere says so.
+
+    That is not hypothetical. Michael Hamilton was added as a regional with no
+    region, his profile told him he covered "All communities", and he wrote in
+    asking whether there was some other way in. There was not; there was
+    nothing to see.
+
+    Staff already had this check. Leadership did not, which is the more
+    expensive half: an Executive Director without a community is obviously
+    unfinished, and a regional without a region looks complete.
+    """
+    if role == 'staff' and not community:
+        return 'Pick a community for staff'
+    if role in ('regional', 'corporate'):
+        if not region_id:
+            return ('Pick a region. A regional account reaches its communities '
+                    'through its region, so without one it can see nothing.')
+        known = any(r.get('id') == region_id
+                    for r in region_service.get_all_regions())
+        if not known:
+            return 'That region no longer exists — pick one that does.'
+    return None
+
+
 @app.route('/api/people', methods=['POST'])
 @login_required
 def create_person():
@@ -4521,8 +4574,9 @@ def create_person():
         return jsonify({'status': 'error', 'message': 'Pick a role'}), 400
     if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
         return jsonify({'status': 'error', 'message': 'Enter a valid email address'}), 400
-    if role == 'staff' and not community:
-        return jsonify({'status': 'error', 'message': 'Pick a community for staff'}), 400
+    complaint = _scope_complaint(role, region_id, community)
+    if complaint:
+        return jsonify({'status': 'error', 'message': complaint}), 400
 
     username = generate_unique_username(name)
     # This name may have been somebody else's before a rename. If it is still
@@ -4610,6 +4664,13 @@ def update_person(username):
     target_region = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
     community = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
     communities = requested_communities(data, community)
+
+    # Same check as creating one. Editing somebody into an empty scope is the
+    # likelier mistake of the two, because the account already worked.
+    if requested_role:
+        complaint = _scope_complaint(requested_role, target_region, community)
+        if complaint:
+            return jsonify({'status': 'error', 'message': complaint}), 400
 
     def preserve_password(user_rec):
         """Carry an account's password across storage types so moving someone
