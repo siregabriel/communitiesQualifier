@@ -164,6 +164,7 @@ console.log('\nThe header stops calling an old visit the last one');
     function renderResponses() { return ''; }
     function renderPhotos() { return ''; }
     function loadCommunityHistory() {}
+    function loadCommunityRaised() {}
   `);
   const sub = () => h.document.getElementById('slidePanelSubtitle').textContent;
   const base = { communityName: 'The Oscar at Georgetown', lastVisitDate: '9/18/2026',
