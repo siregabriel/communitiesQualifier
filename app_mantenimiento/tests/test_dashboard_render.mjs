@@ -1046,5 +1046,41 @@ console.log('\nUnfinished visits — nothing to say, nothing shown');
   ok(!gallery.querySelector('.dn'), 'no section when there are none');
 }
 
+/* ---------------------------------------------------------------------
+   A section called one thing in the menu and another in its own header.
+
+   Reports was renamed to Rankings across four places: the sidebar label, the
+   screen's own heading, and two tour steps. Renaming one of four is the easy
+   mistake, and the result — a menu item that opens a page with a different
+   name on it — is the kind of small wrongness that makes people stop trusting
+   the rest of the screen.
+
+   This pins the agreement, not the word, so the next rename only has to be
+   done properly rather than done here as well. What it does pin is that the
+   view key stays "reports": that string is in URLs, in saved layouts and in
+   the list of valid views, and renaming it would quietly break links people
+   have already bookmarked.
+--------------------------------------------------------------------- */
+{
+  const sidebar = fs.readFileSync(
+    new URL('../templates/_sidebar.html', import.meta.url), 'utf8');
+
+  const navLabel = (sidebar.match(/'view':\s*'reports'[^}]*'label':\s*'([^']+)'/) || [])[1];
+  ok(!!navLabel, `the menu has a label for the section (${navLabel})`);
+  ok(/'view':\s*'reports'/.test(sidebar),
+     'and the view key is still "reports" — URLs and saved layouts use it');
+
+  const heading = (html_src.match(/headerTitle\.innerHTML = '<i class="fas fa-chart-line"><\/i> ([^']+)'/) || [])[1];
+  ok(!!heading, `the screen has a heading (${heading})`);
+  ok(heading.startsWith(navLabel),
+     `the heading starts with what the menu calls it — menu "${navLabel}", heading "${heading}"`);
+
+  const tourTitles = [...html_src.matchAll(
+    /\{ target: '\.nav-item\[data-view="reports"\]', title: '([^']+)'/g)].map(m => m[1]);
+  ok(tourTitles.length === 2, `both tour steps found (${tourTitles.length})`);
+  ok(tourTitles.every(t => t === navLabel),
+     `and both call it the same thing (${tourTitles.join(', ')})`);
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);
