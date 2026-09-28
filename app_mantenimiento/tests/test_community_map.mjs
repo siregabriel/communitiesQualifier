@@ -56,7 +56,7 @@ const ROWS = [
     days_since: 146, band: 'stale', open_items: 1 },
 ];
 
-function makeWorld({ rows = ROWS, unplaced = [], unverified = [] } = {}) {
+function makeWorld({ rows = ROWS, unplaced = [], unverified = [], renamed_from = {} } = {}) {
   const dom = new JSDOM(`<!doctype html><html><head><style>${styles}</style></head>
     <body>
       <div id="cmapSwitch" class="cmap-switch" hidden>
@@ -107,7 +107,8 @@ function makeWorld({ rows = ROWS, unplaced = [], unverified = [] } = {}) {
   w.currentUserCommunities = ['a', 'b'];
   w.eval(`
     var _payload = ${JSON.stringify({ status: 'success', communities: rows,
-                                      unplaced, unverified, stale_after_days: 60 })};
+                                      unplaced, unverified, renamed_from,
+                                      stale_after_days: 60 })};
     function fetch() { return Promise.resolve({ json: () => Promise.resolve(_payload) }); }
     function escapeHtml(s) { return String(s == null ? '' : s); }
     function escapeHtmlForAttr(s) { return String(s == null ? '' : s); }
@@ -239,6 +240,35 @@ console.log('\nWhat is missing is said above the map');
   await clean.renderCommunityMap();
   ok(clean.document.getElementById('cmapNote').hidden === true,
      'and stays out of the way when there is nothing to report');
+}
+
+console.log('\nWhy one went missing');
+{
+  /* A rename carries a community across every store that keys on its name.
+     It does not carry the map's reference file, which ships with the code —
+     so the position stays behind under the old name. Saying which name is the
+     difference between a mystery and a one-line edit. */
+  const w = makeWorld({
+    unplaced: ['The Georgian at Lakeside'],
+    renamed_from: { 'The Georgian at Lakeside': 'Georgian Lakeside' },
+  });
+  await w.renderCommunityMap();
+  const note = w.document.getElementById('cmapNote').innerHTML;
+
+  ok(/1 not on the map/.test(note), 'it still counts what is missing');
+  ok(/was renamed from/.test(note), 'and says a rename is why');
+  ok(/Georgian Lakeside/.test(note), 'naming the name to look under');
+  // Tolerant of the line break the template literal leaves in the markup:
+  // the browser collapses it, and a test that does not is a test about
+  // indentation rather than about what the sentence says.
+  ok(/filed\s+under the old name/.test(note), 'and where the position actually is');
+
+  const plain = makeWorld({ unplaced: ['Somewhere New'] });
+  await plain.renderCommunityMap();
+  const bare = plain.document.getElementById('cmapNote').innerHTML;
+  ok(/Somewhere New/.test(bare), 'a community that was never renamed is still named');
+  ok(!/renamed/.test(bare),
+     'and gets no invented explanation — a guess here sends somebody hunting');
 }
 
 console.log('\nAn empty map does not crash');

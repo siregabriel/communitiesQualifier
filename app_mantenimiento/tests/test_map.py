@@ -290,3 +290,82 @@ def test_the_map_is_only_fetched_when_it_is_opened():
     assert tags == [], f'Leaflet is loaded on every page view: {tags}'
     assert 'cdnjs.cloudflare.com/ajax/libs/leaflet' in html, \
         'and now it is not loaded at all'
+
+
+# ------------------------------------------- explaining a missing position
+
+def test_a_renamed_community_is_told_where_its_position_is(monkeypatch):
+    """A rename carries a community across every store that keys on its name —
+    the region, the questions, past visits, move-ins, raised items, the cover
+    photo. Not the map's reference file, which ships with the code: writing to
+    it from the app would produce an edit the next deploy quietly reverts.
+
+    So the map explains instead, which is a sentence somebody can act on.
+    """
+    monkeypatch.setattr(A.activity_service, 'get_recent', lambda **k: [
+        {'type': 'community_renamed', 'detail': 'Renamed "x" to "y"',
+         'meta': {'from': 'Madison at Ocoee, Ocoee', 'to': 'Madison at Ocoee'}},
+    ])
+    assert A._previous_community_name('Madison at Ocoee') == 'Madison at Ocoee, Ocoee'
+    assert A._previous_community_name('Something Else') is None
+
+
+def test_it_can_still_read_a_rename_recorded_before_the_meta_existed():
+    """Older entries carry the two names only inside the sentence."""
+    import app as _A
+    _A.activity_service  # noqa: B018 - keep the import honest
+    entry = {'type': 'community_renamed',
+             'detail': 'Renamed "Old Name" to "New Name"', 'meta': {}}
+    import unittest.mock as mock
+    with mock.patch.object(A.activity_service, 'get_recent', lambda **k: [entry]):
+        assert A._previous_community_name('New Name') == 'Old Name'
+
+
+def test_the_map_only_says_it_when_it_leads_somewhere(monkeypatch):
+    """Naming a previous name that has no position either is a fact about the
+    past, not a way out — and it would send somebody looking for nothing."""
+    monkeypatch.setattr(A, 'visible_communities', lambda: ['Renamed Community'])
+    monkeypatch.setattr(A, 'can_see_internal', lambda: True)
+    monkeypatch.setattr(A.inspection_service, 'get_all_submissions', lambda: [])
+    monkeypatch.setattr(A.raised_item_service, 'for_communities', lambda *a, **k: [])
+
+    # The old name has a real position: worth saying.
+    monkeypatch.setattr(A, '_previous_community_name',
+                        lambda n: 'Madison at Ocoee, Ocoee')
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user='t', role='regional', region_id='innovia')
+    body = c.get('/api/map/communities', headers=HEADERS).get_json()
+    assert body['unplaced'] == ['Renamed Community']
+    assert body['renamed_from'] == {'Renamed Community': 'Madison at Ocoee, Ocoee'}
+
+    # The old name has none either: say nothing rather than send them hunting.
+    monkeypatch.setattr(A, '_previous_community_name', lambda n: 'Never Existed')
+    body = c.get('/api/map/communities', headers=HEADERS).get_json()
+    assert body['renamed_from'] == {}
+
+
+def test_a_rename_records_both_names(monkeypatch):
+    """The map reads the meta. Parsing the sentence is the fallback, and it is
+    the first thing to break on a community with a quote in its name."""
+    logged = []
+    monkeypatch.setattr(A.activity_service, 'log',
+                        lambda u, t, d='', meta=None: logged.append((t, meta or {})))
+    for svc, name in ((A.region_service, 'rename_community'),
+                      (A.question_manager, 'rename_community'),
+                      (A.inspection_service, 'rename_community'),
+                      (A.movein_service, 'rename_community'),
+                      (A.raised_item_service, 'rename_community')):
+        monkeypatch.setattr(svc, name, lambda *a, **k: 0)
+    monkeypatch.setattr(A.community_cover_service, 'rename', lambda *a, **k: None)
+
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user='admin', role='admin')
+    r = c.post('/api/regions/rename-community', headers=HEADERS,
+               json={'old_name': 'Old Place', 'new_name': 'New Place'})
+    assert r.status_code == 200, r.get_data(as_text=True)[:200]
+    kinds = [t for t, _ in logged]
+    assert 'community_renamed' in kinds
+    meta = next(m for t, m in logged if t == 'community_renamed')
+    assert meta.get('from') == 'Old Place' and meta.get('to') == 'New Place'

@@ -4418,6 +4418,18 @@
             if ((data.unplaced || []).length) {
                 notes.push(`<b>${data.unplaced.length} not on the map</b> — no location on
                     file yet: ${data.unplaced.map(escapeHtml).join(', ')}.`);
+
+                /* A rename is the likeliest reason a community that used to be
+                   here is not. It carries the community across every other
+                   store; the map's reference file ships with the code, so it
+                   stays behind under the old name. Saying which name turns a
+                   mystery into a one-line edit. */
+                const was = data.renamed_from || {};
+                Object.keys(was).forEach(now => {
+                    notes.push(`<b>${escapeHtml(now)}</b> was renamed from
+                        <b>${escapeHtml(was[now])}</b> — its position is still filed
+                        under the old name.`);
+                });
             }
             /* The "not yet confirmed" count used to be here. It was true and
                it was useless: until somebody sits down and reviews all forty

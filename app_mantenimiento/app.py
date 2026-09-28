@@ -6373,8 +6373,13 @@ def rename_region_community():
         except Exception as e:
             app.logger.error(f'Partial error during community rename: {str(e)}')
 
+        # Both names in the meta, not only in the sentence. The map reads
+        # this to explain a community whose position is filed under the name
+        # it used to have, and parsing prose to find that out is a way to be
+        # wrong the first time somebody renames a community with a quote in it.
         activity_service.log(session.get('user'), 'community_renamed',
-                             f'Renamed "{old_name}" to "{new_name}"')
+                             f'Renamed "{old_name}" to "{new_name}"',
+                             meta={'from': old_name, 'to': new_name})
 
         return jsonify({'status': 'success', 'regions': region_service.get_all_regions()}), 200
     except IOError as e:
@@ -7491,6 +7496,33 @@ def export_reports_pdf():
 MAP_STALE_DAYS = 60
 
 
+def _previous_community_name(name):
+    """What this community was called before, if we recorded a rename.
+
+    Used for one thing: explaining a missing position on the map.
+
+    A rename carries a community across every store that keys on its name —
+    the region, the questions, past visits, move-ins, raised items, the cover
+    photo. It does not carry the map's reference file, and deliberately so:
+    that file ships with the code rather than living in data, so a rename
+    writing to it would produce an edit the next deploy quietly reverts. A fix
+    that undoes itself is worse than a gap that says where it is.
+
+    So the map explains instead. "This one has no position, and here is the
+    name its position is filed under" is a sentence somebody can act on in
+    under a minute.
+    """
+    for e in activity_service.get_recent(limit=400, types=['community_renamed']):
+        meta = e.get('meta') or {}
+        if (meta.get('to') or '').strip() == name:
+            return (meta.get('from') or '').strip() or None
+        # Entries written before the rename started recording its meta.
+        m = re.match(r'^Renamed "(.+)" to "(.+)"$', e.get('detail') or '')
+        if m and m.group(2) == name:
+            return m.group(1)
+    return None
+
+
 def _map_band(score, days_since):
     """The colour a pin gets. Grey beats every other rule."""
     if score is None or days_since is None or days_since > MAP_STALE_DAYS:
@@ -7583,12 +7615,26 @@ def map_communities():
         })
 
     rows.sort(key=lambda r: r['community'])
+
+    missing = place_service.unplaced(mine)
+    renamed_from = {}
+    for name in missing:
+        was = _previous_community_name(name)
+        # Only worth saying when the old name really does have a position —
+        # otherwise it is a fact about the past rather than a way out.
+        if was and place_service.get(was):
+            renamed_from[name] = was
+
     return jsonify({
         'status': 'success',
         'communities': rows,
         # Named, not swallowed. A community with no position is a gap in the
         # reference file, and the only way it gets fixed is by being visible.
-        'unplaced': place_service.unplaced(mine),
+        'unplaced': missing,
+        # And where we can, why: a rename leaves the position filed under the
+        # old name, which is a two-minute fix once somebody knows that is what
+        # happened rather than guessing at coordinates again.
+        'renamed_from': renamed_from,
         'unverified': place_service.unverified(mine),
         'stale_after_days': MAP_STALE_DAYS,
     }), 200
