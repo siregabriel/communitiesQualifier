@@ -329,9 +329,11 @@ def test_the_map_only_says_it_when_it_leads_somewhere(monkeypatch):
     monkeypatch.setattr(A.inspection_service, 'get_all_submissions', lambda: [])
     monkeypatch.setattr(A.raised_item_service, 'for_communities', lambda *a, **k: [])
 
-    # The old name has a real position: worth saying.
-    monkeypatch.setattr(A, '_previous_community_name',
-                        lambda n: 'Madison at Ocoee, Ocoee')
+    # The old name has a real position: worth saying. The route reads the
+    # whole rename table in one pass rather than asking per community, so that
+    # is what gets replaced here.
+    monkeypatch.setattr(A, '_community_renames',
+                        lambda: {'Renamed Community': 'Madison at Ocoee, Ocoee'})
     c = A.app.test_client()
     with c.session_transaction() as s:
         s.update(user='t', role='regional', region_id='innovia')
@@ -340,7 +342,8 @@ def test_the_map_only_says_it_when_it_leads_somewhere(monkeypatch):
     assert body['renamed_from'] == {'Renamed Community': 'Madison at Ocoee, Ocoee'}
 
     # The old name has none either: say nothing rather than send them hunting.
-    monkeypatch.setattr(A, '_previous_community_name', lambda n: 'Never Existed')
+    monkeypatch.setattr(A, '_community_renames',
+                        lambda: {'Renamed Community': 'Never Existed'})
     body = c.get('/api/map/communities', headers=HEADERS).get_json()
     assert body['renamed_from'] == {}
 
@@ -369,3 +372,22 @@ def test_a_rename_records_both_names(monkeypatch):
     assert 'community_renamed' in kinds
     meta = next(m for t, m in logged if t == 'community_renamed')
     assert meta.get('from') == 'Old Place' and meta.get('to') == 'New Place'
+
+
+def test_the_most_recent_rename_is_the_one_that_explains_today(monkeypatch):
+    """Two communities can end up sharing a name over time — one renamed away
+    and another renamed into it later. The entry that explains where today's
+    position is filed is the newest, and get_recent hands them back newest
+    first, so the first answer for a name is the one to keep.
+
+    Taking the last instead reads identically and is wrong in exactly this
+    case, which is why it needs its own test rather than trusting the loop.
+    """
+    monkeypatch.setattr(A.activity_service, 'get_recent', lambda **k: [
+        {'type': 'community_renamed', 'detail': '',
+         'meta': {'from': 'Recent Old Name', 'to': 'Shared Name'}},
+        {'type': 'community_renamed', 'detail': '',
+         'meta': {'from': 'Ancient Old Name', 'to': 'Shared Name'}},
+    ])
+    assert A._community_renames()['Shared Name'] == 'Recent Old Name', \
+        'the map would point at a name from two renames ago'

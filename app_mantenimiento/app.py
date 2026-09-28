@@ -7496,6 +7496,28 @@ def export_reports_pdf():
 MAP_STALE_DAYS = 60
 
 
+def _community_renames():
+    """Every rename we have a record of, as {new name: previous name}.
+
+    Built in one pass. Asking per community meant scanning the activity log
+    once for each one that had no position, which is the same answer fetched
+    five times on a bad day.
+    """
+    out = {}
+    for e in activity_service.get_recent(limit=400, types=['community_renamed']):
+        meta = e.get('meta') or {}
+        new, old = (meta.get('to') or '').strip(), (meta.get('from') or '').strip()
+        if not new or not old:
+            # Entries written before the rename started recording its meta.
+            m = re.match(r'^Renamed "(.+)" to "(.+)"$', e.get('detail') or '')
+            if not m:
+                continue
+            old, new = m.group(1), m.group(2)
+        # Newest first, so the first answer for a name is the current one.
+        out.setdefault(new, old)
+    return out
+
+
 def _previous_community_name(name):
     """What this community was called before, if we recorded a rename.
 
@@ -7512,15 +7534,7 @@ def _previous_community_name(name):
     name its position is filed under" is a sentence somebody can act on in
     under a minute.
     """
-    for e in activity_service.get_recent(limit=400, types=['community_renamed']):
-        meta = e.get('meta') or {}
-        if (meta.get('to') or '').strip() == name:
-            return (meta.get('from') or '').strip() or None
-        # Entries written before the rename started recording its meta.
-        m = re.match(r'^Renamed "(.+)" to "(.+)"$', e.get('detail') or '')
-        if m and m.group(2) == name:
-            return m.group(1)
-    return None
+    return _community_renames().get(name)
 
 
 def _map_band(score, days_since):
@@ -7570,9 +7584,14 @@ def map_communities():
     mine = visible_communities()
     placed = place_service.placed(mine)
 
+    # Read once. get_all_submissions() copies the list, and this used to ask
+    # for it twice — once for the latest visit per community and again for the
+    # open-item count — which is a copy of every visit ever for no reason.
+    submissions = inspection_service.get_all_submissions()
+
     # Latest visit per community, from the submissions themselves.
     latest = {}
-    for sub in inspection_service.get_all_submissions():
+    for sub in submissions:
         c = sub.get('community')
         if c not in mine:
             continue
@@ -7585,7 +7604,7 @@ def map_communities():
     raised = raised_item_service.for_communities(
         mine, include_internal=can_see_internal())
     open_count = {}
-    for it in _reminders.open_items(inspection_service.get_all_submissions(), raised):
+    for it in _reminders.open_items(submissions, raised):
         if it['community'] in mine:
             open_count[it['community']] = open_count.get(it['community'], 0) + 1
 
@@ -7617,9 +7636,10 @@ def map_communities():
     rows.sort(key=lambda r: r['community'])
 
     missing = place_service.unplaced(mine)
+    renames = _community_renames() if missing else {}
     renamed_from = {}
     for name in missing:
-        was = _previous_community_name(name)
+        was = renames.get(name)
         # Only worth saying when the old name really does have a position —
         # otherwise it is a fact about the past rather than a way out.
         if was and place_service.get(was):
