@@ -519,23 +519,30 @@
         html[data-theme="dark"] .profile-region.is-empty,
         html[data-theme="dark"] .profile-scope-warn { color: #fca5a5; }
 
-        /* ---- Map position, inside the community panel (admin) ---------- */
-        .pl-now { font-size: 13.5px; color: #0f1e36; line-height: 1.6; }
-        .pl-now.pl-missing { color: #92620a; }
-        .pl-coord {
-            display: inline-block; margin-left: 8px; font-size: 12px;
-            color: #64748b; font-variant-numeric: tabular-nums;
+        /* ---- A community's position, in Regions ------------------------ */
+        .region-comm-nopin {
+            display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;
+            font-size: 11px; font-weight: 700; color: #92620a;
+            background: #fffbeb; border: 1px solid #fde68a;
+            padding: 1px 7px; border-radius: 20px; vertical-align: middle;
         }
-        .pl-unconfirmed { display: block; font-size: 12px; color: #8a94a6; margin-top: 2px; }
-        .pl-set { display: flex; gap: 8px; margin-top: 12px; }
-        .pl-set input { flex: 1; font-variant-numeric: tabular-nums; }
-        .pl-help { font-size: 12px; color: #8a94a6; margin-top: 8px; line-height: 1.5; }
-        .pl-msg { font-size: 12.5px; color: #64748b; margin-top: 8px; min-height: 16px; }
-        .pl-msg.pl-bad { color: #b42318; font-weight: 700; }
-        html[data-theme="dark"] .pl-now { color: #e6edf9; }
-        html[data-theme="dark"] .pl-now.pl-missing { color: #e8d9a8; }
+        .region-comm-fields { display: flex; gap: 8px; flex: 1; min-width: 0; }
+        .region-comm-fields input { flex: 1; min-width: 0; }
+        .region-comm-pos { font-variant-numeric: tabular-nums; }
+        .region-comm-hint {
+            flex-basis: 100%; font-size: 11.5px; color: #8a94a6;
+            margin-top: 6px; line-height: 1.5;
+        }
+        .region-comm-msg {
+            flex-basis: 100%; font-size: 12px; color: #64748b; margin-top: 4px;
+        }
+        .region-comm-msg.is-bad { color: #b42318; font-weight: 700; }
+        html[data-theme="dark"] .region-comm-nopin {
+            background: #2a2312; border-color: #5c4a15; color: #e8d9a8;
+        }
+        @media (max-width: 640px) { .region-comm-fields { flex-wrap: wrap; } }
 
-        /* ---- Raised here, inside the community panel ------------------- */
+/* ---- Raised here, inside the community panel ------------------- */
         .rz-list { display: flex; flex-direction: column; }
         .rz-row {
             display: flex; align-items: center; gap: 12px;
@@ -3748,19 +3755,13 @@
                         <div class="hist-loading">Loading past visits…</div>
                      </div>`;
 
-            /* Where this community sits on the map. Administrative rather
-               than operational, so it goes last and only for an admin — the
-               people who read this panel every day do not need it, and the one
-               person who has to fix a missing pin should not have to hunt. */
-            if (isAdmin) {
-                html += `<div class="panel-section" id="panelPlace">
-                            <h3 class="panel-section-title"><i class="fas fa-location-dot"></i> Map position</h3>
-                            <div class="hist-loading">Loading…</div>
-                         </div>`;
-            }
-
+            /* The map position used to sit here, and it did not belong. This
+               panel is a visit — what was found, by whom, with what still open
+               — and an administrative field at the bottom of it mixes two
+               audiences on one surface. It lives in Regions now, beside the
+               rename and the region assignment, which is where everything else
+               about a community is edited. */
             panelBody.innerHTML = html;
-            if (isAdmin) loadCommunityPlace(data.communityName);
             loadCommunityRaised(data.communityName);
             loadCommunityHistory(data.communityName);
         }
@@ -3781,77 +3782,73 @@
            copy of a rule is a second place for it to be wrong; this asks the
            server and draws what it is handed.
         */
-        /* Placing a community, for the one person who can.
+        /* Where each community sits, for the Regions view.
 
-           No boxes asking for a latitude and a longitude. Nobody knows their
-           coordinates, and two numeric fields are an invitation to transpose a
-           digit and put a Florida building in China. What people do have is
-           Google Maps, where right-clicking a spot copies "34.0232, -84.3616"
-           — so that is what this accepts, in one paste.
-
-           Saving marks the position confirmed, and records who. That is the
-           act the verified flag was always waiting for: every position shipped
-           as a proposal of mine, and until this existed there was no way for
-           one to stop being one.
+           Kept as one small table rather than asked per row: Regions draws
+           every community in the company at once, and a request per row would
+           be forty of them for a page somebody opens to rename one thing.
         */
-        async function loadCommunityPlace(community) {
-            const host = document.getElementById('panelPlace');
-            if (!host) return;
-            const title = '<h3 class="panel-section-title"><i class="fas fa-location-dot"></i> Map position</h3>';
+        let communityPlaces = {};
 
-            let here = null;
+        async function loadCommunityPlaces() {
             try {
                 const r = await fetch('/api/map/communities');
                 const d = await r.json();
-                here = (d.communities || []).find(c => c.community === community) || null;
+                communityPlaces = {};
+                (d.communities || []).forEach(c => { communityPlaces[c.community] = c; });
             } catch (e) {
-                host.innerHTML = title + '<div class="hist-empty">Could not load the position.</div>';
-                return;
+                communityPlaces = {};
             }
-
-            const where = here
-                ? `<div class="pl-now"><b>On the map</b>${here.city ? ' &middot; ' + escapeHtml(here.city) : ''}${here.state ? ', ' + escapeHtml(here.state) : ''}
-                     <span class="pl-coord">${here.lat.toFixed(4)}, ${here.lng.toFixed(4)}</span>
-                     ${here.verified ? '' : '<span class="pl-unconfirmed">position not confirmed by anyone yet</span>'}</div>`
-                : `<div class="pl-now pl-missing"><b>Not on the map.</b> It will not appear until it has a position.</div>`;
-
-            host.innerHTML = title + where + `
-                <div class="pl-set">
-                    <input type="text" id="plPaste" class="pw-input" placeholder="34.0232, -84.3616"
-                           aria-label="Position">
-                    <button class="btn btn-primary" onclick="saveCommunityPlace('${escapeHtmlForAttr(community)}')">Save</button>
-                </div>
-                <div class="pl-help">In Google Maps, right-click the building and the first line of the
-                    menu is the position — copy it and paste it here.</div>
-                <div class="pl-msg" id="plMsg"></div>`;
-
-            const box = document.getElementById('plPaste');
-            if (box) box.addEventListener('keydown', ev => {
-                if (ev.key === 'Enter') saveCommunityPlace(community);
-            });
         }
 
-        async function saveCommunityPlace(community) {
-            const box = document.getElementById('plPaste');
-            const msg = document.getElementById('plMsg');
-            const pasted = box ? box.value.trim() : '';
-            if (!pasted) return;
-            if (msg) { msg.textContent = 'Saving…'; msg.className = 'pl-msg'; }
-            try {
-                const r = await fetch('/api/map/communities/' + encodeURIComponent(community), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pasted }),
-                });
-                const d = await r.json();
-                if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not save it');
-                // Redraw from what came back rather than from what was typed,
-                // so the line under the heading is the stored position.
-                await loadCommunityPlace(community);
-                if (_cmapLayout === 'map') renderCommunityMap();
-            } catch (e) {
-                if (msg) { msg.textContent = e.message || 'Could not save it'; msg.className = 'pl-msg pl-bad'; }
+        /* Saving a community's details: its name, and where it is.
+
+           Two endpoints behind one button, because they are two different
+           operations — renaming walks six stores that key on the name, placing
+           writes one file — and only what changed is sent.
+
+           No boxes asking for a latitude and a longitude. Nobody knows their
+           coordinates, and two numeric fields invite a transposed digit that
+           puts a Florida building in China. Right-clicking a spot in Google
+           Maps copies "34.0232, -84.3616", so that is what this takes, in one
+           paste.
+        */
+        async function saveCommunityEdit(rowId, oldName) {
+            const nameBox = document.getElementById('commName_' + rowId);
+            const posBox = document.getElementById('commPos_' + rowId);
+            const msg = document.getElementById('commMsg_' + rowId);
+            const newName = nameBox ? nameBox.value.trim() : '';
+            const pasted = posBox ? posBox.value.trim() : '';
+            const was = communityPlaces[oldName];
+            const wasText = was ? `${was.lat.toFixed(4)}, ${was.lng.toFixed(4)}` : '';
+
+            if (msg) { msg.textContent = ''; msg.className = 'region-comm-msg'; }
+
+            // The position first: if it fails, nothing has moved yet and the
+            // row is still open on the value that was refused.
+            if (pasted && pasted !== wasText) {
+                try {
+                    const r = await fetch('/api/map/communities/' + encodeURIComponent(oldName), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pasted }),
+                    });
+                    const d = await r.json();
+                    if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not save the position');
+                } catch (e) {
+                    if (msg) { msg.textContent = e.message; msg.className = 'region-comm-msg is-bad'; }
+                    return;
+                }
             }
+
+            if (newName && newName !== oldName) {
+                // regionAction re-renders on its own.
+                regionAction('/api/regions/rename-community',
+                             { old_name: oldName, new_name: newName });
+                return;
+            }
+            await loadCommunityPlaces();
+            renderRegions();
         }
 
         async function loadCommunityRaised(community) {
@@ -4193,15 +4190,8 @@
                         <h3 class="panel-section-title"><i class="fas fa-hand"></i> Raised here</h3>
                         <div class="hist-loading">Loading…</div>
                      </div>`;
-            if (isAdmin) {
-                html += `<div class="panel-section" id="panelPlace">
-                            <h3 class="panel-section-title"><i class="fas fa-location-dot"></i> Map position</h3>
-                            <div class="hist-loading">Loading…</div>
-                         </div>`;
-            }
             panelBody.innerHTML = html;
             loadCommunityRaised(communityName);
-            if (isAdmin) loadCommunityPlace(communityName);
         }
 
         function renderEmptyState(message) {
@@ -9500,6 +9490,12 @@
         }
 
         function renderRegions() {
+            /* Positions are needed to mark the ones that have none. Fetched
+               once and then the view redraws, rather than a request per row. */
+            if (isAdmin && !renderRegions._placesAsked) {
+                renderRegions._placesAsked = true;
+                loadCommunityPlaces().then(renderRegions);
+            }
             const gallery = document.getElementById('gallery');
 
             if (!regions.length) {
@@ -9616,21 +9612,37 @@
                         if (isAdmin) {
                             const opts = regions.map(r =>
                                 `<option value="${r.id}" ${r.id === region.id ? 'selected' : ''}>${r.name}</option>`).join('');
+                            const place = communityPlaces[name];
+                            const posText = place ? `${place.lat.toFixed(4)}, ${place.lng.toFixed(4)}` : '';
+                            // A community with no position is invisible on the
+                            // map, and this row is where somebody would fix it.
+                            const noPin = place ? '' :
+                                `<span class="region-comm-nopin" title="Not on the map — no position on file">
+                                    <i class="fas fa-location-dot"></i> no position</span>`;
                             return `<li id="comm_${rowId}">
-                                <span class="region-comm-name">${name}${directorTag(name)}</span>
+                                <span class="region-comm-name">${name}${directorTag(name)}${noPin}</span>
                                 <span class="region-comm-actions">
                                     <select class="region-move-select" title="Move to region"
                                             onchange="moveCommunity('${safe}', this.value)">${opts}</select>
-                                    <button class="region-edit-btn" title="Rename community"
+                                    <button class="region-edit-btn" title="Edit name and map position"
                                             onclick="editCommunity('${rowId}')"><i class="fas fa-pen"></i></button>
                                     <button class="region-del-btn" title="Remove from regions"
                                             onclick="deleteCommunity('${safe}')"><i class="fas fa-trash"></i></button>
                                 </span>
                             </li>
                             <li class="region-comm-editrow" id="commEdit_${rowId}" style="display:none;">
-                                <input type="text" id="commName_${rowId}" value="${attr}">
-                                <button class="btn btn-primary" onclick="saveCommunityRename('${rowId}', '${safe}')">Save</button>
+                                <div class="region-comm-fields">
+                                    <input type="text" id="commName_${rowId}" value="${attr}"
+                                           aria-label="Community name">
+                                    <input type="text" id="commPos_${rowId}" value="${posText}"
+                                           class="region-comm-pos" placeholder="34.0232, -84.3616"
+                                           aria-label="Map position">
+                                </div>
+                                <button class="btn btn-primary" onclick="saveCommunityEdit('${rowId}', '${safe}')">Save</button>
                                 <button class="btn btn-secondary" onclick="renderRegions()">Cancel</button>
+                                <div class="region-comm-hint">In Google Maps, right-click the building —
+                                    the first line of the menu is the position. Copy and paste it here.</div>
+                                <div class="region-comm-msg" id="commMsg_${rowId}"></div>
                             </li>`;
                         }
                         return `<li><span class="region-comm-name">${name}${directorTag(name)}</span><span class="region-comm-score">${sc}</span></li>`;

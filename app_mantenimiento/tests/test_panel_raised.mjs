@@ -204,7 +204,6 @@ console.log('\nA community nobody has walked yet');
     function panelCoverHtml() { return ''; }
     function escapeHtml(s) { return String(s); }
     function loadCommunityRaised(c) { asked.push('raised:' + c); }
-    function loadCommunityPlace(c) { asked.push('place:' + c); }
     ${grab('renderUnvisitedPanel')}
   `);
 
@@ -215,20 +214,14 @@ console.log('\nA community nobody has walked yet');
      'it is named rather than titled "No Data Available"');
   ok(/No visits recorded/.test(body), 'and says there have been no visits');
   ok(/id="panelRaised"/.test(body), 'but still offers what was raised there');
-  ok(/id="panelPlace"/.test(body), 'and, for an admin, where it sits on the map');
-  ok(w.asked.includes('place:The Georgian Lakeside'),
-     'and actually fills it — the whole reason this panel exists');
+  ok(w.asked.includes('raised:The Georgian Lakeside'), 'and actually fills it');
 
-  // A regional opening the same community: no map control, same raised list.
-  const w2 = dom.window;
-  w2.eval('isAdmin = false; asked = [];');
-  w2.renderUnvisitedPanel('The Georgian Lakeside');
-  const plain = w2.document.getElementById('slidePanelBody').innerHTML;
-  ok(!/id="panelPlace"/.test(plain), 'somebody who cannot place it is not offered to');
-  ok(!w2.asked.some(a => a.startsWith('place:')),
-     'and it is not fetched behind their back — there is nowhere to put it, so '
-     + 'the request would be spent on a section they cannot see');
-  ok(/id="panelRaised"/.test(plain), 'and still sees what was raised');
+  /* The map position was here for a day and did not belong. This panel is a
+     visit — what was found, by whom, with what still open — and an
+     administrative field at the bottom mixes two audiences on one surface.
+     It lives in Regions now, beside the rename. */
+  ok(!/panelPlace|Map position/.test(body),
+     'and no administrative field, even for an admin');
 }
 
 console.log(failures ? `\n${failures} failure(s)` : '\nWhat was raised here shows up here.');
