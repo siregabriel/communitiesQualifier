@@ -154,5 +154,35 @@ console.log('\nAnd it is fetched once, not per row');
   ok(/renderRegions\._placesAsked = true;/.test(fn), 'and the guard is set');
 }
 
+console.log('\nThe row has room for what is on it');
+{
+  /* The first version of this put four children into a flex row that had no
+     wrapping turned on. flex-basis: 100% does not wrap without it — it just
+     takes its share of the one line — so both inputs were squeezed to nothing
+     behind the buttons and the hint ran down the side in a narrow column.
+     Gabriel sent a screenshot of it, which is the only reason it was caught:
+     jsdom does no layout, so nothing here could have seen it happen.
+
+     What can be checked is the pairing that makes it work, and that the rules
+     live beside the row they belong to rather than in a second place that can
+     drift. */
+  const theme = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
+
+  const row = theme.slice(theme.indexOf('.region-comm-editrow {'));
+  ok(/^[^}]*flex-wrap:\s*wrap/m.test(row.slice(0, row.indexOf('}'))),
+     'the edit row wraps, which is what lets the lines below it be lines');
+
+  ok(/\.region-comm-hint,\s*\n\.region-comm-msg \{[^}]*flex:\s*1 0 100%/.test(theme),
+     'and the hint and the message each take a full line');
+
+  ok(/\.region-comm-fields \{[^}]*flex-wrap:\s*wrap/s.test(theme),
+     'the two fields wrap against each other too, on a narrow card');
+  ok(/\.region-comm-fields input \{[^}]*flex:\s*1 1 150px/.test(theme),
+     'with a basis, so neither collapses to nothing');
+
+  ok(!/\.region-comm-(editrow|fields|hint|msg|nopin)\s*[,{]/.test(html),
+     'and none of it is duplicated in the template, where it would drift');
+}
+
 console.log(failures ? `\n${failures} failure(s)` : '\nA community is edited where a community is edited.');
 process.exit(failures ? 1 : 0);
