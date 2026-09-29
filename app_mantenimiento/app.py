@@ -351,7 +351,8 @@ os.makedirs(DATA_FOLDER, exist_ok=True)
 # ship in git and only populate a file that doesn't exist yet.
 import shutil
 SEED_FOLDER = os.path.join(DATA_FOLDER, 'seeds')
-for _seed_name in ('regions.json', 'questions.json', 'survey_types.json', 'resources.json', 'movein_template.json'):
+for _seed_name in ('regions.json', 'questions.json', 'survey_types.json', 'resources.json',
+                   'movein_template.json', 'community_places.json'):
     _live = os.path.join(DATA_FOLDER, _seed_name)
     _seed = os.path.join(SEED_FOLDER, _seed_name)
     if not os.path.exists(_live) and os.path.exists(_seed):
@@ -378,7 +379,7 @@ from services.place_service import PlaceService
 S3_BUCKET = os.environ.get('S3_BUCKET', '').strip() or None
 AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
 S3_URL_EXPIRY = int(os.environ.get('S3_URL_EXPIRY', '3600'))
-place_service = PlaceService()
+place_service = PlaceService(os.path.join(DATA_FOLDER, 'community_places.json'))
 
 file_upload_handler = FileUploadHandler(
     UPLOAD_FOLDER,
@@ -6368,6 +6369,11 @@ def rename_region_community():
             # way a community once lost its standards and a regional drove to a
             # building she couldn't inspect.
             raised_item_service.rename_community(old_name, new_name)
+            # The position too, now that it lives in data rather than in the
+            # repository. It used to be the one thing left behind, and the map
+            # would report the community as unplaced under a name nobody had
+            # typed wrong.
+            place_service.rename(old_name, new_name)
             community_cover_service.rename(
                 community_slug(old_name), community_slug(new_name), new_name)
         except Exception as e:
@@ -7567,6 +7573,53 @@ def _current_score(responses):
     if not total:
         return None
     return round((passed + fixed) / total * 100)
+
+
+@app.route('/api/map/communities/<path:community>', methods=['POST'])
+@require_admin
+def set_community_position(community):
+    """Place a community on the map, or move it.
+
+    Admin only, like renaming one. The position is checked here as well as
+    when the file is read: a pasted coordinate with a swapped sign is the
+    likeliest mistake, and catching it on the way in beats finding a community
+    silently missing from the map tomorrow.
+    """
+    if not _can_see_community(community):
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    lat, lng = data.get('lat'), data.get('lng')
+
+    # "34.0232, -84.3616" is what Google Maps puts on the clipboard, so it is
+    # what people will paste. Accepting it saves them splitting it by hand.
+    if lat is None and isinstance(data.get('pasted'), str):
+        m = re.match(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$',
+                     data['pasted'])
+        if m:
+            lat, lng = float(m.group(1)), float(m.group(2))
+
+    try:
+        lat, lng = float(lat), float(lng)
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error',
+                        'message': 'Paste a position like 34.0232, -84.3616'}), 400
+
+    rec = place_service.set(community, lat, lng,
+                            city=InputSanitizer.sanitize_string(data.get('city', ''), max_length=80),
+                            state=InputSanitizer.sanitize_string(data.get('state', ''), max_length=8),
+                            by=session.get('user', ''))
+    if not rec:
+        return jsonify({
+            'status': 'error',
+            'message': 'That position is not inside the area these communities cover. '
+                       'Check the signs — a positive longitude lands in the wrong hemisphere.'
+        }), 400
+
+    activity_service.log(session.get('user'), 'community_placed',
+                         f'Set the map position for {community}',
+                         meta={'community': community, 'lat': rec['lat'], 'lng': rec['lng']})
+    return jsonify({'status': 'success', 'place': rec}), 200
 
 
 @app.route('/api/map/communities', methods=['GET'])

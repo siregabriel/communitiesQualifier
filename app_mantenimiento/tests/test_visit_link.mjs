@@ -165,6 +165,10 @@ console.log('\nThe header stops calling an old visit the last one');
     function renderPhotos() { return ''; }
     function loadCommunityHistory() {}
     function loadCommunityRaised() {}
+    function loadCommunityPlace() {}
+    // The panel asks whether to offer the map-position control. This suite is
+    // about which visit opens, so it answers no and leaves that to its own.
+    var isAdmin = false;
   `);
   const sub = () => h.document.getElementById('slidePanelSubtitle').textContent;
   const base = { communityName: 'The Oscar at Georgetown', lastVisitDate: '9/18/2026',
