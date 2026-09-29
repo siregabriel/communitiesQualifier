@@ -82,6 +82,8 @@ w.eval(`
   function extractPhotos() { return []; }
   function partialInfo(s) { return null; }
   function renderPanelContent(d) { captured = d; }
+  var unvisited = null;
+  function renderUnvisitedPanel(c) { unvisited = c; }
 `);
 
 const open = async (community, id) => {
@@ -132,9 +134,11 @@ console.log('\nWhat it still does for callers that mean the community');
   ok(card.score === 1 && card.visitScore === 2 && card.fixedSinceVisit === 3,
      'and the stats still come from scoreBoth as before');
 
-  w.emptied = null;
+  w.unvisited = null;
   await w.openSlidePanel('A Community With No Visits');
-  ok(/No visit data/.test(w.emptied || ''), 'a place with no visits still says so');
+  ok(w.unvisited === 'A Community With No Visits',
+     'a place with no visits gets its own panel rather than a dead end — what '
+     + 'was raised there and where it sits on the map do not need a visit');
 
   w.captured = null;
   // It warns on the way out, which is right — and it is expected here, so it

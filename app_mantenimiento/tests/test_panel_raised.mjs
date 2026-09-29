@@ -186,5 +186,50 @@ console.log('\nThe panel actually asks for it');
      'above the history, because it is the newer thing');
 }
 
+console.log('\nA community nobody has walked yet');
+{
+  /* "Never visited" is not "nothing to show". The panel used to render a
+     dead end for these, which hid the two things that do not depend on a
+     visit: what has been raised for the community, and where it sits on the
+     map. The community that most needs placing is a new one, and a new one
+     has no visits — so the one case the control existed for was the one case
+     it could not be reached in. The Georgian Lakeside was exactly that. */
+  const dom = new JSDOM(`<!doctype html><body>
+      <h2 id="slidePanelTitle"></h2><p id="slidePanelSubtitle"></p>
+      <div id="slidePanelBody"></div></body>`, { runScripts: 'outside-only' });
+  const w = dom.window;
+  w.eval(`
+    var currentPanelCommunity = null, isAdmin = true;
+    var asked = [];
+    function panelCoverHtml() { return ''; }
+    function escapeHtml(s) { return String(s); }
+    function loadCommunityRaised(c) { asked.push('raised:' + c); }
+    function loadCommunityPlace(c) { asked.push('place:' + c); }
+    ${grab('renderUnvisitedPanel')}
+  `);
+
+  w.renderUnvisitedPanel('The Georgian Lakeside');
+  const body = w.document.getElementById('slidePanelBody').innerHTML;
+
+  ok(w.document.getElementById('slidePanelTitle').textContent === 'The Georgian Lakeside',
+     'it is named rather than titled "No Data Available"');
+  ok(/No visits recorded/.test(body), 'and says there have been no visits');
+  ok(/id="panelRaised"/.test(body), 'but still offers what was raised there');
+  ok(/id="panelPlace"/.test(body), 'and, for an admin, where it sits on the map');
+  ok(w.asked.includes('place:The Georgian Lakeside'),
+     'and actually fills it — the whole reason this panel exists');
+
+  // A regional opening the same community: no map control, same raised list.
+  const w2 = dom.window;
+  w2.eval('isAdmin = false; asked = [];');
+  w2.renderUnvisitedPanel('The Georgian Lakeside');
+  const plain = w2.document.getElementById('slidePanelBody').innerHTML;
+  ok(!/id="panelPlace"/.test(plain), 'somebody who cannot place it is not offered to');
+  ok(!w2.asked.some(a => a.startsWith('place:')),
+     'and it is not fetched behind their back — there is nowhere to put it, so '
+     + 'the request would be spent on a section they cannot see');
+  ok(/id="panelRaised"/.test(plain), 'and still sees what was raised');
+}
+
 console.log(failures ? `\n${failures} failure(s)` : '\nWhat was raised here shows up here.');
 process.exit(failures ? 1 : 0);

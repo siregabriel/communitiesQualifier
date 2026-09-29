@@ -3406,7 +3406,16 @@
                 
                 // Check if data exists
                 if (communitySubmissions.length === 0) {
-                    renderEmptyState('No visit data available for this community');
+                    /* Never visited is not the same as nothing to show.
+                    
+                       This used to render "No visit data available" and stop,
+                       which hid two things that do not depend on a visit: what
+                       has been raised for the community, and — for an admin —
+                       where it sits on the map. The community that most needs
+                       placing is a new one, and a new one has no visits, so the
+                       one case the control existed for was the one case it could
+                       not be reached in. */
+                    renderUnvisitedPanel(communityName);
                     showPanel();
                     showOverlay();
                     return;
@@ -4163,6 +4172,38 @@
         }
 
         // Render Empty State
+        /* The panel for a community nobody has walked yet.
+
+           Everything here is true without a visit: its name, that there have
+           been none, anything raised for it, and where it is on the map. */
+        function renderUnvisitedPanel(communityName) {
+            const panelBody = document.getElementById('slidePanelBody');
+            const panelTitle = document.getElementById('slidePanelTitle');
+            const panelSubtitle = document.getElementById('slidePanelSubtitle');
+            if (!panelBody) return;
+
+            currentPanelCommunity = communityName;
+            if (panelTitle) panelTitle.textContent = communityName;
+            if (panelSubtitle) panelSubtitle.textContent = 'No visits yet';
+
+            let html = panelCoverHtml(communityName);
+            html += `<div class="no-data"><i class="fas fa-inbox"></i>
+                        <p>No visits recorded for this community yet.</p></div>`;
+            html += `<div class="panel-section" id="panelRaised">
+                        <h3 class="panel-section-title"><i class="fas fa-hand"></i> Raised here</h3>
+                        <div class="hist-loading">Loading…</div>
+                     </div>`;
+            if (isAdmin) {
+                html += `<div class="panel-section" id="panelPlace">
+                            <h3 class="panel-section-title"><i class="fas fa-location-dot"></i> Map position</h3>
+                            <div class="hist-loading">Loading…</div>
+                         </div>`;
+            }
+            panelBody.innerHTML = html;
+            loadCommunityRaised(communityName);
+            if (isAdmin) loadCommunityPlace(communityName);
+        }
+
         function renderEmptyState(message) {
             const panelBody = document.getElementById('slidePanelBody');
             const panelTitle = document.getElementById('slidePanelTitle');
