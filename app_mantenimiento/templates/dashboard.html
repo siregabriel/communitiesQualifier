@@ -4346,7 +4346,14 @@
                         // Community has no inspection data yet - show with N/A
                         communityData.push({
                             name: communityName,
-                            lastVisit: 'No visits yet',
+                            // Empty, not a sentence. This field held the words
+                            // "No visits yet", and a sentence in a date's slot
+                            // is truthy — so `lastVisit ? 'visited ' + it : it`
+                            // rendered "visited No visits yet" on every card for
+                            // a community nobody had been to. The signal for
+                            // "never" is lastVisitTs, which is what the other
+                            // readers already use.
+                            lastVisit: '',
                             lastVisitTs: 0,
                             score: null,
                             actionItems: 0,
@@ -4806,7 +4813,7 @@
                         <div class="card-content">
                             <div class="card-title">${where.name}</div>
                             <div class="card-date">${where.place ? `${where.place} · ` : ''}${
-                                community.lastVisit ? `visited ${lastVisitText}` : lastVisitText}</div>
+                                community.lastVisitTs ? `visited ${lastVisitText}` : 'No visits yet'}</div>
                             <div class="cc-chips">
                                 ${visitAgeBadge(community)}
                                 ${partialChip(community.partial)}
@@ -6505,7 +6512,9 @@
                 const acts = c.actionItems || 0;
                 return `<div class="dash-row" onclick="openSlidePanel('${safe}')">
                     <div class="dash-row-main"><div class="dash-row-name">${escapeHtml(c.name)}</div>
-                    <div class="dash-row-sub">Last visit: ${escapeHtml(c.lastVisit)}</div></div>
+                    <div class="dash-row-sub">${c.lastVisitTs
+                        ? `Last visit: ${escapeHtml(c.lastVisit)}`
+                        : 'No visits yet'}</div></div>
                     ${acts > 0 ? `<span class="dash-pill">${acts} action${acts > 1 ? 's' : ''}</span>` : ''}
                     <span class="dash-score" style="color:${scoreColor(typeof c.score === 'number' ? c.score : null)}">${typeof c.score === 'number' ? c.score + '%' : 'N/A'}</span>
                     <i class="fas fa-chevron-right dash-chev"></i></div>`;
