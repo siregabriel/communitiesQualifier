@@ -21,7 +21,12 @@
     "proposal, and the map says so.",
     "",
     "A community missing from this file is not drawn and IS counted. It never",
-    "gets an approximate position 'for now'."
+    "gets an approximate position 'for now'.",
+    "",
+    "'city' is the town, nothing else. It is shown on the community card for a",
+    "community whose own name does not carry one, so 'Orlando (Lake Nona)'",
+    "there would read as a card repeating itself. The development or district",
+    "goes in 'note', and is usually already in the community's name anyway."
   ],
   "version": 1,
   "places": {
@@ -39,7 +44,7 @@
       "note": "Madison, Alabama — there is also a Madison in MS and WI. Confirm."
     },
     "Monark Grove Greystone": {
-      "lat": 33.4179, "lng": -86.6716, "city": "Birmingham (Greystone)", "state": "AL",
+      "lat": 33.4179, "lng": -86.6716, "city": "Birmingham", "state": "AL",
       "verified": false,
       "note": "Greystone is a community within Hoover/Birmingham."
     },
@@ -61,7 +66,7 @@
       "note": "Athens, Alabama assumed from the cluster of Alabama sites. There is also an Athens in GA and TN. CONFIRM THIS ONE."
     },
     "The Goldton at Jones Farm": {
-      "lat": 34.7009, "lng": -86.6608, "city": "Huntsville (Jones Farm)", "state": "AL",
+      "lat": 34.7009, "lng": -86.6608, "city": "Huntsville", "state": "AL",
       "verified": false,
       "note": "Jones Farm is a neighbourhood of Huntsville, not a town."
     },
@@ -90,12 +95,12 @@
       "verified": false
     },
     "The Canopy At Beacon Woods": {
-      "lat": 28.3486, "lng": -82.6501, "city": "Hudson (Beacon Woods)", "state": "FL",
+      "lat": 28.3486, "lng": -82.6501, "city": "Hudson", "state": "FL",
       "verified": false,
       "note": "Beacon Woods is a development in Hudson, Pasco County."
     },
     "The Goldton At Lake Nona": {
-      "lat": 28.3772, "lng": -81.2519, "city": "Orlando (Lake Nona)", "state": "FL",
+      "lat": 28.3772, "lng": -81.2519, "city": "Orlando", "state": "FL",
       "verified": false,
       "note": "Lake Nona is a district of Orlando, not a town."
     },
@@ -120,8 +125,9 @@
       "verified": false
     },
     "Legacy Ridge at Buckhead, Atlanta": {
-      "lat": 33.8484, "lng": -84.3733, "city": "Atlanta (Buckhead)", "state": "GA",
-      "verified": false
+      "lat": 33.8484, "lng": -84.3733, "city": "Atlanta", "state": "GA",
+      "verified": false,
+      "note": "Buckhead is a district of Atlanta."
     },
     "Legacy Ridge at Marietta, Marietta": {
       "lat": 33.9526, "lng": -84.5499, "city": "Marietta", "state": "GA",
@@ -174,7 +180,7 @@
       "note": "Georgetown, Texas assumed from the two Texas pins on the map."
     },
     "The Oscar at Veramendi": {
-      "lat": 29.7266, "lng": -98.1512, "city": "New Braunfels (Veramendi)", "state": "TX",
+      "lat": 29.7266, "lng": -98.1512, "city": "New Braunfels", "state": "TX",
       "verified": false,
       "note": "Veramendi is a master-planned development in New Braunfels."
     },
@@ -184,12 +190,12 @@
       "note": "Black Hill is a regional park area in Germantown, Montgomery County."
     },
     "Tribute at Melford": {
-      "lat": 38.9640, "lng": -76.7280, "city": "Bowie (Melford)", "state": "MD",
+      "lat": 38.9640, "lng": -76.7280, "city": "Bowie", "state": "MD",
       "verified": false,
       "note": "Melford is a development in Bowie."
     },
     "Tribute at One Loudoun": {
-      "lat": 39.0437, "lng": -77.4400, "city": "Ashburn (One Loudoun)", "state": "VA",
+      "lat": 39.0437, "lng": -77.4400, "city": "Ashburn", "state": "VA",
       "verified": false,
       "note": "One Loudoun is a development in Ashburn, Loudoun County."
     },

@@ -2781,6 +2781,25 @@
             return { name: raw.slice(0, i).trim(), place: raw.slice(i + 1).trim() };
         }
 
+        /* What town a community is in.
+        
+           Most names carry it after a comma — "Madison at Ocoee, Ocoee" — and
+           that is where this looked. Fourteen of the forty do not, and nine of
+           those name a development rather than a town, so the card for The
+           Georgian Lakeside showed no place at all.
+        
+           The positions file knows, because somebody had to write a city down
+           to put a pin on a map. So the name is asked first and the file second:
+           the name is what the company calls the place, and the file is the
+           fallback rather than the authority.
+        */
+        function communityTown(fullName) {
+            const fromName = splitCommunityName(fullName).place;
+            if (fromName) return fromName;
+            const p = communityPlaces[fullName];
+            return p && p.city ? p.city : '';
+        }
+
         function visitAgeBadge(c) {
             const d = daysSinceVisit(c);
             if (d === null) {
@@ -3106,6 +3125,13 @@
             
             // Re-render based on current view
             if (currentView === 'dashboard' || currentView === 'communities') {
+                // The cards show a town for a community whose own name has
+                // none, so the positions are needed here too. Once per page,
+                // then redraw with them.
+                if (!loadCommunityPlaces._asked) {
+                    loadCommunityPlaces._asked = true;
+                    loadCommunityPlaces().then(renderCommunityCards);
+                }
                 renderCommunityCards();
             } else if (currentView === 'reports') {
                 renderCards();
@@ -3767,6 +3793,11 @@
         */
         let communityPlaces = {};
 
+        /* Asked once per page, by whoever needs it first: Regions wants it to
+           mark the communities with no position, and the cards want the town
+           for a community whose name does not carry one. The flag lives on the
+           function rather than on either caller, because either one can be the
+           first to open. */
         async function loadCommunityPlaces() {
             try {
                 const r = await fetch('/api/map/communities');
@@ -4748,6 +4779,7 @@
                                 ${coverUrl ? `<button class="cover-btn cover-btn-remove" title="Remove cover photo" onclick="removeCover('${nameAttr}')"><i class="fas fa-trash"></i></button>` : ''}
                             </div>` : '';
                 const where = splitCommunityName(community.name);
+                const town = communityTown(community.name);
                 // The score sits on the photo's edge like a medal. The old card
                 // spent about 250px of a phone screen drawing one number, which
                 // meant one community per screen.
@@ -4812,7 +4844,7 @@
                         </div>
                         <div class="card-content">
                             <div class="card-title">${where.name}</div>
-                            <div class="card-date">${where.place ? `${where.place} · ` : ''}${
+                            <div class="card-date">${town ? `${escapeHtml(town)} · ` : ''}${
                                 community.lastVisitTs ? `visited ${lastVisitText}` : 'No visits yet'}</div>
                             <div class="cc-chips">
                                 ${visitAgeBadge(community)}
@@ -8897,7 +8929,7 @@
             (communityData || []).forEach(c => byCommunity[c.name] = c);
             const rows = (region.communities || []).map(n => {
                 const c = byCommunity[n] || {};
-                return { name: n, score: (typeof c.score === 'number' ? c.score : null), actions: c.actionItems || 0, last: c.lastVisit || 'No visits yet' };
+                return { name: n, score: (typeof c.score === 'number' ? c.score : null), actions: c.actionItems || 0, last: c.lastVisitTs ? c.lastVisit : 'No visits yet' };
             });
             const scored = rows.filter(r => r.score !== null);
             const avg = scored.length ? Math.round(scored.reduce((s, r) => s + r.score, 0) / scored.length) : null;
@@ -9478,8 +9510,8 @@
         function renderRegions() {
             /* Positions are needed to mark the ones that have none. Fetched
                once and then the view redraws, rather than a request per row. */
-            if (isAdmin && !renderRegions._placesAsked) {
-                renderRegions._placesAsked = true;
+            if (!loadCommunityPlaces._asked) {
+                loadCommunityPlaces._asked = true;
                 loadCommunityPlaces().then(renderRegions);
             }
             const gallery = document.getElementById('gallery');

@@ -144,14 +144,27 @@ console.log('\nThe row says when there is nowhere to draw it');
 
 console.log('\nAnd it is fetched once, not per row');
 {
-  /* Checked on the condition rather than on the word appearing somewhere in
-     the function: the flag is also assigned inside, so a grep for the name
-     passes even with the guard removed — and without the guard, loading calls
-     renderRegions which loads again, for ever. */
-  const fn = grab('renderRegions');
-  ok(/if \(isAdmin && !renderRegions\._placesAsked\)/.test(fn),
+  /* Checked on the condition rather than on the word appearing somewhere
+     nearby: the flag is also assigned right after, so a grep for the name
+     passes even with the guard removed — and without the guard, loading
+     redraws and redrawing loads, for ever.
+
+     The flag lives on loadCommunityPlaces rather than on either caller,
+     because two views want this table now: Regions to mark the communities
+     with no position, and the cards to show a town for a community whose own
+     name does not carry one. Either can be the first to open. */
+  ok(/if \(!loadCommunityPlaces\._asked\) \{/.test(html),
      'the fetch is guarded, so redrawing does not fetch again for ever');
-  ok(/renderRegions\._placesAsked = true;/.test(fn), 'and the guard is set');
+  ok(/loadCommunityPlaces\._asked = true;/.test(html), 'and the guard is set');
+  ok((html.match(/if \(!loadCommunityPlaces\._asked\) \{/g) || []).length === 2,
+     'both callers ask through the same guard');
+  // The guard without the call is a guard over nothing: the table stays empty
+  // and a community whose name carries no town shows none. A mutation that
+  // removed only the call walked straight past the count above.
+  ok(/loadCommunityPlaces\(\)\.then\(renderRegions\)/.test(html),
+     'Regions actually fetches, then redraws with it');
+  ok(/loadCommunityPlaces\(\)\.then\(renderCommunityCards\)/.test(html),
+     'and so do the cards, which need it for the town');
 }
 
 console.log('\nThe row has room for what is on it');

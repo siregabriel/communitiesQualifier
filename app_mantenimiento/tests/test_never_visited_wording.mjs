@@ -21,6 +21,18 @@ import { JSDOM } from 'jsdom';
 
 const html = fs.readFileSync(new URL('../templates/dashboard.html', import.meta.url), 'utf8');
 
+const grab = (name) => {
+  let i = html.indexOf(`function ${name}(`);
+  if (i < 0) throw new Error(`no such function: ${name}`);
+  if (html.slice(i - 6, i) === 'async ') i -= 6;
+  let depth = 0;
+  for (let k = html.indexOf('{', i); k < html.length; k++) {
+    if (html[k] === '{') depth++;
+    else if (html[k] === '}' && --depth === 0) return html.slice(i, k + 1);
+  }
+  throw new Error(`unbalanced braces in ${name}`);
+};
+
 let failures = 0;
 const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) failures++; };
 
@@ -36,11 +48,14 @@ const lastVisitText = (() => {
   return html.slice(i, html.indexOf(';', i));
 })();
 
-const subtitle = (community, place) => {
+const subtitle = (community, town) => {
   const w = new JSDOM('', { runScripts: 'outside-only' }).window;
   w.community = community;
   w.escapeHtml = (s) => String(s == null ? '' : s);
-  w.where = { place };
+  // The card now asks communityTown(), which falls back to the positions file
+  // for a community whose own name carries no town. Here that answer is given
+  // directly — which town it is has its own test.
+  w.town = town;
   return w.eval(`${lastVisitText}; \`${cardDate}\``).trim();
 };
 
@@ -99,6 +114,33 @@ console.log('\nEvery reader asks the date, not the words');
   ok(i > 0, 'the dashboard row still shows the date when there is one');
   ok(/c\.lastVisitTs\s*\n?\s*\?/.test(html.slice(i - 200, i)),
      'and asks lastVisitTs first, so it cannot print "Last visit: " with nothing after it');
+}
+
+console.log('\nWhere the town comes from');
+{
+  /* Most names carry it after a comma. Fourteen of the forty do not, and nine
+     of those name a development rather than a town, so The Georgian Lakeside
+     showed no place at all. The positions file knows, because somebody had to
+     write a city down to put a pin on a map. */
+  const w = new JSDOM('', { runScripts: 'outside-only' }).window;
+  w.eval(`
+    var communityPlaces = {
+      'The Georgian Lakeside': { city: 'Roswell', state: 'GA' },
+      'Madison at Ocoee, Ocoee': { city: 'Somewhere Wrong', state: 'XX' },
+      'Nowhere At All': {},
+    };
+    ${grab('splitCommunityName')}
+    ${grab('communityTown')}
+  `);
+
+  ok(w.communityTown('Madison at Ocoee, Ocoee') === 'Ocoee',
+     'the name wins when it has one — it is what the company calls the place');
+  ok(w.communityTown('The Georgian Lakeside') === 'Roswell',
+     'and the positions file answers when the name does not');
+  ok(w.communityTown('Nowhere At All') === '',
+     'an entry with no city gives nothing rather than something made up');
+  ok(w.communityTown('Not In The File Either') === '',
+     'and so does a community the file has never heard of');
 }
 
 console.log(failures ? `\n${failures} failure(s)` : '\nNever visited reads as never visited.');

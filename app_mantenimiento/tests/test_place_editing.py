@@ -235,3 +235,25 @@ def test_the_live_file_is_seeded_like_the_others():
     assert 'community_places.json' in src[i:i + 300]
     assert os.path.exists(os.path.join(_APP_DIR, 'data', 'seeds',
                                        'community_places.json'))
+
+
+def test_a_city_is_a_city_and_nothing_else():
+    """It is shown on the community card for a community whose own name does
+    not carry a town — The Georgian Lakeside shows "Roswell". So a city of
+    "Orlando (Lake Nona)" would make the card repeat itself next to a name
+    that already says Lake Nona.
+
+    The district or development belongs in the note, where it is useful to
+    whoever is checking the pin.
+    """
+    import json as _json
+    seed = os.path.join(_APP_DIR, 'data', 'seeds', 'community_places.json')
+    with open(seed, encoding='utf-8') as f:
+        places = _json.load(f)['places']
+
+    parenthesised = {k: v['city'] for k, v in places.items() if '(' in (v.get('city') or '')}
+    assert parenthesised == {}, \
+        f'these carry a district in the city field: {parenthesised}'
+
+    missing = [k for k, v in places.items() if not (v.get('city') or '').strip()]
+    assert missing == [], f'no city on file for: {missing}'
