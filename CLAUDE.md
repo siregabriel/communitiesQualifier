@@ -54,6 +54,10 @@ Push to `main` → GitHub Actions runs both suites as a gate → SSH →
 - A regional's scope *is* their region. No region → `regional_communities()`
   returns `[]` and they see nothing. Corporate members are in the `corporate`
   group, whose `kind` grants every community.
+- A regional can reach every community **and stay in their region**
+  (People → Edit → "Can visit every community"). Stored as `all_communities`
+  in profiles.json, not on the leader record (`update_leader` rebuilds it).
+  Region still decides who gets that region's emails.
 
 ## Pitfalls already paid for
 

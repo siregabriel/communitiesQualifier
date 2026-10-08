@@ -100,6 +100,25 @@ class ProfileService(JsonFileBacked):
         self._ensure_fresh()
         return [u for u, p in self.profiles.items() if p.get('admin_extra')]
 
+    # --- A regional who may visit every community, not just their region ---
+    def get_all_communities(self, username: str) -> bool:
+        """True when this regional's reach is the whole company while they stay
+        in their own region.
+
+        Kept here, keyed by username, rather than on the leader record in
+        regions.json: that record is rebuilt from scratch when a leader is
+        edited and re-created when they move region, and a flag stored there
+        would silently fall off. A profile survives both, and a username
+        change carries it along with everything else."""
+        self._ensure_fresh()
+        return bool(self.profiles.get(username, {}).get('all_communities'))
+
+    def set_all_communities(self, username: str, value: bool) -> None:
+        with self._lock:
+            self._ensure_fresh()
+            self.profiles.setdefault(username, {})['all_communities'] = bool(value)
+            self._save()
+
     # --- Force a password change on next login (after an admin reset) ---
     def get_must_change(self, username: str) -> bool:
         self._ensure_fresh()

@@ -9343,6 +9343,15 @@
                                 <div class="cov-list" id="peExtraComms">${coverageChecklist(p.community, p.communities || [])}</div>
                             </div>
                         </div>
+                        <div id="peAllWrap" class="pe-priv"${isRoster && p.role === 'regional' ? '' : ' style="display:none;"'}>
+                            <label class="pe-priv-row">
+                                <input type="checkbox" id="peAllComms" ${p.all_communities ? 'checked' : ''}>
+                                <span>
+                                    <b>Can visit every community</b>
+                                    <small>Stays in their region, so they keep getting its visit reports, raised items and reminders.</small>
+                                </span>
+                            </label>
+                        </div>
                         <div id="peRoleNote" style="font-size:12px;color:#64748b;line-height:1.45;"></div>
                         ${(peopleData.can_grant_admin && p.role !== 'admin') ? `
                         <div class="pe-priv">
@@ -9388,6 +9397,9 @@
             titleW.style.display = onRoster ? '' : 'none';
             regionW.style.display = onRoster ? '' : 'none';
             commW.style.display = (role === 'staff') ? '' : 'none';
+            // Only a regional has a region to stay in while reaching further.
+            const allW = document.getElementById('peAllWrap');
+            if (allW) allW.style.display = (role === 'regional') ? '' : 'none';
 
             // Corporate lives in the Corporate group; regional in a real region.
             if (regionSel) {
@@ -9503,6 +9515,25 @@
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
+                    // Reaching every community is its own switch, sent only
+                    // when it changed and only for a regional.
+                    const all = document.getElementById('peAllComms');
+                    if (all && role === 'regional') {
+                        const person = (peopleData?.people || []).find(x => x.username === username);
+                        if (person && !!person.all_communities !== all.checked) {
+                            const ar = await fetch(`/api/people/${encodeURIComponent(username)}/all-communities`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ grant: all.checked })
+                            });
+                            const ad = await ar.json();
+                            if (!ar.ok || ad.status !== 'success') {
+                                msg.textContent = ad.message || 'Saved, but access to every community could not be changed.';
+                                msg.classList.add('error');
+                                await refreshPeopleViews();
+                                return;
+                            }
+                        }
+                    }
                     // Admin privileges are a separate, main-admin-only switch.
                     const priv = document.getElementById('peAdminExtra');
                     if (priv) {

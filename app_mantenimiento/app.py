@@ -1139,6 +1139,14 @@ def regional_communities():
         return []
     if region.get('kind') == CORPORATE_KIND:
         return all_communities()
+    # A regional can be given the whole company without leaving their region.
+    # Moving them to Corporate would have done the first and quietly undone
+    # the second: visit reports, raised items and the 30-day reminder go to
+    # the leaders of the region that owns a community, and Corporate owns
+    # none. Carol Brinegar asked for every community while still being the
+    # regional for her own.
+    if profile_service.get_all_communities(session.get('user') or ''):
+        return all_communities()
     return list(region.get('communities', []))
 
 
@@ -1901,6 +1909,8 @@ def get_profile():
                 covers_nothing = True
             elif region.get('kind') == CORPORATE_KIND:
                 display_community = 'All communities'
+            elif profile_service.get_all_communities(username):
+                display_community = f"All communities · {region.get('name')} region"
             else:
                 display_community = f"{region.get('name')} region"
         elif has_admin_access:
@@ -4445,12 +4455,20 @@ def list_people():
                 continue
             username = (leader.get('username') or '').strip() or slugify_name(name)
             n, last = activity_for(name, username)
+            reaches_all = (not is_corp) and profile_service.get_all_communities(username)
+            if is_corp:
+                scope = 'All communities'
+            elif reaches_all:
+                scope = f"All communities · {region_name.get(region.get('id'), '')}"
+            else:
+                scope = region_name.get(region.get('id'), '')
             people.append({
                 'username': username, 'name': name,
                 'email': (leader.get('email') or '').strip(),
                 'title': (leader.get('role') or '').strip(),
                 'role': 'corporate' if is_corp else 'regional',
-                'scope': 'All communities' if is_corp else region_name.get(region.get('id'), ''),
+                'scope': scope,
+                'all_communities': bool(reaches_all),
                 'region_id': region.get('id'),
                 'source': 'region', 'index': idx,
                 'photo': profile_service.get_leader_photo(region.get('id', ''), name),
@@ -4691,6 +4709,9 @@ def update_person(username):
         if moving_off_roster:
             # Becomes a stored account; keep their login and password working.
             region_service.remove_leader(current_region, index)
+            # The company-wide reach belonged to the regional role. Left set,
+            # it would come back on its own if they were ever made regional again.
+            profile_service.set_all_communities(username, False)
             if not user_service.exists(username):
                 user_service.ensure(username, display_name=name, role=requested_role,
                                     community=community if requested_role == 'staff' else None,
@@ -4800,6 +4821,42 @@ def set_admin_privileges(username):
     return jsonify({'status': 'success', 'grant': grant,
                     'message': f'{acct.get("display_name") or username} '
                                f'{"now has" if grant else "no longer has"} admin privileges.'}), 200
+
+
+@app.route('/api/people/<username>/all-communities', methods=['POST'])
+@login_required
+def set_all_communities(username):
+    """Let a regional visit every community while staying in their region.
+
+    Only for a regional on a real region's roster. Corporate already reaches
+    everything, and an Executive Director's scope is a list of sites chosen
+    one by one — a company-wide switch there would be a different decision
+    made by accident.
+    """
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    grant = bool(data.get('grant'))
+
+    region, _index, leader = region_service.find_leader_by_username(username)
+    if leader is None:
+        return jsonify({'status': 'error',
+                        'message': 'Only a regional on a region roster can be given every community.'}), 400
+    if region.get('kind') == CORPORATE_KIND:
+        return jsonify({'status': 'error',
+                        'message': 'Corporate members already see every community.'}), 400
+
+    profile_service.set_all_communities(username, grant)
+    who = leader.get('name') or username
+    activity_service.log(session.get('user'),
+                         'all_communities_granted' if grant else 'all_communities_revoked',
+                         f'{"Gave" if grant else "Took back"} access to every community '
+                         f'{"to" if grant else "from"} {who}',
+                         meta={'username': username})
+    return jsonify({'status': 'success', 'grant': grant,
+                    'message': (f'{who} can now visit every community, and stays in '
+                                f'{region.get("name")} for its emails.' if grant
+                                else f'{who} is back to {region.get("name")} only.')}), 200
 
 
 @app.route('/api/people/<username>/username', methods=['POST'])
