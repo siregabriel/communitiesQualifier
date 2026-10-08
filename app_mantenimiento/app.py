@@ -3920,12 +3920,28 @@ def notify_raised_item_comment(item, comment):
     community = item.get('community', '')
     author = session.get('user')
     recipients = []
+    # Whoever raised it, unless they are the one writing. Until this, a reply
+    # reached the raiser only if they happened to lead the region that owns
+    # the community. Corporate never did, and neither does a regional raising
+    # something outside their own region — Carol Brinegar's case, once she
+    # could reach every community.
+    raiser = (item.get('raised_by') or '').strip()
+    if raiser and raiser != author:
+        addr = (resolve_account_context(raiser).get('email') or '').strip()
+        if addr:
+            recipients.append(addr)
     for addr in region_leader_emails(community):
         if addr not in recipients:
             recipients.append(addr)
-    for addr in community_account_emails(community, exclude_username=author):
-        if addr not in recipients:
-            recipients.append(addr)
+    # An item raised for the leadership side never reaches the community —
+    # not in a list, not by id, and not in a reply notification either. This
+    # function used to add the community's own addresses unconditionally, so
+    # the first comment on an internal item emailed its text to the very
+    # Executive Director it was written about.
+    if not raised_item_service.is_internal(item):
+        for addr in community_account_emails(community, exclude_username=author):
+            if addr not in recipients:
+                recipients.append(addr)
     if not recipients:
         return
     email_service.send_standard_comment(
@@ -6932,6 +6948,15 @@ def submit_inspection():
                 recipients = region_leader_emails(community)
                 recipients += settings_service.recipients_for_inspection(
                     region_id, submission.get('inspector_name'))
+                # And whoever walked it. They used to get their own report
+                # only by leading the region that owns the community, so
+                # Corporate never did, and neither would a regional visiting
+                # outside their region (Carol Brinegar, once she could).
+                mine = (resolve_account_context(submission.get('username') or '')
+                        .get('email') or '').strip()
+                if mine:
+                    # send_inspection_report drops duplicates, case-blind.
+                    recipients.append(mine)
                 # criteria lookup so the email can show "must include to pass" per failed item
                 criteria_map = {}
                 for q in question_manager.get_all_active_questions():
