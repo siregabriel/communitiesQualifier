@@ -44,3 +44,6 @@ app_mantenimiento/static/community_photos/*
 
 # Build artefacts from the manual
 docs/__pycache__/
+
+# Personal Claude Code notes for this machine — never committed
+CLAUDE.local.md
