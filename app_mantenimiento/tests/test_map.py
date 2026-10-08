@@ -243,6 +243,71 @@ def test_a_stale_community_comes_down_hollow(monkeypatch):
     assert row['band'] == 'stale', 'a four-month-old 100 was painted green'
 
 
+# --------------------------------------------------------- the Google key
+
+FAKE_KEY = 'test-key-not-real'
+
+
+def test_the_map_key_comes_down_with_the_map(as_regional, monkeypatch):
+    """The map moved from OpenStreetMap to Google Maps, which needs a browser
+    key. It lives in /etc/atlas/atlas.env, not in git, and reaches the page
+    only through this response — the one thing a person who opens the map
+    asks for anyway."""
+    monkeypatch.setenv('GOOGLE_MAPS_API_KEY', FAKE_KEY)
+    monkeypatch.setenv('GOOGLE_MAPS_MAP_ID', 'map-id-1')
+    maps = as_regional.get('/api/map/communities', headers=HEADERS).get_json()['maps']
+    assert maps == {'key': FAKE_KEY, 'map_id': 'map-id-1'}
+
+
+def test_nobody_with_one_community_is_handed_the_key(monkeypatch):
+    """An Executive Director is never shown the map, so there is no reason
+    for the key to reach their browser."""
+    monkeypatch.setenv('GOOGLE_MAPS_API_KEY', FAKE_KEY)
+    monkeypatch.setenv('GOOGLE_MAPS_MAP_ID', 'map-id-1')
+    monkeypatch.setattr(A, 'visible_communities', lambda: ['Madison at Ocoee, Ocoee'])
+    monkeypatch.setattr(A, 'can_see_internal', lambda: False)
+    monkeypatch.setattr(A.inspection_service, 'get_all_submissions', lambda: [])
+    monkeypatch.setattr(A.raised_item_service, 'for_communities', lambda *a, **k: [])
+    c = A.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user='test.ed', role='ed', display_name='Test ED')
+    r = c.get('/api/map/communities', headers=HEADERS)
+    assert r.status_code == 200
+    assert FAKE_KEY not in r.get_data(as_text=True)
+    assert r.get_json()['maps'] == {'key': '', 'map_id': ''}
+
+
+def test_an_unconfigured_server_says_so_rather_than_failing(as_regional, monkeypatch):
+    """The code can deploy before the key is in the env file. The response
+    then carries empty strings, and the page shows a note instead of asking
+    Google for a map with no key."""
+    monkeypatch.delenv('GOOGLE_MAPS_API_KEY', raising=False)
+    monkeypatch.delenv('GOOGLE_MAPS_MAP_ID', raising=False)
+    r = as_regional.get('/api/map/communities', headers=HEADERS)
+    assert r.status_code == 200
+    assert r.get_json()['maps'] == {'key': '', 'map_id': ''}
+
+
+def test_the_key_is_not_in_the_repository():
+    """A key committed to git is a key published. This looks for the shape of
+    a Google API key in every tracked text file under the app."""
+    import re
+    pattern = re.compile(r'AIza[0-9A-Za-z_\-]{35}')
+    hits = []
+    for root, dirs, files in os.walk(_APP_DIR):
+        dirs[:] = [d for d in dirs if d not in ('node_modules', '.venv', '__pycache__',
+                                                '.pytest_cache', 'data')]
+        for name in files:
+            if not name.endswith(('.py', '.html', '.js', '.mjs', '.css', '.json',
+                                  '.md', '.txt', '.sh', '.cfg', '.ini', '.env')):
+                continue
+            path = os.path.join(root, name)
+            with open(path, encoding='utf-8', errors='ignore') as f:
+                if pattern.search(f.read()):
+                    hits.append(os.path.relpath(path, _APP_DIR))
+    assert hits == [], f'something that looks like a Google API key: {hits}'
+
+
 def test_signed_out_gets_nothing():
     r = A.app.test_client().get('/api/map/communities')
     assert r.status_code in (302, 401), r.status_code
@@ -286,10 +351,14 @@ def test_the_map_is_only_fetched_when_it_is_opened():
     with open(os.path.join(_APP_DIR, 'templates', 'dashboard.html'),
               encoding='utf-8') as f:
         html = f.read()
-    tags = re.findall(r'<(?:script|link)[^>]*leaflet[^>]*>', html, re.I)
-    assert tags == [], f'Leaflet is loaded on every page view: {tags}'
-    assert 'cdnjs.cloudflare.com/ajax/libs/leaflet' in html, \
+    tags = re.findall(r'<script[^>]*maps\.googleapis\.com[^>]*>', html, re.I)
+    assert tags == [], f'Google Maps is loaded on every page view: {tags}'
+    assert 'https://maps.googleapis.com/maps/api/js' in html, \
         'and now it is not loaded at all'
+    # Every page view of Google Maps is billed; a map nobody opened should
+    # not be one of them.
+    assert 'cdnjs.cloudflare.com/ajax/libs/leaflet' not in html, \
+        'the old Leaflet loader is still in the page'
 
 
 # ------------------------------------------- explaining a missing position

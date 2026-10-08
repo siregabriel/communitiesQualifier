@@ -7710,7 +7710,29 @@ def map_communities():
         'renamed_from': renamed_from,
         'unverified': place_service.unverified(mine),
         'stale_after_days': MAP_STALE_DAYS,
+        'maps': _maps_config(mine),
     }), 200
+
+
+def _maps_config(mine):
+    """The Google Maps key and Map ID, for somebody the map is offered to.
+
+    Read from the environment on every request rather than at import, so the
+    values live in /etc/atlas/atlas.env and never in git. A browser key is
+    visible to whoever receives it — that is how the Maps JavaScript API works,
+    and why it is restricted by referrer in Google Cloud — but there is still
+    no reason to hand it to an Executive Director, who covers one community
+    and is never shown the map.
+
+    Empty strings when it is not configured: the page says so instead of
+    loading a map that Google will refuse.
+    """
+    if len(mine) <= 1:
+        return {'key': '', 'map_id': ''}
+    return {
+        'key': os.environ.get('GOOGLE_MAPS_API_KEY', '').strip(),
+        'map_id': os.environ.get('GOOGLE_MAPS_MAP_ID', '').strip(),
+    }
 
 
 @app.errorhandler(404)

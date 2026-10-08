@@ -580,7 +580,17 @@
         .cmap-pop-go {
             display: inline-block; margin-top: 9px; font-size: 12.5px;
             font-weight: 700; color: #00285c; cursor: pointer;
+            background: none; border: 0; padding: 0; font-family: inherit;
         }
+        /* The pin drawn on Google's map. White edge so a coloured dot still
+           reads on satellite imagery; the stale one is a thick grey ring
+           with nothing inside. */
+        .cmap-pin {
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 2px solid #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,.45);
+            cursor: pointer;
+        }
+        .cmap-pin.is-stale { border-width: 3px; box-shadow: 0 0 0 1px #ffffff, 0 1px 4px rgba(0,0,0,.45); }
         html[data-theme="dark"] .cmap-tab { background: #16203a; border-color: #2b3a5c; color: #c7d3e8; }
         html[data-theme="dark"] .cmap-tab.is-on { background: #3b82f6; border-color: #3b82f6; color: #fff; }
         html[data-theme="dark"] .cmap { background: #0f1729; border-color: #2b3a5c; }
@@ -4481,29 +4491,44 @@
                scopes the list; this only draws what it is handed.
         */
         let _cmapLayout = 'list';
-        let _cmap = null;             // the Leaflet map, built once
-        let _cmapLayer = null;        // the pins, replaced on each load
-        let _cmapLoaded = false;      // whether Leaflet itself is here yet
+        let _cmap = null;             // the Google map, built once
+        let _cmapPins = [];           // the pins on it, replaced on each load
+        let _cmapInfo = null;         // one popup, shared by every pin
+        let _cmapLoading = null;      // the script load, asked for once
 
         const CMAP_COLOURS = { good: '#0f8a5f', watch: '#d97706', poor: '#dc2626' };
 
-        /* Leaflet is fetched the first time somebody opens the map, not on
-           every dashboard load. Most people never open it, and it is not
-           worth a download to them. */
-        function ensureLeaflet() {
-            if (_cmapLoaded) return Promise.resolve(true);
-            if (window.L) { _cmapLoaded = true; return Promise.resolve(true); }
-            return new Promise(resolve => {
-                const css = document.createElement('link');
-                css.rel = 'stylesheet';
-                css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
-                document.head.appendChild(css);
+        /* Google Maps is fetched the first time somebody opens the map, not
+           on every dashboard load. Most people never open it, and every load
+           of the Maps JavaScript API is billed.
+
+           The key arrives with the map data rather than in the page, so it
+           only reaches the browser of somebody the map is offered to. It is
+           restricted by referrer in Google Cloud; that restriction is what
+           protects it, not keeping it out of sight. */
+        function ensureGoogleMaps(key) {
+            if (window.google && google.maps && google.maps.importLibrary) {
+                return Promise.resolve(true);
+            }
+            if (_cmapLoading) return _cmapLoading;
+            /* Google calls this when it refuses the key — most likely a
+               referrer that is not on the list. Without it the map is just a
+               grey box with a watermark and nobody can tell why. */
+            window.gm_authFailure = () => cmapNote(
+                'Google refused the map key for this address. '
+                + 'The list has the same communities.');
+            _cmapLoading = new Promise(resolve => {
+                window.__cmapReady = () => resolve(true);
                 const js = document.createElement('script');
-                js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
-                js.onload = () => { _cmapLoaded = true; resolve(true); };
-                js.onerror = () => resolve(false);
+                js.src = 'https://maps.googleapis.com/maps/api/js?key='
+                    + encodeURIComponent(key)
+                    + '&v=weekly&loading=async&callback=__cmapReady';
+                js.async = true;
+                // Let a later attempt try again rather than inherit the failure.
+                js.onerror = () => { _cmapLoading = null; resolve(false); };
                 document.head.appendChild(js);
             });
+            return _cmapLoading;
         }
 
         /* Only for somebody who covers more than one. For an Executive
@@ -4538,15 +4563,50 @@
             el.innerHTML = text || '';
         }
 
+        /* The pin itself. A hollow ring for a score we cannot stand behind:
+           it has to read as different at a glance, not as a paler green. */
+        function cmapPin(c) {
+            const stale = c.band === 'stale';
+            const colour = CMAP_COLOURS[c.band] || '#94a3b8';
+            const el = document.createElement('div');
+            el.className = 'cmap-pin' + (stale ? ' is-stale' : '');
+            el.style.background = stale ? 'transparent' : colour;
+            el.style.borderColor = stale ? '#94a3b8' : '#ffffff';
+            return el;
+        }
+
+        /* The popup, as an element rather than a string, so the button's
+           handler can be attached before it is shown. escapeHtmlForAttr turns
+           an apostrophe into &#39;, which the HTML parser hands back to
+           JavaScript as a plain quote — so a community called O'Brien Place
+           would have produced a broken onclick, and the name would have been
+           parsed as code rather than passed as text. */
+        function cmapPopup(c) {
+            const stale = c.band === 'stale';
+            const colour = CMAP_COLOURS[c.band] || '#94a3b8';
+            const score = c.score === null ? 'No score yet' : c.score + '%';
+            const when = c.last_visit
+                ? `${formatDate(c.last_visit)} · ${c.days_since} days ago`
+                : 'Never visited';
+            const box = document.createElement('div');
+            box.className = 'cmap-pop';
+            box.innerHTML =
+                `<b>${escapeHtml(c.community)}</b>
+                 <div class="cmap-pop-sub">${escapeHtml(c.city)}${c.state ? ', ' + escapeHtml(c.state) : ''}</div>
+                 <div class="cmap-pop-sub" style="margin-top:7px">
+                   <b style="color:${stale ? '#64748b' : colour}">${score}</b>
+                   ${stale ? ' · not visited recently' : ''}
+                 </div>
+                 <div class="cmap-pop-sub">${escapeHtml(when)}</div>
+                 <div class="cmap-pop-sub">${c.open_items} open item${c.open_items === 1 ? '' : 's'}</div>
+                 <button type="button" class="cmap-pop-go">Open this community &rsaquo;</button>`;
+            box.querySelector('.cmap-pop-go').onclick = () => openSlidePanel(c.community);
+            return box;
+        }
+
         async function renderCommunityMap() {
             const host = document.getElementById('communityMap');
             if (!host) return;
-
-            const ok = await ensureLeaflet();
-            if (!ok) {
-                cmapNote('The map could not load. The list has the same communities.');
-                return;
-            }
 
             let data;
             try {
@@ -4567,10 +4627,8 @@
                     file yet: ${data.unplaced.map(escapeHtml).join(', ')}.`);
 
                 /* A rename is the likeliest reason a community that used to be
-                   here is not. It carries the community across every other
-                   store; the map's reference file ships with the code, so it
-                   stays behind under the old name. Saying which name turns a
-                   mystery into a one-line edit. */
+                   here is not. Saying which name turns a mystery into a
+                   one-line edit. */
                 const was = data.renamed_from || {};
                 Object.keys(was).forEach(now => {
                     notes.push(`<b>${escapeHtml(now)}</b> was renamed from
@@ -4578,82 +4636,77 @@
                         under the old name.`);
                 });
             }
-            /* The "not yet confirmed" count used to be here. It was true and
-               it was useless: until somebody sits down and reviews all forty
-               it reads the same every single morning, and a banner that never
-               changes is a banner nobody reads. The `verified` flag is still
-               on every entry and still comes down in the response, so it can
-               be surfaced per pin the day that is worth doing.
+            /* The "not yet confirmed" count used to be here. It read the same
+               every morning, and a banner that never changes is a banner
+               nobody reads. What stays is the count of communities with no
+               position at all, because it goes away when somebody acts. */
 
-               What stays is the count of communities with no position at all,
-               because that one is actionable and it goes away when somebody
-               acts on it. It is also what found The Georgian at Lakeside,
-               which the tests could not: they read a development roster, and
-               production's had one more community in it. */
+            /* Both are needed: the key to load Google at all, the Map ID for
+               the pins (Advanced Markers refuse to draw without one). Until
+               both are in /etc/atlas/atlas.env the page says so, rather than
+               asking Google for a map it will refuse. */
+            const maps = data.maps || {};
+            if (!maps.key || !maps.map_id) {
+                notes.unshift('The map is not set up on this server yet. '
+                    + 'The list has the same communities.');
+                cmapNote(notes.join('<br>'));
+                return;
+            }
             cmapNote(notes.join('<br>'));
 
-            if (!_cmap) {
-                _cmap = L.map(host, { scrollWheelZoom: false });
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 18,
-                    attribution: '&copy; OpenStreetMap',
-                }).addTo(_cmap);
+            const ok = await ensureGoogleMaps(maps.key);
+            if (!ok) {
+                cmapNote('The map could not load. The list has the same communities.');
+                return;
             }
-            if (_cmapLayer) _cmapLayer.remove();
-            _cmapLayer = L.layerGroup().addTo(_cmap);
+            const { Map, InfoWindow } = await google.maps.importLibrary('maps');
+            const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+            const { LatLngBounds } = await google.maps.importLibrary('core');
+
+            if (!_cmap) {
+                _cmap = new Map(host, {
+                    mapId: maps.map_id,
+                    center: { lat: 33.5, lng: -84.5 },
+                    zoom: 5,
+                    mapTypeControl: true,       // Map / Satellite
+                    streetViewControl: true,    // the little yellow man
+                    fullscreenControl: true,
+                    // One finger scrolls the page on a phone; two move the map.
+                    gestureHandling: 'cooperative',
+                });
+                _cmapInfo = new InfoWindow();
+            }
+            _cmapInfo.close();
+            _cmapPins.forEach(m => { m.map = null; });
+            _cmapPins = [];
 
             rows.forEach(c => {
-                const stale = c.band === 'stale';
-                const colour = CMAP_COLOURS[c.band] || '#94a3b8';
-                const marker = L.circleMarker([c.lat, c.lng], {
-                    radius: 9,
-                    // A hollow ring for a score we cannot stand behind. It has
-                    // to read as different at a glance, not as a paler green.
-                    color: stale ? '#94a3b8' : colour,
-                    weight: stale ? 2 : 1,
-                    fillColor: stale ? 'transparent' : colour,
-                    fillOpacity: stale ? 0 : 0.85,
+                const marker = new AdvancedMarkerElement({
+                    map: _cmap,
+                    position: { lat: c.lat, lng: c.lng },
+                    title: c.community,
+                    content: cmapPin(c),
+                    gmpClickable: true,
                 });
-                const score = c.score === null ? 'No score yet' : c.score + '%';
-                const when = c.last_visit
-                    ? `${formatDate(c.last_visit)} · ${c.days_since} days ago`
-                    : 'Never visited';
-                marker.bindPopup(
-                    `<div class="cmap-pop">
-                       <b>${escapeHtml(c.community)}</b>
-                       <div class="cmap-pop-sub">${escapeHtml(c.city)}${c.state ? ', ' + escapeHtml(c.state) : ''}</div>
-                       <div class="cmap-pop-sub" style="margin-top:7px">
-                         <b style="color:${stale ? '#64748b' : colour}">${score}</b>
-                         ${stale ? ' · not visited recently' : ''}
-                       </div>
-                       <div class="cmap-pop-sub">${escapeHtml(when)}</div>
-                       <div class="cmap-pop-sub">${c.open_items} open item${c.open_items === 1 ? '' : 's'}</div>
-                       <span class="cmap-pop-go">Open this community &rsaquo;</span>
-                     </div>`);
-                /* The handler is attached, not written into an attribute.
-                   escapeHtmlForAttr turns an apostrophe into &#39;, which the
-                   HTML parser hands back to JavaScript as a plain quote — so a
-                   community called O'Brien Place would have produced a broken
-                   onclick, and the name would have been parsed as code rather
-                   than passed as text. None of the 39 has one today. That is
-                   not a reason to leave it. */
-                marker.on('popupopen', ev => {
-                    const el = ev.popup.getElement &&
-                               ev.popup.getElement().querySelector('.cmap-pop-go');
-                    if (el) el.onclick = () => openSlidePanel(c.community);
+                marker.addListener('gmp-click', () => {
+                    _cmapInfo.setContent(cmapPopup(c));
+                    _cmapInfo.open({ anchor: marker, map: _cmap });
                 });
-                marker.addTo(_cmapLayer);
+                _cmapPins.push(marker);
             });
 
-            if (rows.length) {
-                _cmap.fitBounds(L.latLngBounds(rows.map(c => [c.lat, c.lng])).pad(0.2));
+            if (rows.length > 1) {
+                const bounds = new LatLngBounds();
+                rows.forEach(c => bounds.extend({ lat: c.lat, lng: c.lng }));
+                _cmap.fitBounds(bounds, 48);
+            } else if (rows.length === 1) {
+                // fitBounds on a single point zooms in to the rooftop.
+                _cmap.setCenter({ lat: rows[0].lat, lng: rows[0].lng });
+                _cmap.setZoom(12);
             } else {
-                _cmap.setView([33.5, -84.5], 5);
+                _cmap.setCenter({ lat: 33.5, lng: -84.5 });
+                _cmap.setZoom(5);
             }
-            // Leaflet measures the container on creation; if it was hidden at
-            // that moment every tile lands in the wrong place until something
-            // resizes the window.
-            setTimeout(() => _cmap.invalidateSize(), 60);
         }
 
         function renderCommunityCards() {

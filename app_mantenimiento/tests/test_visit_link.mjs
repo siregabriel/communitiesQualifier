@@ -249,7 +249,7 @@ console.log('\nEvery list that draws one visit names it');
      forced the question out loud. A pin stands for the place, and the score
      printed on it is the latest visit's, which is what an id-less call
      opens — so it passes none, like the community card. */
-  ok(/el\.onclick = \(\) => openSlidePanel\(c\.community\);/.test(html),
+  ok(/querySelector\('\.cmap-pop-go'\)\.onclick = \(\) => openSlidePanel\(c\.community\);/.test(html),
      'the map pin opens the community, not one visit of it');
 }
 
