@@ -59,6 +59,19 @@ Push to `main` → GitHub Actions runs both suites as a gate → SSH →
   in profiles.json, not on the leader record (`update_leader` rebuilds it).
   Region still decides who gets that region's emails.
 
+## AtlasAI (read-only API for Atlerts)
+
+`POST /api/atlasai/query` (end of `app.py`) answers questions from AtlasAI, the
+admin assistant inside Atlerts. Server to server, same `ATLERTS_SSO_SECRET` and
+`X-Atlerts-Sso-Secret` header as `/sso`, plus the person's verified email.
+
+- Scope is Excellence's own: the account is found like `/sso` does and every
+  answer runs inside `_atlasai_as()`, an isolated request context with that
+  account's session. No scoping rule is copied. **If `/sso` or `/api/login`
+  change the session keys, `_atlasai_as()` must change too.**
+- Read-only and small: never move-ins (resident names), comments, visit notes,
+  photos or emails. `tests/test_atlasai_api.py` guards all of it.
+
 ## Pitfalls already paid for
 
 - `templates/dashboard.html` is an ~11k-line monolith with inline JS. Tests pull

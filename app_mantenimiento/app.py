@@ -8021,3 +8021,275 @@ def atlerts_sso():
     )
 
     return redirect("/change-password" if must_change else "/")
+
+
+# ==================== AtlasAI: read-only data for Atlerts ====================
+#
+# AtlasAI is the assistant inside Atlerts (admins only, Oct 2026). When an
+# admin asks it about visits, findings or raised items, Atlerts' Cloud
+# Function calls this route server to server and hands the answer to the model.
+#
+# Three rules hold everything below, and a change that breaks one of them is a
+# leak, not a refactor:
+#
+# 1. Same secret as the SSO, sent the other way. Without the shared
+#    ATLERTS_SSO_SECRET this answers 403 and nothing else.
+# 2. Excellence decides what the person sees, with ITS OWN rules. Atlerts
+#    sends the verified email; the account is found exactly like /sso does,
+#    and every answer is built inside an isolated request context carrying
+#    that account's session — so visible_communities(), _can_see_community()
+#    and can_see_internal() answer as they would for that person in the
+#    browser. No scoping rule is copied here. That session never becomes a
+#    cookie: the context is thrown away when the request ends.
+# 3. Read-only and small. Never move-ins (they name residents). Never free-text
+#    comments or visit notes (people write anything there). No photos, no
+#    emails. Short item texts only.
+
+import hmac as _hmac  # noqa: E402
+from contextlib import contextmanager as _contextmanager  # noqa: E402
+
+ATLASAI_MAX_ROWS = 40
+
+
+def _atlasai_authorized():
+    if not ATLERTS_SSO_SECRET:
+        return False
+    given = request.headers.get('X-Atlerts-Sso-Secret', '')
+    return _hmac.compare_digest(given.encode(), ATLERTS_SSO_SECRET.encode())
+
+
+@_contextmanager
+def _atlasai_as(username, account):
+    """Run the block as this account would, without signing anyone in.
+
+    The session keys are the ones /sso and /api/login set — if those change,
+    this must change with them, or AtlasAI and the browser disagree about who
+    sees what."""
+    with app.test_request_context():
+        session["user"] = username
+        session["community"] = account["community"]
+        session["communities"] = account.get("communities") or (
+            [account["community"]] if account["community"] else []
+        )
+        session["role"] = account["role"]
+        session["region_id"] = account["region_id"]
+        session["display_name"] = account["display_name"]
+        session["admin_extra"] = profile_service.get_admin_extra(username)
+        yield
+
+
+def _atlasai_days_ago(iso):
+    try:
+        then = datetime.fromisoformat((iso or '')[:19])
+    except ValueError:
+        return None
+    return max(0, (datetime.now() - then).days)
+
+
+def _atlasai_match(name, scope):
+    """The community the model meant, inside the caller's scope only.
+
+    The model writes "Trussville" for "Trussville Memory Care". Exact match
+    first, then a single partial match; two candidates is a question back,
+    not a guess."""
+    want = (name or '').strip().lower()
+    if not want:
+        return None, []
+    exact = [c for c in scope if c.lower() == want]
+    if exact:
+        return exact[0], []
+    partial = [c for c in scope if want in c.lower()]
+    if len(partial) == 1:
+        return partial[0], []
+    return None, partial[:8]
+
+
+def _atlasai_scores(sub):
+    responses = sub.get('responses') or []
+    passed = sum(1 for r in responses if r.get('condition') == 'Pass')
+    failed = sum(1 for r in responses if r.get('condition') == 'Fail')
+    fixed = sum(1 for r in responses if r.get('condition') == 'Fail' and r.get('addressed'))
+    total = passed + failed
+    # Same two numbers as /api/communities/<c>/history.
+    return {
+        'visit_score': round(passed / total * 100) if total else None,
+        'current_score': round((passed + fixed) / total * 100) if total else None,
+        'passed': passed, 'failed': failed, 'fixed': fixed,
+    }
+
+
+def _atlasai_open_findings(sub):
+    """Failed standards nobody has closed, once per standard (see build_attention)."""
+    seen = set()
+    for r in (sub.get('responses') or []):
+        if r.get('condition') != 'Fail' or r.get('addressed'):
+            continue
+        key = r.get('question_id') or ('t:' + (r.get('question_text') or '').strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        yield r
+
+
+def _atlasai_subs(community):
+    return sorted(inspection_service.get_submissions_by_community(community),
+                  key=lambda s: s.get('submitted_at', ''), reverse=True)
+
+
+def _atlasai_overview(args):
+    rows = []
+    for c in visible_communities():
+        subs = _atlasai_subs(c)
+        latest = subs[0] if subs else None
+        row = {'community': c, 'visits': len(subs), 'last_visit': None, 'days_since_visit': None}
+        if latest:
+            row.update(_atlasai_scores(latest))
+            row['last_visit'] = (latest.get('submitted_at') or '')[:10] or None
+            row['days_since_visit'] = _atlasai_days_ago(latest.get('submitted_at'))
+            row['open_findings'] = sum(1 for _ in _atlasai_open_findings(latest))
+            row['open_action_items'] = sum(1 for i in (latest.get('action_items') or [])
+                                           if not i.get('resolved'))
+        rows.append(row)
+    return {'communities': rows, 'visit_cadence_days': settings_service.get_visit_cadence_days()}
+
+
+def _atlasai_visit(args):
+    community, candidates = _atlasai_match(args.get('community'), visible_communities())
+    if not community:
+        return {'error': 'not_found', 'candidates': candidates}
+    subs = _atlasai_subs(community)
+    if not subs:
+        return {'community': community, 'visits': 0}
+    latest = subs[0]
+    recent = subs[:6]
+    fails = {}
+    for s in recent:
+        for r in (s.get('responses') or []):
+            if r.get('condition') == 'Fail':
+                k = r.get('question_text') or ''
+                fails[k] = fails.get(k, 0) + 1
+    return {
+        'community': community,
+        'visits': len(subs),
+        'last_visit': (latest.get('submitted_at') or '')[:10],
+        'days_since_visit': _atlasai_days_ago(latest.get('submitted_at')),
+        'inspector': latest.get('inspector_name') or resolve_display_name(latest.get('username', '')),
+        'survey_type': survey_type_service.get_survey_type_name(latest.get('survey_type_id')) or '',
+        'partial_visit': bool(latest.get('standards_total'))
+        and len(latest.get('responses') or []) < latest.get('standards_total'),
+        **_atlasai_scores(latest),
+        'failed_standards': [
+            {'standard': r.get('question_text', ''), 'still_open': not r.get('addressed')}
+            for r in (latest.get('responses') or []) if r.get('condition') == 'Fail'
+        ],
+        'open_action_items': [
+            (i.get('text') or '')[:160] for i in (latest.get('action_items') or [])
+            if not i.get('resolved')
+        ][:ATLASAI_MAX_ROWS],
+        'repeat_failures': sorted(
+            [{'standard': k, 'failed_in_last_visits': n, 'of_visits': len(recent)}
+             for k, n in fails.items() if n >= 2],
+            key=lambda x: -x['failed_in_last_visits'])[:10],
+    }
+
+
+def _atlasai_open_items(args):
+    scope = visible_communities()
+    if args.get('community'):
+        community, candidates = _atlasai_match(args.get('community'), scope)
+        if not community:
+            return {'error': 'not_found', 'candidates': candidates}
+        scope = [community]
+    try:
+        older = max(0, int(args.get('older_than_days') or 0))
+    except (TypeError, ValueError):
+        older = 0
+    rows = []
+    for c in scope:
+        for s in _atlasai_subs(c)[:1]:  # the latest visit carries the open work
+            age = _atlasai_days_ago(s.get('submitted_at'))
+            for r in _atlasai_open_findings(s):
+                rows.append({'community': c, 'kind': 'finding', 'text': r.get('question_text', ''),
+                             'from_visit': (s.get('submitted_at') or '')[:10], 'days_open': age})
+            for i in (s.get('action_items') or []):
+                if not i.get('resolved'):
+                    rows.append({'community': c, 'kind': 'action_item', 'text': (i.get('text') or '')[:160],
+                                 'from_visit': (s.get('submitted_at') or '')[:10], 'days_open': age})
+    rows = [r for r in rows if (r['days_open'] or 0) >= older]
+    rows.sort(key=lambda r: -(r['days_open'] or 0))
+    return {'count': len(rows), 'items': rows[:ATLASAI_MAX_ROWS],
+            'truncated': len(rows) > ATLASAI_MAX_ROWS, 'older_than_days': older}
+
+
+def _atlasai_raised(args):
+    scope = visible_communities()
+    if args.get('community'):
+        community, candidates = _atlasai_match(args.get('community'), scope)
+        if not community:
+            return {'error': 'not_found', 'candidates': candidates}
+        scope = [community]
+    items = raised_item_service.for_communities(
+        scope, include_resolved=bool(args.get('include_resolved')),
+        include_internal=can_see_internal())
+    rows = [{
+        'community': i.get('community'),
+        'category': raised_category_service.name_for(i.get('category')),
+        'text': (i.get('text') or '')[:160],
+        'priority': i.get('priority'),
+        'raised_on': (i.get('raised_at') or '')[:10],
+        'days_open': _atlasai_days_ago(i.get('raised_at')),
+        'resolved': bool(i.get('resolved')),
+        'internal': raised_item_service.is_internal(i),
+    } for i in items]
+    return {'count': len(rows), 'items': rows[:ATLASAI_MAX_ROWS], 'truncated': len(rows) > ATLASAI_MAX_ROWS}
+
+
+def _atlasai_standards(args):
+    words = [w for w in (args.get('query') or '').lower().split() if len(w) > 2]
+    rows = []
+    for q in question_manager.get_all_active_questions():
+        hay = ' '.join([q.get('text') or '', q.get('interpretive_guideline') or '',
+                        ' '.join(q.get('pass_criteria') or [])]).lower()
+        if words and not any(w in hay for w in words):
+            continue
+        rows.append({'standard': q.get('text', ''),
+                     'guideline': (q.get('interpretive_guideline') or '')[:500],
+                     'pass_criteria': list(q.get('pass_criteria') or [])[:12],
+                     'photo_required': bool(q.get('photo_required'))})
+    return {'count': len(rows), 'standards': rows[:15]}
+
+
+_ATLASAI_TOOLS = {
+    'overview': _atlasai_overview,
+    'visit': _atlasai_visit,
+    'open_items': _atlasai_open_items,
+    'raised_items': _atlasai_raised,
+    'standards': _atlasai_standards,
+}
+
+
+@app.route('/api/atlasai/query', methods=['POST'])
+def atlasai_query():
+    """One read-only question from AtlasAI, answered as the asking person."""
+    if not _atlasai_authorized():
+        return jsonify({'status': 'error', 'message': 'Not allowed'}), 403
+    data = request.get_json(silent=True) or {}
+    tool = _ATLASAI_TOOLS.get(data.get('tool') or '')
+    if not tool:
+        return jsonify({'status': 'error', 'message': 'Unknown tool'}), 400
+    found = _atlerts_account_by_email(data.get('email') or '')
+    if not found:
+        # Same as /sso: no account here means nothing to show, never a new one.
+        return jsonify({'status': 'no_account'}), 200
+    username, account = found
+    args = data.get('args') if isinstance(data.get('args'), dict) else {}
+    try:
+        with _atlasai_as(username, account):
+            result = tool(args)
+    except Exception:
+        app.logger.exception('AtlasAI query failed (%s)', data.get('tool'))
+        return jsonify({'status': 'error', 'message': 'Could not answer'}), 500
+    app.logger.info('AtlasAI query: %s by %s', data.get('tool'), username)
+    return jsonify({'status': 'success', 'as': account.get('display_name') or username,
+                    'role': role_label_for(account['role'], account.get('community')),
+                    **result}), 200
