@@ -8078,6 +8078,18 @@ def _atlasai_as(username, account):
         yield
 
 
+def _atlasai_short(text, limit=160):
+    """Shorten free-standing item text at a word, and say it was shortened.
+
+    A plain slice cut "…add that to colla" mid-word, and the model repeated
+    the stump as if it were the whole item."""
+    text = (text or '').strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(' ', 1)[0].rstrip(' ,.;:-')
+    return (cut or text[:limit]) + '…'
+
+
 def _atlasai_days_ago(iso):
     try:
         then = datetime.fromisoformat((iso or '')[:19])
@@ -8183,7 +8195,7 @@ def _atlasai_visit(args):
             for r in (latest.get('responses') or []) if r.get('condition') == 'Fail'
         ],
         'open_action_items': [
-            (i.get('text') or '')[:160] for i in (latest.get('action_items') or [])
+            _atlasai_short(i.get('text')) for i in (latest.get('action_items') or [])
             if not i.get('resolved')
         ][:ATLASAI_MAX_ROWS],
         'repeat_failures': sorted(
@@ -8213,7 +8225,7 @@ def _atlasai_open_items(args):
                              'from_visit': (s.get('submitted_at') or '')[:10], 'days_open': age})
             for i in (s.get('action_items') or []):
                 if not i.get('resolved'):
-                    rows.append({'community': c, 'kind': 'action_item', 'text': (i.get('text') or '')[:160],
+                    rows.append({'community': c, 'kind': 'action_item', 'text': _atlasai_short(i.get('text')),
                                  'from_visit': (s.get('submitted_at') or '')[:10], 'days_open': age})
     rows = [r for r in rows if (r['days_open'] or 0) >= older]
     rows.sort(key=lambda r: -(r['days_open'] or 0))
@@ -8234,7 +8246,7 @@ def _atlasai_raised(args):
     rows = [{
         'community': i.get('community'),
         'category': raised_category_service.name_for(i.get('category')),
-        'text': (i.get('text') or '')[:160],
+        'text': _atlasai_short(i.get('text')),
         'priority': i.get('priority'),
         'raised_on': (i.get('raised_at') or '')[:10],
         'days_open': _atlasai_days_ago(i.get('raised_at')),

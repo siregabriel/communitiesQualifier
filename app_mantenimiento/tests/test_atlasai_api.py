@@ -198,3 +198,13 @@ def test_open_items_list_the_unclosed_work_oldest_first():
 
 def test_there_is_no_move_in_tool():
     assert ask("moveins", "regional@atlas.test").status_code == 400
+
+
+def test_long_item_text_is_shortened_at_a_word_and_says_so():
+    long = "Memory care branding. Let us make sure we work on signage for that and also add that " \
+           "to collateral and the website so families see the same name everywhere they look today"
+    short = A._atlasai_short(long)
+    assert short.endswith("…") and len(short) <= 161
+    assert not short[:-1].endswith("colla")
+    assert long.startswith(short[:-1])
+    assert A._atlasai_short("Replace hallway carpet") == "Replace hallway carpet"
