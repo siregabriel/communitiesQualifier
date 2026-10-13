@@ -208,3 +208,72 @@ def test_long_item_text_is_shortened_at_a_word_and_says_so():
     assert not short[:-1].endswith("colla")
     assert long.startswith(short[:-1])
     assert A._atlasai_short("Replace hallway carpet") == "Replace hallway carpet"
+
+
+# ---------------------------------------------------------------- activity
+
+@pytest.fixture
+def log(monkeypatch, items):
+    """A small activity log: today, last week, and things that must never leave."""
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    today = (now - timedelta(minutes=5)).isoformat()
+    week_ago = (now - timedelta(days=6)).isoformat()
+    public = items.for_communities(["Kelley Place"])[0]["id"]
+    internal = items.for_communities(["Kelley Place"], include_internal=True)
+    internal = next(i["id"] for i in internal if i["text"] == "Watch this ED")
+    events = [
+        {"username": "wyman", "type": "inspection_submitted", "timestamp": today,
+         "detail": "Submitted a visit for Kelley Place", "meta": {"community": "Kelley Place"}},
+        {"username": "jazmyn", "type": "standard_addressed", "timestamp": today,
+         "detail": "Marked addressed: Kitchen is sanitary at Kelley Place", "meta": {"community": "Kelley Place"}},
+        {"username": "jazmyn", "type": "item_raised", "timestamp": today,
+         "detail": "Raised an item at Kelley Place: Front door sticks",
+         "meta": {"community": "Kelley Place", "raised_item_id": public}},
+        {"username": "wyman", "type": "item_raised", "timestamp": today,
+         "detail": "Raised an item at Kelley Place: Watch this ED",
+         "meta": {"community": "Kelley Place", "raised_item_id": internal}},
+        {"username": "jazmyn", "type": "movein_created", "timestamp": today,
+         "detail": "Started move-in for Mrs. Smith (Kelley Place)", "meta": {"community": "Kelley Place"}},
+        {"username": "jazmyn", "type": "login", "timestamp": today, "detail": "Signed in", "meta": {}},
+        {"username": "x", "type": "inspection_submitted", "timestamp": today,
+         "detail": "Submitted a visit for Trussville Memory Care",
+         "meta": {"community": "Trussville Memory Care"}},
+        {"username": "wyman", "type": "inspection_submitted", "timestamp": week_ago,
+         "detail": "Submitted a visit for Monark Grove", "meta": {"community": "Monark Grove"}},
+    ]
+
+    def recent(limit=30, types=None, since=None):
+        rows = [e for e in events if not types or e["type"] in set(types)]
+        return sorted(rows, key=lambda e: e["timestamp"], reverse=True)[:limit]
+    monkeypatch.setattr(A.activity_service, "get_recent", recent)
+    monkeypatch.setattr(A, "resolve_display_name", lambda u: u.title())
+
+
+def _whats(body):
+    return [(e["what"], e["community"], e["detail"]) for e in body["events"]]
+
+
+def test_activity_today_is_scoped_to_the_region(log):
+    body = ask("activity", "regional@atlas.test").get_json()
+    assert {e["community"] for e in body["events"]} == {"Kelley Place"}
+    assert ("Visit submitted", "Kelley Place", "Submitted a visit for Kelley Place") in _whats(body)
+    assert body["totals"]["Visit submitted"] == 1
+
+
+def test_activity_never_carries_move_ins_or_sign_ins(log):
+    raw = ask("activity", "regional@atlas.test", {"days": 30}).get_data(as_text=True)
+    assert "Mrs. Smith" not in raw and "move-in" not in raw.lower() and "Signed in" not in raw
+
+
+def test_activity_keeps_internal_items_with_leadership(log):
+    ed = ask("activity", "ed@atlas.test").get_data(as_text=True)
+    assert "Front door sticks" in ed and "Watch this ED" not in ed
+    assert "Watch this ED" in ask("activity", "regional@atlas.test").get_data(as_text=True)
+
+
+def test_activity_window_and_community_outside_scope(log):
+    assert "Monark Grove" not in ask("activity", "regional@atlas.test").get_data(as_text=True)
+    week = ask("activity", "regional@atlas.test", {"days": 7}).get_json()
+    assert "Monark Grove" in {e["community"] for e in week["events"]}
+    assert ask("activity", "regional@atlas.test", {"community": "Trussville"}).get_json()["error"] == "not_found"

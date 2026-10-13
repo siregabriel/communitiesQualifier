@@ -8271,7 +8271,87 @@ def _atlasai_standards(args):
     return {'count': len(rows), 'standards': rows[:15]}
 
 
+# What AtlasAI may report from the activity log, and how it reads. Anything not
+# listed here never leaves: sign-ins, accounts, passwords, settings and, above
+# all, move-ins (their detail names the resident). Comments are reported as
+# "commented on <standard or item>" — the log never holds what was written.
+_ATLASAI_ACTIVITY = {
+    'inspection_submitted': 'Visit submitted',
+    'standard_addressed': 'Standard marked addressed',
+    'standard_reopened': 'Standard reopened',
+    'standard_commented': 'Comment on a standard',
+    'action_item_resolved': 'Action item resolved',
+    'action_item_reopened': 'Action item reopened',
+    'item_raised': 'Item raised',
+    'item_resolved': 'Raised item closed',
+    'item_reopened': 'Raised item reopened',
+    'raised_item_commented': 'Comment on a raised item',
+}
+_ATLASAI_RAISED_EVENTS = {'item_raised', 'item_resolved', 'item_reopened', 'raised_item_commented'}
+
+
+def _atlasai_activity(args):
+    """What happened in Excellence: today (Central time) or the last N days.
+
+    Built on the same log as the daily digest, but scoped like everything else
+    here: only events tied to a community this person may see, and a raised
+    item only if _may_see_raised_item() lets them see it — an internal one
+    stays with leadership. Timestamps are stored in server time (UTC)."""
+    from datetime import timedelta as _timedelta, timezone as _tz
+    try:
+        days = int(args.get('days') or 1)
+    except (TypeError, ValueError):
+        days = 1
+    days = max(1, min(days, 30))
+    now_local = local_dt()
+    start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0) - _timedelta(days=days - 1)
+    since = start_local.astimezone(_tz.utc).replace(tzinfo=None).isoformat()
+
+    scope = set(visible_communities())
+    if args.get('community'):
+        community, candidates = _atlasai_match(args.get('community'), sorted(scope))
+        if not community:
+            return {'error': 'not_found', 'candidates': candidates}
+        scope = {community}
+
+    rows = []
+    for e in activity_service.get_recent(limit=5000, types=list(_ATLASAI_ACTIVITY)):
+        if (e.get('timestamp') or '') < since:
+            continue
+        meta = e.get('meta') or {}
+        community = meta.get('community') or ''
+        if community not in scope:
+            continue
+        if e.get('type') in _ATLASAI_RAISED_EVENTS:
+            item = raised_item_service.get(meta.get('raised_item_id') or '')
+            if not item or not _may_see_raised_item(item):
+                continue
+        # The detail repeats "at <community>"; the community has its own field.
+        detail = (e.get('detail') or '').replace(f' at {community}', '')
+        try:
+            when = local_dt(datetime.fromisoformat(e['timestamp'][:26]))
+        except (KeyError, ValueError):
+            continue
+        rows.append({
+            'when': when.strftime('%b %d, %I:%M %p').replace(' 0', ' '),
+            'what': _ATLASAI_ACTIVITY[e['type']],
+            'detail': _atlasai_short(detail, 120),
+            'community': community,
+            'by': resolve_display_name(e.get('username')) or e.get('username'),
+        })
+    totals = {}
+    for r in rows:
+        totals[r['what']] = totals.get(r['what'], 0) + 1
+    return {
+        'period': ('today' if days == 1 else f'last {days} days') +
+                  f" (since {start_local.strftime('%b %d')}, Central time)",
+        'count': len(rows), 'totals': totals,
+        'events': rows[:ATLASAI_MAX_ROWS], 'truncated': len(rows) > ATLASAI_MAX_ROWS,
+    }
+
+
 _ATLASAI_TOOLS = {
+    'activity': _atlasai_activity,
     'overview': _atlasai_overview,
     'visit': _atlasai_visit,
     'open_items': _atlasai_open_items,
