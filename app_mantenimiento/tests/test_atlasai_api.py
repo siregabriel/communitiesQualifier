@@ -277,3 +277,42 @@ def test_activity_window_and_community_outside_scope(log):
     week = ask("activity", "regional@atlas.test", {"days": 7}).get_json()
     assert "Monark Grove" in {e["community"] for e in week["events"]}
     assert ask("activity", "regional@atlas.test", {"community": "Trussville"}).get_json()["error"] == "not_found"
+
+
+# ---------------------------------------------------------------- org chart
+
+@pytest.fixture
+def org(monkeypatch):
+    regions = [
+        {"id": "r1", "name": "Magnolia", "communities": ["Kelley Place", "Monark Grove"],
+         "leadership": [{"name": "Wyman", "role": "RDO", "email": "wyman@atlas.test"},
+                        {"name": "Open", "role": "RDW"}]},
+        {"id": "r2", "name": "Coastal", "communities": ["Trussville Memory Care"],
+         "leadership": [{"name": "Keith", "role": "SRDO", "email": "keith@atlas.test"}]},
+        {"id": A.CORPORATE_ID, "name": "Corporate", "kind": A.CORPORATE_KIND, "communities": [],
+         "leadership": [{"name": "Scott", "role": "President and CEO", "email": "scott@atlas.test"}]},
+    ]
+    monkeypatch.setattr(A.region_service, "get_all_regions", lambda: regions)
+    monkeypatch.setattr(A.user_service, "get_all", lambda: [
+        {"username": "jazmyn", "role": "staff", "community": "Kelley Place", "display_name": "Jazmyn",
+         "email": "jazmyn@atlas.test"}])
+    monkeypatch.setattr(A, "account_communities", lambda u: [u["community"]])
+    monkeypatch.setattr(A.profile_service, "get_display_name", lambda u: None)
+
+
+def test_org_chart_is_scoped_and_lists_eds_and_corporate(org):
+    body = ask("org_chart", "regional@atlas.test").get_json()
+    assert [r["region"] for r in body["regions"]] == ["Magnolia"]
+    magnolia = body["regions"][0]
+    assert magnolia["leaders"] == [{"name": "Wyman", "title": "RDO"}]   # "Open" seats are left out
+    assert {"community": "Kelley Place", "executive_directors": ["Jazmyn"]} in magnolia["communities"]
+    assert body["corporate"]["members"] == [{"name": "Scott", "title": "President and CEO"}]
+
+
+def test_org_chart_never_carries_emails(org):
+    raw = ask("org_chart", "regional@atlas.test").get_data(as_text=True)
+    assert "@atlas.test" not in raw
+
+
+def test_org_chart_community_outside_scope(org):
+    assert ask("org_chart", "ed@atlas.test", {"community": "Trussville"}).get_json()["error"] == "not_found"

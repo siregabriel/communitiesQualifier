@@ -8350,8 +8350,57 @@ def _atlasai_activity(args):
     }
 
 
+def _atlasai_org_chart(args):
+    """Who is who: each region's leaders, each community's ED, and Corporate.
+
+    Same data as the Regions view, inside the caller's scope: a region shows up
+    only if the person can see one of its communities, and only those
+    communities are listed. Corporate (company-wide by definition) is always
+    listed. Names and titles only - never emails or photos."""
+    scope = set(visible_communities())
+    want = (args.get('community') or '').strip()
+    if want:
+        community, candidates = _atlasai_match(want, sorted(scope))
+        if not community:
+            return {'error': 'not_found', 'candidates': candidates}
+        scope = {community}
+
+    directors = {}
+    for u in user_service.get_all():
+        if u.get('role') != 'staff':
+            continue
+        for comm in account_communities(u):
+            directors.setdefault(comm, []).append(
+                profile_service.get_display_name(u.get('username'))
+                or u.get('display_name') or u.get('username'))
+
+    def leaders(region):
+        return [{'name': (l.get('name') or '').strip(), 'title': (l.get('role') or '').strip()}
+                for l in (region.get('leadership') or [])
+                if (l.get('name') or '').strip() and (l.get('name') or '').strip().lower() != 'open']
+
+    regions, corporate = [], None
+    for region in region_service.get_all_regions():
+        if region.get('id') == CORPORATE_ID:
+            corporate = {'name': region.get('name') or 'Corporate', 'members': leaders(region)}
+            continue
+        comms = [c for c in (region.get('communities') or []) if c in scope]
+        if not comms:
+            continue
+        regions.append({
+            'region': region.get('name') or region.get('id'),
+            'leaders': leaders(region),
+            'communities': [{'community': c, 'executive_directors': directors.get(c, [])} for c in comms],
+        })
+    result = {'regions': regions}
+    if corporate and not want:
+        result['corporate'] = corporate
+    return result
+
+
 _ATLASAI_TOOLS = {
     'activity': _atlasai_activity,
+    'org_chart': _atlasai_org_chart,
     'overview': _atlasai_overview,
     'visit': _atlasai_visit,
     'open_items': _atlasai_open_items,
