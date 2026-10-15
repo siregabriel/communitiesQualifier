@@ -1448,7 +1448,11 @@ def login():
     # Set when a rename ended their session: says what happened, and fills in
     # the name they should use now.
     renamed = InputSanitizer.sanitize_string(request.args.get('renamed', ''), max_length=60)
-    return render_template('login.html', renamed=renamed or None)
+    # Set by a failed Atlerts hand-off in this browser. Read from the session,
+    # never the URL, so a link cannot put words on this screen.
+    atlerts_pending = (session.get('atlerts_pending') or '').strip()
+    return render_template('login.html', renamed=renamed or None,
+                           atlerts_pending=atlerts_pending or None)
 
 
 @app.route('/api/login', methods=['POST'])
@@ -1535,7 +1539,10 @@ def api_login():
                 'community': account['community'],
                 'role': account['role'],
                 'display_name': account['display_name'],
-                'must_change_password': bool(must_change)
+                'must_change_password': bool(must_change),
+                # The Atlerts address that just failed to match, if any, for
+                # the page to offer linking. Empty when there is nothing to ask.
+                'atlerts_link': _atlerts_link_offer(username),
             }), 200
         else:
             record_login_failure()
@@ -1605,6 +1612,74 @@ def forgot_password():
     except Exception as e:
         app.logger.error(f'forgot_password error: {str(e)}')
         return generic, 200
+
+
+def _atlerts_link_offer(username):
+    """The address to offer linking right after a password sign-in, or ''.
+
+    Only when Atlerts just failed to match one in this browser, and only for
+    an account Atlerts can sign in at all."""
+    pending = (session.get('atlerts_pending') or '').strip().lower()
+    if not pending:
+        return ''
+    if username in USERS_DB or profile_service.get_atlerts_email(username) == pending:
+        session.pop('atlerts_pending', None)
+        return ''
+    return pending
+
+
+@app.route('/api/atlerts-link', methods=['POST'])
+@login_required
+def atlerts_link():
+    """Link (or decline) the Atlerts address offered after signing in.
+
+    Both halves are proven by the time this runs: Atlerts verified the
+    address before handing it over, and the session exists because the
+    person then typed this account's password. The address is read from the
+    session, never from the request — otherwise anybody signed in could link
+    any address to themselves.
+    """
+    username = session.get('user')
+    pending = (session.pop('atlerts_pending', None) or '').strip().lower()
+    if not pending:
+        return jsonify({'status': 'error', 'message': 'There is nothing to link.'}), 400
+    data = request.get_json(silent=True) or {}
+    if not data.get('link'):
+        return jsonify({'status': 'success', 'linked': False}), 200
+
+    if username in USERS_DB:
+        return jsonify({'status': 'error',
+                        'message': 'This account signs in with its password only.'}), 400
+    # One address, one account. If it already opens somebody else's — as
+    # their own email or as a link — linking it here would make Atlerts sign
+    # one of them in as the other.
+    owner = _atlerts_account_by_email(pending)
+    if owner and owner[0] != username:
+        return jsonify({'status': 'error',
+                        'message': 'That Atlerts account is already linked to someone else. '
+                                   'Ask an administrator.'}), 409
+
+    profile_service.set_atlerts_email(username, pending)
+    activity_service.log(username, 'atlerts_linked',
+                         f'Linked their Atlerts account ({pending})',
+                         meta={'email': pending})
+    return jsonify({'status': 'success', 'linked': True}), 200
+
+
+@app.route('/api/people/<username>/atlerts-link', methods=['DELETE'])
+@login_required
+def unlink_atlerts(username):
+    """Admin: forget the Atlerts address linked to an account."""
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    was = profile_service.get_atlerts_email(username)
+    if not was:
+        return jsonify({'status': 'error', 'message': 'No Atlerts account is linked.'}), 404
+    profile_service.set_atlerts_email(username, '')
+    activity_service.log(session.get('user'), 'atlerts_unlinked',
+                         f'Unlinked the Atlerts account {was} from {username}',
+                         meta={'username': username, 'email': was})
+    return jsonify({'status': 'success'}), 200
 
 
 @app.route('/logout')
@@ -4501,6 +4576,7 @@ def list_people():
                 'inspections': n, 'last_visit': last,
                 'must_change': profile_service.get_must_change(username),
                 'admin_extra': profile_service.get_admin_extra(username),
+                'atlerts_email': profile_service.get_atlerts_email(username),
             })
 
     # 2) Stored users (admins, community staff, admin-created accounts)
@@ -4525,6 +4601,7 @@ def list_people():
             'inspections': n, 'last_visit': last,
             'must_change': profile_service.get_must_change(username),
             'admin_extra': profile_service.get_admin_extra(username),
+            'atlerts_email': profile_service.get_atlerts_email(username),
         })
 
     # Sign-in activity: who is using the app right now, who never has.
@@ -7935,6 +8012,45 @@ def _atlerts_account_by_email(email):
             "display_name": acct.get("display_name"),
         }
 
+    # --- A personal address the person linked to their account ---
+    #
+    # Checked last, so an account's own address always wins. Laura Blakeman
+    # tried Atlerts 25 times with her Gmail before this existed; her account
+    # here has her corporate address, and the two were never connected.
+    linked = profile_service.username_for_atlerts_email(email)
+    if linked:
+        return _atlerts_account_for_username(linked)
+
+    return None
+
+
+def _atlerts_account_for_username(username):
+    """The same (username, account) the email lookup returns, found by name.
+
+    For a linked address: the account is known, not its email. Seeded
+    accounts (USERS_DB) are left out for the reason the email lookup leaves
+    them out — they sign in with their password."""
+    if not username or username in USERS_DB:
+        return None
+    custom = user_service.get(username)
+    if custom:
+        return username, {
+            "role": custom.get("role", "staff"),
+            "community": custom.get("community"),
+            "communities": custom.get("communities")
+                or ([custom.get("community")] if custom.get("community") else []),
+            "region_id": custom.get("region_id"),
+            "display_name": profile_service.get_display_name(username)
+                or custom.get("display_name") or username,
+        }
+    acct = (get_regional_accounts() or {}).get(username)
+    if acct:
+        return username, {
+            "role": "regional",
+            "community": None,
+            "region_id": acct.get("region_id"),
+            "display_name": acct.get("display_name"),
+        }
     return None
 
 
@@ -8004,6 +8120,12 @@ def atlerts_sso():
     found = _atlerts_account_by_email(email)
     if not found:
         app.logger.info("SSO: sin cuenta de Excellence para ese correo")
+        if email:
+            # Remembered so that, once they sign in with their password, they
+            # can be offered to link this address. Atlerts verified it; the
+            # password will prove the other half. Cleared on link, on "Not
+            # me", and on sign-out.
+            session["atlerts_pending"] = email.lower()
         return _atlerts_gave_up(f"{email or 'that email'} has no account here yet", email)
 
     username, account = found
@@ -8023,6 +8145,7 @@ def atlerts_sso():
     session["admin_extra"] = profile_service.get_admin_extra(username)
     must_change = profile_service.get_must_change(username)
     session["must_change"] = bool(must_change)
+    session.pop("atlerts_pending", None)
 
     presence_service.record_login(username)
     activity_service.log(

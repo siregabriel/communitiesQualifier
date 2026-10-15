@@ -2159,6 +2159,14 @@
             border: 1px solid #f3d27a; padding: 1px 7px; border-radius: 6px; }
         html[data-theme="dark"] .ppl-admin-tag { background: rgba(242,183,5,.18); color: #f2c94c; border-color: rgba(242,183,5,.45); }
         /* Admin-privileges switch in the edit modal */
+        .pe-atlerts { display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+            font-size: 12.5px; color: #334155; background: #f1f7ff; border: 1px solid #d6e4f7;
+            border-radius: 10px; padding: 10px 12px; }
+        .pe-atlerts i { color: #1f6fe5; }
+        .pe-atlerts span { flex: 1 1 200px; overflow-wrap: anywhere; }
+        .pe-atlerts-unlink { background: none; border: 1px solid #cbd5e1; border-radius: 7px;
+            padding: 4px 10px; font-size: 12px; color: #475569; cursor: pointer; font-family: inherit; }
+        html[data-theme="dark"] .pe-atlerts { background: #16203a; border-color: #2b3a5c; color: #c7d3e8; }
         .pe-priv { border: 1px solid #f3d27a; background: #fffbf0; border-radius: 10px; padding: 12px 14px; }
         .pe-priv-row { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
         .pe-priv-row input { margin-top: 3px; width: 16px; height: 16px; flex-shrink: 0; accent-color: #92620a; }
@@ -7040,6 +7048,10 @@
             // persona sí entró, escribiendo su contraseña. Lo que falló
             // fue el atajo.
             sso_failed:             { icon: 'fa-link-slash',      color: '#92620a', verb: "couldn't sign someone in" },
+            // The fix for most of those: somebody joined the address Atlerts
+            // knows them by to their account here.
+            atlerts_linked:         { icon: 'fa-link',            color: '#0f8a5f', verb: 'linked their Atlerts account' },
+            atlerts_unlinked:       { icon: 'fa-link-slash',      color: '#64748b', verb: 'unlinked an Atlerts account' },
             // A visit whose community never got its copy. Amber, not
             // red: the visit itself is fine and on file — what is
             // missing is an account or an address, which is fixable in
@@ -9294,6 +9306,27 @@
                         .map(el => el.value);
         }
 
+        /* The Atlerts address linked to an account, shown with a way to undo
+           it. Written in with textContent and wired here, not in the markup:
+           it is an address somebody typed into another app. */
+        function wirePersonAtlerts(p) {
+            const row = document.getElementById('peAtlertsRow');
+            if (!row) return;
+            row.querySelector('.pe-atlerts-email').textContent = p.atlerts_email;
+            row.querySelector('.pe-atlerts-unlink').onclick = async () => {
+                if (!confirm(`Unlink ${p.atlerts_email}?\n\n${p.name} will sign in with their password until they link it again.`)) return;
+                const r = await fetch(`/api/people/${encodeURIComponent(p.username)}/atlerts-link`, { method: 'DELETE' });
+                const d = await r.json().catch(() => ({}));
+                if (r.ok && d.status === 'success') {
+                    p.atlerts_email = '';
+                    row.remove();
+                    await refreshPeopleViews();
+                } else {
+                    alert(d.message || 'Could not unlink it.');
+                }
+            };
+        }
+
         function openPersonEdit(username) {
             const p = (peopleData?.people || []).find(x => x.username === username);
             if (!p) return;
@@ -9352,6 +9385,12 @@
                                 </span>
                             </label>
                         </div>
+                        ${p.atlerts_email ? `
+                        <div class="pe-atlerts" id="peAtlertsRow">
+                            <i class="fas fa-link"></i>
+                            <span>Signs in from Atlerts as <b class="pe-atlerts-email"></b></span>
+                            <button type="button" class="pe-atlerts-unlink">Unlink</button>
+                        </div>` : ''}
                         <div id="peRoleNote" style="font-size:12px;color:#64748b;line-height:1.45;"></div>
                         ${(peopleData.can_grant_admin && p.role !== 'admin') ? `
                         <div class="pe-priv">
@@ -9380,6 +9419,7 @@
                     </div>
                 </div>`;
             modal.classList.add('show');
+            wirePersonAtlerts(p);
             peOnRoleChange();
         }
 

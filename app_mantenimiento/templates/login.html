@@ -220,6 +220,22 @@
             /* 16px inputs prevent iOS auto-zoom on focus */
             input[type="text"], input[type="password"] { font-size: 16px; }
         }
+        /* Offered once, right after a password sign-in that followed an
+           Atlerts hand-off which could not find the account. */
+        .al-veil { position: fixed; inset: 0; background: rgba(15,23,42,.55);
+            display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+        .al-veil[hidden] { display: none; }
+        .al-card { background: #fff; color: #0f1e36; border-radius: 16px; padding: 24px;
+            max-width: 380px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .al-card h2 { font-size: 18px; margin: 0 0 10px; }
+        .al-card p { font-size: 14px; line-height: 1.5; color: #475569; margin: 0 0 18px; }
+        .al-card b { color: #0f1e36; overflow-wrap: anywhere; }
+        .al-actions { display: flex; gap: 10px; }
+        .al-actions button { flex: 1; padding: 11px; border-radius: 10px; font-size: 14px;
+            font-weight: 700; cursor: pointer; font-family: inherit; }
+        .al-yes { background: #00285c; color: #fff; border: 0; }
+        .al-no { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
     </style>
 </head>
 <body>
@@ -254,6 +270,19 @@
                     <b>Your sign-in name changed.</b>
                     Sign in as <b>{{ renamed|plain }}</b> — same password, and everything
                     you have done is still there.
+                </div>
+                {% endif %}
+                {% if atlerts_pending %}
+                <!-- Atlerts sent them here and no account had that address.
+                     Two very different people land here — somebody whose
+                     account carries a different email, and somebody with no
+                     Excellence access at all — and the plain sign-in screen
+                     told neither of them anything, so they kept trying.
+                     This tells both what to do next. -->
+                <div class="renamed-note" id="atlertsNoAccount">
+                    <b>Atlerts couldn't find an Excellence account for {{ atlerts_pending }}.</b>
+                    If you already have one, sign in below and we'll link it.
+                    If you don't, Excellence access is given by your administrator.
                 </div>
                 {% endif %}
                 <form id="loginForm">
@@ -295,12 +324,55 @@
         </section>
     </div>
 
+    <div id="atlertsLink" class="al-veil" hidden>
+        <div class="al-card" role="dialog" aria-labelledby="alTitle">
+            <h2 id="alTitle">Link your Atlerts account?</h2>
+            <p>Atlerts signed you in as <b id="alEmail"></b>. Link it to this account
+               so Atlerts takes you straight in next time.</p>
+            <div class="al-actions">
+                <button type="button" class="al-no" id="alNo">Not me</button>
+                <button type="button" class="al-yes" id="alYes">Link</button>
+            </div>
+        </div>
+    </div>
     <script>
         const loginForm = document.getElementById('loginForm');
         const usernameInput = document.getElementById('username');
         const passwordInput = document.getElementById('password');
         const generalError = document.getElementById('generalError');
         const loading = document.getElementById('loading');
+
+        /* Atlerts sent this person here with an address no account has —
+           usually a personal Gmail, where the account carries the corporate
+           one. They have just typed this account's password, so both halves
+           are proven; ask once, and let them say it is not theirs.
+
+           The address goes in with textContent: it came from another app. The
+           server reads it from the session, not from anything sent here. */
+        function offerAtlertsLink(email, next) {
+            const veil = document.getElementById('atlertsLink');
+            document.getElementById('alEmail').textContent = email;
+            veil.hidden = false;
+            const answer = async (link) => {
+                document.getElementById('alYes').disabled = true;
+                document.getElementById('alNo').disabled = true;
+                try {
+                    const r = await fetch('/api/atlerts-link', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ link })
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    // Signed in either way. A refused link is worth saying,
+                    // because otherwise Atlerts keeps failing and nobody knows why.
+                    if (link && !(r.ok && d.status === 'success')) {
+                        alert(d.message || 'That could not be linked. You are signed in anyway.');
+                    }
+                } catch (e) { /* signed in regardless */ }
+                window.location.href = next;
+            };
+            document.getElementById('alYes').onclick = () => answer(true);
+            document.getElementById('alNo').onclick = () => answer(false);
+        }
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -333,7 +405,12 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    window.location.href = data.must_change_password ? '/change-password' : '/';
+                    const next = data.must_change_password ? '/change-password' : '/';
+                    if (data.atlerts_link) {
+                        offerAtlertsLink(data.atlerts_link, next);
+                        return;
+                    }
+                    window.location.href = next;
                 } else {
                     generalError.textContent = data.message || 'Invalid credentials';
                     generalError.classList.add('show');

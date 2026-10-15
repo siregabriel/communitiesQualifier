@@ -119,6 +119,37 @@ class ProfileService(JsonFileBacked):
             self.profiles.setdefault(username, {})['all_communities'] = bool(value)
             self._save()
 
+    # --- The email Atlerts knows this person by, when it is not their own ---
+    def get_atlerts_email(self, username: str) -> str:
+        """A second address that signs this account in from Atlerts.
+
+        Excellence accounts carry the corporate address; many people set up
+        Atlerts with a personal one, and the SSO matched on the email alone,
+        so they were sent to the password screen every time. The person links
+        it themselves, after proving both sides: Atlerts verified the address,
+        and they then typed this account's password. Used only to sign in —
+        nothing is ever emailed to it."""
+        self._ensure_fresh()
+        return (self.profiles.get(username, {}).get('atlerts_email') or '').strip()
+
+    def set_atlerts_email(self, username: str, email: str) -> None:
+        with self._lock:
+            self._ensure_fresh()
+            self.profiles.setdefault(username, {})['atlerts_email'] = \
+                (email or '').strip().lower()
+            self._save()
+
+    def username_for_atlerts_email(self, email: str):
+        """Whose account this Atlerts address is linked to, or None."""
+        target = (email or '').strip().lower()
+        if not target:
+            return None
+        self._ensure_fresh()
+        for username, prof in self.profiles.items():
+            if (prof.get('atlerts_email') or '').strip().lower() == target:
+                return username
+        return None
+
     # --- Force a password change on next login (after an admin reset) ---
     def get_must_change(self, username: str) -> bool:
         self._ensure_fresh()

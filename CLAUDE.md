@@ -58,6 +58,11 @@ Push to `main` → GitHub Actions runs both suites as a gate → SSH →
   (People → Edit → "Can visit every community"). Stored as `all_communities`
   in profiles.json, not on the leader record (`update_leader` rebuilds it).
   Region still decides who gets that region's emails.
+- Atlerts SSO matches the account's own email first, then a linked
+  `atlerts_email` in profiles.json (personal Gmail etc.). Linked by the
+  person: failed `/sso` leaves `session['atlerts_pending']`, the next
+  password login offers "Link / Not me" (`/api/atlerts-link`, address read
+  from the session only). Admin unlinks in People. Never emailed.
 
 ## AtlasAI (read-only API for Atlerts)
 

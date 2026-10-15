@@ -40,6 +40,7 @@ function boot(person, { admin = true } = {}) {
     ${grab('decodeEntities')}
     ${grab('escapeHtmlForAttr')}
     ${grab('coverageChecklist')}
+    ${grab('wirePersonAtlerts')}
     ${grab('openPersonEdit')}
     ${grab('startUsernameChange')}
     ${grab('saveUsername')}
