@@ -1555,6 +1555,12 @@ def api_login():
 
 _forgot_attempts = {}
 
+FORGOT_PASSWORD_MESSAGE = (
+    "Your request was sent to the Atlas Excellence administrators, who will reset your "
+    "password and let you know. Tip: if you use Atlerts, tap the Excellence shortcut on its "
+    "Home screen to sign in without a password."
+)
+
 
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
@@ -1562,8 +1568,12 @@ def forgot_password():
     account exists; if it does, the configured admins are emailed so they can
     reset it (admin-assisted flow). Lightly rate-limited per IP."""
     from datetime import datetime, timedelta
-    generic = jsonify({'status': 'success',
-                       'message': "If that account exists, your administrator has been notified."})
+    # The same message whether or not the account exists, so this never says
+    # which usernames are real. It names who receives the request and points
+    # to the Atlerts shortcut, which needs no password: "your administrator
+    # has been notified" left directors asking who that was (Laura Blakeman,
+    # Oct 2026).
+    generic = jsonify({'status': 'success', 'message': FORGOT_PASSWORD_MESSAGE})
     try:
         ip = request.remote_addr or 'unknown'
         now = datetime.now()

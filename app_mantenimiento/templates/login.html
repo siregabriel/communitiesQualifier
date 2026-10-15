@@ -284,7 +284,7 @@
                     <a href="#" id="forgotLink">Forgot your password?</a>
                 </div>
                 <div class="forgot-panel" id="forgotPanel" hidden>
-                    <p class="forgot-help">Enter your username and we'll notify your administrator to reset it for you.</p>
+                    <p class="forgot-help">Enter your username and we'll send your request to the Atlas Excellence administrators, who will reset it for you. If you use Atlerts, you can also sign in from its Excellence shortcut, no password needed.</p>
                     <div class="form-group">
                         <input type="text" id="forgotUser" placeholder="Your username (e.g. keith.martin)" autocomplete="username">
                     </div>
@@ -374,7 +374,7 @@
                 if (r.status === 429) {
                     forgotMsg.textContent = d.message || 'Too many requests. Try again later.'; forgotMsg.className = 'forgot-msg err';
                 } else {
-                    forgotMsg.textContent = d.message || 'If that account exists, your administrator has been notified.';
+                    forgotMsg.textContent = d.message || 'Your request was sent to the Atlas Excellence administrators, who will reset your password and let you know. Tip: if you use Atlerts, tap the Excellence shortcut on its Home screen to sign in without a password.';
                     forgotMsg.className = 'forgot-msg ok';
                 }
             } catch (err) {
