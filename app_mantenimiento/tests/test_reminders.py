@@ -364,8 +364,12 @@ def test_it_does_not_send_unless_told_to(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(A.email_service, 'send_regional_open_items',
                         lambda *a, **k: sent.append(a) or (True, 'ok'))
 
-    S.main([])
-    assert sent == [], 'a bare run sent email'
+    # --force only lifts the weekend rule, so this is the dry run on any day.
+    # It used to be a bare main([]), which on a Saturday or Sunday stopped at
+    # the weekend rule before reaching the part being tested — the suite went
+    # red every weekend, and a push on one would have stopped the deploy.
+    S.main(['--force'])
+    assert sent == [], 'a run without --send sent email'
     assert 'ENSAYO' in capsys.readouterr().out
 
     S.main(['--send', '--force'])

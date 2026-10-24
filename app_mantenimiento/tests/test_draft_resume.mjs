@@ -38,7 +38,9 @@ function boot(search) {
     // load — which shows up as every function being undefined rather than as
     // anything pointing at the template.
     .replace(/\{\{\s*departments\s*\|\s*tojson\s*\}\}/g,
-             JSON.stringify([{ id: 'maintenance', name: 'Maintenance' }]));
+             JSON.stringify([{ id: 'maintenance', name: 'Maintenance' }]))
+    // And the positions the nearby-community suggestion compares against.
+    .replace(/\{\{\s*community_places\s*\|\s*tojson\s*\}\}/g, '[]');
 
   const dom = new JSDOM(`<!doctype html><html><body>
     <div id="userInfo"></div>

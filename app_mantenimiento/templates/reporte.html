@@ -667,6 +667,21 @@
         }
         .success-btn-quiet:hover { color: #0f1e36; }
 
+.nearby-suggest {
+            background: #eef6ff; border: 1px solid #bfdbfe; border-radius: 12px;
+            padding: 12px 14px; margin: 6px 0 10px; color: #1e3a5f; font-size: 14px; line-height: 1.45;
+        }
+        .nearby-suggest[hidden] { display: none; }
+        .nearby-suggest b { color: #0f1e36; }
+        .nearby-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .nearby-actions button {
+            border-radius: 9px; padding: 9px 14px; font-size: 14px; font-weight: 700;
+            font-family: inherit; cursor: pointer;
+        }
+        .nearby-go { background: #00285c; color: #fff; border: 0; }
+        .nearby-no { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
+        html[data-theme="dark"] .nearby-suggest { background: #16203a; border-color: #2b3a5c; color: #c7d3e8; }
+        html[data-theme="dark"] .nearby-suggest b { color: #fff; }
         .loading-message {
             background: linear-gradient(135deg, #dbeafe, #eff6ff);
             color: #1e40af;
@@ -1132,6 +1147,8 @@
         {% if role == 'regional' %}
         <div class="form-group" id="communityPickerGroup" style="margin-bottom: 24px;">
             <label for="communitySelect">Community to inspect <span class="required">*</span></label>
+            <!-- Filled in only when the phone says they are standing at one. -->
+            <div id="nearbySuggest" class="nearby-suggest" role="status" hidden></div>
             <select id="communitySelect" onchange="onCommunityChange()">
                 <option value="">— Select a community in your region —</option>
                 {% for c in communities %}
@@ -1333,6 +1350,9 @@
                         const sel = document.getElementById('communitySelect');
                         const match = sel && [...sel.options].find(o => o.value === asked);
                         if (match) { sel.value = asked; onCommunityChange(); }
+                    } else {
+                        // No community named: offer the one they are standing in.
+                        suggestNearbyCommunity();
                     }
                 } else {
                     document.getElementById('userInfo').innerHTML = `<i class="fas fa-user"></i> ${currentUser} | ${userCommunity || 'Staff'}`;
@@ -1852,6 +1872,108 @@
         function saveDraftManually() {
             clearTimeout(_draftTimer);
             draftSaveNow(false);
+        }
+
+        /* =====================================================================
+           "It looks like you're at …" — the community they are standing in.
+
+           Gabriel's idea: a regional opening Excellence in a community's
+           lobby should not scroll a list of seven, or thirty-nine, to find
+           the building they are in.
+
+           The phone's position never leaves the phone. The page already has
+           the positions of the communities this person can visit (the same
+           scoped list as the dropdown); the comparison is done here, and
+           nothing about where anybody is gets sent anywhere.
+
+           It only suggests. Picking still takes a tap, and saying no, denying
+           location, or being nowhere near one leaves the form exactly as it
+           was. A visit filed against the wrong building is worse than a
+           scroll.
+           ===================================================================== */
+        const COMMUNITY_PLACES = {{ community_places|tojson }};
+        // A lobby, a parking lot, the far wing of a campus. Plus the phone's
+        // own uncertainty, up to a point — indoors that can be 100 m.
+        const NEAR_METRES = 300;
+        const NEAR_SLACK_MAX = 200;
+
+        function metresBetween(a, b) {
+            const R = 6371000, rad = Math.PI / 180;
+            const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+            const h = Math.sin(dLat / 2) ** 2
+                + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+            return 2 * R * Math.asin(Math.sqrt(h));
+        }
+
+        // The communities within reach, nearest first.
+        function communitiesNear(here, places, accuracy) {
+            const reach = NEAR_METRES + Math.min(Math.max(accuracy || 0, 0), NEAR_SLACK_MAX);
+            return (places || [])
+                .map(p => ({ name: p.community, d: metresBetween(here, p) }))
+                .filter(x => x.d <= reach)
+                .sort((a, b) => a.d - b.d)
+                .map(x => x.name);
+        }
+
+        function suggestNearbyCommunity() {
+            const sel = document.getElementById('communitySelect');
+            if (!sel || !COMMUNITY_PLACES.length || !navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(pos => {
+                // They may have picked one while the phone was still looking.
+                if (sel.value) return;
+                const offered = new Set([...sel.options].map(o => o.value).filter(Boolean));
+                const near = communitiesNear(
+                    { lat: pos.coords.latitude, lng: pos.coords.longitude },
+                    COMMUNITY_PLACES, pos.coords.accuracy
+                ).filter(n => offered.has(n)).slice(0, 3);
+                if (near.length) showNearbySuggestion(near);
+            }, () => { /* denied or unavailable: the list works as before */ },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+        }
+
+        /* Built with textContent, and the handlers attached here: community
+           names have apostrophes, and a name is never written into code. */
+        function showNearbySuggestion(names) {
+            const box = document.getElementById('nearbySuggest');
+            const sel = document.getElementById('communitySelect');
+            if (!box || !sel) return;
+            const label = n => ([...sel.options].find(o => o.value === n) || {}).textContent || n;
+            box.textContent = '';
+            const line = document.createElement('div');
+            const actions = document.createElement('div');
+            actions.className = 'nearby-actions';
+            const pick = n => {
+                sel.value = n;
+                box.hidden = true;
+                onCommunityChange();
+            };
+            if (names.length === 1) {
+                line.append("It looks like you're at ");
+                const b = document.createElement('b');
+                b.textContent = label(names[0]);
+                line.append(b, '. Start a visit here?');
+                const go = document.createElement('button');
+                go.type = 'button'; go.className = 'nearby-go';
+                go.textContent = 'Start here';
+                go.onclick = () => pick(names[0]);
+                actions.append(go);
+            } else {
+                line.textContent = 'You seem to be near more than one. Which one is it?';
+                names.forEach(n => {
+                    const go = document.createElement('button');
+                    go.type = 'button'; go.className = 'nearby-go';
+                    go.textContent = label(n);
+                    go.onclick = () => pick(n);
+                    actions.append(go);
+                });
+            }
+            const no = document.createElement('button');
+            no.type = 'button'; no.className = 'nearby-no';
+            no.textContent = 'Not now';
+            no.onclick = () => { box.hidden = true; };
+            actions.append(no);
+            box.append(line, actions);
+            box.hidden = false;
         }
 
         function onCommunityChange() {

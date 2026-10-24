@@ -1812,7 +1812,23 @@ def report_form():
                          # and the address list has no business being readable
                          # in the source of a visit form.
                          departments=[{'id': c['id'], 'name': c['name']}
-                                      for c in raised_category_service.active()])
+                                      for c in raised_category_service.active()],
+                         community_places=_visit_form_places(communities))
+
+
+def _visit_form_places(communities):
+    """Where each community this person can visit is, for the visit form to
+    offer the one they are standing in.
+
+    Only the communities already in their dropdown — the same scoped list —
+    and only name and position. The comparison with the phone's location
+    happens in the browser: the server never receives where anybody is.
+    Nothing for somebody with a single community; there is nothing to pick.
+    """
+    if not is_leadership() or len(communities or []) <= 1:
+        return []
+    return [{'community': p['community'], 'lat': p['lat'], 'lng': p['lng']}
+            for p in place_service.placed(communities)]
 
 
 @app.route('/select-survey-type')
