@@ -80,6 +80,23 @@ admin assistant inside Atlerts. Server to server, same `ATLERTS_SSO_SECRET` and
 - Read-only and small: never move-ins (resident names), comments, visit notes,
   photos or emails. `tests/test_atlasai_api.py` guards all of it.
 
+## Nearby visits (positions for Atlerts, Oct 2026)
+
+Atlerts (iOS) suggests "You're at X — start a visit in Excellence?" when a
+regional or Corporate arrives at one of their communities. The phone compares
+its own location; **where anybody is never reaches this server.**
+
+- `POST /api/atlerts/visit-places`: same door as AtlasAI (secret + verified
+  email, runs inside `_atlasai_as()`). Only for people who run visits
+  (`can_run_visits()` and not a native admin); only `visible_communities()` that
+  have a place in `place_service`; returns name, lat, lng, days since the last
+  visit. Kill switch: `ATLERTS_NEARBY_VISITS=0` in the environment.
+- `/sso?next=`: after signing in, `_sso_next()` follows only a local path on
+  `_SSO_NEXT_PATHS` (`/select-survey-type`, `/reporte`), query kept; anything
+  else is the home page. `/select-survey-type?community=` carries a community the
+  person can see to `/reporte?community=` once the type is chosen.
+- `tests/test_nearby_visits.py` guards all of it.
+
 ## Pitfalls already paid for
 
 - `templates/dashboard.html` is an ~11k-line monolith with inline JS. Tests pull

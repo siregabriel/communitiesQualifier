@@ -471,6 +471,7 @@
     </div>
 
     <script>
+        const NEXT_COMMUNITY = {{ next_community|default('')|tojson }};
         let surveyTypes = [];
         let selectedSurveyType = null;
 
@@ -586,7 +587,9 @@
 
                 if (response.ok && data.status === 'success') {
                     // Success - redirect to questionnaire
-                    window.location.href = '/reporte';
+                    // 📍 Came from Atlerts with a community: the form opens with it chosen.
+                    window.location.href = NEXT_COMMUNITY
+                        ? '/reporte?community=' + encodeURIComponent(NEXT_COMMUNITY) : '/reporte';
                 } else {
                     throw new Error(data.message || 'Failed to select survey type');
                 }

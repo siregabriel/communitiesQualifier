@@ -1855,8 +1855,14 @@ def select_survey_type():
     # Regional and corporate users have no fixed community — they choose it on
     # the form itself. Pass an empty string so the page can say something
     # useful instead of printing "None".
+    # 📍 Arriving from Atlerts' "You're at X — start a visit?": the community is
+    # named in the URL and carried to the form after the type is chosen. Only one
+    # this person can see; anything else is ignored and they choose as usual.
+    asked = InputSanitizer.sanitize_community_name(request.args.get('community', ''))
+    next_community = asked if asked and _can_see_community(asked) else ''
     return render_template('select_survey_type.html',
-                         community=session.get('community') or '',
+                         community=next_community or session.get('community') or '',
+                         next_community=next_community,
                          username=session.get('user'))
 
 
@@ -8169,6 +8175,25 @@ def _atlerts_gave_up(reason, email=''):
     return redirect("/login")
 
 
+_SSO_NEXT_PATHS = ('/select-survey-type', '/reporte')
+
+
+def _sso_next(value):
+    """Where /sso may send someone after signing in, or None.
+
+    A local path on the allow-list, with its query (the community) kept. Never
+    another site: no scheme, no host, no protocol-relative "//", no backslashes
+    (some browsers read them as slashes)."""
+    from urllib.parse import urlsplit
+    value = (value or '').strip()
+    if not value.startswith('/') or value.startswith('//') or '\\' in value:
+        return None
+    parts = urlsplit(value)
+    if parts.scheme or parts.netloc or parts.path not in _SSO_NEXT_PATHS:
+        return None
+    return parts.path + (('?' + parts.query) if parts.query else '')
+
+
 @app.route("/sso")
 def atlerts_sso():
     """Entrada desde Atlerts. Ante cualquier duda, login de siempre.
@@ -8242,7 +8267,11 @@ def atlerts_sso():
         meta=_login_meta(via='atlerts'),
     )
 
-    return redirect("/change-password" if must_change else "/")
+    if must_change:
+        return redirect("/change-password")
+    # 📍 Nearby visits: Atlerts can ask to land on the visit screens. Only a local
+    # path on the allow-list; anything else (another site, //host, a typo) is the home page.
+    return redirect(_sso_next(request.args.get("next")) or "/")
 
 
 # ==================== AtlasAI: read-only data for Atlerts ====================
@@ -8656,3 +8685,51 @@ def atlasai_query():
     return jsonify({'status': 'success', 'as': account.get('display_name') or username,
                     'role': role_label_for(account['role'], account.get('community')),
                     **result}), 200
+
+
+# ==================== Nearby visits: where this person's communities are ====================
+#
+# Atlerts (iOS) suggests starting a visit when a regional or Corporate arrives
+# at one of their communities (spec ATLERTS_NEARBY_VISIT_SPEC.md). The phone
+# compares its own location with the positions sent here; where anybody is
+# never reaches this server. Atlerts' Cloud Function calls this server to
+# server, like AtlasAI: same secret, same door, the account found like /sso
+# does, the answer built inside that account's isolated session — so
+# visible_communities() and can_run_visits() answer for that person.
+#
+# Positions only for communities that person can already visit, and only the
+# ones with a place on the map (place_service). Kill switch: the environment
+# variable ATLERTS_NEARBY_VISITS=0 answers enabled: false to everybody.
+
+def _nearby_visits_enabled():
+    return os.environ.get('ATLERTS_NEARBY_VISITS', '1').strip() != '0'
+
+
+@app.route('/api/atlerts/visit-places', methods=['POST'])
+def atlerts_visit_places():
+    """The communities this person can visit, with their position and days since the last visit."""
+    if not _atlasai_authorized():
+        return jsonify({'status': 'error', 'message': 'Not allowed'}), 403
+    empty = {'status': 'success', 'enabled': _nearby_visits_enabled(), 'runs_visits': False, 'communities': []}
+    data = request.get_json(silent=True) or {}
+    found = _atlerts_account_by_email(data.get('email') or '')
+    if not found or not empty['enabled']:
+        # Same as /sso: no account here means nothing, never a new one.
+        return jsonify(empty), 200
+    username, account = found
+    try:
+        with _atlasai_as(username, account):
+            # Same rule as the visit form: regional and Corporate staff run visits; an
+            # administrator by native role and community accounts (EDs) do not.
+            if is_native_admin() or not can_run_visits():
+                return jsonify(empty), 200
+            rows = []
+            for p in place_service.placed(visible_communities()):
+                subs = _atlasai_subs(p['community'])
+                rows.append({'community': p['community'], 'lat': p['lat'], 'lng': p['lng'],
+                             'days_since_visit': _atlasai_days_ago(subs[0].get('submitted_at')) if subs else None})
+    except Exception:
+        app.logger.exception('Nearby visit places failed')
+        return jsonify({'status': 'error', 'message': 'Could not answer'}), 500
+    app.logger.info('Nearby visit places: %d for %s', len(rows), username)
+    return jsonify({'status': 'success', 'enabled': True, 'runs_visits': True, 'communities': rows}), 200
