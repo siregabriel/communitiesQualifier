@@ -1147,7 +1147,16 @@ def regional_communities():
     # regional for her own.
     if profile_service.get_all_communities(session.get('user') or ''):
         return all_communities()
-    return list(region.get('communities', []))
+    own = list(region.get('communities', []))
+    # And any communities outside the region an administrator added for this
+    # person by name (The Goldton at Venice for Lauren Hamilton, after it
+    # moved region). Only names that still exist somewhere: a community
+    # removed from the structure stops being reachable this way too.
+    extras = profile_service.get_extra_communities(session.get('user') or '')
+    if extras:
+        exists = set(all_communities())
+        own += [c for c in extras if c in exists and c not in own]
+    return own
 
 
 def region_for_community(community):
@@ -2014,6 +2023,10 @@ def get_profile():
                 display_community = f"All communities · {region.get('name')} region"
             else:
                 display_community = f"{region.get('name')} region"
+                extra = [c for c in profile_service.get_extra_communities(username)
+                         if c not in (region.get('communities') or [])]
+                if extra:
+                    display_community += f" + {len(extra)} more"
         elif has_admin_access:
             display_community = display_community or 'All communities'
         elif not display_community:
@@ -4573,12 +4586,18 @@ def list_people():
             username = (leader.get('username') or '').strip() or slugify_name(name)
             n, last = activity_for(name, username)
             reaches_all = (not is_corp) and profile_service.get_all_communities(username)
+            extra = [] if (is_corp or reaches_all) else [
+                c for c in profile_service.get_extra_communities(username)
+                if c not in (region.get('communities') or [])]
             if is_corp:
                 scope = 'All communities'
             elif reaches_all:
                 scope = f"All communities · {region_name.get(region.get('id'), '')}"
             else:
                 scope = region_name.get(region.get('id'), '')
+                if extra:
+                    scope += ' + ' + (', '.join(extra) if len(extra) <= 2
+                                      else f'{len(extra)} more')
             people.append({
                 'username': username, 'name': name,
                 'email': (leader.get('email') or '').strip(),
@@ -4586,6 +4605,7 @@ def list_people():
                 'role': 'corporate' if is_corp else 'regional',
                 'scope': scope,
                 'all_communities': bool(reaches_all),
+                'extra_communities': extra,
                 'region_id': region.get('id'),
                 'source': 'region', 'index': idx,
                 'photo': profile_service.get_leader_photo(region.get('id', ''), name),
@@ -4654,7 +4674,10 @@ def list_people():
                     'conflicts': conflicts,
                     'missing_email': [p['username'] for p in people
                                       if not p['email'] and p['role'] in ('regional', 'corporate')],
-                    'regions': [{'id': r.get('id'), 'name': r.get('name'), 'kind': r.get('kind')}
+                    # Communities too, so the form can offer only the ones
+                    # outside a regional's own region as extras.
+                    'regions': [{'id': r.get('id'), 'name': r.get('name'), 'kind': r.get('kind'),
+                                 'communities': list(r.get('communities') or [])}
                                 for r in regions if r.get('id') != 'unassigned'],
                     'communities': all_communities()}), 200
 
@@ -4976,6 +4999,54 @@ def set_all_communities(username):
                     'message': (f'{who} can now visit every community, and stays in '
                                 f'{region.get("name")} for its emails.' if grant
                                 else f'{who} is back to {region.get("name")} only.')}), 200
+
+
+@app.route('/api/people/<username>/extra-communities', methods=['POST'])
+@login_required
+def set_extra_communities(username):
+    """Admin: name the communities outside their region a regional may visit.
+
+    Only for a regional on a real region's roster, and only names that exist.
+    Their own region's communities are dropped from the list rather than
+    stored — they reach those anyway, and storing them would leave a grant
+    behind if the community later moved away. Emails do not change: the
+    region that owns a community is still the one told about it.
+    """
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    asked = data.get('communities')
+    if not isinstance(asked, list):
+        return jsonify({'status': 'error', 'message': 'communities must be a list'}), 400
+
+    region, _index, leader = region_service.find_leader_by_username(username)
+    if leader is None or region.get('kind') == CORPORATE_KIND:
+        return jsonify({'status': 'error',
+                        'message': 'Only a regional on a region roster can be given extra communities.'}), 400
+
+    exists = set(all_communities())
+    own = set(region.get('communities') or [])
+    unknown = [c for c in asked if c not in exists]
+    if unknown:
+        return jsonify({'status': 'error',
+                        'message': f'Unknown community: {unknown[0]}'}), 400
+    chosen = [c for c in asked if c not in own]
+
+    before = profile_service.get_extra_communities(username)
+    profile_service.set_extra_communities(username, chosen)
+    who = leader.get('name') or username
+    added = [c for c in chosen if c not in before]
+    removed = [c for c in before if c not in chosen]
+    if added or removed:
+        parts = []
+        if added:
+            parts.append('added ' + ', '.join(added))
+        if removed:
+            parts.append('removed ' + ', '.join(removed))
+        activity_service.log(session.get('user'), 'extra_communities_changed',
+                             f'{who}: ' + '; '.join(parts),
+                             meta={'username': username, 'added': added, 'removed': removed})
+    return jsonify({'status': 'success', 'communities': chosen}), 200
 
 
 @app.route('/api/people/<username>/username', methods=['POST'])
@@ -6550,6 +6621,8 @@ def rename_region_community():
             # would report the community as unplaced under a name nobody had
             # typed wrong.
             place_service.rename(old_name, new_name)
+            # A regional given this community by name keeps it under the new one.
+            profile_service.rename_community(old_name, new_name)
             community_cover_service.rename(
                 community_slug(old_name), community_slug(new_name), new_name)
         except Exception as e:

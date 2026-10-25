@@ -119,6 +119,53 @@ class ProfileService(JsonFileBacked):
             self.profiles.setdefault(username, {})['all_communities'] = bool(value)
             self._save()
 
+    # --- Communities outside their region that a regional may also visit ---
+    def get_extra_communities(self, username: str) -> list:
+        """Named communities, chosen by an administrator, that this regional
+        may visit on top of their own region.
+
+        The Goldton at Venice moved to another region, and Lauren Hamilton —
+        still the regional for the region it left — kept needing to visit it.
+        "Every community" would have handed her thirty-nine to fix one.
+
+        Kept here, keyed by username, for the same reason as all_communities:
+        the leader record is rebuilt on every edit. Community names are
+        stored, so a rename has to walk this too (rename_community below)."""
+        self._ensure_fresh()
+        extras = self.profiles.get(username, {}).get('extra_communities') or []
+        return [c for c in extras if isinstance(c, str) and c.strip()]
+
+    def set_extra_communities(self, username: str, communities) -> None:
+        clean = []
+        for c in communities or []:
+            c = (c or '').strip()
+            if c and c not in clean:
+                clean.append(c)
+        with self._lock:
+            self._ensure_fresh()
+            self.profiles.setdefault(username, {})['extra_communities'] = clean
+            self._save()
+
+    def rename_community(self, old_name: str, new_name: str) -> int:
+        """Carry extra-community grants across a rename. Returns how many
+        profiles changed."""
+        changed = 0
+        with self._lock:
+            self._ensure_fresh()
+            for prof in self.profiles.values():
+                extras = prof.get('extra_communities') or []
+                if old_name in extras:
+                    out = []
+                    for c in extras:
+                        c = new_name if c == old_name else c
+                        if c not in out:
+                            out.append(c)
+                    prof['extra_communities'] = out
+                    changed += 1
+            if changed:
+                self._save()
+        return changed
+
     # --- The email Atlerts knows this person by, when it is not their own ---
     def get_atlerts_email(self, username: str) -> str:
         """A second address that signs this account in from Atlerts.

@@ -58,6 +58,9 @@ Push to `main` → GitHub Actions runs both suites as a gate → SSH →
   (People → Edit → "Can visit every community"). Stored as `all_communities`
   in profiles.json, not on the leader record (`update_leader` rebuilds it).
   Region still decides who gets that region's emails.
+- Or named extras (People → Edit → "Also visits"): `extra_communities` in
+  profiles.json, admin-only, own-region names dropped. Name-keyed, so it is
+  in the community rename walk (`profile_service.rename_community`).
 - Atlerts SSO matches the account's own email first, then a linked
   `atlerts_email` in profiles.json (personal Gmail etc.). Linked by the
   person: failed `/sso` leaves `session['atlerts_pending']`, the next

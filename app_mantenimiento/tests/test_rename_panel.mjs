@@ -41,6 +41,9 @@ function boot(person, { admin = true } = {}) {
     ${grab('escapeHtmlForAttr')}
     ${grab('coverageChecklist')}
     ${grab('wirePersonAtlerts')}
+    ${grab('regionalExtraChecklist')}
+    ${grab('wirePersonExtras')}
+    ${grab('checkedCoverage')}
     ${grab('openPersonEdit')}
     ${grab('startUsernameChange')}
     ${grab('saveUsername')}

@@ -2186,6 +2186,7 @@
             font-size: 12.5px; color: #475569; cursor: pointer; }
         .cov-item input { width: 15px; height: 15px; accent-color: #1f6fe5; flex-shrink: 0; }
         .cov-empty { font-size: 12px; color: #94a3b8; padding: 4px 0; }
+        .cov-note { font-size: 11.5px; color: #64748b; margin-top: 6px; line-height: 1.45; }
         html[data-theme="dark"] .cov-list { background: #131d2c; border-color: #33425c; }
         html[data-theme="dark"] .cov-label { color: #eef2f8; }
         html[data-theme="dark"] .cov-item { color: #c2cddd; }
@@ -9306,6 +9307,43 @@
                         .map(el => el.value);
         }
 
+        /* Communities outside a regional's own region that an administrator
+           lets them visit, one by one. The Goldton at Venice moved region and
+           Lauren Hamilton, regional for the one it left, still visits it.
+
+           Only the communities outside the region chosen in the form are
+           listed, and the list follows that dropdown: move the person to
+           another region and their new region's communities drop out. */
+        function regionalExtraChecklist(regionId, selected) {
+            const all = (peopleData && peopleData.communities) || [];
+            const region = ((peopleData && peopleData.regions) || []).find(r => r.id === regionId);
+            const own = new Set((region && region.communities) || []);
+            const chosen = new Set(selected || []);
+            const rows = all.filter(c => !own.has(c)).map(c =>
+                `<label class="cov-item"><input type="checkbox" class="cov-check" value="${escapeHtml(c)}" ${chosen.has(c) ? 'checked' : ''}> ${escapeHtml(c)}</label>`
+            ).join('');
+            return rows || '<div class="cov-empty">No communities outside this region.</div>';
+        }
+
+        function wirePersonExtras(p) {
+            const list = document.getElementById('peRegExtra');
+            const regionSel = document.getElementById('peRegion');
+            if (!list) return;
+            // Remembered across redraws: a community hidden because it is in
+            // the region just picked comes back ticked if they switch back.
+            let chosen = new Set(p.extra_communities || []);
+            const draw = () => {
+                list.innerHTML = regionalExtraChecklist(regionSel ? regionSel.value : p.region_id, [...chosen]);
+            };
+            draw();
+            if (regionSel) regionSel.addEventListener('change', () => {
+                const shown = [...list.querySelectorAll('.cov-check')].map(c => c.value);
+                shown.forEach(c => chosen.delete(c));
+                checkedCoverage('peRegExtra').forEach(c => chosen.add(c));
+                draw();
+            });
+        }
+
         /* The Atlerts address linked to an account, shown with a way to undo
            it. Written in with textContent and wired here, not in the markup:
            it is an address somebody typed into another app. */
@@ -9385,6 +9423,11 @@
                                 </span>
                             </label>
                         </div>
+                        <div id="peExtraWrap" class="cov-extra"${isRoster && p.role === 'regional' ? '' : ' style="display:none;"'}>
+                            <div class="cov-label">Also visits <span>(outside their region, optional)</span></div>
+                            <div class="cov-list" id="peRegExtra"></div>
+                            <div class="cov-note">Reports and reminders for these still go to the region that owns them.</div>
+                        </div>
                         ${p.atlerts_email ? `
                         <div class="pe-atlerts" id="peAtlertsRow">
                             <i class="fas fa-link"></i>
@@ -9420,6 +9463,7 @@
                 </div>`;
             modal.classList.add('show');
             wirePersonAtlerts(p);
+            wirePersonExtras(p);
             peOnRoleChange();
         }
 
@@ -9440,6 +9484,8 @@
             // Only a regional has a region to stay in while reaching further.
             const allW = document.getElementById('peAllWrap');
             if (allW) allW.style.display = (role === 'regional') ? '' : 'none';
+            const extraW = document.getElementById('peExtraWrap');
+            if (extraW) extraW.style.display = (role === 'regional') ? '' : 'none';
 
             // Corporate lives in the Corporate group; regional in a real region.
             if (regionSel) {
@@ -9568,6 +9614,27 @@
                             const ad = await ar.json();
                             if (!ar.ok || ad.status !== 'success') {
                                 msg.textContent = ad.message || 'Saved, but access to every community could not be changed.';
+                                msg.classList.add('error');
+                                await refreshPeopleViews();
+                                return;
+                            }
+                        }
+                    }
+                    // Named communities outside their region: sent only when
+                    // the set changed, and only for a regional.
+                    const extraList = document.getElementById('peRegExtra');
+                    if (extraList && role === 'regional') {
+                        const person = (peopleData?.people || []).find(x => x.username === username);
+                        const now = checkedCoverage('peRegExtra');
+                        const was = (person && person.extra_communities) || [];
+                        if (person && [...now].sort().join('\n') !== [...was].sort().join('\n')) {
+                            const er = await fetch(`/api/people/${encodeURIComponent(username)}/extra-communities`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ communities: now })
+                            });
+                            const ed = await er.json();
+                            if (!er.ok || ed.status !== 'success') {
+                                msg.textContent = ed.message || 'Saved, but the extra communities could not be changed.';
                                 msg.classList.add('error');
                                 await refreshPeopleViews();
                                 return;
