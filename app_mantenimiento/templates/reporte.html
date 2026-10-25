@@ -680,6 +680,14 @@
         }
         .nearby-go { background: #00285c; color: #fff; border: 0; }
         .nearby-no { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
+        .nearby-x { margin-left: auto; background: none; border: 0; color: #64748b;
+            font-size: 18px; line-height: 1; padding: 4px 6px; cursor: pointer; }
+        .nearby-head { display: flex; align-items: flex-start; gap: 8px; }
+        .nearby-find { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 8px;
+            background: none; border: 0; padding: 4px 0; color: #1f6fe5; font-size: 13.5px;
+            font-weight: 700; cursor: pointer; font-family: inherit; }
+        .nearby-find[hidden] { display: none; }
+        .nearby-note { font-size: 12.5px; color: #64748b; margin-top: 4px; }
         html[data-theme="dark"] .nearby-suggest { background: #16203a; border-color: #2b3a5c; color: #c7d3e8; }
         html[data-theme="dark"] .nearby-suggest b { color: #fff; }
         .loading-message {
@@ -1147,7 +1155,11 @@
         {% if role == 'regional' %}
         <div class="form-group" id="communityPickerGroup" style="margin-bottom: 24px;">
             <label for="communitySelect">Community to inspect <span class="required">*</span></label>
-            <!-- Filled in only when the phone says they are standing at one. -->
+            <!-- Asked for by the person, then filled in when the phone says
+                 they are standing at one. -->
+            <button type="button" id="nearbyFind" class="nearby-find" hidden>
+                <i class="fas fa-location-dot"></i> Find my community
+            </button>
             <div id="nearbySuggest" class="nearby-suggest" role="status" hidden></div>
             <select id="communitySelect" onchange="onCommunityChange()">
                 <option value="">— Select a community in your region —</option>
@@ -1352,7 +1364,7 @@
                         if (match) { sel.value = asked; onCommunityChange(); }
                     } else {
                         // No community named: offer the one they are standing in.
-                        suggestNearbyCommunity();
+                        offerNearbyCommunity();
                     }
                 } else {
                     document.getElementById('userInfo').innerHTML = `<i class="fas fa-user"></i> ${currentUser} | ${userCommunity || 'Staff'}`;
@@ -1915,9 +1927,103 @@
                 .map(x => x.name);
         }
 
-        function suggestNearbyCommunity() {
+        /* Explain first, then ask.
+
+           The first version asked the phone for the location the moment the
+           form opened. A location prompt with no context, on a work app,
+           looks like tracking — Gabriel's worry was that people would refuse
+           it, and a refusal is permanent: the browser never asks again and
+           undoing it is a trip into the phone's settings.
+
+           So the system prompt now only appears after the person taps "Find
+           my community" on a card that says what it is for and that the
+           location stays on the phone. Someone who has already allowed it
+           skips the card; someone who refused is not pestered; someone who
+           closes the card keeps a small link and does not see the card again
+           on that phone. */
+        const NEARBY_DISMISSED_KEY = 'atlasNearbyAskDismissed';
+
+        async function locationPermission() {
+            try {
+                if (navigator.permissions && navigator.permissions.query) {
+                    return (await navigator.permissions.query({ name: 'geolocation' })).state;
+                }
+            } catch (e) { /* some browsers cannot say */ }
+            return 'prompt';   // unknown is treated as not yet asked
+        }
+
+        function nearbyAskDismissed() {
+            try { return localStorage.getItem(NEARBY_DISMISSED_KEY) === '1'; } catch (e) { return false; }
+        }
+
+        async function offerNearbyCommunity() {
             const sel = document.getElementById('communitySelect');
             if (!sel || !COMMUNITY_PLACES.length || !navigator.geolocation) return;
+            const state = await locationPermission();
+            if (state === 'denied') return;
+            const find = document.getElementById('nearbyFind');
+            if (find) {
+                find.hidden = false;
+                find.onclick = () => suggestNearbyCommunity({ asked: true });
+            }
+            if (state === 'granted') { suggestNearbyCommunity(); return; }
+            if (!nearbyAskDismissed()) showNearbyAsk();
+        }
+
+        function showNearbyAsk() {
+            const box = document.getElementById('nearbySuggest');
+            if (!box) return;
+            box.textContent = '';
+            const head = document.createElement('div');
+            head.className = 'nearby-head';
+            const text = document.createElement('div');
+            const b = document.createElement('b');
+            b.textContent = 'At a community?';
+            text.append(b, ' Tap to find it automatically.');
+            const note = document.createElement('div');
+            note.className = 'nearby-note';
+            note.textContent = 'Your location stays on your phone and is never saved.';
+            text.append(note);
+            const x = document.createElement('button');
+            x.type = 'button'; x.className = 'nearby-x';
+            x.setAttribute('aria-label', 'Close');
+            x.textContent = '×';
+            x.onclick = () => {
+                box.hidden = true;
+                try { localStorage.setItem(NEARBY_DISMISSED_KEY, '1'); } catch (e) {}
+            };
+            head.append(text, x);
+            const actions = document.createElement('div');
+            actions.className = 'nearby-actions';
+            const go = document.createElement('button');
+            go.type = 'button'; go.className = 'nearby-go';
+            go.textContent = 'Find my community';
+            go.onclick = () => suggestNearbyCommunity({ asked: true });
+            actions.append(go);
+            box.append(head, actions);
+            box.hidden = false;
+        }
+
+        // A short answer in the same box, for when somebody asked and there
+        // is nothing to offer. Silence after a tap reads as broken.
+        function nearbySay(message) {
+            const box = document.getElementById('nearbySuggest');
+            if (!box) return;
+            box.textContent = '';
+            const line = document.createElement('div');
+            line.textContent = message;
+            box.append(line);
+            box.hidden = false;
+        }
+
+        // `opts.asked`: the person tapped Find, so every outcome gets an answer.
+        // (A plain parameter, not destructured in the signature: the test
+        // harness lifts functions out by matching braces from the first one.)
+        function suggestNearbyCommunity(opts) {
+            const asked = !!(opts && opts.asked);
+            const sel = document.getElementById('communitySelect');
+            if (!sel || !COMMUNITY_PLACES.length || !navigator.geolocation) return;
+            if (asked) nearbySay('Finding where you are…');
             navigator.geolocation.getCurrentPosition(pos => {
                 // They may have picked one while the phone was still looking.
                 if (sel.value) return;
@@ -1927,7 +2033,18 @@
                     COMMUNITY_PLACES, pos.coords.accuracy
                 ).filter(n => offered.has(n)).slice(0, 3);
                 if (near.length) showNearbySuggestion(near);
-            }, () => { /* denied or unavailable: the list works as before */ },
+                else if (asked) nearbySay("None of your communities is within a few hundred metres of here. Pick one from the list.");
+            }, err => {
+                if (!asked) return;   // unasked: the list works as before, quietly
+                nearbySay(err && err.code === 1
+                    ? 'Location is turned off for this site. You can still pick from the list.'
+                    : "Couldn't get your location just now. You can still pick from the list.");
+                // Refused: the link would only lead back here.
+                if (err && err.code === 1) {
+                    const find = document.getElementById('nearbyFind');
+                    if (find) find.hidden = true;
+                }
+            },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
         }
 

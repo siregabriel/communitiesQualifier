@@ -46,17 +46,27 @@ const AT_OSCAR = { lat: 30.6330, lng: -97.6775 };            // ~40 m off the pi
 const NOWHERE = { lat: 35.0, lng: -90.0 };
 
 function world({ here = AT_OSCAR, accuracy = 20, places = PLACES, deny = false,
-                 options = PLACES.map(p => p.community), slow = false } = {}) {
+                 options = PLACES.map(p => p.community), slow = false,
+                 permission = 'granted', permissionsApi = true, dismissed = false } = {}) {
   const opts = options.map(o => `<option value="${o.replace(/"/g, '&quot;')}">${o}</option>`).join('');
   const dom = new JSDOM(`<!doctype html><body>
+    <button id="nearbyFind" hidden></button>
     <div id="nearbySuggest" hidden></div>
     <select id="communitySelect"><option value="">— Select —</option>${opts}</select>
-    </body>`, { runScripts: 'outside-only' });
+    </body>`, { runScripts: 'outside-only', url: 'https://standards.example/reporte' });
   const w = dom.window;
   let callback = null;
+  let asks = 0;
+  if (permissionsApi) {
+    Object.defineProperty(w.navigator, 'permissions', {
+      value: { query: async () => ({ state: permission }) },
+    });
+  }
+  if (dismissed) w.localStorage.setItem('atlasNearbyAskDismissed', '1');
   Object.defineProperty(w.navigator, 'geolocation', {
     value: {
       getCurrentPosition(okFn, errFn) {
+        asks++;
         const go = () => deny ? errFn({ code: 1 })
           : okFn({ coords: { latitude: here.lat, longitude: here.lng, accuracy } });
         if (slow) callback = go; else go();
@@ -71,10 +81,17 @@ function world({ here = AT_OSCAR, accuracy = 20, places = PLACES, deny = false,
     const COMMUNITY_PLACES = ${JSON.stringify(places)};
     ${grab('metresBetween')}
     ${grab('communitiesNear')}
+    ${constant('NEARBY_DISMISSED_KEY')}
+    ${grab('locationPermission')}
+    ${grab('nearbyAskDismissed')}
+    ${grab('offerNearbyCommunity')}
+    ${grab('showNearbyAsk')}
+    ${grab('nearbySay')}
     ${grab('suggestNearbyCommunity')}
     ${grab('showNearbySuggestion')}
   `);
   w.release = () => callback && callback();
+  w.asks = () => asks;
   return w;
 }
 
@@ -204,8 +221,91 @@ console.log('\nIt is asked only when no community was named');
 {
   const i = html.indexOf("const asked = new URLSearchParams(location.search).get('community');");
   const block = html.slice(i, i + 700);
-  ok(/\} else \{\s*\/\/[^\n]*\n\s*suggestNearbyCommunity\(\);/.test(block),
+  ok(/\} else \{\s*\/\/[^\n]*\n\s*offerNearbyCommunity\(\);/.test(block),
      'resuming an unfinished visit for a named community does not ask where they are');
+}
+
+// ---------------------------------------------------- explain, then ask
+
+const tick = () => new Promise(r => setTimeout(r, 0));
+const find = (w) => w.document.getElementById('nearbyFind');
+
+console.log('\nNot asked yet: our card first, the phone\'s prompt only on a tap');
+{
+  const w = world({ permission: 'prompt' });
+  await w.offerNearbyCommunity();
+  ok(w.asks() === 0, 'opening the form does not trigger the location prompt');
+  ok(box(w).hidden === false, 'the card is shown instead');
+  ok(/At a community\?/.test(box(w).textContent), 'saying what it is for');
+  ok(/stays on your phone and is never saved/.test(box(w).textContent),
+     'and that the location goes nowhere — the reason people would refuse');
+  buttons(w).find(b => b.textContent === 'Find my community').onclick();
+  ok(w.asks() === 1, 'tapping Find is what asks the phone');
+  ok(/It looks like you're at The Oscar at Georgetown/.test(box(w).textContent),
+     'and the answer replaces the card');
+}
+
+console.log('\nAlready allowed: straight to the answer');
+{
+  const w = world({ permission: 'granted' });
+  await w.offerNearbyCommunity();
+  ok(w.asks() === 1, 'no card, the phone is asked at once');
+  ok(/It looks like you're at/.test(box(w).textContent), 'and the suggestion appears');
+}
+
+console.log('\nRefused before: nothing, not even the link');
+{
+  const w = world({ permission: 'denied' });
+  await w.offerNearbyCommunity();
+  ok(w.asks() === 0 && box(w).hidden === true, 'no card and no prompt');
+  ok(find(w).hidden === true, 'and no link that could only lead to a refusal');
+}
+
+console.log('\nA browser that cannot say counts as not yet asked');
+{
+  const w = world({ permissionsApi: false });
+  await w.offerNearbyCommunity();
+  ok(w.asks() === 0 && box(w).hidden === false, 'the card, not the prompt');
+}
+
+console.log('\nClosing the card is remembered, and the link stays');
+{
+  const w = world({ permission: 'prompt' });
+  await w.offerNearbyCommunity();
+  w.document.querySelector('.nearby-x').onclick();
+  ok(box(w).hidden === true, 'the card closes');
+  ok(w.localStorage.getItem('atlasNearbyAskDismissed') === '1', 'and the phone remembers');
+  ok(find(w).hidden === false, 'the small link is still there');
+  find(w).onclick();
+  ok(w.asks() === 1, 'and still works');
+
+  const again = world({ permission: 'prompt', dismissed: true });
+  await again.offerNearbyCommunity();
+  ok(again.document.getElementById('nearbySuggest').hidden === true,
+     'next time the card is not shown');
+  ok(again.document.getElementById('nearbyFind').hidden === false, 'only the link');
+}
+
+console.log('\nA tap always gets an answer');
+{
+  const nowhere = world({ permission: 'prompt', here: NOWHERE });
+  await nowhere.offerNearbyCommunity();
+  buttons(nowhere).find(b => b.textContent === 'Find my community').onclick();
+  ok(/None of your communities/.test(nowhere.document.getElementById('nearbySuggest').textContent),
+     'nowhere near one: it says so, rather than going quiet');
+
+  const refused = world({ permission: 'prompt', deny: true });
+  await refused.offerNearbyCommunity();
+  buttons(refused).find(b => b.textContent === 'Find my community').onclick();
+  ok(/Location is turned off/.test(refused.document.getElementById('nearbySuggest').textContent),
+     'refused at the prompt: it says so');
+  ok(refused.document.getElementById('nearbyFind').hidden === true,
+     'and the link goes, since it can only fail now');
+
+  const quiet = world({ permission: 'granted', here: NOWHERE });
+  await quiet.offerNearbyCommunity();
+  ok(quiet.document.getElementById('nearbySuggest').hidden === true,
+     'but unasked, nowhere near one stays silent');
 }
 
 console.log(failures ? `\n${failures} failure(s)` : '\nThe form knows which building you are in.');
