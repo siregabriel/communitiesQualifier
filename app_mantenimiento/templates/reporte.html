@@ -1803,10 +1803,17 @@
             draftStatus('saved', d.savedAt);
         }
 
-        /* Offer to pick up where they left off. A banner rather than a modal:
-           it states the facts and stays out of the way if they'd rather start
-           clean. */
-        function draftOfferResume(d) {
+        /* A saved visit is put back on screen as soon as the form opens, and
+           the banner only offers to throw it away.
+
+           It used to wait for a Resume tap. Autosave was already on while the
+           banner was showing, so any tap on the form saved the near-empty page
+           over the stored visit, and switching apps saved an empty page —
+           which deletes the draft. Greg Crutcher lost 33 of 35 answers at
+           Greystone that way: his dashboard said 33 at 6:48, he opened the
+           form, and at 6:49 the server was told 1. Restoring first leaves no
+           moment in which the visit on screen is not the visit on file. */
+        function draftOfferFresh(d) {
             const host = document.getElementById('draftBanner');
             if (!host) return;
             const n = Object.keys(d.responses || {}).length;
@@ -1817,32 +1824,28 @@
             host.innerHTML = `
                 <div class="draft-banner">
                     <div class="draft-banner-main">
-                        <b><i class="fas fa-rotate-left"></i> Unfinished visit for ${escapeHtml(d.community)}</b>
+                        <b><i class="fas fa-rotate-left"></i> Picked up where you left off</b>
                         <span>Saved ${draftAgo(d.savedAt)} — ${bits.join(', ')}.</span>
                     </div>
                     <div class="draft-banner-actions">
-                        <button type="button" class="draft-btn-primary" onclick="draftResume()">Resume</button>
-                        <button type="button" class="draft-btn-ghost" onclick="draftDiscard()">Start fresh</button>
+                        <button type="button" class="draft-btn-ghost" id="draftFreshBtn">Start fresh</button>
                     </div>
                 </div>`;
             host.style.display = 'block';
-            window._pendingDraft = d;
+            document.getElementById('draftFreshBtn').onclick = draftDiscard;
         }
 
-        function draftResume() {
-            const d = window._pendingDraft;
-            document.getElementById('draftBanner').style.display = 'none';
-            if (d) draftApply(d);
-            window._pendingDraft = null;
-        }
-
+        /* Starting fresh throws the saved visit away, so it asks first, and
+           then reloads: unpicking a restored form by hand would leave half of
+           it behind. */
         async function draftDiscard() {
-            if (!confirm('Discard the saved draft and start this visit from scratch?')) return;
-            document.getElementById('draftBanner').style.display = 'none';
-            window._pendingDraft = null;
+            if (!confirm('Discard the saved answers and start this visit from scratch?\n\nThis cannot be undone.')) return;
+            clearTimeout(_draftTimer);
+            _draftReady = false;
             const key = draftKey();
             if (key) await draftDelete(key);
-            draftStatus('');
+            noticeClear();
+            window.location.reload();
         }
 
         /* Called once the questions are on screen. */
@@ -1860,7 +1863,12 @@
             try {
                 await draftPrune();
                 const existing = await draftLoad(key);
-                if (existing && !draftIsEmpty(existing)) draftOfferResume(existing);
+                if (existing && !draftIsEmpty(existing)) {
+                    // On screen before autosave is switched on below, so the
+                    // first save can only ever write back what was restored.
+                    draftApply(existing);
+                    draftOfferFresh(existing);
+                }
             } catch (e) {
                 console.warn('drafts unavailable:', e);
                 return;   // private browsing or blocked storage: form still works
