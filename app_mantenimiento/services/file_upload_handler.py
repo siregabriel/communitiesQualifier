@@ -5,6 +5,7 @@ Handles file validation, secure filename generation, and file storage
 
 import os
 import logging
+import hashlib
 import secrets
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -163,6 +164,34 @@ class FileUploadHandler:
         file.seek(0)
         file.save(os.path.join(directory, stored))
         return relative_path, original
+
+    def save_draft_photo(self, file, username: str, draft_id: str, slot: str) -> str:
+        """Save a photo for an unfinished visit under 'drafts/<user>/<draft>/'.
+
+        Kept apart from the visit photos on purpose: these are working copies,
+        deleted when the visit is sent or thrown away, and the drafts/ prefix
+        is what an S3 lifecycle rule can expire as a backstop. Returns the
+        relative path."""
+        original = file.filename or ''
+        ext = original.rsplit('.', 1)[1].lower() if '.' in original else 'jpg'
+        ext = secure_filename(ext) or 'jpg'
+        folder = hashlib.sha1((draft_id or '').encode('utf-8')).hexdigest()[:16]
+        name = f"{secure_filename(slot) or 'photo'}_{secrets.token_hex(6)}.{ext}"
+        relative_path = f"drafts/{secure_filename(username) or 'user'}/{folder}/{name}"
+        if self.use_s3:
+            try:
+                file.seek(0)
+                self.s3.upload_fileobj(
+                    file, self.s3_bucket, self._s3_key(relative_path),
+                    ExtraArgs={'ContentType': _CONTENT_TYPES.get(ext, 'application/octet-stream')})
+                return relative_path
+            except Exception as e:
+                raise IOError(f"Failed to upload draft photo: {e}")
+        directory = os.path.join(self.upload_folder, os.path.dirname(relative_path))
+        os.makedirs(directory, exist_ok=True)
+        file.seek(0)
+        file.save(os.path.join(self.upload_folder, relative_path))
+        return relative_path
 
     def delete_file(self, relative_path: str) -> None:
         """Best-effort removal of a stored file (S3 object or local file)."""

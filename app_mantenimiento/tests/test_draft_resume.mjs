@@ -135,23 +135,24 @@ console.log('\nA link naming a community they cannot pick');
   ok(calls.questionsFor === null, 'and no questions are fetched for it');
 }
 
-console.log('\nThe signpost carries no part of the visit');
+console.log('\nWhat goes to the server with each save');
 {
-  // What goes to the server when a draft is saved: the community, the type,
-  // how far along, the device. Never an answer, never a photo.
-  // Check what is put in the request, not what the function mentions: it
-  // reads data.responses to count them, which a search for the word would
-  // wrongly flag.
-  const body = html.slice(html.indexOf('function noticeRecord'), html.indexOf('function noticeClear'));
-  const sent = body.slice(body.indexOf('JSON.stringify({'), body.indexOf('}),', body.indexOf('JSON.stringify({')));
-  ok(/community/.test(sent) && /survey_type_id/.test(sent)
-     && /answered/.test(sent) && /total/.test(sent) && /device/.test(sent),
-     'the request carries the community, the type, the progress and the device');
-  for (const forbidden of ['responses', 'photos', 'blob', 'notes']) {
-    ok(!new RegExp(forbidden).test(sent), `and never ${forbidden}`);
+  /* This used to assert the opposite: that only a signpost (community, type,
+     count, device) ever left the phone. Greg Crutcher then lost 33 answers
+     that existed nowhere else, and the text of a draft is now sent on
+     purpose. Photos still never ride in that request — they go one at a time
+     as files, so a single save is never a multi-megabyte upload. */
+  const body = html.slice(html.indexOf('function draftServerBody'), html.indexOf('async function draftOk'));
+  for (const field of ['community', 'survey_type_id', 'responses', 'action_items', 'notes', 'total', 'saved_at', 'device']) {
+    ok(new RegExp(field + ':').test(body), `the text request carries ${field}`);
   }
-  ok(/_noticeLast/.test(body),
-     'and it only speaks when something actually changed, not on every keystroke');
+  ok(!/photos|blob/.test(body), 'and never the photos');
+  const photos = html.slice(html.indexOf('async function serverSyncPhotos'), html.indexOf("window.addEventListener('online'"));
+  ok(/\/api\/drafts\/photo/.test(photos) && /new FormData\(\)/.test(photos),
+     'photos go separately, as files');
+  ok(/_photoSent\[slot\] === sig\) continue/.test(photos), 'and only the ones the server does not have yet');
+  const sync = html.slice(html.indexOf('async function serverSyncNow'), html.indexOf('function draftPhotoSlots'));
+  ok(/shape !== _syncShape/.test(sync), 'and the text only when it actually changed, not on every keystroke');
 }
 
 console.log('\nWhen the draft goes, so does the signpost');

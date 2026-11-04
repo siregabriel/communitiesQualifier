@@ -6,7 +6,7 @@ Flask application for managing maintenance and cleaning reports
 With user authentication and automatic community detection
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory, send_file, make_response
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -465,6 +465,12 @@ raised_item_service = RaisedItemService(RAISED_FILE)
 from services.draft_notice_service import DraftNoticeService
 DRAFT_NOTICE_FILE = os.path.join(DATA_FOLDER, 'draft_notices.json')
 draft_notice_service = DraftNoticeService(DRAFT_NOTICE_FILE)
+# And the visit itself — answers, notes, action items, and photos in the bucket
+# under drafts/. Since Greg Crutcher lost 33 answers that existed only on his
+# phone, every save on the phone is also sent here when there is signal.
+from services.draft_service import DraftService, valid_slot as _draft_slot_ok, NOTES_SLOT as DRAFT_NOTES_SLOT
+DRAFT_FILE = os.path.join(DATA_FOLDER, 'drafts.json')
+draft_service = DraftService(DRAFT_FILE)
 
 from services.raised_category_service import RaisedCategoryService
 RAISED_CATEGORY_FILE = os.path.join(DATA_FOLDER, 'raised_categories.json')
@@ -3733,11 +3739,162 @@ def record_draft_notice():
 def clear_draft_notice():
     """The draft is gone — submitted, or discarded by the person who owns it."""
     data = request.get_json(silent=True) or {}
-    draft_notice_service.clear(
-        session.get('user'),
-        InputSanitizer.sanitize_community_name(data.get('community', '')),
-        InputSanitizer.sanitize_string(data.get('survey_type_id', ''), max_length=60))
+    community = InputSanitizer.sanitize_community_name(data.get('community', ''))
+    survey_type_id = InputSanitizer.sanitize_string(data.get('survey_type_id', ''), max_length=60)
+    draft_notice_service.clear(session.get('user'), community, survey_type_id)
+    # The copy kept here, and its photos, go with it.
+    _drop_draft(session.get('user'), community, survey_type_id)
     return jsonify({'status': 'success'}), 200
+
+
+# ------------------------------------------------- the visit itself, kept here
+
+def _drop_draft(username, community, survey_type_id):
+    for path in draft_service.discard(username, community, survey_type_id):
+        file_upload_handler.delete_file(path)
+
+
+def _prune_drafts():
+    """Unfinished visits nobody has touched in two weeks, and their photos."""
+    try:
+        for path in draft_service.prune():
+            file_upload_handler.delete_file(path)
+    except Exception:
+        app.logger.exception('Could not prune old drafts')
+
+
+def _draft_target():
+    """(community, survey type) named in the request, if this person may keep
+    a draft for it: somebody who runs visits, for a community they can see."""
+    if is_native_admin() or not can_run_visits():
+        return None, None, ('Only people who run visits keep drafts', 403)
+    community = InputSanitizer.sanitize_community_name(_field('community') or request.args.get('community') or '')
+    survey_type_id = InputSanitizer.sanitize_string(
+        _field('survey_type_id') or request.args.get('survey_type_id') or '', max_length=60)
+    if not community or not _can_see_community(community):
+        return None, None, ('Pick a community you cover', 400)
+    if not survey_type_id:
+        return None, None, ('survey_type_id is required', 400)
+    return community, survey_type_id, None
+
+
+def _draft_public(d):
+    """What goes back to the phone: the content, and which photos exist —
+    never the storage paths."""
+    return {
+        'community': d['community'], 'survey_type_id': d['survey_type_id'],
+        'responses': d.get('responses') or {}, 'action_items': d.get('action_items') or [],
+        'notes': d.get('notes') or '', 'total': d.get('total') or 0,
+        'saved_at': d.get('saved_at') or 0, 'updated_at': d.get('updated_at'),
+        'photos': {slot: {'name': p.get('name'), 'type': p.get('type'), 'size': p.get('size')}
+                   for slot, p in (d.get('photos') or {}).items()},
+    }
+
+
+@app.route('/api/drafts/content', methods=['GET'])
+@login_required
+def get_draft_content():
+    """Your own unfinished visit for this community and survey type.
+
+    Yours only. An administrator sees the signpost for everybody (who, where,
+    how far) to help find work; the content is somebody's half-written
+    findings and is not theirs to read."""
+    community, survey_type_id, err = _draft_target()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    _prune_drafts()
+    d = draft_service.get(session.get('user'), community, survey_type_id)
+    return jsonify({'status': 'success', 'draft': _draft_public(d) if d else None}), 200
+
+
+@app.route('/api/drafts/content', methods=['PUT'])
+@login_required
+def put_draft_content():
+    """Everything typed so far. Sent after each save on the phone."""
+    community, survey_type_id, err = _draft_target()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    data = request.get_json(silent=True) or {}
+    d = draft_service.save_content(
+        session.get('user'), community, survey_type_id,
+        responses=data.get('responses'), action_items=data.get('action_items'),
+        notes=data.get('notes'), total=data.get('total'), saved_at=data.get('saved_at'))
+    # The signpost follows the content, so the dashboard count is the server's
+    # own count of what it holds rather than whatever the phone last claimed.
+    draft_notice_service.record(
+        session.get('user'), community, survey_type_id,
+        answered=len(d.get('responses') or {}), total=d.get('total') or 0,
+        device=InputSanitizer.sanitize_string(data.get('device', ''), max_length=60))
+    return jsonify({'status': 'success', 'saved_at': d.get('saved_at')}), 200
+
+
+@app.route('/api/drafts/photo', methods=['POST'])
+@login_required
+def put_draft_photo():
+    """One photo for one standard (or the visit notes), as soon as it is taken."""
+    community, survey_type_id, err = _draft_target()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    slot = (_field('slot') or '').strip()
+    if not _draft_slot_ok(slot):
+        return jsonify({'status': 'error', 'message': 'Unknown photo slot'}), 400
+    f = request.files.get('photo')
+    ok_file, why = file_upload_handler.validate_file(f)
+    if not ok_file:
+        return jsonify({'status': 'error', 'message': why}), 400
+    user = session.get('user')
+    f.seek(0, os.SEEK_END)
+    size = f.tell()
+    f.seek(0)
+    try:
+        path = file_upload_handler.save_draft_photo(
+            f, user, draft_service.key(user, survey_type_id, community), slot)
+    except IOError:
+        app.logger.exception('Could not store a draft photo')
+        return jsonify({'status': 'error', 'message': 'Could not store the photo'}), 500
+    replaced = draft_service.set_photo(user, community, survey_type_id, slot, path,
+                                       f.filename or 'photo.jpg', f.mimetype or 'image/jpeg', size)
+    if replaced:
+        file_upload_handler.delete_file(replaced)
+    return jsonify({'status': 'success', 'slot': slot, 'size': size}), 200
+
+
+@app.route('/api/drafts/photo', methods=['DELETE'])
+@login_required
+def delete_draft_photo():
+    community, survey_type_id, err = _draft_target()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    slot = (_field('slot') or '').strip()
+    old = draft_service.remove_photo(session.get('user'), community, survey_type_id, slot)
+    if old:
+        file_upload_handler.delete_file(old)
+    return jsonify({'status': 'success'}), 200
+
+
+@app.route('/api/drafts/photo', methods=['GET'])
+@login_required
+def get_draft_photo():
+    """The photo itself, from this server rather than a bucket link: the
+    phone turns it back into a file to submit, and fetching across origins
+    would need the bucket opened to browsers."""
+    community, survey_type_id, err = _draft_target()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    slot = (request.args.get('slot') or '').strip()
+    d = draft_service.get(session.get('user'), community, survey_type_id)
+    p = ((d or {}).get('photos') or {}).get(slot)
+    if not p:
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    try:
+        data = file_upload_handler.read_bytes(p['path'])
+    except Exception:
+        app.logger.exception('Could not read a draft photo')
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    resp = make_response(data)
+    resp.headers['Content-Type'] = p.get('type') or 'image/jpeg'
+    resp.headers['Cache-Control'] = 'private, no-store'
+    return resp
 
 
 @app.route('/api/raised-categories', methods=['GET'])
@@ -6629,6 +6786,9 @@ def rename_region_community():
             place_service.rename(old_name, new_name)
             # A regional given this community by name keeps it under the new one.
             profile_service.rename_community(old_name, new_name)
+            # Unfinished visits are keyed on the name too.
+            draft_service.rename_community(old_name, new_name)
+            draft_notice_service.rename_community(old_name, new_name)
             community_cover_service.rename(
                 community_slug(old_name), community_slug(new_name), new_name)
         except Exception as e:
@@ -7090,6 +7250,15 @@ def submit_inspection():
                 notes_photo=notes_photo
             )
             
+            # The visit is on file, so its draft is done with — here too, not
+            # only when the phone remembers to say so. Best-effort: a draft
+            # left behind expires on its own; a failed visit would not.
+            try:
+                draft_notice_service.clear(username, community, survey_type_id)
+                _drop_draft(username, community, survey_type_id)
+            except Exception:
+                app.logger.exception('Could not clear the draft after a visit')
+
             # Clear survey type from session after successful submission
             session.pop('survey_type_id', None)
             session.pop('survey_type_name', None)

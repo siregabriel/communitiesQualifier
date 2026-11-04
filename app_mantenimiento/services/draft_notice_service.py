@@ -41,9 +41,9 @@ from typing import Dict, List, Optional
 
 from services.json_store import JsonFileBacked
 
-# Matches the browser's own 7-day prune, so the two never disagree about
-# whether a draft is still around.
-TTL_DAYS = 7
+# Matches the browser's own prune and the server copy (draft_service), so the
+# three never disagree about whether a draft is still around.
+TTL_DAYS = 14
 
 
 class DraftNoticeService(JsonFileBacked):
@@ -159,6 +159,20 @@ class DraftNoticeService(JsonFileBacked):
                 self.save_to_file()
                 return True
             return False
+
+    def rename_community(self, old_name: str, new_name: str) -> int:
+        """Keyed on the community's name, so a rename moves the signpost too."""
+        changed = 0
+        with self._lock:
+            self._ensure_fresh()
+            for n in self.notices:
+                if n.get('community') == old_name:
+                    n['community'] = new_name
+                    n['id'] = self.key(n.get('username'), n.get('survey_type_id'), new_name)
+                    changed += 1
+            if changed:
+                self.save_to_file()
+        return changed
 
     def _prune(self) -> None:
         """Drop notices past the TTL.

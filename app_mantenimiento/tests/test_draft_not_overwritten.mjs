@@ -156,8 +156,10 @@ console.log('\nWhat Greg did: answer one more before anything else');
   ok(n === 4, `the saved visit now has 4 answers, not 1 (${n})`);
   ok(stored && stored.responses.q2 && stored.responses.q2.description === 'Brochures out of date in the lobby',
      'and the earlier ones are intact');
-  const last = notices.filter(x => x.method === 'POST').pop();
-  ok(last && last.answered === 4, `the dashboard is told 4, not 1 (${last && last.answered})`);
+  await settle(1700);   // the server copy follows 1.5 s after the phone's
+  const last = notices.filter(x => x.method === 'PUT').pop();
+  const sent = last ? Object.keys(last.responses || {}).length : undefined;
+  ok(sent === 4, `the server is sent 4 answers, not 1 (${sent})`);
 }
 
 console.log('\nOr switch apps the moment it opens');

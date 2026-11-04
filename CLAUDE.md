@@ -97,6 +97,24 @@ its own location; **where anybody is never reaches this server.**
   person can see to `/reporte?community=` once the type is chosen.
 - `tests/test_nearby_visits.py` guards all of it.
 
+## Unfinished visits (drafts)
+
+Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost
+33 answers that existed only on his phone (Nov 2026):
+
+- Every local save also PUTs `/api/drafts/content` (text only); each photo goes
+  to `/api/drafts/photo` as it is taken → bucket `uploads/drafts/<user>/…`.
+  `services/draft_service.py`, `data/drafts.json`. One per user + community +
+  survey type, **no cap**, expires after 14 days with its photos.
+- Owner only: not another regional, not an admin (admins keep the signpost in
+  `draft_notice_service` for support, never the content). Paths never sent.
+- The form restores the saved visit **before** autosave starts (the bug that
+  cost Greg's answers), and picks the newer of phone/server copy by `saved_at`.
+- Cleared on submit (server side too), discard, and expiry. Both stores are in
+  the community rename walk.
+- Submitting still uploads photos from the phone; reusing the draft photos
+  already in the bucket was deliberately left for later.
+
 ## Pitfalls already paid for
 
 - `templates/dashboard.html` is an ~11k-line monolith with inline JS. Tests pull

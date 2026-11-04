@@ -1390,9 +1390,13 @@
            localStorage only holds strings. Losing a photo means walking back to
            the hallway to retake it, so photos are the part most worth keeping.
 
-           One draft per community + survey type, pruned after 7 days.
+           One draft per community + survey type, pruned after 14 days.
+
+           Since November 2026 every save is also sent to the server, photos
+           included, when there is signal (see "The copy on the server" below).
+           The phone still saves first and still works with none.
            ===================================================================== */
-        const DRAFT_DB = 'atlasDrafts', DRAFT_STORE = 'drafts', DRAFT_TTL_DAYS = 7;
+        const DRAFT_DB = 'atlasDrafts', DRAFT_STORE = 'drafts', DRAFT_TTL_DAYS = 14;
         let _draftDB = null, _draftTimer = null, _draftReady = false;
 
         function draftDB() {
@@ -1576,7 +1580,7 @@
                 }
                 store.put(data);
                 if (!silent) draftStatus('saved', data.savedAt);
-                noticeRecord(data);
+                serverSync(data);
             } catch (e) {
                 console.warn('draft save failed:', e);
                 draftStatus('error');
@@ -1612,24 +1616,155 @@
             return browser ? `${device} · ${browser}` : device;
         }
 
-        let _noticeLast = '';
+        /* ===================== The copy on the server =====================
+           Greg Crutcher lost 33 answers at Greystone because they existed only
+           in his phone's browser. Every local save is now also sent here:
+           the text as one small request, each photo on its own as soon as it
+           is taken (so the upload is spread over the walk, not piled up at
+           the end). Failure is silent and retried — on the next save, and
+           when the phone comes back online. The phone's copy is never waited
+           on and never replaced by this.
 
-        function noticeRecord(data) {
+           The server works out the dashboard count from what it holds, so the
+           signpost is updated by the same request. */
+        let _syncTimer = null, _syncShape = '', _syncing = false, _syncAgain = null, _syncLast = null;
+        let _photoSent = {};   // slot -> "name|size" the server already has
+
+        function draftServerBody(data) {
+            return {
+                community: data.community, survey_type_id: data.surveyTypeId,
+                total: (questions || []).length, saved_at: data.savedAt,
+                responses: data.responses, action_items: data.actionItems,
+                notes: data.notes, device: draftDevice(),
+            };
+        }
+
+        async function draftOk(r) {
+            // A signed-out session is redirected to the sign-in page, which
+            // fetch follows and reports as a 200. Only a JSON "success" counts.
+            try { const d = await r.json(); return !!(d && d.status === 'success'); }
+            catch (e) { return false; }
+        }
+
+        function serverSync(data) {
+            _syncLast = data;
+            clearTimeout(_syncTimer);
+            _syncTimer = setTimeout(() => serverSyncNow(data), 1500);
+        }
+
+        async function serverSyncNow(data) {
+            if (!data || !data.community) return;
+            if (_syncing) { _syncAgain = data; return; }
+            _syncing = true;
+            try {
+                const body = draftServerBody(data);
+                const shape = JSON.stringify([body.community, body.survey_type_id, body.responses,
+                                              body.action_items, body.notes, body.total]);
+                if (shape !== _syncShape) {
+                    try {
+                        const r = await fetch('/api/drafts/content', {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(body),
+                        });
+                        if (await draftOk(r)) _syncShape = shape;
+                    } catch (e) { /* offline: the next save or coming online retries */ }
+                }
+                await serverSyncPhotos(data);
+            } finally {
+                _syncing = false;
+                if (_syncAgain) { const next = _syncAgain; _syncAgain = null; serverSyncNow(next); }
+            }
+        }
+
+        function draftPhotoSlots(data) {
+            const out = {};
+            Object.keys((data && data.photos) || {}).forEach(q => {
+                const p = data.photos[q];
+                if (p && p.blob) out[q] = p;
+            });
+            if (data && data.notesPhoto && data.notesPhoto.blob) out.__notes__ = data.notesPhoto;
+            return out;
+        }
+
+        async function serverSyncPhotos(data) {
+            const current = draftPhotoSlots(data);
+            for (const slot of Object.keys(current)) {
+                const p = current[slot];
+                const sig = `${p.name || 'photo.jpg'}|${p.blob.size}`;
+                if (_photoSent[slot] === sig) continue;
+                const fd = new FormData();
+                fd.append('community', data.community);
+                fd.append('survey_type_id', data.surveyTypeId);
+                fd.append('slot', slot);
+                fd.append('photo', p.blob, p.name || 'photo.jpg');
+                try {
+                    const r = await fetch('/api/drafts/photo', { method: 'POST', body: fd });
+                    if (await draftOk(r)) _photoSent[slot] = sig;
+                } catch (e) { /* retried with the next save */ }
+            }
+            for (const slot of Object.keys(_photoSent)) {
+                if (current[slot]) continue;
+                try {
+                    const r = await fetch('/api/drafts/photo', {
+                        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ community: data.community,
+                                               survey_type_id: data.surveyTypeId, slot }),
+                    });
+                    if (await draftOk(r)) delete _photoSent[slot];
+                } catch (e) { /* retried with the next save */ }
+            }
+        }
+
+        window.addEventListener('online', () => { if (_syncLast) serverSyncNow(_syncLast); });
+
+        /* The server's copy, if any, for this community and survey type. Given
+           a few seconds: a phone with no signal must not sit on a blank form
+           waiting for it. */
+        async function draftFetchRemote() {
             const community = selectedCommunity || userCommunity || '';
-            if (!community) return;
-            const answered = Object.keys((data && data.responses) || {}).length;
-            const total = (questions || []).length;
-            // One call per real change, not one per keystroke.
-            const shape = `${community}|${answered}|${total}`;
-            if (shape === _noticeLast) return;
-            _noticeLast = shape;
-            fetch('/api/drafts', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    community, survey_type_id: '{{ survey_type_id }}',
-                    answered, total, device: draftDevice(),
-                }),
-            }).catch(() => { _noticeLast = ''; });   // offline: try again next save
+            if (!community) return null;
+            const qs = new URLSearchParams({ community, survey_type_id: '{{ survey_type_id }}' });
+            const ask = fetch('/api/drafts/content?' + qs.toString())
+                .then(r => r.json()).then(d => (d && d.status === 'success') ? d.draft : null)
+                .catch(() => null);
+            const wait = new Promise(res => setTimeout(() => res(null), 5000));
+            return Promise.race([ask, wait]);
+        }
+
+        function remoteHasContent(r) {
+            return !!r && (Object.keys(r.responses || {}).length > 0
+                || (r.action_items || []).length > 0
+                || (r.notes || '').trim() !== ''
+                || Object.keys(r.photos || {}).length > 0);
+        }
+
+        /* The server's copy, in the shape the phone stores and draftApply
+           reads. Photos are fetched back into files so the visit can be
+           submitted from this device exactly as if they had been taken here. */
+        async function draftFromRemote(r, key) {
+            const community = selectedCommunity || userCommunity || '';
+            const photos = {};
+            let notesPhoto = null, missing = 0;
+            for (const slot of Object.keys(r.photos || {})) {
+                const meta = r.photos[slot] || {};
+                try {
+                    const qs = new URLSearchParams({ community, survey_type_id: '{{ survey_type_id }}', slot });
+                    const resp = await fetch('/api/drafts/photo?' + qs.toString());
+                    if (!resp.ok) throw new Error('photo ' + resp.status);
+                    const blob = await resp.blob();
+                    const item = { name: meta.name || 'photo.jpg', type: meta.type || blob.type || 'image/jpeg', blob };
+                    if (slot === '__notes__') notesPhoto = item; else photos[slot] = item;
+                } catch (e) { missing++; }
+            }
+            return {
+                draft: {
+                    id: key, community, surveyTypeId: '{{ survey_type_id }}',
+                    savedAt: r.saved_at || Date.now(),
+                    responses: r.responses || {}, photos,
+                    actionItems: r.action_items || [], notes: r.notes || '', notesPhoto,
+                },
+                missing,
+            };
         }
 
         function noticeClear() {
@@ -1813,7 +1948,8 @@
            Greystone that way: his dashboard said 33 at 6:48, he opened the
            form, and at 6:49 the server was told 1. Restoring first leaves no
            moment in which the visit on screen is not the visit on file. */
-        function draftOfferFresh(d) {
+        function draftOfferFresh(d, how) {
+            how = how || {};
             const host = document.getElementById('draftBanner');
             if (!host) return;
             const n = Object.keys(d.responses || {}).length;
@@ -1825,7 +1961,9 @@
                 <div class="draft-banner">
                     <div class="draft-banner-main">
                         <b><i class="fas fa-rotate-left"></i> Picked up where you left off</b>
-                        <span>Saved ${draftAgo(d.savedAt)} — ${bits.join(', ')}.</span>
+                        <span>Saved ${draftAgo(d.savedAt)} — ${bits.join(', ')}.${
+                            how.fromServer ? ' Restored from your account.' : ''}${
+                            how.missing ? ` ${how.missing} photo${how.missing === 1 ? '' : 's'} could not be loaded — retake ${how.missing === 1 ? 'it' : 'them'} before sending.` : ''}</span>
                     </div>
                     <div class="draft-banner-actions">
                         <button type="button" class="draft-btn-ghost" id="draftFreshBtn">Start fresh</button>
@@ -1860,20 +1998,45 @@
             if (banner) banner.style.display = 'none';
             const key = draftKey();
             if (!key) return;
+            let local = null, remote = null;
             try {
                 await draftPrune();
-                const existing = await draftLoad(key);
-                if (existing && !draftIsEmpty(existing)) {
-                    // On screen before autosave is switched on below, so the
-                    // first save can only ever write back what was restored.
-                    draftApply(existing);
-                    draftOfferFresh(existing);
-                }
+                [local, remote] = await Promise.all([draftLoad(key), draftFetchRemote()]);
             } catch (e) {
                 console.warn('drafts unavailable:', e);
                 return;   // private browsing or blocked storage: form still works
             }
+            if (local && draftIsEmpty(local)) local = null;
+
+            // What the server already holds, so photos it has are not sent again.
+            _photoSent = {};
+            Object.keys((remote && remote.photos) || {}).forEach(slot => {
+                const m = remote.photos[slot] || {};
+                _photoSent[slot] = `${m.name || 'photo.jpg'}|${m.size || 0}`;
+            });
+
+            // The newer of the two copies wins. The phone's own is the usual
+            // case; the server's is the one that saves a visit started in
+            // another browser, on another phone, or lost on this one.
+            let chosen = local, fromServer = false, missing = 0;
+            if (remoteHasContent(remote) && (!local || (remote.saved_at || 0) > (local.savedAt || 0))) {
+                const got = await draftFromRemote(remote, key);
+                chosen = got.draft; fromServer = true; missing = got.missing;
+            }
+
+            if (chosen) {
+                // On screen before autosave is switched on below, so the
+                // first save can only ever write back what was restored.
+                draftApply(chosen);
+                draftOfferFresh(chosen, { fromServer, missing });
+                if (fromServer) {
+                    try { (await draftTx('readwrite')).put(chosen); } catch (e) { /* phone copy is a bonus here */ }
+                }
+            }
             _draftReady = true;
+            // A phone copy the server has not seen yet (saved with no signal)
+            // goes up now rather than waiting for the next edit.
+            if (chosen && !fromServer) serverSyncNow(chosen);
         }
 
         // Save on any edit, and immediately whenever the page is about to be
