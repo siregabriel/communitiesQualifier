@@ -51,6 +51,11 @@ Push to `main` → GitHub Actions runs both suites as a gate → SSH →
 - Accounts live in **two** stores: `users.json` (admins, EDs, admin-created) and
   the leadership lists in `regions.json` (regionals and the Corporate group).
   Anything that looks accounts up must check both.
+- Role names: stored `staff` = **Executive Director**; stored `team` = shown as
+  **Staff** (a community's team: chef, maintenance…). `team`: one community, no
+  "Also covers", sees its items (never internal), comments and raises, never
+  closes/visits, no move-ins, no ED email (`community_account_emails` is
+  `staff` only). `TEAM_ROLE` / `is_team()` in app.py.
 - A regional's scope *is* their region. No region → `regional_communities()`
   returns `[]` and they see nothing. Corporate members are in the `corporate`
   group, whose `kind` grants every community.

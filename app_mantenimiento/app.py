@@ -1030,6 +1030,20 @@ def _stored_role():
 LEADERSHIP_ROLES = ('regional', 'corporate')
 
 
+# A member of a community's team — the maintenance lead, the chef, the business
+# office — added under the ED (Laura Blakeman's list for The Goldton at
+# Venice). Shown as "Staff". Stored as 'team' because 'staff' already means an
+# Executive Director everywhere in this file, and reusing it would have handed
+# every one of them the ED's emails, reminders and the right to close items.
+TEAM_ROLE = 'team'
+
+
+def is_team(role=None):
+    """A community team member: one community, sees its open items, comments
+    and raises issues; never closes, never visits, gets no ED email."""
+    return (role or current_role()) == TEAM_ROLE
+
+
 def is_leadership(role=None):
     """True for regional and corporate accounts."""
     return (role or current_role()) in LEADERSHIP_ROLES
@@ -1261,6 +1275,8 @@ def role_label_for(role, community=None):
     email, so fixing one left the others saying "Staff"."""
     if role == 'staff':
         return f"Executive Director · {community}" if community else 'Executive Director'
+    if role == TEAM_ROLE:
+        return f"Staff · {community}" if community else 'Staff'
     return {'admin': 'Administrator',
             'regional': 'Regional',
             'corporate': 'Corporate'}.get(role, (role or '').capitalize())
@@ -2446,6 +2462,10 @@ def _movein_blockers(rec):
 def _movein_allowed_communities():
     """Communities the current user may see move-ins for, or None = all (admin)."""
     role = current_role()
+    # Move-ins name residents. The community's team sees open items, not who
+    # is moving in.
+    if is_team():
+        return set()
     if is_admin():
         return None
     if is_leadership(role):
@@ -3401,7 +3421,7 @@ def _community_account_usernames():
     Used to tell apart the two sides of a comment thread: a community saying
     "this is fixed" is a request, leadership replying is an answer."""
     return {u.get('username') for u in user_service.get_all()
-            if u.get('role') == 'staff' and u.get('username')}
+            if u.get('role') in ('staff', TEAM_ROLE) and u.get('username')}
 
 
 def _days_since(iso_ts):
@@ -4102,6 +4122,12 @@ def resolve_raised_item(item_id):
         return jsonify({'status': 'error',
                         'message': 'The community closes its own items. '
                                    'Add a comment to reply.'}), 403
+    # The community closes its own — through its Executive Director. Team
+    # members comment ("done, here's the photo"); the ED marks it done.
+    if not is_admin() and is_team():
+        return jsonify({'status': 'error',
+                        'message': 'Your Executive Director closes items. '
+                                   'Add a comment to say it is done.'}), 403
 
     data = request.get_json(silent=True) or {}
     resolved = data.get('resolved', True) is not False
@@ -4217,6 +4243,12 @@ def notify_raised_item_comment(item, comment):
     # Executive Director it was written about.
     if not raised_item_service.is_internal(item):
         for addr in community_account_emails(community, exclude_username=author):
+            if addr not in recipients:
+                recipients.append(addr)
+        # Earlier voices on the thread, as with comments on a standard. Not on
+        # an internal item: nobody from the community can be on that thread,
+        # and if somebody once was, they are not to hear more of it.
+        for addr in _thread_emails(item.get('comments') or [], author):
             if addr not in recipients:
                 recipients.append(addr)
     if not recipients:
@@ -4563,6 +4595,20 @@ def delete_standard_comment(submission_id, question_id, comment_id):
     return jsonify({'status': 'success'}), 200
 
 
+def _thread_emails(comments, author):
+    """Addresses of the people who already wrote on a thread, except the
+    person writing now."""
+    out = []
+    for c in comments or []:
+        who = (c.get('username') or '').strip()
+        if not who or who == author:
+            continue
+        addr = (resolve_account_context(who).get('email') or '').strip()
+        if addr and addr not in out:
+            out.append(addr)
+    return out
+
+
 def notify_comment(sub, question_id, comment):
     """Tell everyone on the other side of the conversation.
 
@@ -4587,6 +4633,14 @@ def notify_comment(sub, question_id, comment):
             recipients.append(addr)
     # The community's own account, unless they are the one who just wrote.
     for addr in community_account_emails(sub.get('community', ''), exclude_username=author):
+        if addr not in recipients:
+            recipients.append(addr)
+    # And whoever already wrote on this item. A Staff member (the community's
+    # chef, its maintenance lead) gets no ED email, so a reply to something
+    # they said would otherwise never reach them.
+    thread = next((r.get('comments') or [] for r in sub.get('responses', [])
+                   if r.get('question_id') == question_id), [])
+    for addr in _thread_emails(thread, author):
         if addr not in recipients:
             recipients.append(addr)
     if not recipients:
@@ -4862,7 +4916,7 @@ def _scope_complaint(role, region_id, community):
     expensive half: an Executive Director without a community is obviously
     unfinished, and a regional without a region looks complete.
     """
-    if role == 'staff' and not community:
+    if role in ('staff', TEAM_ROLE) and not community:
         return 'Pick a community for staff'
     if role in ('regional', 'corporate'):
         if not region_id:
@@ -4888,9 +4942,11 @@ def create_person():
     name = InputSanitizer.sanitize_string(data.get('name', ''), max_length=120)
     email = InputSanitizer.sanitize_string(data.get('email', ''), max_length=160)
     title = InputSanitizer.sanitize_string(data.get('title', ''), max_length=80)
-    role = data.get('role') if data.get('role') in ('admin', 'staff', 'regional', 'corporate') else None
+    role = data.get('role') if data.get('role') in ('admin', 'staff', TEAM_ROLE, 'regional', 'corporate') else None
     region_id = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
     community = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
+    if role == TEAM_ROLE and community and community not in set(all_communities()):
+        return jsonify({'status': 'error', 'message': 'Pick a community from the list'}), 400
 
     if not name:
         return jsonify({'status': 'error', 'message': 'Name is required'}), 400
@@ -4923,12 +4979,19 @@ def create_person():
         profile_service.set_password_hash(username, pw_hash)
         scope = dest.get('name')
     else:
+        # Staff belong to one community. "Also covers" is an Executive
+        # Director's — one can stand in for a neighbour; a chef cannot.
+        if role == 'staff':
+            covers = requested_communities(data, community)
+        elif role == TEAM_ROLE:
+            covers = [community]
+        else:
+            covers = None
         user_service.create(username, display_name=name, role=role, password_hash=pw_hash,
-                            community=community if role == 'staff' else None,
-                            communities=(requested_communities(data, community)
-                                         if role == 'staff' else None),
+                            community=community if role in ('staff', TEAM_ROLE) else None,
+                            communities=covers,
                             region_id=None, created_by=session.get('user'), email=email or None)
-        scope = community if role == 'staff' else 'All communities'
+        scope = community if role in ('staff', TEAM_ROLE) else 'All communities'
 
     profile_service.set_display_name(username, name)
     profile_service.set_must_change(username, True)
@@ -4984,10 +5047,14 @@ def update_person(username):
     if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
         return jsonify({'status': 'error', 'message': 'Enter a valid email address'}), 400
 
-    requested_role = data.get('role') if data.get('role') in ('admin', 'staff', 'regional', 'corporate') else None
+    requested_role = data.get('role') if data.get('role') in ('admin', 'staff', TEAM_ROLE, 'regional', 'corporate') else None
     target_region = InputSanitizer.sanitize_string(data.get('region_id', ''), max_length=50)
     community = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
     communities = requested_communities(data, community)
+    # One community for Staff, whatever the form sends. "Also covers" is an
+    # Executive Director's.
+    if requested_role == TEAM_ROLE:
+        communities = [community] if community else []
 
     # Same check as creating one. Editing somebody into an empty scope is the
     # likelier mistake of the two, because the account already worked.
@@ -5009,7 +5076,7 @@ def update_person(username):
     if leader is not None:
         current_region = region.get('id')
         old_name = leader.get('name', '')
-        moving_off_roster = requested_role in ('admin', 'staff')
+        moving_off_roster = requested_role in ('admin', 'staff', TEAM_ROLE)
 
         if moving_off_roster:
             # Becomes a stored account; keep their login and password working.
@@ -5019,12 +5086,12 @@ def update_person(username):
             profile_service.set_all_communities(username, False)
             if not user_service.exists(username):
                 user_service.ensure(username, display_name=name, role=requested_role,
-                                    community=community if requested_role == 'staff' else None,
+                                    community=community if requested_role in ('staff', TEAM_ROLE) else None,
                                     email=email, created_by=session.get('user'))
             else:
                 user_service.update(username, display_name=name, role=requested_role,
-                                    community=community if requested_role == 'staff' else None,
-                                    communities=(communities if requested_role == 'staff' else []),
+                                    community=community if requested_role in ('staff', TEAM_ROLE) else None,
+                                    communities=(communities if requested_role in ('staff', TEAM_ROLE) else []),
                                     email=email)
             profile_service.set_display_name(username, name)
             activity_service.log(session.get('user'), 'person_updated',
@@ -6052,6 +6119,9 @@ def get_user_info():
         # role looking like a community account.
         'can_run_visits': can_run_visits(),
         'can_verify_fixes': can_verify_fixes(),
+        # The community closes the items it raised — through its ED. Staff
+        # comment instead, so the page must not offer them the button.
+        'can_close_raised': not is_team(),
         'region_id': region_id,
         'region_name': region_name,
         # How often a community is meant to be visited. The community cards use

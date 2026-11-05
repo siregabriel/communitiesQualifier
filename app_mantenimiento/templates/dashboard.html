@@ -2142,6 +2142,7 @@
         .pr-corp   { background: #e7edf7; color: #00285c; }
         .pr-region { background: #eef2ff; color: #3730a3; }
         .pr-staff  { background: #f1f5f9; color: #475569; }
+        .pr-team   { background: #ecfdf5; color: #047857; }
         .ppl-noemail { color: #b42318; font-weight: 600; }
         /* Sign-in activity */
         .ppl-online { color: #0f6b4a; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
@@ -2206,6 +2207,7 @@
         html[data-theme="dark"] .pr-corp { background: rgba(31,111,229,.20); color: #9cc4ff; }
         html[data-theme="dark"] .pr-region { background: rgba(99,102,241,.20); color: #b3b6ff; }
         html[data-theme="dark"] .pr-staff { background: #1b2537; color: #c2cddd; }
+        html[data-theme="dark"] .pr-team { background: #10302a; color: #6ee7b7; }
         html[data-theme="dark"] .ppl-noemail { color: #ff9d85; }
         html[data-theme="dark"] .ppl-online { color: #5fd6a3; }
         html[data-theme="dark"] .ppl-never { color: #f2c94c; }
@@ -3008,6 +3010,7 @@
 
         let isAdmin = false;
         let canVerifyFixes = false;   // may close out a failed standard
+        let canCloseRaised = true;    // may mark a raised item done (not Staff)
         let canRunVisits = false;     // may carry out a visit
         let currentUsername = '';
         let currentUserCommunity = '';
@@ -5013,6 +5016,7 @@
                 isAdmin = data.is_admin;
                 canVerifyFixes = !!data.can_verify_fixes;
                 canRunVisits = !!data.can_run_visits;
+                canCloseRaised = data.can_close_raised !== false;
                 if (data.visit_cadence_days) visitCadenceDays = data.visit_cadence_days;
                 currentUserCommunities = data.communities || [];
                 if (typeof updateCommunityLayoutSwitch === 'function') updateCommunityLayoutSwitch();
@@ -7456,7 +7460,9 @@
                 internal: r.visibility === 'internal',
                 // Only the community it belongs to may close it — a regional
                 // reading the same list replies instead.
-                mine: isAdmin || (currentUserCommunities || []).includes(r.community || ''),
+                // Theirs to close: the community's own items, closed by its ED.
+                // Staff see them and comment; the server refuses them anyway.
+                mine: isAdmin || (canCloseRaised && (currentUserCommunities || []).includes(r.community || '')),
             }));
 
             const findings = pool.map(it => ({
@@ -9084,6 +9090,7 @@
                 corporate: { label: 'Corporate',     cls: 'pr-corp',   icon: 'fa-building-columns' },
                 regional:  { label: 'Regional',      cls: 'pr-region', icon: 'fa-sitemap' },
                 staff:     { label: 'Executive Director', cls: 'pr-staff',  icon: 'fa-user-tie' },
+                team:      { label: 'Staff',         cls: 'pr-team',   icon: 'fa-user' },
             };
             const list = d.people.filter(p => {
                 if (peopleFilter.role !== 'all' && p.role !== peopleFilter.role) return false;
@@ -9154,6 +9161,7 @@
                         ${chip('corporate', 'Corporate', d.counts.corporate || 0)}
                         ${chip('regional', 'Regional', d.counts.regional || 0)}
                         ${chip('staff', 'Directors', d.counts.staff || 0)}
+                        ${chip('team', 'Staff', d.counts.team || 0)}
                     </div>
                     ${d.online_now ? `<span class="ppl-online" style="font-size:12px;"><span class="ppl-dot"></span> ${d.online_now} in the app now</span>` : ''}
                 </div>
@@ -9184,7 +9192,7 @@
                                 <option value="regional">Regional — one region</option>
                                 <option value="corporate">Corporate — company-wide</option>
                                 <option value="staff">Executive Director — one community</option>
-                                <option value="staff">Area Manager - one community</option>
+                                <option value="team">Staff — one community</option>
                                 <option value="admin">Administrator — full access</option>
                             </select></div>
                         <div id="apTitleWrap"><label class="mi-label">Title</label>
@@ -9218,7 +9226,12 @@
             const onRoster = (role === 'regional' || role === 'corporate');
             document.getElementById('apTitleWrap').style.display = onRoster ? '' : 'none';
             document.getElementById('apRegionWrap').style.display = onRoster ? '' : 'none';
-            document.getElementById('apCommunityWrap').style.display = (role === 'staff') ? '' : 'none';
+            document.getElementById('apCommunityWrap').style.display = (role === 'staff' || role === 'team') ? '' : 'none';
+            // "Also covers" is an Executive Director's: one can stand in for a
+            // neighbouring community. Staff belong to one.
+            const apExtra = document.getElementById('apExtraWrap');
+            if (apExtra && role === 'team') apExtra.style.display = 'none';
+            else if (role === 'staff') apRenderExtraComms();
             const sel = document.getElementById('apRegion');
             if (sel) {
                 Array.from(sel.options).forEach(o => {
@@ -9230,6 +9243,7 @@
             }
             note.textContent = {
                 staff: 'Sees their own community only: what a visit found, its history, and their move-ins. They comment on items to report a fix — a regional reviews and closes it. They do not run visits.',
+                team: 'A member of the community\'s team. Sees its open items, can comment on them and raise issues. Cannot close items or run visits, and gets none of the Executive Director\'s emails or reminders.',
                 regional: 'Can inspect every community in their region.',
                 corporate: 'Company-wide access: can visit any community and see every region.',
                 admin: 'Full access, including standards, people and settings. Admins do not submit visits.',
@@ -9251,8 +9265,9 @@
                 body.community = document.getElementById('apCommunity').value;
                 body.communities = checkedCoverage('apExtraComms');
             }
+            if (role === 'team') body.community = document.getElementById('apCommunity').value;
             if (!body.name) { msg.textContent = 'Enter a name.'; msg.classList.add('error'); return; }
-            if (role === 'staff' && !body.community) { msg.textContent = 'Pick a community.'; msg.classList.add('error'); return; }
+            if ((role === 'staff' || role === 'team') && !body.community) { msg.textContent = 'Pick a community.'; msg.classList.add('error'); return; }
             try {
                 const r = await fetch('/api/people', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -9299,6 +9314,7 @@
             const wrap = document.getElementById('apExtraWrap');
             const list = document.getElementById('apExtraComms');
             if (!sel || !wrap || !list) return;
+            if (document.getElementById('apRole')?.value === 'team') { wrap.style.display = 'none'; return; }
             wrap.style.display = sel.value ? '' : 'none';
             if (sel.value) list.innerHTML = coverageChecklist(sel.value, []);
         }
@@ -9400,6 +9416,7 @@
                         <div><label class="mi-label">Role</label>
                             <select id="peRole" class="pw-input" style="width:100%;" onchange="peOnRoleChange()">
                                 <option value="staff" ${p.role === 'staff' ? 'selected' : ''}>Executive Director — one community</option>
+                                <option value="team" ${p.role === 'team' ? 'selected' : ''}>Staff — one community</option>
                                 <option value="regional" ${p.role === 'regional' ? 'selected' : ''}>Regional — one region</option>
                                 <option value="corporate" ${p.role === 'corporate' ? 'selected' : ''}>Corporate — company-wide</option>
                                 <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>Administrator — full access</option>
@@ -9481,7 +9498,9 @@
             const onRoster = (role === 'regional' || role === 'corporate');
             titleW.style.display = onRoster ? '' : 'none';
             regionW.style.display = onRoster ? '' : 'none';
-            commW.style.display = (role === 'staff') ? '' : 'none';
+            commW.style.display = (role === 'staff' || role === 'team') ? '' : 'none';
+            const covExtra = commW.querySelector('.cov-extra');
+            if (covExtra) covExtra.style.display = (role === 'team') ? 'none' : '';
             // Only a regional has a region to stay in while reaching further.
             const allW = document.getElementById('peAllWrap');
             if (allW) allW.style.display = (role === 'regional') ? '' : 'none';
@@ -9503,6 +9522,7 @@
             }
             const notes = {
                 staff: 'Sees their own community only: what a visit found, its history, and their move-ins. They comment on items to report a fix — a regional reviews and closes it. They do not run visits.',
+                team: 'A member of the community\'s team. Sees its open items, can comment on them and raise issues. Cannot close items or run visits, and gets none of the Executive Director\'s emails or reminders.',
                 regional: 'Gets a regional login and can inspect every community in that region.',
                 corporate: 'Company-wide access: can visit any community and see every region.',
                 admin: 'Full access, including standards, people and settings. Admins do not submit visits.',
@@ -9595,6 +9615,8 @@
                 body.community = cm.value.trim();
                 body.communities = checkedCoverage('peExtraComms');
             }
+            // Staff: one community, never the "Also covers" list.
+            if (cm && role === 'team') body.community = cm.value.trim();
             if (!body.name) { msg.textContent = 'Name is required.'; msg.classList.add('error'); return; }
             try {
                 const r = await fetch(`/api/people/${encodeURIComponent(username)}`, {
