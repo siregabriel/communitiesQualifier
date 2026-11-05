@@ -246,7 +246,8 @@ class InspectionService(JsonFileBacked):
                          inspector_name: Optional[str] = None,
                          action_items: Optional[List[Dict]] = None,
                          standards_total: Optional[int] = None,
-                         notes: str = '', notes_photo: str = '') -> Dict:
+                         notes: str = '', notes_photo: str = '',
+                         sent_on_behalf: Optional[Dict] = None) -> Dict:
         """
         Create new inspection submission.
         
@@ -311,6 +312,12 @@ class InspectionService(JsonFileBacked):
         # Add survey_type_id if provided (backward compatibility)
         if survey_type_id:
             submission['survey_type_id'] = survey_type_id
+
+        # Sent from the inspector's unfinished draft by an administrator. Only
+        # the date is kept here; who did it is in the activity log, since the
+        # visit itself says "Excellence Administrator" (Gabriel's choice).
+        if sent_on_behalf and sent_on_behalf.get('at'):
+            submission['sent_on_behalf'] = {'at': str(sent_on_behalf['at'])}
 
         # How many standards the survey held when this was walked.
         #

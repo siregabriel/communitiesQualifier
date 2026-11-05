@@ -1024,8 +1024,11 @@ console.log("\nAn administrator seeing somebody else's unfinished visit");
   ok(!!theirs, "the one that is not theirs to open is marked as such");
   ok(theirs.tagName !== 'A' && !theirs.hasAttribute('href'),
      'and is not a link — it would open an empty form on this device');
-  ok(!theirs.querySelector('.dn-go'),
-     'and shows no chevron promising somewhere to go');
+  // It used to lead nowhere, and showed no chevron. Since Nov 2026 an
+  // administrator opens a read-only review of it (Remind, Send on their behalf).
+  ok(theirs.classList.contains('is-reviewable') && theirs.dataset.draftUser
+     && theirs.dataset.draftCommunity && theirs.dataset.draftType !== undefined,
+     'it opens the read-only review instead, carrying who, where and which visit');
   ok(/Angie Surls/.test(theirs.textContent),
      'it names the person, so they can be told where their work is');
   ok(/One Loudoun/.test(theirs.textContent) && /7 of 39/.test(theirs.textContent)

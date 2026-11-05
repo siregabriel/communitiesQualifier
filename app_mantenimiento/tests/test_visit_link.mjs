@@ -165,6 +165,7 @@ console.log('\nThe header stops calling an old visit the last one');
     function panelCoverHtml() { return ''; }
     function renderStats() { return ''; }
     function renderVisitNote() { return ''; }
+    function renderOnBehalfNote() { return ''; }
     function renderResponses() { return ''; }
     function renderPhotos() { return ''; }
     function loadCommunityHistory() {}

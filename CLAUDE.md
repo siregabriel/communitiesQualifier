@@ -119,6 +119,13 @@ Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost
   the community rename walk.
 - Submitting still uploads photos from the phone; reusing the draft photos
   already in the bucket was deliberately left for later.
+- Owners are reminded at 3 and 11 quiet days (`REMIND_AT_DAYS`) by
+  `send_reminders.py` (same dry-run/weekend/pause rules). Admins: read-only
+  review, Remind, and "Send on their behalf" (`/api/drafts/send-on-behalf`):
+  filed as the owner's visit, marked "Sent by Excellence Administrator on
+  <date> on behalf of <name>" — the admin is **never named** on the visit or
+  emails (Gabriel's choice), only in the activity log. Post-visit emails live
+  in `_send_visit_emails()`, shared with the normal submit.
 
 ## Pitfalls already paid for
 

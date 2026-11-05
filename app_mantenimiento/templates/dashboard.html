@@ -2989,14 +2989,20 @@
                             <span class="dn-meta">${escapeHtml(progress)} · started ${escapeHtml(timeAgo(d.started_at))}${
                                 d.device ? ' · on ' + escapeHtml(d.device) : ''}</span>
                         </span>`;
-                // Not a link: the content belongs to the person who started it
-                // and the server gives it to nobody else, so following one here
-                // would open an empty form — the confusion this exists to end.
+                // Not a link into the form: the content belongs to the person
+                // who started it. An administrator opens a read-only review
+                // instead, with Remind and Send on their behalf (Greg
+                // Crutcher's Greystone visit, Nov 2026). Wired by delegation.
                 if (d.mine === false) {
                     return `
-                    <div class="dn-row is-theirs">
+                    <div class="dn-row is-theirs is-reviewable" role="button" tabindex="0"
+                         data-draft-user="${escapeHtml(d.username || '')}"
+                         data-draft-community="${escapeHtml(d.community || '')}"
+                         data-draft-type="${escapeHtml(d.survey_type_id || '')}"
+                         title="Open this unfinished visit">
                         ${body}
                         <span class="dn-who">${escapeHtml(d.display_name || d.username || '')}</span>
+                        <i class="fas fa-chevron-right dn-go"></i>
                     </div>`;
                 }
                 return `
@@ -3014,6 +3020,119 @@
                         finish it. Nothing has been sent yet.${theirs ? ' Visits started by\n                        someone else are listed so you can tell them where the work is; only\n                        they can open or discard it.' : ''}</p>
                     ${rows}
                 </section>`;
+        }
+
+        /* ---- An administrator's view of somebody's unfinished visit ---- */
+        document.addEventListener('click', e => {
+            const row = e.target.closest('.dn-row.is-reviewable[data-draft-user]');
+            if (row) openDraftReview(row.dataset.draftUser, row.dataset.draftCommunity, row.dataset.draftType);
+        });
+
+        function draftReviewQuery(dr) {
+            return new URLSearchParams({ username: dr.username, community: dr.community,
+                                         survey_type_id: dr.survey_type_id }).toString();
+        }
+
+        async function openDraftReview(username, community, surveyType) {
+            const modal = document.getElementById('personModal');
+            const body = document.getElementById('personModalBody');
+            if (!modal || !body) return;
+            body.innerHTML = '<div class="activity-empty">Loading…</div>';
+            modal.classList.add('show');
+            let dr;
+            try {
+                const r = await fetch('/api/drafts/review?' + new URLSearchParams(
+                    { username, community, survey_type_id: surveyType }).toString());
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') throw new Error(d.message || 'not found');
+                dr = d.draft;
+            } catch (e) {
+                body.innerHTML = `<div class="activity-empty">${escapeHtml(e.message ||
+                    'This unfinished visit is only on its owner\'s phone, so it cannot be opened here.')}</div>`;
+                return;
+            }
+            body.innerHTML = draftReviewHtml(dr);
+            wireDraftReview(dr);
+        }
+
+        function draftReviewHtml(dr) {
+            const q = draftReviewQuery(dr);
+            const answered = dr.items.filter(i => i.condition === 'Pass' || i.condition === 'Fail');
+            const missing = dr.items.length - answered.length;
+            const row = i => {
+                const chip = i.condition === 'Pass' ? '<span class="drv-chip drv-pass">Pass</span>'
+                    : i.condition === 'Fail' ? '<span class="drv-chip drv-fail">Fail</span>'
+                    : '<span class="drv-chip drv-none">Not answered</span>';
+                const warn = i.condition === 'Fail' && !(i.description || '').trim()
+                    ? '<div class="drv-warn">No comment yet</div>' : '';
+                const photo = i.has_photo
+                    ? `<img class="drv-photo" loading="lazy" alt="" src="/api/drafts/review/photo?${q}&slot=${encodeURIComponent(i.question_id)}">` : '';
+                return `<div class="drv-item${i.condition ? '' : ' drv-blank'}">${chip}
+                    <div class="drv-text"><div>${escapeHtml(i.text)}</div>${
+                        i.description ? `<div class="drv-desc">${escapeHtml(i.description)}</div>` : ''}${warn}</div>${photo}</div>`;
+            };
+            return `<div class="drv">
+                <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:2px;">Unfinished visit</h2>
+                <p class="drv-meta">${escapeHtml(dr.owner)} · ${escapeHtml(dr.community)}${
+                    dr.survey_name ? ' · ' + escapeHtml(dr.survey_name) : ''}<br>
+                    ${answered.length} of ${dr.total} answered${missing ? ` · ${missing} not answered` : ''}${
+                    dr.fails_without_comment ? ` · <b>${dr.fails_without_comment} Fail without a comment</b>` : ''} ·
+                    last saved ${escapeHtml(timeAgo(dr.updated_at))}</p>
+                <p class="drv-ro"><i class="fas fa-lock"></i> Read-only. Only ${escapeHtml(dr.owner)} can change it.</p>
+                ${dr.notes ? `<div class="drv-notes"><b>Notes</b><div>${escapeHtml(dr.notes)}</div></div>` : ''}
+                ${(dr.action_items || []).length ? `<div class="drv-notes"><b>Action items</b>${
+                    dr.action_items.map(a => `<div>• ${escapeHtml(a.text)}${a.assigned_to ? ' — ' + escapeHtml(a.assigned_to) : ''}</div>`).join('')}</div>` : ''}
+                <div class="drv-list">${dr.items.map(row).join('')}</div>
+                <div class="drv-actions">
+                    <button class="btn btn-secondary" id="drvRemind"><i class="fas fa-bell"></i> Remind ${escapeHtml(dr.owner.split(' ')[0])}</button>
+                    <button class="btn btn-primary" id="drvSend"><i class="fas fa-paper-plane"></i> Send on their behalf</button>
+                    <button class="btn btn-secondary" id="drvClose">Close</button>
+                    <span class="pw-msg" id="drvMsg"></span>
+                </div>
+            </div>`;
+        }
+
+        function wireDraftReview(dr) {
+            const msg = document.getElementById('drvMsg');
+            const say = (text, bad) => { msg.className = 'pw-msg ' + (bad ? 'error' : 'ok'); msg.textContent = text; };
+            const ids = { username: dr.username, community: dr.community, survey_type_id: dr.survey_type_id };
+            document.getElementById('drvClose').onclick = () => closePersonModal();
+            document.getElementById('drvRemind').onclick = async () => {
+                try {
+                    const r = await fetch('/api/drafts/remind', { method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ids) });
+                    const d = await r.json();
+                    say(d.message || (r.ok ? 'Reminder sent.' : 'Could not send it.'), !r.ok);
+                } catch (e) { say('Could not reach the server.', true); }
+            };
+            document.getElementById('drvSend').onclick = async () => {
+                const answered = dr.items.filter(i => i.condition === 'Pass' || i.condition === 'Fail').length;
+                const lines = [
+                    `Send ${dr.owner}'s visit to ${dr.community} on their behalf?`, '',
+                    `${answered} of ${dr.total} standards answered.`
+                        + (answered < dr.total ? ' It will be marked as a partial visit.' : ''),
+                ];
+                if (dr.fails_without_comment) {
+                    lines.push(`${dr.fails_without_comment} Fail without a comment will say none was written.`);
+                }
+                lines.push('', `It will read "Sent by Excellence Administrator on behalf of ${dr.owner}", `
+                    + `go to the community and the region like any visit, and ${dr.owner} will be emailed.`);
+                if (!confirm(lines.join('\n'))) return;
+                try {
+                    const r = await fetch('/api/drafts/send-on-behalf', { method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...ids, confirm: true }) });
+                    const d = await r.json();
+                    if (!r.ok || d.status !== 'success') { say(d.message || 'Could not send it.', true); return; }
+                    say('Sent.', false);
+                    setTimeout(async () => {
+                        closePersonModal();
+                        if (typeof loadDraftNotices === 'function') await loadDraftNotices();
+                        // Redraw whatever is on screen, so the row disappears.
+                        if (typeof showView === 'function' && typeof currentView !== 'undefined') showView(currentView);
+                    }, 900);
+                } catch (e) { say('Could not reach the server.', true); }
+            };
         }
 
         let raisedItems = [];
@@ -3551,6 +3670,7 @@
                     fixedSinceVisit: sc.fixed,
                     isLatest: isLatest,
                     partial: partialInfo(chosen),
+                    sentOnBehalf: chosen.sent_on_behalf || null,
                     notes: chosen.notes || '',
                     notesPhoto: chosen.notes_photo || '',
                     actionItems: actionItems,
@@ -3792,6 +3912,7 @@
             // Stats section
             html += renderStats(data.score, data.actionItems,
                                 data.visitScore, data.fixedSinceVisit, data.partial);
+            html += renderOnBehalfNote(data.sentOnBehalf, data.inspectorName);
             html += renderVisitNote(data.notes, data.notesPhoto);
             
             // Responses section
@@ -4071,6 +4192,17 @@
         }
 
         // Render Stats Section
+        /* A visit an administrator sent from somebody's unfinished draft says
+           so, so nobody reads it as the inspector's finished, reviewed visit.
+           The administrator is not named (Gabriel's choice). */
+        function renderOnBehalfNote(info, inspector) {
+            if (!info || !info.at) return '';
+            const d = new Date(info.at);
+            const when = isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return `<div class="panel-onbehalf"><i class="fas fa-paper-plane"></i>
+                Sent by Excellence Administrator${when ? ' on ' + escapeHtml(when) : ''} on behalf of ${escapeHtml(inspector || 'the inspector')}</div>`;
+        }
+
         function renderStats(score, actionItems, visitScore, fixedSinceVisit, partial) {
             const scoreClass = score === null ? 'na' :
                               score >= 80 ? 'success' :
@@ -7099,6 +7231,8 @@
             // The fix for most of those: somebody joined the address Atlerts
             // knows them by to their account here.
             atlerts_linked:         { icon: 'fa-link',            color: '#0f8a5f', verb: 'linked their Atlerts account' },
+            inspection_sent_on_behalf: { icon: 'fa-paper-plane',  color: '#92620a', verb: 'sent a visit on someone\'s behalf' },
+            draft_reminded:         { icon: 'fa-bell',            color: '#64748b', verb: 'reminded someone of an unfinished visit' },
             atlerts_unlinked:       { icon: 'fa-link-slash',      color: '#64748b', verb: 'unlinked an Atlerts account' },
             // A visit whose community never got its copy. Amber, not
             // red: the visit itself is fine and on file — what is

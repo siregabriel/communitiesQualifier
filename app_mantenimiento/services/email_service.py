@@ -16,6 +16,7 @@ a failed email must not break an inspection submission.
 import re
 import html
 import logging
+from datetime import datetime
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,22 @@ def _valid(addr):
 def _strip_tags(s):
     """Turn a small HTML fragment into readable plain text for the text part."""
     return html.unescape(re.sub(r'<[^>]+>', '', s or '')).strip()
+
+
+def sent_on_behalf_line(submission):
+    """'Sent by Excellence Administrator on Nov 7 on behalf of Greg Crutcher',
+    or '' for a visit its inspector sent. The administrator is never named
+    here — Gabriel's choice; who did it is in the activity log."""
+    info = (submission or {}).get('sent_on_behalf') or {}
+    if not info:
+        return ''
+    try:
+        when = datetime.fromisoformat(info.get('at') or '').strftime('%b %-d')
+    except (ValueError, TypeError):
+        when = ''
+    who = submission.get('inspector_name') or submission.get('username') or 'the inspector'
+    return (f"Sent by Excellence Administrator{' on ' + when if when else ''} "
+            f"on behalf of {who}")
 
 
 class EmailService:
@@ -104,6 +121,9 @@ class EmailService:
             f"Overall score: {score_txt}",
             f"Passed: {passed} / {total}    Failed: {failed}",
         ]
+        behalf = sent_on_behalf_line(submission)
+        if behalf:
+            lines += ["", behalf]
         note_for_text = (submission.get('notes') or '').strip()
         if note_for_text:
             lines += ["", f"Note from {inspector}:", f"  {note_for_text}"]
@@ -185,6 +205,12 @@ class EmailService:
                       f"<div style='font-size:11.5px;font-weight:800;color:#1f4f9e;"
                       f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px'>"
                       f"Note from {esc(inspector)}</div>{esc(note)}</div>") if note else ""
+        # Sent from an unfinished draft by an administrator: said up front, so
+        # nobody reads it as the inspector's finished, reviewed visit.
+        if behalf:
+            note_block = (f"<div style='margin:14px 0 4px;padding:11px 14px;background:#fffbeb;"
+                          f"border:1px solid #fde68a;border-radius:8px;font-size:13.5px;color:#7c5e10'>"
+                          f"{esc(behalf)}</div>") + note_block
 
         survey_row = (
             f"<tr><td style='color:#6b7280;padding:3px 12px 3px 0'>Survey type</td>"
@@ -452,6 +478,54 @@ and some checklist items are still open.</p>
                 + (f"{login}\n" if login else "")
                 + "Tip: with Atlerts on your phone you can skip passwords entirely — tap Excellence under Apps & Shortcuts.\n")
         return self._send([to_email], subject, self._shell("Password reset", body), text)
+
+    def send_draft_reminder(self, to_email, display_name, community, survey_name,
+                            answered, total, quiet_days, days_left, link=None):
+        """Tell somebody they have an unfinished visit, before it expires.
+
+        Unfinished visits are deleted, photos and all, after two weeks without a
+        save — until now without a word to anybody. Greg Crutcher's Greystone
+        visit sat for four days before anyone looked for it."""
+        if not self.enabled or not _valid(to_email or ''):
+            return (False, 'no recipient / disabled')
+        esc = html.escape
+        progress = f"{answered} of {total} answered" if total else f"{answered} answered"
+        when = 'today' if quiet_days == 0 else f"{quiet_days} day{'s' if quiet_days != 1 else ''} ago"
+        left = (f"It will be deleted in {days_left} day{'s' if days_left != 1 else ''} "
+                "if it isn't finished or saved again.") if days_left else "It will be deleted soon."
+        subject = f"Unfinished visit: {community}"
+        body = f"""\
+<p style="font-size:14px;margin:0 0 12px">Hi {esc(display_name)}, you have an unfinished visit in Atlas Excellence.</p>
+<table style="font-size:14px;border-collapse:collapse;margin-bottom:10px">
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Community</td><td style="font-weight:700">{esc(community)}</td></tr>
+  {f'<tr><td style="color:#6b7280;padding:3px 12px 3px 0">Visit</td><td>{esc(survey_name)}</td></tr>' if survey_name else ''}
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Progress</td><td>{esc(progress)}</td></tr>
+  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Last saved</td><td>{esc(when)}</td></tr>
+</table>
+<p style="font-size:14px;color:#92620a;margin:0 0 16px">{esc(left)}</p>
+{f'<a href="{esc(link)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Finish this visit</a>' if link else ''}
+<p style="font-size:13px;color:#6b7280;margin:16px 0 0">It is saved to your account, so you can finish it on any device.</p>"""
+        text = (f"Hi {display_name}, you have an unfinished visit at {community}"
+                + (f" ({survey_name})" if survey_name else "")
+                + f": {progress}, last saved {when}.\n{left}\n"
+                + (f"{link}\n" if link else "")
+                + "It is saved to your account, so you can finish it on any device.\n")
+        return self._send([to_email], subject, self._shell("Unfinished visit", body), text)
+
+    def send_sent_on_behalf(self, to_email, display_name, community, survey_name, sent_on):
+        """Tell somebody their unfinished visit was sent for them."""
+        if not self.enabled or not _valid(to_email or ''):
+            return (False, 'no recipient / disabled')
+        esc = html.escape
+        subject = f"Your visit to {community} was sent"
+        body = f"""\
+<p style="font-size:14px;margin:0 0 12px">Hi {esc(display_name)}, your unfinished visit to <b>{esc(community)}</b>{f' ({esc(survey_name)})' if survey_name else ''} was sent on your behalf by the Excellence Administrator on {esc(sent_on)}.</p>
+<p style="font-size:14px;color:#4b5563;margin:0">It was sent as it was saved, marked as partial where standards were left unanswered. If something needs correcting, reply to this email.</p>"""
+        text = (f"Hi {display_name}, your unfinished visit to {community}"
+                + (f" ({survey_name})" if survey_name else "")
+                + f" was sent on your behalf by the Excellence Administrator on {sent_on}.\n"
+                "It was sent as it was saved, marked as partial where standards were left unanswered.\n")
+        return self._send([to_email], subject, self._shell("Visit sent", body), text)
 
     def send_new_user_alert(self, admin_emails, display_name, username, role_label, created_by):
         """Notify admins that a new account was created."""

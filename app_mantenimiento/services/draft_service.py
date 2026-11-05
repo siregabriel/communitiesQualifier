@@ -51,6 +51,11 @@ from services.json_store import JsonFileBacked
 
 TTL_DAYS = 14
 
+# Days without a save after which the owner is reminded, once each per quiet
+# spell. A draft expires at TTL_DAYS and its photos with it, so the second
+# reminder has to land with time to act.
+REMIND_AT_DAYS = (3, 11)
+
 NOTES_SLOT = '__notes__'
 _SLOT_RE = re.compile(r'^[A-Za-z0-9_\-]{1,80}$')
 
@@ -186,6 +191,8 @@ class DraftService(JsonFileBacked):
             except (TypeError, ValueError):
                 d['saved_at'] = 0
             d['updated_at'] = datetime.now().isoformat()
+            # Working on it again starts a new quiet spell.
+            d['reminded'] = []
             self.save_to_file()
             return json.loads(json.dumps(d))
 
@@ -204,8 +211,47 @@ class DraftService(JsonFileBacked):
                 'type': _text(ctype, 60) or 'image/jpeg', 'size': int(size or 0),
             }
             d['updated_at'] = datetime.now().isoformat()
+            d['reminded'] = []
             self.save_to_file()
             return old if old and old != path else None
+
+    def all(self) -> List[Dict]:
+        """Every draft, copied. For the daily reminder pass and admin support."""
+        with self._lock:
+            self._ensure_fresh()
+            return json.loads(json.dumps(self.drafts))
+
+    def due_reminders(self, now: datetime) -> List[Dict]:
+        """Drafts owed a reminder: quiet for at least one REMIND_AT_DAYS mark
+        not yet reminded in this quiet spell. One reminder per draft per run,
+        however many marks a missed weekend has carried it past."""
+        out = []
+        for d in self.all():
+            if not (d.get('responses') or d.get('action_items') or (d.get('notes') or '').strip()
+                    or d.get('photos')):
+                continue
+            try:
+                quiet = (now - datetime.fromisoformat(d.get('updated_at') or '')).days
+            except ValueError:
+                continue
+            done = set(d.get('reminded') or [])
+            due = [m for m in REMIND_AT_DAYS if quiet >= m and m not in done]
+            if due and quiet < TTL_DAYS:
+                out.append({**d, 'quiet_days': quiet, 'stage': max(due),
+                            'days_left': max(0, TTL_DAYS - quiet)})
+        return out
+
+    def mark_reminded(self, draft_id: str, quiet_days: int) -> None:
+        """Record every mark up to quiet_days as reminded. Does not touch
+        updated_at: a reminder is not activity, and must not postpone expiry."""
+        with self._lock:
+            self._ensure_fresh()
+            d = self._find(draft_id)
+            if not d:
+                return
+            d['reminded'] = sorted({*(d.get('reminded') or []),
+                                    *[m for m in REMIND_AT_DAYS if quiet_days >= m]})
+            self.save_to_file()
 
     def remove_photo(self, username: str, community: str, survey_type_id: str,
                      slot: str) -> Optional[str]:

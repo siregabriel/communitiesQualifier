@@ -3928,6 +3928,256 @@ def get_draft_photo():
     return resp
 
 
+# ------------------------------------- an administrator's side of a draft
+#
+# Support for the person who cannot find their unfinished visit, or who
+# forgets it: an administrator can read it, remind its owner, and as a last
+# resort send it for them. Greg Crutcher's Greystone visit was the case — 33
+# answers sitting for four days with nobody looking. Read-only: nothing here
+# edits a draft.
+
+NO_COMMENT_ON_BEHALF = ("No comment was written before this visit was sent "
+                        "on the inspector's behalf.")
+
+
+def _admin_draft():
+    """The draft named in the request, for an administrator. (draft, error)."""
+    if not is_admin():
+        return None, ('Admins only', 403)
+    username = InputSanitizer.sanitize_username(_field('username') or request.args.get('username') or '')
+    community = InputSanitizer.sanitize_community_name(_field('community') or request.args.get('community') or '')
+    survey_type_id = InputSanitizer.sanitize_string(
+        _field('survey_type_id') or request.args.get('survey_type_id') or '', max_length=60)
+    d = draft_service.get(username, community, survey_type_id) if username and community else None
+    if not d:
+        return None, ('That unfinished visit is not on the server', 404)
+    return d, None
+
+
+def _draft_questions(d):
+    try:
+        return question_filter_service.get_questions_for_survey(
+            d['community'], d['survey_type_id']) or []
+    except Exception:
+        return []
+
+
+def _draft_resume_link(d):
+    base = email_service.app_base_url
+    if not base:
+        return None
+    from urllib.parse import urlencode
+    return f"{base}/reporte/resume?" + urlencode(
+        {'community': d['community'], 'survey_type': d['survey_type_id']})
+
+
+def send_draft_reminder(d, quiet_days=None):
+    """Email a draft's owner that it is waiting. (ok, detail)."""
+    acct = resolve_account_context(d.get('username') or '')
+    to = (acct.get('email') or '').strip()
+    if not to:
+        return False, 'no email on file'
+    if quiet_days is None:
+        try:
+            quiet_days = (datetime.now() - datetime.fromisoformat(d.get('updated_at') or '')).days
+        except ValueError:
+            quiet_days = 0
+    from services.draft_service import TTL_DAYS as _DRAFT_TTL
+    survey_name = survey_type_service.get_survey_type_name(d.get('survey_type_id')) \
+        if d.get('survey_type_id') else None
+    return email_service.send_draft_reminder(
+        to, acct.get('display_name') or d.get('username'), d['community'], survey_name,
+        len(d.get('responses') or {}), d.get('total') or 0, quiet_days,
+        max(0, _DRAFT_TTL - quiet_days), _draft_resume_link(d))
+
+
+@app.route('/api/drafts/review', methods=['GET'])
+@login_required
+def review_draft():
+    """An administrator reads somebody's unfinished visit, as it stands."""
+    d, err = _admin_draft()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    questions = _draft_questions(d)
+    answers = d.get('responses') or {}
+    items, seen = [], set()
+    for q in questions:
+        qid = q.get('id')
+        seen.add(qid)
+        r = answers.get(qid) or {}
+        items.append({'question_id': qid, 'text': q.get('text', ''),
+                      'condition': r.get('condition', ''), 'description': r.get('description', ''),
+                      'has_photo': qid in (d.get('photos') or {})})
+    # Answers to standards the survey no longer has are shown, not dropped.
+    for qid, r in answers.items():
+        if qid not in seen:
+            items.append({'question_id': qid, 'text': qid, 'condition': r.get('condition', ''),
+                          'description': r.get('description', ''),
+                          'has_photo': qid in (d.get('photos') or {})})
+    answered = sum(1 for i in items if i['condition'] in ('Pass', 'Fail'))
+    return jsonify({
+        'status': 'success',
+        'draft': {
+            'username': d['username'],
+            'owner': resolve_account_context(d['username']).get('display_name') or d['username'],
+            'community': d['community'], 'survey_type_id': d['survey_type_id'],
+            'survey_name': survey_type_service.get_survey_type_name(d['survey_type_id'])
+                           if d.get('survey_type_id') else '',
+            'updated_at': d.get('updated_at'),
+            'items': items,
+            'answered': answered,
+            'total': len(questions) or d.get('total') or 0,
+            'fails_without_comment': sum(1 for i in items if i['condition'] == 'Fail'
+                                         and not (i['description'] or '').strip()),
+            'action_items': d.get('action_items') or [],
+            'notes': d.get('notes') or '',
+            'notes_photo': DRAFT_NOTES_SLOT in (d.get('photos') or {}),
+        },
+    }), 200
+
+
+@app.route('/api/drafts/review/photo', methods=['GET'])
+@login_required
+def review_draft_photo():
+    d, err = _admin_draft()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    p = (d.get('photos') or {}).get((request.args.get('slot') or '').strip())
+    if not p:
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    try:
+        data = file_upload_handler.read_bytes(p['path'])
+    except Exception:
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    resp = make_response(data)
+    resp.headers['Content-Type'] = p.get('type') or 'image/jpeg'
+    resp.headers['Cache-Control'] = 'private, no-store'
+    return resp
+
+
+@app.route('/api/drafts/remind', methods=['POST'])
+@login_required
+def remind_draft_owner():
+    """An administrator nudges somebody about their unfinished visit, now."""
+    d, err = _admin_draft()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    ok, detail = send_draft_reminder(d)
+    if not ok:
+        return jsonify({'status': 'error', 'message': f'Could not send it: {detail}'}), 400
+    activity_service.log(session.get('user'), 'draft_reminded',
+                         f"Reminded {d['username']} about their unfinished visit at {d['community']}",
+                         meta={'community': d['community'], 'username': d['username']})
+    return jsonify({'status': 'success', 'message': 'Reminder sent.'}), 200
+
+
+def _copy_draft_photo(meta, username, community):
+    """A draft photo, copied from drafts/ to where visit photos live. None on
+    failure: one unreadable photo is not worth losing the whole visit."""
+    import io as _io
+    from werkzeug.datastructures import FileStorage
+    try:
+        data = file_upload_handler.read_bytes(meta['path'])
+        fs = FileStorage(stream=_io.BytesIO(data), filename=meta.get('name') or 'photo.jpg',
+                         content_type=meta.get('type') or 'image/jpeg')
+        return file_upload_handler.save_file(fs, username, community)
+    except Exception:
+        app.logger.exception('Could not copy a draft photo into the visit')
+        return None
+
+
+@app.route('/api/drafts/send-on-behalf', methods=['POST'])
+@login_required
+def send_draft_on_behalf():
+    """Last resort: an administrator files somebody's unfinished visit for them.
+
+    It goes out exactly as a visit the inspector sent — same record, same
+    emails — with three differences that keep it honest. It is marked "Sent by
+    Excellence Administrator on <date> on behalf of <inspector>" on the visit
+    and in the leadership report (the administrator is named only in the
+    activity log). A Fail with no comment carries a sentence saying so rather
+    than an invented finding. And the inspector is emailed that it was sent.
+    Unanswered standards are left out, so the visit reads as partial.
+    """
+    d, err = _admin_draft()
+    if err:
+        return jsonify({'status': 'error', 'message': err[0]}), err[1]
+    if not (request.get_json(silent=True) or {}).get('confirm'):
+        return jsonify({'status': 'error', 'message': 'Confirm first'}), 400
+
+    username, community, survey_type_id = d['username'], d['community'], d['survey_type_id']
+    questions = _draft_questions(d)
+    order = {q.get('id'): i for i, q in enumerate(questions)}
+    text_by = {q.get('id'): q.get('text', '') for q in questions}
+    photos = d.get('photos') or {}
+
+    responses = []
+    for qid, r in sorted((d.get('responses') or {}).items(),
+                         key=lambda kv: order.get(kv[0], 10 ** 6)):
+        condition = r.get('condition')
+        if condition not in ('Pass', 'Fail'):
+            continue
+        description = InputSanitizer.sanitize_description(r.get('description') or '')
+        if condition == 'Fail' and not description.strip():
+            description = NO_COMMENT_ON_BEHALF
+        route_to = (r.get('routeTo') or '').strip().lower()
+        responses.append({
+            'question_id': qid,
+            'question_text': text_by.get(qid) or qid,
+            'condition': condition,
+            'description': description,
+            'photo_path': _copy_draft_photo(photos[qid], username, community) if qid in photos else None,
+            'route_to': route_to if route_to in settings_service.ROUTES else None,
+            'answered_at': d.get('updated_at') or datetime.now().isoformat(),
+        })
+    if not responses:
+        return jsonify({'status': 'error',
+                        'message': 'Nothing in this visit is answered yet, so there is nothing to send.'}), 400
+
+    action_items = [{
+        'text': InputSanitizer.sanitize_description(it.get('text', '')),
+        'assigned_to': InputSanitizer.sanitize_string(it.get('assigned_to', ''), max_length=80),
+        'priority': InputSanitizer.sanitize_string(it.get('priority', 'medium'), max_length=10),
+        'photo': '',
+    } for it in (d.get('action_items') or [])[:20]]
+    notes_photo = _copy_draft_photo(photos[DRAFT_NOTES_SLOT], username, community) \
+        if DRAFT_NOTES_SLOT in photos else None
+
+    now = datetime.now()
+    try:
+        submission = inspection_service.create_submission(
+            username=username, community=community, responses=responses,
+            survey_type_id=survey_type_id,
+            inspector_name=resolve_display_name(username),
+            action_items=action_items,
+            standards_total=len(questions) or None,
+            notes=InputSanitizer.sanitize_description(d.get('notes') or '')[:2000],
+            notes_photo=notes_photo,
+            sent_on_behalf={'at': now.isoformat()})
+    except (ValueError, IOError) as e:
+        app.logger.error(f'Could not file a draft on behalf: {e}')
+        return jsonify({'status': 'error', 'message': 'Could not file this visit'}), 500
+
+    draft_notice_service.clear(username, community, survey_type_id)
+    _drop_draft(username, community, survey_type_id)
+    activity_service.log(session.get('user'), 'inspection_sent_on_behalf',
+                         f"Sent {submission.get('inspector_name')}'s visit for {community} on their behalf",
+                         meta={'community': community, 'submission_id': submission.get('id'),
+                               'username': username})
+    _send_visit_emails(submission)
+    try:
+        acct = resolve_account_context(username)
+        if acct.get('email') and email_service.enabled:
+            email_service.send_sent_on_behalf(
+                acct['email'], acct.get('display_name') or username, community,
+                survey_type_service.get_survey_type_name(survey_type_id) if survey_type_id else None,
+                now.strftime('%b %-d'))
+    except Exception:
+        app.logger.exception('Could not tell the inspector their visit was sent')
+    return jsonify({'status': 'success', 'submission_id': submission.get('id'),
+                    'answered': len(responses)}), 200
+
+
 @app.route('/api/raised-categories', methods=['GET'])
 @login_required
 def list_raised_categories():
@@ -7069,6 +7319,103 @@ def remove_region_community():
 
 # ==================== INSPECTION SUBMISSION API ====================
 
+def _send_visit_emails(submission):
+    """Every email a filed visit sends: the leadership report, the
+    community's findings, and the department notices. One function, so a visit
+    sent from a draft on somebody's behalf goes out exactly like one they sent."""
+    # Best-effort: never blocks the response or fails the submission if email
+    # is down or unconfigured.
+    if not email_service.enabled:
+        return
+    try:
+        survey_name = (survey_type_service.get_survey_type_name(submission.get('survey_type_id'))
+                       if submission.get('survey_type_id') else None)
+        community = submission.get('community')
+        region = region_for_community(community)
+        region_id = region.get('id') if region else None
+        recipients = region_leader_emails(community)
+        recipients += settings_service.recipients_for_inspection(
+            region_id, submission.get('inspector_name'))
+        # And whoever walked it. They used to get their own report
+        # only by leading the region that owns the community, so
+        # Corporate never did, and neither would a regional visiting
+        # outside their region (Carol Brinegar, once she could).
+        mine = (resolve_account_context(submission.get('username') or '')
+                .get('email') or '').strip()
+        if mine:
+            # send_inspection_report drops duplicates, case-blind.
+            recipients.append(mine)
+        # criteria lookup so the email can show "must include to pass" per failed item
+        criteria_map = {}
+        for q in question_manager.get_all_active_questions():
+            crit = q.get('pass_criteria') or []
+            if q.get('id'):
+                criteria_map[q['id']] = crit
+            if q.get('text'):
+                criteria_map['t:' + q['text'].strip().lower()] = crit
+        # This one reads the action items off the submission itself, so
+        # the departments have to be resolved before it is handed over
+        # — otherwise the leadership report is the one place that still
+        # prints "admin-personnel", which is exactly where it was seen.
+        email_service.send_inspection_report(
+            {**submission,
+             'action_items': _with_department_names(submission.get('action_items'))},
+            recipients, survey_name, criteria_map)
+
+        # The community gets its own, narrower email: what was found
+        # here and what to do about it — no score, no comparisons.
+        ed_emails = community_account_emails(community)
+        if not ed_emails:
+            note_findings_undelivered(submission)
+        else:
+            responses = submission.get('responses') or []
+            failed = [r for r in responses if r.get('condition') == 'Fail']
+            passed = [r for r in responses if r.get('condition') == 'Pass']
+            open_items = _with_department_names(
+                [i for i in (submission.get('action_items') or [])
+                 if not i.get('resolved')])
+            done = len(passed) + len(failed)
+            email_service.send_community_findings(
+                ed_emails, community,
+                submission.get('inspector_name') or submission.get('username') or '',
+                (submission.get('submitted_at') or '')[:10],
+                failed, open_items, criteria_map,
+                notes=submission.get('notes', ''),
+                passed_items=passed,
+                score=round(len(passed) / done * 100) if done else None)
+
+        # Comments a visitor directed at a department, and the action
+        # items they raised for one. Both resolve through the same
+        # department list now — the addresses live on the department
+        # Greg edits, with the old fixed route lists behind them so an
+        # installation that has not been migrated still delivers.
+        for route in settings_service.ROUTES:
+            items = [r for r in submission.get('responses', [])
+                     if r.get('route_to') == route and (r.get('description') or '').strip()]
+            if items:
+                to = _department_recipients(route) \
+                    or settings_service.recipients_for_route(route)
+                if to:
+                    email_service.send_directed_comments(to, route, submission, items)
+
+        # "Who should handle it?" on an action item. Answering that
+        # and having it reach nobody is the thing Greg asked about.
+        by_department = {}
+        for it in (submission.get('action_items') or []):
+            dept = (it.get('assigned_to') or '').strip()
+            if dept and not it.get('resolved'):
+                by_department.setdefault(dept, []).append(it)
+        for dept, items in by_department.items():
+            to = _department_recipients(dept)
+            if to:
+                email_service.send_directed_comments(
+                    to, _department_label(dept), submission,
+                    [{'question_text': i.get('text', ''),
+                      'description': ''} for i in items])
+    except Exception as e:
+        app.logger.error(f'Post-visit email step failed: {e}')
+
+
 @app.route('/api/inspections', methods=['POST'])
 @login_required
 def submit_inspection():
@@ -7382,96 +7729,7 @@ def submit_inspection():
                 'message': 'Internal server error: Failed to save inspection'
             }), 500
         
-        # Fire off the post-visit summary email (best-effort; never blocks the
-        # response or fails the submission if email is down/unconfigured).
-        if email_service.enabled:
-            try:
-                survey_name = (survey_type_service.get_survey_type_name(submission.get('survey_type_id'))
-                               if submission.get('survey_type_id') else None)
-                community = submission.get('community')
-                region = region_for_community(community)
-                region_id = region.get('id') if region else None
-                recipients = region_leader_emails(community)
-                recipients += settings_service.recipients_for_inspection(
-                    region_id, submission.get('inspector_name'))
-                # And whoever walked it. They used to get their own report
-                # only by leading the region that owns the community, so
-                # Corporate never did, and neither would a regional visiting
-                # outside their region (Carol Brinegar, once she could).
-                mine = (resolve_account_context(submission.get('username') or '')
-                        .get('email') or '').strip()
-                if mine:
-                    # send_inspection_report drops duplicates, case-blind.
-                    recipients.append(mine)
-                # criteria lookup so the email can show "must include to pass" per failed item
-                criteria_map = {}
-                for q in question_manager.get_all_active_questions():
-                    crit = q.get('pass_criteria') or []
-                    if q.get('id'):
-                        criteria_map[q['id']] = crit
-                    if q.get('text'):
-                        criteria_map['t:' + q['text'].strip().lower()] = crit
-                # This one reads the action items off the submission itself, so
-                # the departments have to be resolved before it is handed over
-                # — otherwise the leadership report is the one place that still
-                # prints "admin-personnel", which is exactly where it was seen.
-                email_service.send_inspection_report(
-                    {**submission,
-                     'action_items': _with_department_names(submission.get('action_items'))},
-                    recipients, survey_name, criteria_map)
-
-                # The community gets its own, narrower email: what was found
-                # here and what to do about it — no score, no comparisons.
-                ed_emails = community_account_emails(community)
-                if not ed_emails:
-                    note_findings_undelivered(submission)
-                else:
-                    responses = submission.get('responses') or []
-                    failed = [r for r in responses if r.get('condition') == 'Fail']
-                    passed = [r for r in responses if r.get('condition') == 'Pass']
-                    open_items = _with_department_names(
-                        [i for i in (submission.get('action_items') or [])
-                         if not i.get('resolved')])
-                    done = len(passed) + len(failed)
-                    email_service.send_community_findings(
-                        ed_emails, community,
-                        submission.get('inspector_name') or submission.get('username') or '',
-                        (submission.get('submitted_at') or '')[:10],
-                        failed, open_items, criteria_map,
-                        notes=submission.get('notes', ''),
-                        passed_items=passed,
-                        score=round(len(passed) / done * 100) if done else None)
-
-                # Comments a visitor directed at a department, and the action
-                # items they raised for one. Both resolve through the same
-                # department list now — the addresses live on the department
-                # Greg edits, with the old fixed route lists behind them so an
-                # installation that has not been migrated still delivers.
-                for route in settings_service.ROUTES:
-                    items = [r for r in submission.get('responses', [])
-                             if r.get('route_to') == route and (r.get('description') or '').strip()]
-                    if items:
-                        to = _department_recipients(route) \
-                            or settings_service.recipients_for_route(route)
-                        if to:
-                            email_service.send_directed_comments(to, route, submission, items)
-
-                # "Who should handle it?" on an action item. Answering that
-                # and having it reach nobody is the thing Greg asked about.
-                by_department = {}
-                for it in (submission.get('action_items') or []):
-                    dept = (it.get('assigned_to') or '').strip()
-                    if dept and not it.get('resolved'):
-                        by_department.setdefault(dept, []).append(it)
-                for dept, items in by_department.items():
-                    to = _department_recipients(dept)
-                    if to:
-                        email_service.send_directed_comments(
-                            to, _department_label(dept), submission,
-                            [{'question_text': i.get('text', ''),
-                              'description': ''} for i in items])
-            except Exception as e:
-                app.logger.error(f'Post-visit email step failed: {e}')
+        _send_visit_emails(submission)
 
         # Return success with submission data
         return jsonify({

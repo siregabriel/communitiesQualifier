@@ -149,6 +149,28 @@ def _note_nobody_to_tell(community, stage):
         pass
 
 
+# ------------------------------------------------------ unfinished visits
+#
+# Unfinished visits expire after two weeks without a save, photos and all.
+# Until this, nobody was told. Their owners are reminded at 3 and 11 quiet
+# days (draft_service.REMIND_AT_DAYS), once each per quiet spell; the same
+# weekend, pause and dry-run rules as everything else here apply.
+
+def _draft_plan(now):
+    A._prune_drafts()
+    return A.draft_service.due_reminders(now)
+
+
+def _print_draft_plan(rows):
+    print(f'  visitas sin terminar a recordar: {len(rows)}')
+    for d in rows:
+        who = (A.resolve_account_context(d['username']).get('email')
+               or '*** NADIE — sin correo ***')
+        print(f"  BORRADOR · {d['community']} · {d['quiet_days']} días sin guardar · "
+              f"se borra en {d['days_left']} → {who}")
+    print()
+
+
 # --------------------------------------------------------------------- main
 
 def main(argv=None):
@@ -180,6 +202,7 @@ def main(argv=None):
     if args.status:
         ed_mail, regional_mail, rows, _ = _plan(now)
         _print_plan(now, ed_mail, regional_mail, rows)
+        _print_draft_plan(_draft_plan(now))
         return 0
 
     if LEDGER.is_paused():
@@ -197,9 +220,11 @@ def main(argv=None):
         return 0
 
     ed_mail, regional_mail, rows, live_keys = _plan(now)
+    drafts_due = _draft_plan(now)
 
     if not args.send:
         _print_plan(now, ed_mail, regional_mail, rows)
+        _print_draft_plan(drafts_due)
         print('  ENSAYO. Nada fue enviado. Añade --send para enviar de verdad.\n')
         return 0
 
@@ -228,6 +253,16 @@ def main(argv=None):
         else:
             failures.append(f"regional {m['name'] or m['region_id']}: {detail}")
 
+    # Unfinished visits, each to its owner. Marked only when it went out.
+    drafts_sent = 0
+    for d in drafts_due:
+        ok, detail = A.send_draft_reminder(d, d['quiet_days'])
+        if ok:
+            drafts_sent += 1
+            A.draft_service.mark_reminded(d['id'], d['quiet_days'])
+        else:
+            failures.append(f"borrador {d['username']} · {d['community']}: {detail}")
+
     # Marked only for what actually left. A send that failed should be tried
     # again tomorrow, not recorded as done.
     marked = LEDGER.mark_many(sent_rows, now)
@@ -239,6 +274,7 @@ def main(argv=None):
     print(f'  enviados: {ed_sent}/{len(ed_mail)} a EDs, '
           f'{regional_sent}/{len(regional_mail)} a regionales')
     print(f'  items anotados: {marked}   cerrados y olvidados: {forgotten}')
+    print(f'  visitas sin terminar recordadas: {drafts_sent}/{len(drafts_due)}')
     for f in failures:
         print(f'  FALLO  {f}')
     return 1 if failures else 0
