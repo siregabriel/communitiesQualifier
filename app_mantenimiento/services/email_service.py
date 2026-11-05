@@ -363,6 +363,47 @@ and some checklist items are still open.</p>
                          ', '.join(to), subject, e)
             return (False, str(e))
 
+    def _atlerts_tip(self):
+        """How to get in through Atlerts, for the welcome email. (html, text)
+
+        Most people already have Atlerts, and its Excellence shortcut signs
+        them in with no password. Nobody was told: the welcome email only
+        explained the password, so people typed one they then forgot. The
+        picture is a still, not a GIF — Outlook on Windows shows only the
+        first frame of one — and it is cropped to the shortcuts row, with no
+        name on it."""
+        esc = html.escape
+        img_url = f"{self.app_base_url}/static/email-atlerts-shortcut.jpg" if self.app_base_url else None
+        picture = (
+            f"<img src='{esc(img_url)}' width='516' alt='Atlerts home screen: the Excellence "
+            f"shortcut under Apps &amp; Shortcuts' style='display:block;width:100%;max-width:516px;"
+            f"height:auto;border-radius:10px;margin:0 0 14px'>"
+        ) if img_url else ""
+        body = f"""\
+<div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb">
+  <p style="font-size:16px;font-weight:700;color:#0f1e36;margin:0 0 6px">The easiest way in: Atlerts</p>
+  <p style="font-size:14px;color:#4b5563;margin:0 0 14px">If you have Atlerts on your phone, you don't need a password. Open Atlerts and tap <b style="color:#0f1e36">Excellence</b> under Apps &amp; Shortcuts — you're signed in straight away.</p>
+  {picture}
+  <table style="font-size:14px;border-collapse:collapse;margin:0 0 14px;color:#1f2937">
+    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#6b7280">1</td><td>Open <b>Atlerts</b>.</td></tr>
+    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#6b7280">2</td><td>Under <b>Apps &amp; Shortcuts</b>, tap <b>Excellence</b> (swipe if you don't see it).</td></tr>
+    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#6b7280">3</td><td>You're in — no password to remember.</td></tr>
+  </table>
+  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;color:#1e3a5f">
+    <b>Use a different email in Atlerts?</b><br>
+    If your Atlerts account uses another email (a personal Gmail, for example), the first time you'll land on the sign-in page. Sign in once with the username and password above, then tap <b>Link</b> when asked. After that, Atlerts takes you straight in.
+  </div>
+</div>"""
+        text = (
+            "\nThe easiest way in: Atlerts\n"
+            "If you have Atlerts on your phone, you don't need a password: open Atlerts and "
+            "tap Excellence under Apps & Shortcuts.\n"
+            "If your Atlerts account uses another email (a personal Gmail, for example), the "
+            "first time you'll land on the sign-in page. Sign in once with the username and "
+            "password above, then tap Link when asked. After that, Atlerts takes you straight in.\n"
+        )
+        return body, text
+
     def send_welcome(self, to_email, display_name, username, password, role_label=None):
         """Welcome a newly-created user with their login details."""
         if not self.enabled or not _valid(to_email or ''):
@@ -379,11 +420,14 @@ and some checklist items are still open.</p>
 </table>
 <p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
 {f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}"""
+        tip_html, tip_text = self._atlerts_tip()
+        body += tip_html
         text = (f"Hi {display_name}, an account was created for you on Atlas Excellence.\n"
                 f"Username: {username}\nTemporary password: {password}\n"
                 + (f"Role: {role_label}\n" if role_label else "")
                 + "Sign in with the temporary password above — you'll be asked to create your own password right away.\n"
-                + (f"{login}\n" if login else ""))
+                + (f"{login}\n" if login else "")
+                + tip_text)
         return self._send([to_email], subject, self._shell("Welcome", body), text)
 
     def send_password_reset(self, to_email, display_name, username, password):
@@ -400,11 +444,13 @@ and some checklist items are still open.</p>
 </table>
 <p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
 {f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}
-<p style="font-size:12px;color:#9ca3af;margin:18px 0 0">If you didn't expect this, contact your administrator.</p>"""
+<p style="font-size:13px;color:#4b5563;margin:18px 0 0"><b>Tip:</b> with Atlerts on your phone you can skip passwords entirely — tap <b>Excellence</b> under Apps &amp; Shortcuts.</p>
+<p style="font-size:12px;color:#9ca3af;margin:12px 0 0">If you didn't expect this, contact your administrator.</p>"""
         text = (f"Hi {display_name}, an administrator reset your Atlas Excellence password.\n"
                 f"Username: {username}\nTemporary password: {password}\n"
                 "Sign in with the temporary password above — you'll be asked to create your own password right away.\n"
-                + (f"{login}\n" if login else ""))
+                + (f"{login}\n" if login else "")
+                + "Tip: with Atlerts on your phone you can skip passwords entirely — tap Excellence under Apps & Shortcuts.\n")
         return self._send([to_email], subject, self._shell("Password reset", body), text)
 
     def send_new_user_alert(self, admin_emails, display_name, username, role_label, created_by):
