@@ -1038,6 +1038,12 @@ console.log("\nAn administrator seeing somebody else's unfinished visit");
 
   ok(/only\s+they can open or discard it/.test(gallery.querySelector('.dn-note').textContent),
      'and the note says plainly that an administrator cannot delete it for them');
+  // It used to say the visit was saved on the device it was started on. Since
+  // Greg Crutcher lost a visit that existed only on his phone, it is kept in
+  // the account too — the note has to say where the work actually is.
+  ok(/Saved to your account/.test(gallery.querySelector('.dn-note').textContent)
+     && !/Saved on the device/.test(gallery.querySelector('.dn-note').textContent),
+     'and says the visit is kept in the account, not only on one device');
 }
 
 console.log('\nUnfinished visits — nothing to say, nothing shown');

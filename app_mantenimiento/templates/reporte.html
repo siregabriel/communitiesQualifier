@@ -1842,7 +1842,7 @@
             chip.className = 'draft-chip ok show';
             chip.innerHTML = _chipExplained
                 ? '<i class="fas fa-check"></i> <span>Draft saved</span>'
-                : '<i class="fas fa-check"></i> <span>Saved on this device — you can leave and come back to finish.</span>';
+                : '<i class="fas fa-check"></i> <span>Saved — you can leave and come back to finish, on this or any device.</span>';
             const linger = _chipExplained ? 2200 : 5000;
             _chipExplained = true;
             _chipTimer = setTimeout(() => chip.classList.remove('show'), linger);

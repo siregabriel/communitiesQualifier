@@ -2954,8 +2954,9 @@
         })();
 
         /* Visits somebody started and has not sent.
-           The answers and photos live in the browser on the device they were
-           filled in on; what arrives here is only the note that they exist.
+           Kept on the phone and, since Nov 2026, in the person's account too
+           (draft_service), so one can be finished on any device. What arrives
+           here is only the note that they exist; the content is the owner's.
            Without it an unfinished visit is findable only by re-entering
            through exactly the same community and survey type — and entering by
            any other route makes the work look lost. */
@@ -2988,9 +2989,9 @@
                             <span class="dn-meta">${escapeHtml(progress)} · started ${escapeHtml(timeAgo(d.started_at))}${
                                 d.device ? ' · on ' + escapeHtml(d.device) : ''}</span>
                         </span>`;
-                // Not a link: the draft is in the browser storage on their
-                // device. Following one here would open an empty form on this
-                // one, which is the very confusion this feature exists to end.
+                // Not a link: the content belongs to the person who started it
+                // and the server gives it to nobody else, so following one here
+                // would open an empty form — the confusion this exists to end.
                 if (d.mine === false) {
                     return `
                     <div class="dn-row is-theirs">
@@ -3009,8 +3010,8 @@
                     <h3 class="dn-title"><i class="fas fa-hourglass-half"></i>
                         Unfinished ${draftNotices.length === 1 ? 'visit' : 'visits'}
                         <span>${draftNotices.length}</span></h3>
-                    <p class="dn-note">Saved on the device they were started on — open one there to
-                        finish it. Nothing has been sent yet.${theirs ? ' Visits started by\n                        someone else are listed so you can tell them where the work is; only\n                        they can open or discard it, on their own device.' : ''}</p>
+                    <p class="dn-note">Saved to your account as you go — open one on any device to
+                        finish it. Nothing has been sent yet.${theirs ? ' Visits started by\n                        someone else are listed so you can tell them where the work is; only\n                        they can open or discard it.' : ''}</p>
                     ${rows}
                 </section>`;
         }
