@@ -2155,6 +2155,48 @@
         }
         @media (prefers-reduced-motion: reduce) { .ppl-dot { animation: none; } }
         .ppl-never { color: #92620a; font-weight: 600; }
+        /* People, grouped (by community / by role) */
+        .pp-toggle { display: inline-flex; border: 1px solid #d9dfe8; border-radius: 9px; overflow: hidden; }
+        .pp-toggle button { background: #fff; border: 0; padding: 7px 13px; font-size: 12.5px; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; }
+        .pp-toggle button.on { background: #00285c; color: #fff; }
+        .pp-sec { margin: 6px 0 18px; }
+        .pp-sec-head { background: none; border: 0; padding: 4px 0; font-size: 14px; font-weight: 800; color: #0f1e36; cursor: pointer; display: flex; gap: 8px; align-items: center; font-family: inherit; }
+        .pp-sec-head small, .pp-sec-title small { font-weight: 600; color: #94a3b8; font-size: 12px; }
+        .pp-sec-title { font-size: 14px; font-weight: 800; color: #0f1e36; padding: 4px 0; }
+        .pp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+        @media (max-width: 1100px) { .pp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 680px)  { .pp-grid { grid-template-columns: minmax(0, 1fr); } }
+        .pp-card, .pp-comm { background: #fff; border: 1px solid #e3e8f0; border-radius: 12px; min-width: 0; }
+        .pp-card { display: flex; gap: 10px; align-items: center; padding: 10px 11px; cursor: pointer; }
+        .pp-card:hover, .pp-row:hover { background: #f8fafc; }
+        .pp-av { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; color: #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; object-fit: cover; }
+        .pp-av-sm { width: 26px; height: 26px; font-size: 10px; }
+        .pp-main { min-width: 0; flex: 1; }
+        .pp-name { font-size: 13px; font-weight: 700; color: #0f1e36; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-sub, .pp-mail { font-size: 11.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-mail { color: #94a3b8; }
+        .pp-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+        .pp-acts { display: flex; gap: 4px; }
+        .pp-act { background: none; border: 1px solid #e3e8f0; border-radius: 7px; width: 26px; height: 24px; color: #475569; cursor: pointer; font-size: 11px; }
+        .pp-dot { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; }
+        .pp-dot.pp-on { background: #0f8a5f; }
+        .pp-dot.pp-warn { background: #d97706; }
+        .pp-comm { padding: 11px 12px; }
+        .pp-comm.pp-gap { border-color: #f3c46b; }
+        .pp-comm-name { font-size: 13px; font-weight: 800; color: #0f1e36; }
+        .pp-comm-sub { font-size: 11.5px; color: #64748b; margin-bottom: 6px; }
+        .pp-row { display: flex; gap: 8px; align-items: center; padding: 5px 4px; border-radius: 8px; cursor: pointer; }
+        .pp-ed { font-size: 9.5px; font-weight: 800; background: #eef4ff; color: #1e40af; border-radius: 5px; padding: 1px 5px; }
+        .pp-gap-note { font-size: 12px; font-weight: 700; color: #92620a; margin: 4px 0; }
+        .pp-gap-note small { display: block; font-weight: 500; color: #a07a2c; }
+        .pp-none { font-size: 11.5px; color: #94a3b8; padding: 4px 4px 0; }
+        html[data-theme="dark"] .pp-card, html[data-theme="dark"] .pp-comm { background: #161f2e; border-color: #2b3a52; }
+        html[data-theme="dark"] .pp-card:hover, html[data-theme="dark"] .pp-row:hover { background: rgba(255,255,255,.04); }
+        html[data-theme="dark"] .pp-name, html[data-theme="dark"] .pp-comm-name, html[data-theme="dark"] .pp-sec-head, html[data-theme="dark"] .pp-sec-title { color: #eef2f8; }
+        html[data-theme="dark"] .pp-toggle, html[data-theme="dark"] .pp-act { border-color: #33425c; }
+        html[data-theme="dark"] .pp-toggle button { background: #1b2537; color: #c2cddd; }
+        html[data-theme="dark"] .pp-toggle button.on { background: #1f6fe5; color: #fff; }
+        html[data-theme="dark"] .pp-comm.pp-gap { border-color: #8a6a24; }
         .ppl-warn-tag { font-size: 10px; font-weight: 800; background: #fdeee9; color: #b42318; border: 1px solid #f7c4ba; padding: 1px 7px; border-radius: 6px; }
         .ppl-admin-tag { font-size: 10px; font-weight: 800; background: #fef6e0; color: #92620a;
             border: 1px solid #f3d27a; padding: 1px 7px; border-radius: 6px; }
@@ -9079,68 +9121,175 @@
         }
 
         function peopleSetRole(role) { peopleFilter.role = role; drawPeople(); }
-        function peopleSearch(v) { peopleFilter.q = (v || '').toLowerCase(); drawPeople(); }
+        // Typing redraws the body only: redrawing the toolbar would take the
+        // cursor out of the search box after every letter.
+        function peopleSearch(v) { peopleFilter.q = (v || '').toLowerCase(); drawPeopleBody(); }
+
+        /* ---------------------------------------------------------------
+           Two ways to read People: by role, or by community.
+
+           One long list of rows was fine at 30 people. With Staff (six per
+           community, Laura Blakeman's Venice team first) it heads past 200,
+           and the question asked most is "who is at Venice?", not "who are
+           the Executive Directors?". By community also shows the gaps: a
+           community with no Executive Director is one whose findings and
+           reminders reach nobody (The Canopy at Beacon Woods, Nov 2026).
+
+           Cards carry a data-user attribute and are wired by delegation, never
+           by an onclick string built around a name.
+           --------------------------------------------------------------- */
+        const PEOPLE_VIEW_KEY = 'atlasPeopleView';
+        let peopleCollapsed = { team: true };   // Staff is the long one
+
+        function peopleView() {
+            try { return localStorage.getItem(PEOPLE_VIEW_KEY) === 'role' ? 'role' : 'community'; }
+            catch (e) { return 'community'; }
+        }
+        function setPeopleView(v) {
+            try { localStorage.setItem(PEOPLE_VIEW_KEY, v === 'role' ? 'role' : 'community'); } catch (e) {}
+            drawPeople();
+        }
+
+        const PEOPLE_ROLE_META = {
+            admin:     { label: 'Administrator', cls: 'pr-admin',  icon: 'fa-shield-halved' },
+            corporate: { label: 'Corporate',     cls: 'pr-corp',   icon: 'fa-building-columns' },
+            regional:  { label: 'Regional',      cls: 'pr-region', icon: 'fa-sitemap' },
+            staff:     { label: 'Executive Director', cls: 'pr-staff',  icon: 'fa-user-tie' },
+            team:      { label: 'Staff',         cls: 'pr-team',   icon: 'fa-user' },
+        };
+
+        function peopleMatches(p) {
+            if (peopleFilter.role !== 'all' && p.role !== peopleFilter.role) return false;
+            if (!peopleFilter.q) return true;
+            return (p.name + ' ' + p.username + ' ' + (p.email || '') + ' ' + (p.scope || '') + ' ' + (p.title || ''))
+                .toLowerCase().includes(peopleFilter.q);
+        }
+
+        // Green: in the app now. Amber: never signed in, or must set a new
+        // password. Grey: has signed in before. The words go in the tooltip.
+        function peopleStatus(p) {
+            if (p.online) return { cls: 'pp-on', tip: 'In the app now' };
+            if (!p.last_login) return { cls: 'pp-warn', tip: 'Never signed in' };
+            if (p.must_change) return { cls: 'pp-warn', tip: 'Must set a new password at next sign-in' };
+            return { cls: '', tip: `Last sign-in ${timeAgo(p.last_login)}` };
+        }
+
+        function peopleAvatar(p, small) {
+            const cls = small ? ' pp-av-sm' : '';
+            return p.photo
+                ? `<img class="pp-av${cls}" src="/static/${escapeHtml(p.photo)}" alt="">`
+                : `<div class="pp-av${cls}" style="background:${avatarColor(p.name || p.username)};">${escapeHtml(profileInitials(p.name || p.username))}</div>`;
+        }
+
+        function peopleCard(p) {
+            const m = PEOPLE_ROLE_META[p.role] || PEOPLE_ROLE_META.staff;
+            const st = peopleStatus(p);
+            const where = p.role === 'team' || p.role === 'staff'
+                ? (p.communities || [])[0] || p.scope || ''
+                : p.scope || '';
+            const sub = [p.title || m.label, where].filter(Boolean).join(' · ');
+            const viewAs = p.role === 'staff' && (p.communities || []).length
+                ? `<button class="pp-act" data-act="viewas" title="See the app as this Executive Director sees it"><i class="fas fa-eye"></i></button>` : '';
+            return `<div class="pp-card" data-user="${escapeHtml(p.username)}" title="Open ${escapeHtml(p.name)}">
+                ${peopleAvatar(p)}
+                <div class="pp-main">
+                    <div class="pp-name">${escapeHtml(p.name)}${
+                        p.admin_extra ? ' <span class="ppl-admin-tag" title="Also has administrator privileges">admin</span>' : ''}${
+                        p.duplicate ? ' <span class="ppl-warn-tag" title="Two entries share this login">duplicate</span>' : ''}</div>
+                    <div class="pp-sub">${escapeHtml(sub)}</div>
+                    <div class="pp-mail">${p.email ? escapeHtml(p.email) : '<span class="ppl-noemail">no email</span>'}</div>
+                </div>
+                <div class="pp-side">
+                    <span class="pp-dot ${st.cls}" title="${escapeHtml(st.tip)}"></span>
+                    <div class="pp-acts">${viewAs}
+                        <button class="pp-act" data-act="reset" title="Reset password"><i class="fas fa-key"></i></button></div>
+                </div>
+            </div>`;
+        }
+
+        function peopleSection(key, title, note, people) {
+            if (!people.length) return '';
+            // A search opens every section, so a match is never hidden in a fold.
+            const shut = !peopleFilter.q && peopleCollapsed[key];
+            return `<section class="pp-sec">
+                <button class="pp-sec-head" data-sec="${key}" aria-expanded="${!shut}">
+                    <i class="fas fa-chevron-${shut ? 'right' : 'down'}"></i> ${escapeHtml(title)}
+                    <small>${escapeHtml(note ? note + ' · ' : '')}${people.length}</small>
+                </button>
+                ${shut ? '' : `<div class="pp-grid">${people.map(peopleCard).join('')}</div>`}
+            </section>`;
+        }
+
+        function peopleByRoleHtml(list) {
+            return peopleSection('lead', 'Leadership', 'Admins, Corporate, Regional',
+                                 list.filter(p => ['admin', 'corporate', 'regional'].includes(p.role)))
+                + peopleSection('staff', 'Executive Directors', '', list.filter(p => p.role === 'staff'))
+                + peopleSection('team', 'Staff', '', list.filter(p => p.role === 'team'));
+        }
+
+        function peopleCommunityRow(p) {
+            const st = peopleStatus(p);
+            const ed = p.role === 'staff';
+            return `<div class="pp-row" data-user="${escapeHtml(p.username)}" title="Open ${escapeHtml(p.name)}">
+                ${peopleAvatar(p, true)}
+                <div class="pp-main">
+                    <div class="pp-name">${escapeHtml(p.name)}${ed ? ' <span class="pp-ed">ED</span>' : ''}</div>
+                    ${!ed && p.title ? `<div class="pp-sub">${escapeHtml(p.title)}</div>` : ''}
+                </div>
+                <span class="pp-dot ${st.cls}" title="${escapeHtml(st.tip)}"></span>
+                <button class="pp-act" data-act="reset" title="Reset password"><i class="fas fa-key"></i></button>
+            </div>`;
+        }
+
+        function peopleByCommunityHtml(list) {
+            const d = peopleData;
+            const q = peopleFilter.q;
+            const lead = list.filter(p => ['admin', 'corporate', 'regional'].includes(p.role));
+            const regionOf = c => (d.regions || []).find(r => (r.communities || []).includes(c));
+            const cards = (d.communities || []).map(c => {
+                const here = p => (p.communities || []).includes(c);
+                const eds = list.filter(p => p.role === 'staff' && here(p));
+                const team = list.filter(p => p.role === 'team' && here(p));
+                const region = regionOf(c);
+                const regionals = (d.people || []).filter(p => p.role === 'regional' && region && p.region_id === region.id);
+                // With a search or a role filter, a card shows only if it has
+                // somebody who matches — or the community's own name does.
+                const filtering = q || peopleFilter.role !== 'all';
+                const nameHit = q && c.toLowerCase().includes(q);
+                if (filtering && !eds.length && !team.length && !nameHit) return '';
+                // Gaps are judged on everybody, not on the filtered list.
+                const anyEd = (d.people || []).some(p => p.role === 'staff' && here(p));
+                return `<div class="pp-comm${anyEd ? '' : ' pp-gap'}">
+                    <div class="pp-comm-name">${escapeHtml(c)}</div>
+                    <div class="pp-comm-sub">${escapeHtml(region ? region.name : 'No region')}${
+                        regionals.length ? ' · ' + escapeHtml(regionals.map(r => r.name).join(', ')) : ''}</div>
+                    ${anyEd ? '' : `<div class="pp-gap-note"><i class="fas fa-triangle-exclamation"></i> No Executive Director
+                        <small>Findings and reminders reach nobody</small></div>`}
+                    ${eds.map(peopleCommunityRow).join('')}
+                    ${team.map(peopleCommunityRow).join('')}
+                    ${anyEd && !team.length && !filtering ? '<div class="pp-none">No staff yet</div>' : ''}
+                </div>`;
+            }).join('');
+            return peopleSection('lead', 'Leadership', 'Admins, Corporate, Regional', lead)
+                + (cards ? `<section class="pp-sec"><div class="pp-sec-title">Communities</div>
+                    <div class="pp-grid">${cards}</div></section>` : '');
+        }
+
+        function drawPeopleBody() {
+            const host = document.getElementById('pplBody');
+            if (!host || !peopleData) return;
+            const list = peopleData.people.filter(peopleMatches);
+            const html = peopleView() === 'role' ? peopleByRoleHtml(list) : peopleByCommunityHtml(list);
+            host.innerHTML = html || '<div class="activity-empty">No one matches your search.</div>';
+        }
 
         function drawPeople() {
             const gallery = document.getElementById('gallery');
             if (!peopleData) return;
             const d = peopleData;
-            const roleMeta = {
-                admin:     { label: 'Administrator', cls: 'pr-admin',  icon: 'fa-shield-halved' },
-                corporate: { label: 'Corporate',     cls: 'pr-corp',   icon: 'fa-building-columns' },
-                regional:  { label: 'Regional',      cls: 'pr-region', icon: 'fa-sitemap' },
-                staff:     { label: 'Executive Director', cls: 'pr-staff',  icon: 'fa-user-tie' },
-                team:      { label: 'Staff',         cls: 'pr-team',   icon: 'fa-user' },
-            };
-            const list = d.people.filter(p => {
-                if (peopleFilter.role !== 'all' && p.role !== peopleFilter.role) return false;
-                if (!peopleFilter.q) return true;
-                return (p.name + ' ' + p.username + ' ' + (p.email || '') + ' ' + (p.scope || ''))
-                    .toLowerCase().includes(peopleFilter.q);
-            });
+            const view = peopleView();
             const chip = (key, label, n) =>
-                `<button class="ppl-chip ${peopleFilter.role === key ? 'on' : ''}" onclick="peopleSetRole('${key}')">${label}${n !== undefined ? ` <span>${n}</span>` : ''}</button>`;
-            const rows = list.map(p => {
-                const m = roleMeta[p.role] || roleMeta.staff;
-                const initials = profileInitials(p.name || p.username);
-                const avatar = p.photo
-                    ? `<img class="ppl-avatar-img" src="/static/${escapeHtml(p.photo)}" alt="">`
-                    : `<div class="ppl-avatar" style="background:${avatarColor(p.name || p.username)};">${escapeHtml(initials)}</div>`;
-                const safeU = (p.username || '').replace(/'/g, "\\'");
-                // Sign-in activity: green dot while they're in the app, otherwise
-                // when they last signed in — or a nudge if they never have.
-                const seenChip = p.online
-                    ? '<span class="ppl-online"><span class="ppl-dot"></span> Active now</span>'
-                    : (p.last_login
-                        ? `<span class="ppl-seen"><i class="fas fa-right-to-bracket"></i> Last sign-in ${timeAgo(p.last_login)}</span>`
-                        : '<span class="ppl-never"><i class="fas fa-hourglass-start"></i> Never signed in</span>');
-                return `<div class="ppl-row">
-                    ${avatar}
-                    <div class="ppl-main">
-                        <div class="ppl-name">${escapeHtml(p.name)}
-                            ${p.admin_extra ? '<span class="ppl-admin-tag" title="Also has administrator privileges"><i class="fas fa-shield-halved"></i> admin</span>' : ''}
-                            ${p.duplicate ? '<span class="ppl-warn-tag" title="Two entries share this login">duplicate login</span>' : ''}
-                            ${p.must_change ? '<span class="ppl-info-tag" title="Must set a new password at next sign-in">password reset</span>' : ''}
-                        </div>
-                        <div class="ppl-sub">@${escapeHtml(p.username)}${p.title ? ' · ' + escapeHtml(p.title) : ''}</div>
-                        <div class="ppl-meta">
-                            <span class="ppl-role ${m.cls}"><i class="fas ${m.icon}"></i> ${m.label}</span>
-                            <span class="ppl-scope"><i class="fas fa-location-dot"></i> ${escapeHtml(p.scope || '—')}</span>
-                            ${p.email ? `<span class="ppl-email"><i class="fas fa-envelope"></i> ${escapeHtml(p.email)}</span>`
-                                      : '<span class="ppl-noemail"><i class="fas fa-envelope"></i> no email</span>'}
-                            ${p.inspections ? `<span class="ppl-insp"><i class="fas fa-clipboard-check"></i> ${p.inspections} visit${p.inspections === 1 ? '' : 's'}</span>` : ''}
-                            ${seenChip}
-                        </div>
-                    </div>
-                    <div class="ppl-actions">
-                        ${p.role === 'staff' && (p.communities || []).length ? `<button class="region-edit-btn"
-                            title="See the app as this Executive Director sees it"
-                            onclick="startViewAs('${safeU}')"><i class="fas fa-eye"></i></button>` : ''}
-                        <button class="region-edit-btn" title="Edit" onclick="openPersonEdit('${safeU}')"><i class="fas fa-pen"></i></button>
-                        <button class="region-edit-btn" title="Reset password" onclick="peopleResetPassword('${safeU}')"><i class="fas fa-key"></i></button>
-                    </div>
-                </div>`;
-            }).join('') || '<div class="activity-empty">No one matches your search.</div>';
+                `<button class="ppl-chip ${peopleFilter.role === key ? 'on' : ''}" data-role="${key}">${label}${n !== undefined ? ` <span>${n}</span>` : ''}</button>`;
 
             const warn = (d.conflicts && d.conflicts.length) ? `
                 <div class="ppl-alert"><b><i class="fas fa-triangle-exclamation"></i> ${d.conflicts.length} duplicate login${d.conflicts.length === 1 ? '' : 's'}</b> —
@@ -9150,11 +9299,15 @@
                 <div class="ppl-alert ppl-alert-soft"><b><i class="fas fa-envelope"></i> ${d.missing_email.length} without an email address</b> —
                 they can't receive visit reports or move-in notifications. Add it with the pencil.</div>` : '';
 
-            gallery.innerHTML = `<div style="grid-column:1/-1;">
+            gallery.innerHTML = `<div style="grid-column:1/-1;" id="pplRoot">
                 <div class="ppl-toolbar">
-                    <input class="pw-input ppl-search" placeholder="Search by name, username, email or region…"
-                           value="${escapeHtml(peopleFilter.q)}" oninput="peopleSearch(this.value)">
-                    <button class="btn btn-primary" onclick="openAddPerson()"><i class="fas fa-user-plus"></i> Add person</button>
+                    <input class="pw-input ppl-search" id="pplSearch" placeholder="Search by name, email, community or position…"
+                           value="${escapeHtml(peopleFilter.q)}">
+                    <button class="btn btn-primary" id="pplAdd"><i class="fas fa-user-plus"></i> Add person</button>
+                    <div class="pp-toggle" role="group" aria-label="Group people">
+                        <button data-view="community" class="${view === 'community' ? 'on' : ''}">By community</button>
+                        <button data-view="role" class="${view === 'role' ? 'on' : ''}">By role</button>
+                    </div>
                     <div class="ppl-chips">
                         ${chip('all', 'All', d.people.length)}
                         ${chip('admin', 'Admins', d.counts.admin || 0)}
@@ -9166,8 +9319,36 @@
                     ${d.online_now ? `<span class="ppl-online" style="font-size:12px;"><span class="ppl-dot"></span> ${d.online_now} in the app now</span>` : ''}
                 </div>
                 ${warn}${noEmail}
-                <div class="ppl-list">${rows}</div>
+                <div id="pplBody"></div>
             </div>`;
+            wirePeople();
+            drawPeopleBody();
+        }
+
+        function wirePeople() {
+            const root = document.getElementById('pplRoot');
+            if (!root) return;
+            document.getElementById('pplSearch').addEventListener('input', e => peopleSearch(e.target.value));
+            document.getElementById('pplAdd').addEventListener('click', () => openAddPerson());
+            root.addEventListener('click', e => {
+                const viewBtn = e.target.closest('[data-view]');
+                if (viewBtn) { setPeopleView(viewBtn.dataset.view); return; }
+                const roleBtn = e.target.closest('[data-role]');
+                if (roleBtn) { peopleSetRole(roleBtn.dataset.role); return; }
+                const sec = e.target.closest('[data-sec]');
+                if (sec) {
+                    peopleCollapsed[sec.dataset.sec] = !peopleCollapsed[sec.dataset.sec];
+                    drawPeopleBody();
+                    return;
+                }
+                const who = e.target.closest('[data-user]');
+                if (!who) return;
+                const username = who.dataset.user;
+                const act = e.target.closest('[data-act]');
+                if (act && act.dataset.act === 'reset') { peopleResetPassword(username); return; }
+                if (act && act.dataset.act === 'viewas') { startViewAs(username); return; }
+                openPersonEdit(username);
+            });
         }
 
         function openAddPerson() {
