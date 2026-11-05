@@ -9176,6 +9176,8 @@
                 `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}${r.kind === 'corporate' ? ' (company-wide)' : ''}</option>`).join('');
             const commOpts = (peopleData.communities || []).map(c =>
                 `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            const positionOpts = (peopleData.team_positions || []).map(t =>
+                `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
             const modal = document.getElementById('personModal');
             const body = document.getElementById('personModalBody');
             body.innerHTML = `
@@ -9199,6 +9201,8 @@
                             <input id="apTitle" class="pw-input" placeholder="e.g. SRDO, VP Operations" style="width:100%;"></div>
                         <div id="apRegionWrap"><label class="mi-label">Region / group</label>
                             <select id="apRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
+                        <div id="apPositionWrap" style="display:none;"><label class="mi-label">Position</label>
+                            <select id="apPosition" class="pw-input" style="width:100%;"><option value="">— Select —</option>${positionOpts}</select></div>
                         <div id="apCommunityWrap"><label class="mi-label">Community</label>
                             <select id="apCommunity" class="pw-input" style="width:100%;" onchange="apRenderExtraComms()"><option value="">— Select —</option>${commOpts}</select>
                             <div class="cov-extra" id="apExtraWrap" style="display:none;">
@@ -9227,6 +9231,8 @@
             document.getElementById('apTitleWrap').style.display = onRoster ? '' : 'none';
             document.getElementById('apRegionWrap').style.display = onRoster ? '' : 'none';
             document.getElementById('apCommunityWrap').style.display = (role === 'staff' || role === 'team') ? '' : 'none';
+            const apPos = document.getElementById('apPositionWrap');
+            if (apPos) apPos.style.display = (role === 'team') ? '' : 'none';
             // "Also covers" is an Executive Director's: one can stand in for a
             // neighbouring community. Staff belong to one.
             const apExtra = document.getElementById('apExtraWrap');
@@ -9265,8 +9271,12 @@
                 body.community = document.getElementById('apCommunity').value;
                 body.communities = checkedCoverage('apExtraComms');
             }
-            if (role === 'team') body.community = document.getElementById('apCommunity').value;
+            if (role === 'team') {
+                body.community = document.getElementById('apCommunity').value;
+                body.position = document.getElementById('apPosition').value;
+            }
             if (!body.name) { msg.textContent = 'Enter a name.'; msg.classList.add('error'); return; }
+            if (role === 'team' && !body.position) { msg.textContent = 'Pick a position.'; msg.classList.add('error'); return; }
             if ((role === 'staff' || role === 'team') && !body.community) { msg.textContent = 'Pick a community.'; msg.classList.add('error'); return; }
             try {
                 const r = await fetch('/api/people', {
@@ -9425,6 +9435,11 @@
                             <input id="peTitle" class="pw-input" value="${escapeHtml(p.title || '')}" placeholder="e.g. SRDO, VP Operations" style="width:100%;"></div>
                         <div id="peRegionWrap"><label class="mi-label">Region / group</label>
                             <select id="peRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
+                        <div id="pePositionWrap" style="display:none;"><label class="mi-label">Position</label>
+                            <select id="pePosition" class="pw-input" style="width:100%;"><option value="">— Select —</option>${
+                                (peopleData.team_positions || []).map(t =>
+                                    `<option value="${escapeHtml(t)}" ${p.position === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')
+                            }</select></div>
                         <div id="peCommunityWrap"><label class="mi-label">Community</label>
                             <input id="peCommunity" class="pw-input" value="${escapeHtml(p.community || '')}" placeholder="Community name" style="width:100%;">
                             <div class="cov-extra">
@@ -9499,6 +9514,8 @@
             titleW.style.display = onRoster ? '' : 'none';
             regionW.style.display = onRoster ? '' : 'none';
             commW.style.display = (role === 'staff' || role === 'team') ? '' : 'none';
+            const pePos = document.getElementById('pePositionWrap');
+            if (pePos) pePos.style.display = (role === 'team') ? '' : 'none';
             const covExtra = commW.querySelector('.cov-extra');
             if (covExtra) covExtra.style.display = (role === 'team') ? 'none' : '';
             // Only a regional has a region to stay in while reaching further.
@@ -9616,7 +9633,11 @@
                 body.communities = checkedCoverage('peExtraComms');
             }
             // Staff: one community, never the "Also covers" list.
-            if (cm && role === 'team') body.community = cm.value.trim();
+            if (cm && role === 'team') {
+                body.community = cm.value.trim();
+                body.position = (document.getElementById('pePosition') || {}).value || '';
+                if (!body.position) { msg.textContent = 'Pick a position.'; msg.classList.add('error'); return; }
+            }
             if (!body.name) { msg.textContent = 'Name is required.'; msg.classList.add('error'); return; }
             try {
                 const r = await fetch(`/api/people/${encodeURIComponent(username)}`, {

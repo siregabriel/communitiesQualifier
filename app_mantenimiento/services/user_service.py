@@ -77,6 +77,9 @@ class UserService(JsonFileBacked):
                                or ([rec.get('community')] if rec.get('community') else []),
                 'region_id': rec.get('region_id'),
                 'email': rec.get('email'),
+                # A Staff member's job. Left out of this copy, People showed
+                # every one of them with no position.
+                'position': rec.get('position'),
                 'created_at': rec.get('created_at'),
                 'created_by': rec.get('created_by'),
             })
@@ -86,7 +89,7 @@ class UserService(JsonFileBacked):
     # --- Writes ---
     def create(self, username, display_name, role, password_hash,
                community=None, region_id=None, created_by=None, email=None,
-               communities=None) -> dict:
+               communities=None, position=None) -> dict:
         with self._lock:
             self._ensure_fresh()
             rec = {
@@ -103,6 +106,9 @@ class UserService(JsonFileBacked):
                 'created_at': datetime.now().isoformat(),
                 'created_by': created_by,
             }
+            # A Staff member's job at the community (Executive Chef, …).
+            if position:
+                rec['position'] = position
             self.users[username] = rec
             self._save()
             return rec
@@ -119,7 +125,7 @@ class UserService(JsonFileBacked):
     def update(self, username: str, **fields) -> bool:
         """Update editable profile fields on a stored user. Only the keys passed
         in are touched; the username and password hash are never changed here."""
-        allowed = {'display_name', 'role', 'community', 'communities', 'region_id', 'email'}
+        allowed = {'display_name', 'role', 'community', 'communities', 'region_id', 'email', 'position'}
         with self._lock:
             self._ensure_fresh()
             if username not in self.users:

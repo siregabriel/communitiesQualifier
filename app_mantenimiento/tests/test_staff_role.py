@@ -94,7 +94,7 @@ def raise_item(visibility='community', community=VENICE):
 def test_greg_adds_staff_from_people(world):
     r = admin().post('/api/people', headers=HEADERS, json={
         'name': 'Cait Chef', 'email': 'cait@thegoldtonatvenice.com', 'role': 'team',
-        'community': VENICE})
+        'community': VENICE, 'position': 'Executive Chef'})
     assert r.status_code == 200, r.get_data(as_text=True)[:200]
     rec = A.user_service.get(r.get_json()['username'])
     assert rec['role'] == 'team', 'stored as an Executive Director again'
@@ -104,7 +104,8 @@ def test_greg_adds_staff_from_people(world):
 def test_one_community_whatever_the_form_sends(world):
     """'Also covers' is an Executive Director's. A chef belongs to one kitchen."""
     r = admin().post('/api/people', headers=HEADERS, json={
-        'name': 'Kelly Sales', 'role': 'team', 'community': VENICE, 'communities': [VENICE, NAPLES]})
+        'name': 'Kelly Sales', 'role': 'team', 'community': VENICE, 'communities': [VENICE, NAPLES],
+        'position': 'Sales and Marketing Director'})
     rec = A.user_service.get(r.get_json()['username'])
     assert rec['communities'] == [VENICE], rec['communities']
 
@@ -116,13 +117,14 @@ def test_a_community_is_required(world):
 
 def test_an_unknown_community_is_refused(world):
     r = admin().post('/api/people', headers=HEADERS, json={
-        'name': 'Typo', 'role': 'team', 'community': 'The Goldton at Venise'})
+        'name': 'Typo', 'role': 'team', 'community': 'The Goldton at Venise',
+        'position': 'Executive Chef'})
     assert r.status_code == 400
 
 
 def test_only_an_admin_adds_them(world):
     r = laura().post('/api/people', headers=HEADERS, json={
-        'name': 'Ann BOC', 'role': 'team', 'community': VENICE})
+        'name': 'Ann BOC', 'role': 'team', 'community': VENICE, 'position': 'Business Office Director'})
     assert r.status_code == 403
 
 
@@ -134,7 +136,8 @@ def test_the_welcome_says_staff_and_nothing_else_is_sent(world, monkeypatch):
     monkeypatch.setattr(A.email_service, 'send_new_user_alert', lambda *a, **k: None)
     monkeypatch.setattr(A, 'send_community_handover', lambda *a, **k: sent['handover'].append(a))
     admin().post('/api/people', headers=HEADERS, json={
-        'name': 'Dianne Wellness', 'email': 'dianne@venice.com', 'role': 'team', 'community': VENICE})
+        'name': 'Dianne Wellness', 'email': 'dianne@venice.com', 'role': 'team', 'community': VENICE,
+        'position': 'Wellness Director'})
     assert sent['welcome'] == [f'Staff · {VENICE}']
     assert sent['handover'] == [], 'Staff were sent the ED\'s backlog of findings'
 
@@ -143,10 +146,77 @@ def test_editing_into_staff_drops_the_extra_communities(world):
     A.user_service.create('meredith', 'Meredith', 'staff', 'x', community=VENICE,
                           communities=[VENICE, NAPLES])
     r = admin().put('/api/people/meredith', headers=HEADERS, json={
-        'name': 'Meredith', 'role': 'team', 'community': VENICE, 'communities': [VENICE, NAPLES]})
+        'name': 'Meredith', 'role': 'team', 'community': VENICE, 'communities': [VENICE, NAPLES],
+        'position': 'Lifestyles Director'})
     assert r.status_code == 200, r.get_data(as_text=True)[:200]
     rec = A.user_service.get('meredith')
     assert rec['role'] == 'team' and rec['communities'] == [VENICE]
+
+
+# --------------------------------------------------------------- the position
+
+POSITIONS = ['Sales and Marketing Director', 'Business Office Director', 'Wellness Director',
+             'Lifestyles Director', 'Executive Chef', 'Director of Buildings Services']
+
+
+def test_the_six_positions_in_order(world):
+    """As Gabriel listed them. The form shows them in this order."""
+    assert A.TEAM_POSITIONS == POSITIONS
+    d = admin().get('/api/people', headers=HEADERS).get_json()
+    assert d['team_positions'] == POSITIONS
+
+
+def test_staff_need_a_position(world):
+    """"Staff" alone does not say who is answering an item."""
+    r = admin().post('/api/people', headers=HEADERS, json={
+        'name': 'No Job', 'role': 'team', 'community': VENICE})
+    assert r.status_code == 400 and 'position' in r.get_json()['message'].lower()
+
+
+def test_and_only_one_of_the_six(world):
+    r = admin().post('/api/people', headers=HEADERS, json={
+        'name': 'Made Up', 'role': 'team', 'community': VENICE, 'position': 'Chief Fun Officer'})
+    assert r.status_code == 400
+
+
+def test_the_position_is_kept_and_shown(world):
+    r = admin().post('/api/people', headers=HEADERS, json={
+        'name': 'Chris Two', 'role': 'team', 'community': VENICE,
+        'position': 'Director of Buildings Services'})
+    user = r.get_json()['username']
+    assert A.user_service.get(user)['position'] == 'Director of Buildings Services'
+    row = next(p for p in admin().get('/api/people', headers=HEADERS).get_json()['people']
+               if p['username'] == user)
+    assert row['position'] == 'Director of Buildings Services'
+    assert row['title'] == 'Director of Buildings Services', 'People shows it under the name'
+
+
+def test_an_ed_has_no_position_asked(world):
+    r = admin().post('/api/people', headers=HEADERS, json={
+        'name': 'New ED', 'role': 'staff', 'community': VENICE})
+    assert r.status_code == 200
+    assert 'position' not in A.user_service.get(r.get_json()['username'])
+
+
+def test_changing_a_position(world):
+    r = admin().put('/api/people/chris.oconnor', headers=HEADERS, json={
+        'name': 'Chris OConnor', 'role': 'team', 'community': VENICE, 'position': 'Executive Chef'})
+    assert r.status_code == 200, r.get_data(as_text=True)[:200]
+    assert A.user_service.get('chris.oconnor')['position'] == 'Executive Chef'
+
+
+def test_editing_staff_without_a_position_is_refused(world):
+    r = admin().put('/api/people/chris.oconnor', headers=HEADERS, json={
+        'name': 'Chris OConnor', 'role': 'team', 'community': VENICE})
+    assert r.status_code == 400
+
+
+def test_making_staff_an_ed_drops_the_position(world):
+    A.user_service.update('chris.oconnor', position='Executive Chef')
+    r = admin().put('/api/people/chris.oconnor', headers=HEADERS, json={
+        'name': 'Chris OConnor', 'role': 'staff', 'community': VENICE})
+    assert r.status_code == 200
+    assert not A.user_service.get('chris.oconnor').get('position')
 
 
 # ------------------------------------------------------------------ what they see

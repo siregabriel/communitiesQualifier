@@ -42,10 +42,13 @@ function world(role) {
       <option value="${VENICE}">${VENICE}</option><option value="Naples Place">Naples Place</option></select>
       <div class="cov-extra" id="apExtraWrap" style="display:none;"><div id="apExtraComms"></div></div>
     </div>
+    <div id="apPositionWrap" style="display:none;"><select id="apPosition"><option value="">—</option>
+      <option value="Executive Chef">Executive Chef</option></select></div>
     <div id="apRoleNote"></div><span id="apMsg"></span></body>`, { runScripts: 'outside-only' });
   const w = dom.window;
   w.document.getElementById('apRole').value = role;
   w.document.getElementById('apCommunity').value = VENICE;
+  w.document.getElementById('apPosition').value = 'Executive Chef';
   w.eval(`
     var calls = [];
     var peopleData = { communities: ['${VENICE}', 'Naples Place'] };
@@ -75,6 +78,16 @@ console.log('\nStaff: one community, no "Also covers"');
   w.apRenderExtraComms();
   ok(w.document.getElementById('apExtraWrap').style.display === 'none', '"Also covers" is not offered');
   ok(/community's team/.test(w.document.getElementById('apRoleNote').textContent), 'and the note says what Staff can do');
+  ok(w.document.getElementById('apPositionWrap').style.display !== 'none', 'the position is asked for');
+}
+
+console.log('\nThe position is only for Staff');
+{
+  for (const role of ['staff', 'regional', 'corporate', 'admin']) {
+    const w = world(role);
+    w.apOnRoleChange();
+    ok(w.document.getElementById('apPositionWrap').style.display === 'none', `not for ${role}`);
+  }
 }
 
 console.log('\nAn Executive Director still gets "Also covers"');
@@ -94,6 +107,13 @@ console.log('\nWhat is sent');
   ok(body && body.role === 'team', `role "team", not "staff" (${body && body.role})`);
   ok(body && body.community === VENICE, 'with the community');
   ok(body && !('communities' in body), 'and no list of extra communities');
+  ok(body && body.position === 'Executive Chef', 'and the position');
+
+  const nopos = world('team');
+  nopos.document.getElementById('apPosition').value = '';
+  await nopos.submitAddPerson();
+  ok(nopos.calls.length === 0, 'without a position it does not send');
+  ok(/Pick a position/.test(nopos.document.getElementById('apMsg').textContent), 'and says why');
 
   const empty = world('team');
   empty.document.getElementById('apCommunity').value = '';

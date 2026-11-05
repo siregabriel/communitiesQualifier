@@ -1037,6 +1037,17 @@ LEADERSHIP_ROLES = ('regional', 'corporate')
 # every one of them the ED's emails, reminders and the right to close items.
 TEAM_ROLE = 'team'
 
+# The positions a Staff member can hold, in the order the form lists them.
+# Required for Staff: "Staff" alone does not say who is answering an item.
+TEAM_POSITIONS = [
+    'Sales and Marketing Director',
+    'Business Office Director',
+    'Wellness Director',
+    'Lifestyles Director',
+    'Executive Chef',
+    'Director of Buildings Services',
+]
+
 
 def is_team(role=None):
     """A community team member: one community, sees its open items, comments
@@ -4841,7 +4852,8 @@ def list_people():
         people.append({
             'username': username, 'name': name,
             'email': (u.get('email') or '').strip(),
-            'title': '',
+            'title': (u.get('position') or '') if role == TEAM_ROLE else '',
+            'position': (u.get('position') or '') if role == TEAM_ROLE else '',
             'role': role,
             'scope': ('All communities' if role == 'admin'
                       else (' · '.join(account_communities(u))
@@ -4886,6 +4898,7 @@ def list_people():
         counts_by_role[p['role']] = counts_by_role.get(p['role'], 0) + 1
     return jsonify({'status': 'success', 'people': people, 'counts': counts_by_role,
                     'can_grant_admin': is_native_admin(),
+                    'team_positions': TEAM_POSITIONS,
                     'online_now': sum(1 for p in people if p['online']),
                     'never_signed_in': [p['username'] for p in people if not p['last_login']],
                     'conflicts': conflicts,
@@ -4947,6 +4960,9 @@ def create_person():
     community = InputSanitizer.sanitize_community_name(data.get('community') or '') or None
     if role == TEAM_ROLE and community and community not in set(all_communities()):
         return jsonify({'status': 'error', 'message': 'Pick a community from the list'}), 400
+    position = (data.get('position') or '').strip()
+    if role == TEAM_ROLE and position not in TEAM_POSITIONS:
+        return jsonify({'status': 'error', 'message': 'Pick a position'}), 400
 
     if not name:
         return jsonify({'status': 'error', 'message': 'Name is required'}), 400
@@ -4990,7 +5006,8 @@ def create_person():
         user_service.create(username, display_name=name, role=role, password_hash=pw_hash,
                             community=community if role in ('staff', TEAM_ROLE) else None,
                             communities=covers,
-                            region_id=None, created_by=session.get('user'), email=email or None)
+                            region_id=None, created_by=session.get('user'), email=email or None,
+                            position=position if role == TEAM_ROLE else None)
         scope = community if role in ('staff', TEAM_ROLE) else 'All communities'
 
     profile_service.set_display_name(username, name)
@@ -5055,6 +5072,11 @@ def update_person(username):
     # Executive Director's.
     if requested_role == TEAM_ROLE:
         communities = [community] if community else []
+        position = (data.get('position') or '').strip()
+        if position not in TEAM_POSITIONS:
+            return jsonify({'status': 'error', 'message': 'Pick a position'}), 400
+    else:
+        position = None
 
     # Same check as creating one. Editing somebody into an empty scope is the
     # likelier mistake of the two, because the account already worked.
@@ -5093,6 +5115,7 @@ def update_person(username):
                                     community=community if requested_role in ('staff', TEAM_ROLE) else None,
                                     communities=(communities if requested_role in ('staff', TEAM_ROLE) else []),
                                     email=email)
+            user_service.update(username, position=position)
             profile_service.set_display_name(username, name)
             activity_service.log(session.get('user'), 'person_updated',
                                  f'Changed {name} to {requested_role}')
@@ -5144,6 +5167,8 @@ def update_person(username):
         fields = {'display_name': name, 'email': email}
         if requested_role:
             fields['role'] = requested_role
+            # Only Staff hold a position; anyone else loses one they had.
+            fields['position'] = position
             if requested_role == 'admin':
                 fields['community'] = None
                 fields['communities'] = []
