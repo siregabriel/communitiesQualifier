@@ -4,7 +4,8 @@ Team Position Service
 The positions a Staff member can hold: Executive Chef, Wellness Director and so
 on. They began as a fixed list in app.py, and the first person who did not fit
 it (a Move In Coordinator, Nov 2026) needed a deploy to be added. Admins run
-the list from People now.
+the list from Settings now; the person form only picks from it, so nobody
+invents a position while adding somebody.
 
 Two decisions worth keeping:
 
@@ -99,6 +100,12 @@ class TeamPositionService(JsonFileBacked):
         with self._lock:
             self._ensure_fresh()
             return [p['name'] for p in self.positions if p['active']]
+
+    def all(self) -> List[dict]:
+        """Every position, removed ones too, for the Settings list."""
+        with self._lock:
+            self._ensure_fresh()
+            return [dict(p) for p in self.positions]
 
     def is_choosable(self, name) -> bool:
         """Exactly one of the offered names, as the form sends it."""

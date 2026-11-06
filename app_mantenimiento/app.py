@@ -1043,7 +1043,7 @@ LEADERSHIP_ROLES = ('regional', 'corporate')
 TEAM_ROLE = 'team'
 
 # A Staff member's position is required: "Staff" alone does not say who is
-# answering an item. The list is team_position_service, run by admins.
+# answering an item. The list is team_position_service, run by admins in Settings.
 
 
 def is_team(role=None):
@@ -5433,10 +5433,20 @@ def update_person(username):
     return jsonify({'status': 'error', 'message': 'Person not found'}), 404
 
 
+@app.route('/api/team-positions', methods=['GET'])
+@login_required
+def list_team_positions():
+    """Admin-only: every position, removed ones too, for Settings."""
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    return jsonify({'status': 'success', 'positions': team_position_service.all()}), 200
+
+
 @app.route('/api/team-positions', methods=['POST'])
 @login_required
 def add_team_position():
-    """Admin-only: offer a new position for Staff, without a deploy."""
+    """Admin-only, from Settings: offer a position for Staff (or bring a
+    removed one back), without a deploy."""
     if not is_admin():
         return jsonify({'status': 'error', 'message': 'Admins only'}), 403
     data = request.get_json(silent=True) or {}

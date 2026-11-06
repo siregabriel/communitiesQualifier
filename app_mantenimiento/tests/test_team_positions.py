@@ -3,9 +3,10 @@ Staff positions, run from People instead of from the code.
 
 Gabriel needed to add a Move In Coordinator (Nov 2026) and the position list
 was fixed in app.py: the server refused anything else, so a new kind of job
-meant a deploy. Admins now add and remove positions in the Add/Edit person
-form. A person keeps the position's name as text, so removing one must never
-take it away from whoever holds it, nor stop an admin fixing their email.
+meant a deploy. Admins now add and remove positions in Settings; the person
+form only picks from the list, so nobody invents one while adding somebody.
+A person keeps the position's name as text, so removing one must never take
+it away from whoever holds it, nor stop an admin fixing their email.
 
 The form side is test_team_positions.mjs.
 """
@@ -128,6 +129,19 @@ def test_removing_takes_it_out_of_the_form(world):
     assert new_staff('Wellness Director').status_code == 400
 
 
+def test_settings_sees_every_position_removed_ones_too(world):
+    """So a removed one can be brought back from the same list."""
+    add(MIC)
+    remove('Wellness Director')
+    r = admin().get('/api/team-positions', headers=HEADERS)
+    assert r.status_code == 200
+    got = {p['name']: p['active'] for p in r.get_json()['positions']}
+    assert got['Wellness Director'] is False
+    assert got[MIC] is True
+    assert list(got) == DEFAULT_POSITIONS + [MIC], 'in order'
+    assert 'Wellness Director' not in offered(), 'while People still only gets the live ones'
+
+
 def test_removing_one_that_is_not_there_says_so(world):
     assert remove('Chief Fun Officer').status_code == 404
 
@@ -182,6 +196,7 @@ def test_but_nobody_else_can_be_given_it(world):
 def test_only_an_admin_changes_the_list(world, role):
     who = as_('someone', role, VENICE)
     assert add(MIC, who).status_code == 403
+    assert who.get('/api/team-positions', headers=HEADERS).status_code == 403
     assert remove('Executive Chef', who).status_code == 403
     assert offered() == DEFAULT_POSITIONS
     assert not (world / 'team_positions.json').exists()

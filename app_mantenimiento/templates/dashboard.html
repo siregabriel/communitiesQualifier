@@ -2230,20 +2230,6 @@
         .cov-item input { width: 15px; height: 15px; accent-color: #1f6fe5; flex-shrink: 0; }
         .cov-empty { font-size: 12px; color: #94a3b8; padding: 4px 0; }
         .cov-note { font-size: 11.5px; color: #64748b; margin-top: 6px; line-height: 1.45; }
-        .pos-manage-link { background: none; border: none; padding: 0; margin-top: 6px; font: inherit;
-            font-size: 12px; color: #1f6fe5; cursor: pointer; }
-        .pos-manager { margin-top: 8px; border: 1px solid #e4ebf5; border-radius: 9px;
-            padding: 8px 10px; background: #fbfcfe; }
-        .pos-manager[hidden] { display: none; }
-        .pos-row { display: flex; align-items: center; gap: 8px; padding: 3px 0;
-            font-size: 12.5px; color: #475569; }
-        .pos-row span { flex: 1; overflow-wrap: anywhere; }
-        .pos-remove { background: none; border: 1px solid #e2e8f0; border-radius: 7px; padding: 2px 9px;
-            font: inherit; font-size: 11.5px; color: #b42318; cursor: pointer; }
-        .pos-add { display: flex; gap: 8px; margin-top: 8px; }
-        .pos-add input { flex: 1; min-width: 0; }
-        html[data-theme="dark"] .pos-manager { background: #131d2c; border-color: #33425c; }
-        html[data-theme="dark"] .pos-row { color: #c2cddd; }
         html[data-theme="dark"] .cov-list { background: #131d2c; border-color: #33425c; }
         html[data-theme="dark"] .cov-label { color: #eef2f8; }
         html[data-theme="dark"] .cov-item { color: #c2cddd; }
@@ -6416,6 +6402,91 @@
             } catch (e) { _rcSay(e.message, true); }
         }
 
+        // ===================== Staff positions, for an admin =====================
+        // The only place positions are created. People only picks from them,
+        // so nobody invents one while adding somebody. No rename: a person
+        // keeps the position's name as text. Handlers are attached here, never
+        // written into onclick strings around a name.
+
+        function _tpSay(text, bad) {
+            const m = document.getElementById('tpMsg');
+            if (m) { m.textContent = text || ''; m.style.color = bad ? '#b42318' : '#1d9e75'; }
+        }
+
+        async function loadTeamPositionAdmin() {
+            const host = document.getElementById('tpList');
+            if (!host) return;
+            let all = [];
+            try {
+                const r = await fetch('/api/team-positions');
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') throw new Error();
+                all = d.positions || [];
+            } catch (e) {
+                host.innerHTML = '<div class="activity-empty">Could not load them.</div>';
+                return;
+            }
+            const live = all.filter(p => p.active !== false).length;
+            host.innerHTML = '';
+            all.forEach(p => {
+                const off = p.active === false;
+                const row = document.createElement('div');
+                row.className = 'rc-row' + (off ? ' rc-off' : '');
+                const name = document.createElement('span');
+                name.className = 'rc-name';
+                name.textContent = p.name;
+                row.appendChild(name);
+                if (off) {
+                    const tag = document.createElement('span');
+                    tag.className = 'rc-tag';
+                    tag.textContent = 'Removed';
+                    row.appendChild(tag);
+                }
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'rc-toggle';
+                btn.textContent = off ? 'Bring back' : 'Remove';
+                if (!off && live <= 1) { btn.disabled = true; btn.title = 'Keep at least one'; }
+                btn.addEventListener('click', () => changeTeamPosition(off ? 'add' : 'remove', p.name));
+                row.appendChild(btn);
+                host.appendChild(row);
+            });
+        }
+
+        function wireTeamPositionAdmin() {
+            const box = document.getElementById('tpNew');
+            const add = document.getElementById('tpAdd');
+            if (!box || !add) return;
+            const submit = () => {
+                const name = (box.value || '').trim();
+                if (!name) { _tpSay('Give it a name.', true); return; }
+                changeTeamPosition('add', name);
+            };
+            add.addEventListener('click', submit);
+            box.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+        }
+
+        async function changeTeamPosition(action, name) {
+            const url = action === 'add' ? '/api/team-positions' : '/api/team-positions/remove';
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not save it');
+                if (typeof peopleData !== 'undefined' && peopleData) peopleData.team_positions = d.positions || [];
+                if (action === 'add') {
+                    const box = document.getElementById('tpNew');
+                    if (box) box.value = '';
+                }
+                _tpSay(action === 'add' ? `${d.name} is in the list.` : `Removed ${d.name}. Whoever holds it keeps it.`);
+            } catch (e) {
+                _tpSay(e.message, true);
+            }
+            await loadTeamPositionAdmin();
+        }
+
         function setRaisedCategoryFilter(id) {
             raisedCategoryFilter = (raisedCategoryFilter === id) ? '' : id;
             // Choosing a different category is a fresh question; carrying the
@@ -9531,8 +9602,7 @@
                             <select id="apRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
                         <div id="apPositionWrap" style="display:none;"><label class="mi-label">Position</label>
                             <select id="apPosition" class="pw-input" style="width:100%;"></select>
-                            <button type="button" class="pos-manage-link" id="apPositionManage">Add or remove positions</button>
-                            <div class="pos-manager" id="apPositionManager" hidden></div></div>
+                            <div class="cov-note">Missing one? Positions are managed in Settings.</div></div>
                         <div id="apCommunityWrap"><label class="mi-label">Community</label>
                             <select id="apCommunity" class="pw-input" style="width:100%;" onchange="apRenderExtraComms()"><option value="">— Select —</option>${commOpts}</select>
                             <div class="cov-extra" id="apExtraWrap" style="display:none;">
@@ -9551,14 +9621,13 @@
                 </div>`;
             modal.classList.add('show');
             fillPositionSelect('apPosition');
-            wirePositionManager('apPosition');
             apOnRoleChange();
         }
 
-        /* The positions a Staff member can hold. Admins add and remove them
-           right here, so a new kind of job (a Move In Coordinator) does not
-           wait for a deploy. Removing only takes one out of the list: whoever
-           holds it keeps it, and their own form still shows it. */
+        /* The positions a Staff member can hold, as Settings left them. The
+           form only picks: adding one while adding a person is how positions
+           get invented. A removed one stays on the form of whoever holds it,
+           or saving their email would quietly clear it. */
         function fillPositionSelect(selectId) {
             const sel = document.getElementById(selectId);
             if (!sel) return;
@@ -9577,77 +9646,6 @@
             if (held && !names.includes(held)) add(held, held + ' (no longer offered)');
             const values = Array.from(sel.options).map(o => o.value);
             sel.value = (chosen && values.includes(chosen)) ? chosen : (values.includes(held) ? held : '');
-        }
-
-        function wirePositionManager(selectId) {
-            const link = document.getElementById(selectId + 'Manage');
-            const box = document.getElementById(selectId + 'Manager');
-            if (!link || !box) return;
-            link.addEventListener('click', () => {
-                box.hidden = !box.hidden;
-                if (!box.hidden) drawPositionManager(selectId);
-            });
-        }
-
-        function drawPositionManager(selectId, message, isError) {
-            const box = document.getElementById(selectId + 'Manager');
-            if (!box) return;
-            const names = (peopleData && peopleData.team_positions) || [];
-            box.innerHTML = `
-                <div class="pos-list"></div>
-                <div class="pos-add">
-                    <input class="pw-input pos-new" maxlength="60" placeholder="New position, e.g. Move In Coordinator">
-                    <button type="button" class="btn btn-secondary pos-add-btn">Add</button>
-                </div>
-                <div class="cov-note">Removing one keeps it for whoever already holds it.</div>
-                <span class="pw-msg pos-msg"></span>`;
-            const list = box.querySelector('.pos-list');
-            names.forEach(name => {
-                const row = document.createElement('div');
-                row.className = 'pos-row';
-                const label = document.createElement('span');
-                label.textContent = name;
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'pos-remove';
-                btn.textContent = 'Remove';
-                btn.disabled = names.length <= 1;
-                btn.addEventListener('click', () => changeTeamPositions(selectId, 'remove', name));
-                row.append(label, btn);
-                list.appendChild(row);
-            });
-            const input = box.querySelector('.pos-new');
-            const submit = () => {
-                const name = (input.value || '').trim();
-                if (name) changeTeamPositions(selectId, 'add', name);
-            };
-            box.querySelector('.pos-add-btn').addEventListener('click', submit);
-            input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
-            if (message) {
-                const msg = box.querySelector('.pos-msg');
-                msg.textContent = message;
-                if (isError) msg.classList.add('error');
-            }
-        }
-
-        async function changeTeamPositions(selectId, action, name) {
-            const url = action === 'add' ? '/api/team-positions' : '/api/team-positions/remove';
-            let d = {};
-            try {
-                const r = await fetch(url, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
-                });
-                d = await r.json();
-                if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not change the list');
-            } catch (e) {
-                drawPositionManager(selectId, e.message || 'Could not change the list', true);
-                return;
-            }
-            peopleData.team_positions = d.positions || [];
-            fillPositionSelect(selectId);
-            if (action === 'add') document.getElementById(selectId).value = d.name;
-            drawPositionManager(selectId, action === 'add' ? `Added ${d.name}.` : `Removed ${d.name}.`);
         }
 
         function apOnRoleChange() {
@@ -9864,8 +9862,7 @@
                             <select id="peRegion" class="pw-input" style="width:100%;">${regionOpts}</select></div>
                         <div id="pePositionWrap" style="display:none;"><label class="mi-label">Position</label>
                             <select id="pePosition" class="pw-input" style="width:100%;"></select>
-                            <button type="button" class="pos-manage-link" id="pePositionManage">Add or remove positions</button>
-                            <div class="pos-manager" id="pePositionManager" hidden></div></div>
+                            <div class="cov-note">Missing one? Positions are managed in Settings.</div></div>
                         <div id="peCommunityWrap"><label class="mi-label">Community</label>
                             <input id="peCommunity" class="pw-input" value="${escapeHtml(p.community || '')}" placeholder="Community name" style="width:100%;">
                             <div class="cov-extra">
@@ -9926,7 +9923,6 @@
             const pePosition = document.getElementById('pePosition');
             if (pePosition) pePosition.dataset.held = p.position || '';
             fillPositionSelect('pePosition');
-            wirePositionManager('pePosition');
             peOnRoleChange();
         }
 
@@ -11118,6 +11114,22 @@
                         </div>
                     </div>
                     <div class="profile-section">
+                        <div class="profile-section-title"><i class="fas fa-id-badge"></i> Staff positions</div>
+                        <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
+                            What a Staff member's position is chosen from when they are added in People.
+                            Only this list is offered there. Removing one takes it out of the list;
+                            whoever already holds it keeps it.
+                        </p>
+                        <div id="tpList"><div class="activity-empty">Loading…</div></div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+                            <input id="tpNew" class="pw-input" maxlength="60" style="flex:1;min-width:180px;"
+                                   placeholder="New position, e.g. Move In Coordinator">
+                            <button class="btn btn-secondary" type="button" id="tpAdd">
+                                <i class="fas fa-plus"></i> Add</button>
+                            <span class="pw-msg" id="tpMsg"></span>
+                        </div>
+                    </div>
+                    <div class="profile-section">
                         <div class="profile-section-title"><i class="fas fa-envelope-open-text"></i> Email recipients</div>
                         <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
                             Every address that receives email from Atlas Excellence, and exactly which notifications it gets —
@@ -11135,6 +11147,8 @@
                 loadEmailSettings();
                 loadNotificationSummary();
                 loadRaisedCategoryAdmin();
+                wireTeamPositionAdmin();
+                loadTeamPositionAdmin();
             }
         }
 

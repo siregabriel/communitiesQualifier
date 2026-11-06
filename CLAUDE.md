@@ -56,10 +56,11 @@ Push to `main` → GitHub Actions runs both suites as a gate → SSH →
   "Also covers", sees its items (never internal), comments and raises, never
   closes/visits, no move-ins, no ED email (`community_account_emails` is
   `staff` only). `TEAM_ROLE` / `is_team()` in app.py.
-- Staff positions: admins add/remove them in People (Add/Edit person →
-  "Add or remove positions"); `team_position_service`, `data/team_positions.json`,
+- Staff positions: any admin adds/removes them **only in Settings → Staff
+  positions**; Add/Edit person just picks (Gabriel's call: nobody invents one
+  while adding somebody). `team_position_service`, `data/team_positions.json`,
   the original six until first change. Stored on the person as **text**, so no
-  rename; removing keeps it for whoever holds it.
+  rename; removing keeps it for whoever holds it. No reordering (not wanted).
 - A regional's scope *is* their region. No region → `regional_communities()`
   returns `[]` and they see nothing. Corporate members are in the `corporate`
   group, whose `kind` grants every community.
