@@ -107,6 +107,17 @@ its own location; **where anybody is never reaches this server.**
   person can see to `/reporte?community=` once the type is chosen.
 - `tests/test_nearby_visits.py` guards all of it.
 
+## Answers and order (Nov 2026, Greg's requests)
+
+- A standard is `Pass`, `Fail` or `Not checked` (`services/conditions.py`).
+  Not checked needs a reason (in `description`, enforced in form and server),
+  is out of every score and pass rate, counts as answered (not partial), and
+  is shown in the panel, history, emails, exports and AtlasAI. Anything new
+  that counts responses must decide what it does with it.
+- Question order: admins move standards up/down in Standards
+  (`/api/questions/order`). One global `order`; each survey type shows its own
+  questions in it; new ones go last. Never reordered → newest first, as before.
+
 ## Unfinished visits (drafts)
 
 Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost

@@ -6737,6 +6737,20 @@ def get_questions():
 
 # ==================== QUESTION MANAGEMENT API ====================
 
+@app.route('/api/questions/order', methods=['POST'])
+@require_admin
+def reorder_questions():
+    """Admin-only: the order the standards appear in, in Standards and on
+    every visit form. One order for all survey types; each shows its own
+    questions in it."""
+    ids = (request.get_json(silent=True) or {}).get('ids')
+    if not isinstance(ids, list) or not ids:
+        return jsonify({'status': 'error', 'message': 'Send the question ids in order'}), 400
+    ordered = question_manager.reorder([str(i)[:80] for i in ids])
+    activity_service.log(session.get('user'), 'questions_reordered', 'Changed the order of the standards')
+    return jsonify({'status': 'success', 'ids': [q['id'] for q in ordered]}), 200
+
+
 @app.route('/api/questions', methods=['POST'])
 @require_admin
 def create_question():

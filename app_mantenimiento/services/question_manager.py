@@ -38,6 +38,41 @@ class QuestionManager(JsonFileBacked):
         self._mark_loaded()
 
     @staticmethod
+    def _ordered(questions: List[Dict]) -> List[Dict]:
+        """The order every screen shows: the one an admin set in Standards.
+
+        Greg Crutcher asked to change the order of the questions (Nov 2026);
+        until then they came newest first, which is also what an install that
+        has never reordered keeps. Once somebody reorders, every active
+        question carries an "order", and a new one is put at the end. A
+        question without one (from before) sorts after those, newest first.
+        """
+        placed = sorted((q for q in questions if isinstance(q.get("order"), int)),
+                        key=lambda q: q["order"])
+        rest = sorted((q for q in questions if not isinstance(q.get("order"), int)),
+                      key=lambda q: q.get("created_at", ""), reverse=True)
+        return placed + rest
+
+    def reorder(self, ids: List[str]) -> List[Dict]:
+        """Put the active questions in this order. Ids that are not active
+        questions are ignored; active questions left out keep their place
+        after the ones given, so a stale page can never drop one."""
+        with self._lock:
+            self._ensure_fresh()
+            active = self._ordered([q for q in self.questions if q.get("is_active", True)])
+            by_id = {q["id"]: q for q in active}
+            seen, out = set(), []
+            for qid in ids or []:
+                if qid in by_id and qid not in seen:
+                    seen.add(qid)
+                    out.append(by_id[qid])
+            out += [q for q in active if q["id"] not in seen]
+            for i, q in enumerate(out):
+                q["order"] = i
+            self.save_to_file()
+            return list(out)
+
+    @staticmethod
     def _clean_criteria(items):
         """Normalize the 'must include to pass' list: strip, drop blanks."""
         if isinstance(items, str):
@@ -98,6 +133,10 @@ class QuestionManager(JsonFileBacked):
         # changes made by another process or an external edit.
         with self._lock:
             self._ensure_fresh()
+            # Once an order has been set, a new question goes to the end of it.
+            orders = [q["order"] for q in self.questions if isinstance(q.get("order"), int)]
+            if orders:
+                question["order"] = max(orders) + 1
             self.questions.append(question)
             self.save_to_file()
 
@@ -124,15 +163,10 @@ class QuestionManager(JsonFileBacked):
         Retrieve all active questions
         
         Returns:
-            List of active question dicts, sorted by created_at descending (newest first)
+            List of active question dicts, in the order set in Standards (see _ordered)
         """
         self._ensure_fresh()
-        active_questions = [q for q in self.questions if q.get("is_active", True)]
-        
-        # Sort by created_at descending (newest first)
-        active_questions.sort(key=lambda q: q.get("created_at", ""), reverse=True)
-        
-        return active_questions
+        return self._ordered([q for q in self.questions if q.get("is_active", True)])
 
     def get_questions_for_community(self, community: str) -> List[Dict]:
         """
@@ -143,18 +177,13 @@ class QuestionManager(JsonFileBacked):
             
         Returns:
             List of active question dicts for the specified community,
-            sorted by created_at descending (newest first)
+            in the order set in Standards (see _ordered)
         """
         self._ensure_fresh()
-        community_questions = [
+        return self._ordered([
             q for q in self.questions
             if q.get("is_active", True) and community in q.get("communities", [])
-        ]
-        
-        # Sort by created_at descending (newest first)
-        community_questions.sort(key=lambda q: q.get("created_at", ""), reverse=True)
-        
-        return community_questions
+        ])
 
     def update_question(self, question_id: str, text: str, photo_required: bool,
                        communities: List[str], survey_types: Optional[List[str]] = None,
