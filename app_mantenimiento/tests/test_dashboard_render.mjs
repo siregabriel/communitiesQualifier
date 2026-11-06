@@ -348,6 +348,7 @@ ok(w.document.body.style.overflow === '', 'and scrolling is given back');
 ok(lbImg.getAttribute('src') === '', 'the image is released');
 
 console.log('Photo viewer — Escape order');
+run(`window.__realClosePanel = closeSlidePanel;`);
 run(`window.__panelClosed = false; closeSlidePanel = () => { window.__panelClosed = true; };`);
 run(`openPhoto('/static/uploads/x/a.jpg', 'a');`);
 const esc = new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
@@ -864,6 +865,39 @@ console.log('\nActivity feed — a row opens the exact item it is about');
   ok(row.classList.contains('is-open'), 'and the row itself is open');
   ok(/Vendor comes Friday/.test(row.querySelector('.ail-detail').textContent),
      'so the comment they clicked through to read is actually on screen');
+}
+
+console.log('\nVisit panel — "Reply in Action Items" gets out of the way');
+{
+  // Greg Crutcher clicked "Reply in Action Items" in a visit panel while
+  // already on Action Items: the list reloaded underneath, the panel stayed
+  // on top, and it looked like the button did nothing. The real panel and
+  // overlay here, opened the way the page opens them, and the real close.
+  run(`closeSlidePanel = window.__realClosePanel;`);
+  const panel = w.document.createElement('aside');
+  panel.id = 'slidePanel';
+  const overlay = w.document.createElement('div');
+  overlay.id = 'slidePanelOverlay';
+  w.document.body.append(overlay, panel);
+  const open = () => { panel.classList.add('show'); overlay.classList.add('show'); };
+
+  open();
+  run(`openActivityTarget('sX','qX','')`);
+  ok(!panel.classList.contains('show'), 'a finding: the panel closes');
+  ok(!overlay.classList.contains('show'), 'and so does the overlay that would block the list');
+  ok(w.__view === 'action-items', 'and it lands in Action Items');
+  const row = gallery.querySelector('#ai_sX_qX');
+  ok(row && row.classList.contains('is-open'), 'with the thread open to reply to');
+
+  open();
+  run(`openRaisedTarget('r1')`);
+  ok(!panel.classList.contains('show') && !overlay.classList.contains('show'),
+     'a raised item: the panel closes too');
+
+  // The button itself must go through one of those, not around them.
+  const btn = html_src.match(/<button class="resp-thread" onclick="([^"]+)">\s*<i class="fas fa-reply"><\/i> Reply in Action Items/);
+  ok(btn && /^openActivityTarget\(/.test(btn[1]), 'and the panel button calls openActivityTarget');
+  panel.remove(); overlay.remove();
 }
 
 console.log('\nActivity feed — a filter left on cannot hide the target');

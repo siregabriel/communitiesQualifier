@@ -7381,6 +7381,11 @@
         // or the person arrives at a collapsed line and cannot see the comment
         // they clicked through to read.
         function openActivityTarget(submissionId, questionId, itemId) {
+            // The visit panel's "Reply in Action Items" comes through here.
+            // Left open, the panel covers the list it just loaded, and for
+            // somebody already in Action Items the click looks like it did
+            // nothing at all (Greg Crutcher, Nov 2026).
+            closeSlidePanel();
             const cardId = 'ai_' + submissionId + '_' + (questionId || itemId || '');
             _aiRevealRow = cardId;
             _aiOpenRows.add(cardId);
@@ -7401,6 +7406,7 @@
         // The same landing as a finding, for something a community raised.
         // Its row key is built from the item's own id, not a visit's.
         function openRaisedTarget(itemId) {
+            closeSlidePanel();   // as above: never land behind the panel
             const key = 'ask_' + itemId;
             _aiRevealRow = key;
             _aiOpenRows.add(key);
