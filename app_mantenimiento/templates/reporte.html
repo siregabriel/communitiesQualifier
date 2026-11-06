@@ -313,6 +313,40 @@
             color: #fff;
         }
 
+        /* Not checked - grey: no verdict, out of the score */
+        .radio-button input[type="radio"]:checked + .radio-label.notchecked {
+            background: #5b6b85;
+            color: #fff;
+            font-weight: 700;
+            box-shadow: none;
+        }
+
+        .radio-button input[type="radio"]:checked + .radio-label.notchecked .rating-icon {
+            display: inline-block;
+            color: #fff;
+        }
+
+        /* "NOT CHECKED" does not fit a third of a phone's width in capitals.
+           It is the exception, not a verdict, so on a phone it takes its own
+           row under Pass and Fail instead of squeezing all three. */
+        @media (max-width: 480px) {
+            .condition-rating { flex-wrap: wrap; }
+            .radio-button.rb-notchecked { flex: 1 0 100%; }
+            .radio-button.rb-notchecked .radio-label {
+                height: 40px;
+                border-left: none;
+                border-top: 1px solid #d9dfe8;
+            }
+        }
+
+        /* Dark mode paints every segment the same with !important, which
+           also hid the fill of the one chosen: a picked Pass or Fail looked
+           like the others but for a small icon. The choice wins back here. */
+        html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.pass { background: #0f8a5f !important; color: #fff; }
+        html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.fail { background: #d13212 !important; color: #fff; }
+        html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.notchecked { background: #5b6b85 !important; color: #fff; }
+        html[data-theme="dark"] .radio-button.rb-notchecked .radio-label { border-top-color: #2b3a52; }
+
         .file-upload-wrapper {
             position: relative;
         }
@@ -2347,7 +2381,7 @@
         const FORM_TOUR = [
             { title: 'How to run a visit', text: 'Go item by item — here’s what each part does. You can replay this from Help anytime.' },
             { target: '.guideline-info-btn', title: 'See the standard', text: "Tap the info icon to see exactly what's required to pass this item." },
-            { target: '.condition-rating', title: 'Pass or Fail', text: 'Mark each item Pass or Fail with this toggle. If you mark Fail, the Comments box below becomes required — describe what you found so whoever fixes it knows where to start.' },
+            { target: '.condition-rating', title: 'Pass, Fail or Not checked', text: 'Mark each item Pass or Fail with this toggle. If you mark Fail, the Comments box below becomes required — describe what you found so whoever fixes it knows where to start. Couldn\'t check it today? Mark Not checked and say why: it is left out of the score.' },
             { target: 'select[id^="route_"]', title: 'Comment & route it', text: 'Add a comment, and optionally direct it to Clinical, Ops or Sales so the right team is notified.' },
             { target: '.file-upload-label', title: 'Add a photo', text: 'Attach a photo as evidence when needed. You can take one now or pick a shot you took earlier in the walk.' },
             { target: '#actionItemsSection', title: 'Anything else you spotted', text: 'Saw something that isn’t one of the standards? Add it here with + Add action item — say what it is, who should handle it (Maintenance, Nursing, Dietary…) and how urgent it is. It goes to the Action Items list and into the summary email, and it never affects the score.' },
@@ -2596,7 +2630,21 @@
                 </span>
             `;
             conditionRating.appendChild(failDiv);
-            
+
+            // Not checked: couldn't be looked at today (kitchen closed, room
+            // locked). Left out of the score, so it needs a reason — Greg
+            // Crutcher's idea, Nov 2026. See services/conditions.py.
+            const ncDiv = document.createElement('label');
+            ncDiv.className = 'radio-button rb-notchecked';
+            ncDiv.innerHTML = `
+                <input type="radio" name="condition_${question.id}" value="Not checked" onchange="onConditionChange('${question.id}')">
+                <span class="radio-label notchecked">
+                    <span class="rating-icon"><i class="fas fa-minus"></i></span>
+                    Not checked
+                </span>
+            `;
+            conditionRating.appendChild(ncDiv);
+
             section.appendChild(conditionRating);
             
             // Comments label. Turns into a required field once the item is
@@ -2682,18 +2730,26 @@
         }
 
         // A Fail without a comment leaves the next person guessing, so the
-        // Comments box becomes required as soon as Fail is picked.
+        // Comments box becomes required as soon as Fail is picked. A Not
+        // checked needs one too: it is left out of the score, and without a
+        // reason it is an easy way to hide a Fail.
         function onConditionChange(questionId) {
             const picked = document.querySelector(`input[name="condition_${questionId}"]:checked`);
             const isFail = !!picked && picked.value === 'Fail';
+            const isNotChecked = !!picked && picked.value === 'Not checked';
             const req = document.getElementById(`commentsReq_${questionId}`);
             const box = document.getElementById(`description_${questionId}`);
-            if (req) req.classList.toggle('show', isFail);
+            if (req) {
+                req.classList.toggle('show', isFail || isNotChecked);
+                req.textContent = isNotChecked ? 'Reason required' : 'Required for a Fail';
+            }
             if (box) {
                 box.placeholder = isFail
                     ? 'What did you find? Be specific so it can be fixed.'
-                    : 'Add your comments here...';
-                if (!isFail) box.classList.remove('comments-invalid');
+                    : isNotChecked
+                        ? 'Why couldn\'t it be checked? e.g. kitchen closed for cleaning'
+                        : 'Add your comments here...';
+                if (!isFail && !isNotChecked) box.classList.remove('comments-invalid');
             }
             updateProgress();
         }
@@ -2703,6 +2759,7 @@
             let answeredQuestions = 0;
             let positiveAnswers = 0;
             
+            let notChecked = 0;
             questions.forEach(question => {
                 const selectedInput = document.querySelector(`input[name="condition_${question.id}"]:checked`);
                 if (selectedInput) {
@@ -2710,12 +2767,16 @@
                     const value = selectedInput.value;
                     if (value === 'Pass') {
                         positiveAnswers++;
+                    } else if (value === 'Not checked') {
+                        notChecked++;
                     }
                 }
             });
-            
-            if (answeredQuestions > 0) {
-                const percentage = Math.round((positiveAnswers / totalQuestions) * 100);
+            // Not checked is out of the score, so it is out of this too.
+            const scored = totalQuestions - notChecked;
+
+            if (answeredQuestions > 0 && scored > 0) {
+                const percentage = Math.round((positiveAnswers / scored) * 100);
                 const progressContainer = document.getElementById('progressContainer');
                 const progressFill = document.getElementById('progressFill');
                 const progressMessage = document.getElementById('progressMessage');
@@ -2872,8 +2933,8 @@
                 const condition = conditionInput.value;
                 const description = document.getElementById(`description_${question.id}`)?.value || '';
 
-                // Every Fail must say what was found.
-                if (condition === 'Fail' && !description.trim()) {
+                // Every Fail must say what was found, and every Not checked why.
+                if ((condition === 'Fail' || condition === 'Not checked') && !description.trim()) {
                     missingComment.push(question);
                 }
                 const routeTo = document.getElementById(`route_${question.id}`)?.value || '';
@@ -2908,9 +2969,12 @@
                     first.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     setTimeout(() => first.focus({ preventScroll: true }), 350);
                 }
+                const pickedOf = q => (document.querySelector(`input[name="condition_${q.id}"]:checked`) || {}).value;
                 alert(missingComment.length === 1
-                    ? 'Please add a comment explaining the Fail on "' + missingComment[0].text + '".'
-                    : `Please add a comment on the ${missingComment.length} items marked Fail. Whoever fixes them needs to know what you found.`);
+                    ? (pickedOf(missingComment[0]) === 'Not checked'
+                        ? 'Please say why "' + missingComment[0].text + '" could not be checked.'
+                        : 'Please add a comment explaining the Fail on "' + missingComment[0].text + '".')
+                    : `Please add a comment on the ${missingComment.length} items marked Fail or Not checked: what you found, or why it couldn't be checked.`);
                 return;
             }
 
@@ -2923,7 +2987,8 @@
                 const ok = confirm(
                     `${unanswered} of ${questions.length} standards ${unanswered === 1 ? 'has' : 'have'} no answer yet.\n\n` +
                     `You can send this now and the visit will be marked as partial — the score will only ` +
-                    `cover the ${responses.length} you did answer.\n\n` +
+                    `cover the ${responses.filter(r => r.condition !== 'Not checked').length} you did ` +
+                    `${responses.some(r => r.condition === 'Not checked') ? 'pass or fail' : 'answer'}.\n\n` +
                     `Send anyway? Choose Cancel to go back and finish.`);
                 if (!ok) {
                     // Take them to the first one still blank rather than

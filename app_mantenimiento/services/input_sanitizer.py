@@ -7,6 +7,8 @@ import html
 import re
 from typing import Any, Dict, List
 
+from services.conditions import ANSWERS
+
 
 class InputSanitizer:
     """
@@ -182,10 +184,10 @@ class InputSanitizer:
                 response['question_text']
             )
         
-        # Sanitize condition (must be exact match: Pass/Fail)
+        # Sanitize condition (must be exact match: Pass/Fail/Not checked)
         if 'condition' in response:
             condition = str(response['condition']).strip()
-            if condition in ['Pass', 'Fail']:
+            if condition in ANSWERS:
                 sanitized['condition'] = condition
             else:
                 sanitized['condition'] = ''

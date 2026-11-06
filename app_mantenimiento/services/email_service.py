@@ -19,6 +19,8 @@ import logging
 from datetime import datetime
 from urllib.parse import quote
 
+from services.conditions import NOT_CHECKED
+
 logger = logging.getLogger(__name__)
 
 _EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
@@ -84,6 +86,10 @@ class EmailService:
         fails = [r for r in responses if r.get('condition') == 'Fail']
         return passed, failed, total, score, fails
 
+    @staticmethod
+    def _not_checked(submission):
+        return [r for r in (submission.get('responses') or []) if r.get('condition') == NOT_CHECKED]
+
     def report_link(self, community):
         if not self.app_base_url:
             return None
@@ -117,9 +123,11 @@ class EmailService:
         ]
         if survey_type_name:
             lines.append(f"Survey type: {survey_type_name}")
+        not_checked = self._not_checked(submission)
         lines += [
             f"Overall score: {score_txt}",
-            f"Passed: {passed} / {total}    Failed: {failed}",
+            f"Passed: {passed} / {total}    Failed: {failed}"
+            + (f"    Not checked: {len(not_checked)} (not scored)" if not_checked else ""),
         ]
         behalf = sent_on_behalf_line(submission)
         if behalf:
@@ -136,6 +144,12 @@ class EmailService:
                 lines.append(f"  - {q}" + (f": {note}" if note else ""))
                 for c in self._criteria_for(r, criteria_map):
                     lines.append(f"      • {c}")
+        if not_checked:
+            lines.append("")
+            lines.append("Not checked (left out of the score):")
+            for r in not_checked:
+                reason = r.get('description', '')
+                lines.append(f"  - {r.get('question_text', 'Item')}" + (f": {reason}" if reason else ""))
         if link:
             lines += ["", f"View the full report: {link}"]
         text = "\n".join(lines)
@@ -160,7 +174,20 @@ class EmailService:
         fail_block = (
             f"<h3 style='font-size:15px;color:#d13212;margin:18px 0 6px'>Failed items ({failed})</h3>"
             f"<ul style='margin:0;padding-left:18px;color:#1f2937;font-size:14px'>{fail_rows}</ul>"
-        ) if fails else "<p style='color:#0f8a5f;font-size:14px;margin:14px 0'>All items passed.</p>"
+        ) if fails else ("<p style='color:#0f8a5f;font-size:14px;margin:14px 0'>"
+                         + ("Everything checked passed." if not_checked else "All items passed.") + "</p>")
+        # What could not be checked, and why. Out of the score, so it is listed
+        # where leadership will see it: an empty Fail list next to five of
+        # these is not the same visit as an empty Fail list on its own.
+        not_checked_block = (
+            f"<h3 style='font-size:15px;color:#6b7280;margin:18px 0 6px'>Not checked ({len(not_checked)})</h3>"
+            f"<ul style='margin:0;padding-left:18px;color:#1f2937;font-size:14px'>"
+            + ''.join(f"<li style='margin:6px 0'><strong>{esc(r.get('question_text', 'Item'))}</strong>"
+                      + (f" — {esc(r.get('description', ''))}" if r.get('description') else "") + "</li>"
+                      for r in not_checked)
+            + "</ul><p style='color:#9ca3af;font-size:12px;margin:6px 0 0'>"
+              "Left out of the score. Worth a look next time.</p>"
+        ) if not_checked else ""
 
         # Ad-hoc action items raised during the visit (not standards, no score
         # impact) — surfaced so the right team sees them without digging.
@@ -237,7 +264,7 @@ class EmailService:
   </div>
   <div style="border:1px solid #d9dfe8;border-top:none;border-radius:0 0 10px 10px;padding:22px 24px">
     <div style="font-size:34px;font-weight:800;color:{score_color}">{esc(score_txt)}</div>
-    <div style="color:#6b7280;font-size:13px;margin-bottom:14px">Overall score &middot; {passed}/{total} passed</div>
+    <div style="color:#6b7280;font-size:13px;margin-bottom:14px">Overall score &middot; {passed}/{total} passed{f" &middot; {len(not_checked)} not checked" if not_checked else ""}</div>
     <table style="font-size:14px;border-collapse:collapse;margin-bottom:6px">
       <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Inspector</td><td style="font-weight:600">{esc(inspector)}</td></tr>
       <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Date</td><td style="font-weight:600">{esc(when)}</td></tr>
@@ -245,6 +272,7 @@ class EmailService:
     </table>
     {note_block}
     {fail_block}
+    {not_checked_block}
     {action_block}
     <div style="margin-top:20px">{button}</div>
   </div>
@@ -891,7 +919,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
     def send_community_findings(self, recipients, community, inspector, when,
                                 failed_items, action_items, criteria_map=None,
                                 handover=False, notes='', passed_items=None,
-                                score=None):
+                                score=None, not_checked_items=None):
         """What the community itself needs after a visit.
 
         Still not the leadership report — what needs doing comes first and
@@ -937,6 +965,17 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             context_bits.append(
                 f"<div style='margin-top:8px'>Also checked and passed:</div>"
                 f"<ul style='margin:4px 0 0;padding-left:18px'>{names}</ul>")
+        # Not checked this time: not the community's to fix, but worth knowing
+        # it will be looked at next visit. Context, like what passed.
+        not_checked_items = not_checked_items or []
+        if not_checked_items:
+            rows = ''.join(
+                f"<li style='margin:3px 0'>{esc(i.get('question_text', 'Standard'))}"
+                + (f" — {esc(i.get('description', ''))}" if i.get('description') else "") + "</li>"
+                for i in not_checked_items)
+            context_bits.append(
+                f"<div style='margin-top:8px'>Not checked this time (not scored):</div>"
+                f"<ul style='margin:4px 0 0;padding-left:18px'>{rows}</ul>")
         context_html = (
             f"<div style='margin-top:24px;padding-top:16px;border-top:1px solid #e5e9f0;"
             f"font-size:13px;color:#6b7280;line-height:1.55'>"
@@ -951,6 +990,11 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             if passed_items:
                 lines.append("Also checked and passed:")
                 lines += [f"  - {i.get('question_text', 'Standard')}" for i in passed_items]
+            if not_checked_items:
+                lines.append("Not checked this time (not scored):")
+                lines += [f"  - {i.get('question_text', 'Standard')}"
+                          + (f": {i.get('description')}" if i.get('description') else "")
+                          for i in not_checked_items]
             context_text = "\n".join(lines) + "\n"
 
         link = self.report_link(community)
@@ -988,7 +1032,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 header = "Welcome"
             else:
                 subject = f"Visit complete — {community}: nothing outstanding"
-                good = "Everything passed — nothing needs your attention."
+                good = ("Everything checked passed — nothing needs your attention." if not_checked_items
+                        else "Everything passed — nothing needs your attention.")
                 header = "Visit complete"
             body = (opener_html + notes_html
                     + f"<p style='font-size:15px;color:#0f8a5f;font-weight:700;margin:12px 0 0'>"
@@ -1115,9 +1160,13 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
 
         def esc(s):
             return html.escape(str(s or ''))
+        # A Not checked's text is the reason it was skipped, not a finding;
+        # sent to a department bare, it would read as one.
+        def nc(it):
+            return 'Not checked: ' if it.get('condition') == NOT_CHECKED else ''
         rows = ''.join(
             f"<li style='margin:8px 0'><strong>{esc(it.get('question_text','Item'))}</strong>"
-            f"<div style='color:#475569;font-size:13px;margin-top:2px'>{esc(it.get('description',''))}</div></li>"
+            f"<div style='color:#475569;font-size:13px;margin-top:2px'>{esc(nc(it))}{esc(it.get('description',''))}</div></li>"
             for it in items
         )
         link = self.report_link(community)
@@ -1131,7 +1180,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         subject = f"{label} follow-up — {community} ({len(items)})"
         text_lines = [f"{inspector} directed {len(items)} {label.lower()} item(s) to your team for {community}:"]
         for it in items:
-            text_lines.append(f"  - {it.get('question_text','Item')}: {it.get('description','')}")
+            text_lines.append(f"  - {it.get('question_text','Item')}: {nc(it)}{it.get('description','')}")
         if link:
             text_lines += ["", f"View the full report: {link}"]
         return self._send(recipients, subject, self._shell(f"{label} follow-up", body), "\n".join(text_lines))

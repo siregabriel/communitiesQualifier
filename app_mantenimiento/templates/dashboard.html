@@ -2021,6 +2021,7 @@
         .dot-fail { background: #d13212; }
         .dot-fixed { background: #0f8a5f; box-shadow: inset 0 0 0 2px #fff, 0 0 0 1.5px #d13212; }
         .dot-none { background: #e2e8f0; }
+        .dot-nc { background: transparent; box-shadow: inset 0 0 0 2px #5b6b85; }
         .hist-chronic { margin-left: 7px; font-size: 9.5px; font-weight: 800; text-transform: uppercase;
             letter-spacing: .4px; color: #b42318; background: #fdeee9; border: 1px solid #f7c4ba;
             padding: 1px 6px; border-radius: 5px; }
@@ -2034,6 +2035,7 @@
         html[data-theme="dark"] .hist-when span { color: #9fb0c4; }
         html[data-theme="dark"] .trk-row { border-bottom-color: #1a2334; }
         html[data-theme="dark"] .dot-none { background: #33425c; }
+        html[data-theme="dark"] .dot-nc { box-shadow: inset 0 0 0 2px #9fb0c4; }
         html[data-theme="dark"] .dot-fixed { box-shadow: inset 0 0 0 2px #131d2c, 0 0 0 1.5px #d13212; }
         html[data-theme="dark"] .hist-chronic { background: rgba(209,50,18,.16); border-color: rgba(209,50,18,.4); color: #f0b8ab; }
 
@@ -3057,14 +3059,17 @@
 
         function draftReviewHtml(dr) {
             const q = draftReviewQuery(dr);
-            const answered = dr.items.filter(i => i.condition === 'Pass' || i.condition === 'Fail');
+            const answered = dr.items.filter(i => ['Pass', 'Fail', 'Not checked'].includes(i.condition));
             const missing = dr.items.length - answered.length;
             const row = i => {
                 const chip = i.condition === 'Pass' ? '<span class="drv-chip drv-pass">Pass</span>'
                     : i.condition === 'Fail' ? '<span class="drv-chip drv-fail">Fail</span>'
+                    : i.condition === 'Not checked' ? '<span class="drv-chip drv-nc">Not checked</span>'
                     : '<span class="drv-chip drv-none">Not answered</span>';
                 const warn = i.condition === 'Fail' && !(i.description || '').trim()
-                    ? '<div class="drv-warn">No comment yet</div>' : '';
+                    ? '<div class="drv-warn">No comment yet</div>'
+                    : i.condition === 'Not checked' && !(i.description || '').trim()
+                        ? '<div class="drv-warn">No reason yet</div>' : '';
                 const photo = i.has_photo
                     ? `<img class="drv-photo" loading="lazy" alt="" src="/api/drafts/review/photo?${q}&slot=${encodeURIComponent(i.question_id)}">` : '';
                 return `<div class="drv-item${i.condition ? '' : ' drv-blank'}">${chip}
@@ -3076,7 +3081,8 @@
                 <p class="drv-meta">${escapeHtml(dr.owner)} · ${escapeHtml(dr.community)}${
                     dr.survey_name ? ' · ' + escapeHtml(dr.survey_name) : ''}<br>
                     ${answered.length} of ${dr.total} answered${missing ? ` · ${missing} not answered` : ''}${
-                    dr.fails_without_comment ? ` · <b>${dr.fails_without_comment} Fail without a comment</b>` : ''} ·
+                    dr.fails_without_comment ? ` · <b>${dr.fails_without_comment} Fail without a comment</b>` : ''}${
+                    dr.not_checked_without_reason ? ` · <b>${dr.not_checked_without_reason} Not checked without a reason</b>` : ''} ·
                     last saved ${escapeHtml(timeAgo(dr.updated_at))}</p>
                 <p class="drv-ro"><i class="fas fa-lock"></i> Read-only. Only ${escapeHtml(dr.owner)} can change it.</p>
                 ${dr.notes ? `<div class="drv-notes"><b>Notes</b><div>${escapeHtml(dr.notes)}</div></div>` : ''}
@@ -3106,7 +3112,7 @@
                 } catch (e) { say('Could not reach the server.', true); }
             };
             document.getElementById('drvSend').onclick = async () => {
-                const answered = dr.items.filter(i => i.condition === 'Pass' || i.condition === 'Fail').length;
+                const answered = dr.items.filter(i => ['Pass', 'Fail', 'Not checked'].includes(i.condition)).length;
                 const lines = [
                     `Send ${dr.owner}'s visit to ${dr.community} on their behalf?`, '',
                     `${answered} of ${dr.total} standards answered.`
@@ -3114,6 +3120,9 @@
                 ];
                 if (dr.fails_without_comment) {
                     lines.push(`${dr.fails_without_comment} Fail without a comment will say none was written.`);
+                }
+                if (dr.not_checked_without_reason) {
+                    lines.push(`${dr.not_checked_without_reason} Not checked without a reason will say none was written.`);
                 }
                 lines.push('', `It will read "Sent by Excellence Administrator on behalf of ${dr.owner}", `
                     + `go to the community and the region like any visit, and ${dr.owner} will be emailed.`);
@@ -3478,7 +3487,8 @@
             // Define severity order for sorting (Fail first)
             const severityOrder = {
                 'Fail': 1,
-                'Pass': 2
+                'Not checked': 2,
+                'Pass': 3
             };
             
             // Map inspections to ResponseGroup format
@@ -4122,7 +4132,9 @@
                         <span>${escapeHtml(v.inspector || '')}${v.survey_type ? ' · ' + escapeHtml(v.survey_type) : ''}</span>
                     </div>
                     <div class="hist-meta">
-                        ${v.failed ? `<span class="hist-fails">${v.failed} failed${v.fixed ? ` · ${v.fixed} fixed` : ''}</span>` : '<span class="hist-clean">All passed</span>'}
+                        ${v.failed ? `<span class="hist-fails">${v.failed} failed${v.fixed ? ` · ${v.fixed} fixed` : ''}</span>`
+                            : `<span class="hist-clean">${v.not_checked ? 'No fails' : 'All passed'}</span>`}
+                        ${v.not_checked ? `<span class="hist-extra hist-nc" title="Marked Not checked, with a reason. Left out of the score.">${v.not_checked} not checked</span>` : ''}
                         ${v.notes ? `<button class="hist-note hist-talk-btn" onclick="toggleVisitTalk('${v.id}')"
                             title="Read the note"><i class="fas fa-comment-dots"></i> note</button>` : ''}
                         ${v.partial ? `<span class="hist-partial" title="Only ${v.answered} of the ${v.standards_total} standards were answered, so this score covers those">
@@ -4143,7 +4155,8 @@
             const chronic = d.standards.filter(t => t.fails > 0);
             const dots = chronic.map(t => {
                 const cells = t.results.slice().reverse().map(res => {
-                    if (res === null) return '<span class="dot dot-none" title="Not checked on this visit"></span>';
+                    if (res === null) return '<span class="dot dot-none" title="Not answered on this visit"></span>';
+                    if (res === 'not_checked') return '<span class="dot dot-nc" title="Marked Not checked on this visit"></span>';
                     if (res === 'pass') return '<span class="dot dot-pass" title="Passed"></span>';
                     if (res === 'fixed') return '<span class="dot dot-fixed" title="Failed, later verified as fixed"></span>';
                     return '<span class="dot dot-fail" title="Failed"></span>';
@@ -4187,7 +4200,8 @@
                         <span><span class="dot dot-pass"></span> passed</span>
                         <span><span class="dot dot-fail"></span> failed</span>
                         <span><span class="dot dot-fixed"></span> fixed after</span>
-                        <span><span class="dot dot-none"></span> not checked</span>
+                        <span><span class="dot dot-nc"></span> not checked</span>
+                        <span><span class="dot dot-none"></span> not answered</span>
                     </div>` : ''}`;
         }
 
@@ -4322,7 +4336,8 @@
                             </span>
                             ${response.addressed ? '<span class="resp-chip-fixed"><i class="fas fa-wrench"></i> Fixed since</span>' : ''}
                         </div>
-                        ${response.description ? `<div class="response-description">${escapeHtml(response.description)}</div>` : ''}
+                        ${response.description ? `<div class="response-description">${
+                            response.condition === 'Not checked' ? '<b>Why:</b> ' : ''}${escapeHtml(response.description)}</div>` : ''}
                         ${response.photoPath ? `<div class="response-photo"><div class="rp-wrap"><img src="${photoUrl(response.photoPath)}" data-path="${escapeHtmlForAttr(response.photoPath)}" alt="${escapeHtmlForAttr(response.questionText || 'Response photo')}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.closest('.response-photo').style.display='none'"><a class="rp-dl" href="/api/photo/download?path=${encodeURIComponent(response.photoPath)}" download onclick="event.stopPropagation()" title="Download with the community and date on it" aria-label="Download this photo"><i class="fas fa-download"></i></a></div></div>` : ''}
                         ${outcome}
                         ${thread}
@@ -6727,8 +6742,9 @@
         function partialInfo(sub) {
             const total = sub && sub.standards_total;
             if (!total) return null;
+            // A Not checked was answered, with a reason; only a blank is missing.
             const answered = (sub.responses || []).filter(
-                r => r.condition === 'Pass' || r.condition === 'Fail').length;
+                r => r.condition === 'Pass' || r.condition === 'Fail' || r.condition === 'Not checked').length;
             if (answered >= total) return null;
             return { answered: answered, total: total, missing: total - answered };
         }
@@ -11856,7 +11872,8 @@
         function getBadgeClass(condition) {
             const conditionMap = {
                 'Pass': 'badge-pass',
-                'Fail': 'badge-fail'
+                'Fail': 'badge-fail',
+                'Not checked': 'badge-notchecked'
             };
             return conditionMap[condition] || 'badge-pass';
         }
@@ -11864,7 +11881,8 @@
         function getBadgeIcon(condition) {
             const iconMap = {
                 'Pass': '✓',
-                'Fail': '❌'
+                'Fail': '❌',
+                'Not checked': '–'
             };
             return iconMap[condition] || '•';
         }

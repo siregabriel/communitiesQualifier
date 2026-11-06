@@ -48,6 +48,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from services.json_store import JsonFileBacked
+from services.conditions import ANSWERS
 
 TTL_DAYS = 14
 
@@ -63,7 +64,7 @@ MAX_RESPONSES = 400
 MAX_ACTION_ITEMS = 60
 MAX_DESCRIPTION = 4000
 MAX_NOTES = 8000
-_CONDITIONS = ('Pass', 'Fail', '')
+_CONDITIONS = ANSWERS + ('',)
 _PRIORITIES = ('low', 'medium', 'high')
 
 

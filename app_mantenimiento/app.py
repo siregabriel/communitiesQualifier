@@ -18,6 +18,7 @@ import json
 from services.question_manager import QuestionManager
 from services.inspection_service import InspectionService
 from services.input_sanitizer import InputSanitizer
+from services.conditions import NOT_CHECKED, ANSWERS as CONDITION_ANSWERS
 
 
 # Initialize Flask app
@@ -3935,6 +3936,8 @@ def get_draft_photo():
 
 NO_COMMENT_ON_BEHALF = ("No comment was written before this visit was sent "
                         "on the inspector's behalf.")
+NO_REASON_ON_BEHALF = ("No reason was written before this visit was sent "
+                       "on the inspector's behalf.")
 
 
 def _admin_draft():
@@ -4011,7 +4014,7 @@ def review_draft():
             items.append({'question_id': qid, 'text': qid, 'condition': r.get('condition', ''),
                           'description': r.get('description', ''),
                           'has_photo': qid in (d.get('photos') or {})})
-    answered = sum(1 for i in items if i['condition'] in ('Pass', 'Fail'))
+    answered = sum(1 for i in items if i['condition'] in CONDITION_ANSWERS)
     return jsonify({
         'status': 'success',
         'draft': {
@@ -4026,6 +4029,8 @@ def review_draft():
             'total': len(questions) or d.get('total') or 0,
             'fails_without_comment': sum(1 for i in items if i['condition'] == 'Fail'
                                          and not (i['description'] or '').strip()),
+            'not_checked_without_reason': sum(1 for i in items if i['condition'] == NOT_CHECKED
+                                              and not (i['description'] or '').strip()),
             'action_items': d.get('action_items') or [],
             'notes': d.get('notes') or '',
             'notes_photo': DRAFT_NOTES_SLOT in (d.get('photos') or {}),
@@ -4112,11 +4117,13 @@ def send_draft_on_behalf():
     for qid, r in sorted((d.get('responses') or {}).items(),
                          key=lambda kv: order.get(kv[0], 10 ** 6)):
         condition = r.get('condition')
-        if condition not in ('Pass', 'Fail'):
+        if condition not in CONDITION_ANSWERS:
             continue
         description = InputSanitizer.sanitize_description(r.get('description') or '')
         if condition == 'Fail' and not description.strip():
             description = NO_COMMENT_ON_BEHALF
+        if condition == NOT_CHECKED and not description.strip():
+            description = NO_REASON_ON_BEHALF
         route_to = (r.get('routeTo') or '').strip().lower()
         responses.append({
             'question_id': qid,
@@ -4593,6 +4600,7 @@ def community_history(community):
         failed = sum(1 for r in responses if r.get('condition') == 'Fail')
         fixed = sum(1 for r in responses
                     if r.get('condition') == 'Fail' and r.get('addressed'))
+        not_checked = sum(1 for r in responses if r.get('condition') == NOT_CHECKED)
         total = passed + failed
         manual = s.get('action_items') or []
         # A visit that only covered part of the survey. Older visits have no
@@ -4614,6 +4622,7 @@ def community_history(community):
             'visit_score': round(passed / total * 100) if total else None,
             'current_score': round((passed + fixed) / total * 100) if total else None,
             'passed': passed, 'failed': failed, 'fixed': fixed,
+            'not_checked': not_checked,
             'action_items': len(manual),
             'action_items_open': sum(1 for i in manual if not i.get('resolved')),
             'comments': sum(len(r.get('comments') or []) for r in responses),
@@ -4647,7 +4656,7 @@ def community_history(community):
     for idx, s in enumerate(recent):
         for r in (s.get('responses') or []):
             cond = r.get('condition')
-            if cond not in ('Pass', 'Fail'):
+            if cond not in CONDITION_ANSWERS:
                 continue
             key = r.get('question_id') or ('t:' + (r.get('question_text') or '').strip().lower())
             rec = track.setdefault(key, {
@@ -4657,6 +4666,10 @@ def community_history(community):
                 'fails': 0,
                 'seen': 0,
             })
+            if cond == NOT_CHECKED:
+                # On the timeline, but not "seen": nobody looked at it.
+                rec['results'][idx] = 'not_checked'
+                continue
             rec['results'][idx] = 'fixed' if (cond == 'Fail' and r.get('addressed')) else cond.lower()
             rec['seen'] += 1
             if cond == 'Fail':
@@ -7416,6 +7429,7 @@ def _send_visit_emails(submission):
             responses = submission.get('responses') or []
             failed = [r for r in responses if r.get('condition') == 'Fail']
             passed = [r for r in responses if r.get('condition') == 'Pass']
+            not_checked = [r for r in responses if r.get('condition') == NOT_CHECKED]
             open_items = _with_department_names(
                 [i for i in (submission.get('action_items') or [])
                  if not i.get('resolved')])
@@ -7427,6 +7441,7 @@ def _send_visit_emails(submission):
                 failed, open_items, criteria_map,
                 notes=submission.get('notes', ''),
                 passed_items=passed,
+                not_checked_items=not_checked,
                 score=round(len(passed) / done * 100) if done else None)
 
         # Comments a visitor directed at a department, and the action
@@ -7584,11 +7599,11 @@ def submit_inspection():
                     'message': f'Response {idx}: condition is required'
                 }), 400
             
-            # Validate condition value (Pass/Fail)
-            if condition not in ['Pass', 'Fail']:
+            # Validate condition value (Pass/Fail/Not checked)
+            if condition not in CONDITION_ANSWERS:
                 return jsonify({
                     'status': 'error',
-                    'message': f'Response {idx}: condition must be "Pass" or "Fail"'
+                    'message': f'Response {idx}: condition must be "Pass", "Fail" or "Not checked"'
                 }), 400
             
             # Get optional fields
@@ -7602,6 +7617,14 @@ def submit_inspection():
                 return jsonify({
                     'status': 'error',
                     'message': f'"{label}" is marked Fail — please add a comment describing what you found.'
+                }), 400
+            # Not checked is left out of the score, so without a reason it is
+            # a quiet way to turn a Fail into a better number.
+            if condition == NOT_CHECKED and not description.strip():
+                label = question_text or question_id
+                return jsonify({
+                    'status': 'error',
+                    'message': f'"{label}" is marked Not checked — please say why it could not be checked.'
                 }), 400
 
 
@@ -8011,7 +8034,7 @@ def _export_summary():
     subs = _scoped_submissions_for_export()
     total_visits = len(subs)
     passes = fails = total_responses = 0
-    fails_addressed = 0
+    fails_addressed = not_checked = 0
     actions_total = actions_open = 0
     by_type = {}        # survey_type_id -> count of responses
     performers = {}     # inspector -> {visits, last}
@@ -8027,6 +8050,8 @@ def _export_summary():
             cond = (r.get('condition') or '')
             if cond == 'Pass':
                 passes += 1
+            elif cond == NOT_CHECKED:
+                not_checked += 1
             elif cond == 'Fail':
                 fails += 1
                 # Failures fixed between visits still count as failures here —
@@ -8050,12 +8075,14 @@ def _export_summary():
         [(n, d['visits'], (d['last'] or '')[:10]) for n, d in performers.items()],
         key=lambda x: x[1], reverse=True)[:10]
 
-    pass_rate = round(passes / total_responses * 100) if total_responses else 0
+    # Over what was scored, like every other score: a Not checked is not a miss.
+    pass_rate = round(passes / (passes + fails) * 100) if (passes + fails) else 0
     return {
         'total_visits': total_visits,
         'total_responses': total_responses,
         'passes': passes, 'fails': fails, 'pass_rate': pass_rate,
         'fails_addressed': fails_addressed,
+        'not_checked': not_checked,
         'actions_total': actions_total, 'actions_open': actions_open,
         'by_survey_type': by_survey_type,
         'top_performers': top_performers,
@@ -8081,6 +8108,7 @@ def export_reports_csv():
     writer.writerow(['Pass', s['passes']])
     writer.writerow(['Fail', s['fails']])
     writer.writerow(['Fail — addressed since the visit', s['fails_addressed']])
+    writer.writerow(['Not checked (not scored)', s['not_checked']])
     writer.writerow(['Pass rate', f"{s['pass_rate']}%"])
     writer.writerow(['Action items raised', s['actions_total']])
     writer.writerow(['Action items still open', s['actions_open']])
@@ -8134,6 +8162,7 @@ def export_reports_xlsx():
     kpis = [('Total visits', s['total_visits']), ('Total responses', s['total_responses']),
             ('Pass', s['passes']), ('Fail', s['fails']),
             ('Fail — addressed since the visit', s['fails_addressed']),
+            ('Not checked (not scored)', s['not_checked']),
             ('Pass rate', f"{s['pass_rate']}%"),
             ('Action items raised', s['actions_total']), ('Action items still open', s['actions_open'])]
     row = 4
@@ -8185,15 +8214,18 @@ def export_reports_xlsx():
     for r in rows:
         ws.append(r)
 
-    # Color the Result cells (Pass green, Fail red).
+    # Color the Result cells (Pass green, Fail red, Not checked grey).
     pass_font = Font(color='0F8A5F', bold=True)
     fail_font = Font(color='D13212', bold=True)
+    not_checked_font = Font(color='6B7280', italic=True)
     for i in range(len(rows)):
         cell = ws.cell(row=i + 2, column=7)  # Result column
         if (cell.value or '') == 'Pass':
             cell.font = pass_font
         elif (cell.value or '') == 'Fail':
             cell.font = fail_font
+        elif (cell.value or '') == NOT_CHECKED:
+            cell.font = not_checked_font
 
     widths = [26, 16, 20, 20, 19, 44, 9, 50]
     for i, w in enumerate(widths, start=1):
@@ -8945,6 +8977,7 @@ def _atlasai_scores(sub):
         'visit_score': round(passed / total * 100) if total else None,
         'current_score': round((passed + fixed) / total * 100) if total else None,
         'passed': passed, 'failed': failed, 'fixed': fixed,
+        'not_checked': sum(1 for r in responses if r.get('condition') == NOT_CHECKED),
     }
 
 

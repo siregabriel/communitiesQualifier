@@ -14,6 +14,7 @@ from typing import List, Dict, Optional, Tuple
 from werkzeug.utils import secure_filename
 
 from services.json_store import JsonFileBacked
+from services.conditions import NOT_CHECKED
 
 
 # Allowed file extensions for photo uploads
@@ -360,7 +361,7 @@ class InspectionService(JsonFileBacked):
             return False
         
         # Validate condition value
-        valid_conditions = ['Excellence', 'Pass', 'Opportunity', 'Fail']
+        valid_conditions = ['Excellence', 'Pass', 'Opportunity', 'Fail', NOT_CHECKED]
         if response['condition'] not in valid_conditions:
             return False
         
