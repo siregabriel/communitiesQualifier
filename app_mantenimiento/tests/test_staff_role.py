@@ -38,6 +38,7 @@ import app as A  # noqa: E402
 from services.inspection_service import InspectionService  # noqa: E402
 from services.move_in_service import MoveInService  # noqa: E402
 from services.raised_item_service import RaisedItemService  # noqa: E402
+from services.team_position_service import TeamPositionService  # noqa: E402
 from services.user_service import UserService  # noqa: E402
 
 HEADERS = {'Origin': 'http://localhost', 'Referer': 'http://localhost/'}
@@ -52,6 +53,8 @@ def world(monkeypatch, tmp_path):
     monkeypatch.setattr(A, 'inspection_service',
                         InspectionService(str(tmp_path / 'inspections.json'), str(tmp_path / 'up')))
     monkeypatch.setattr(A, 'movein_service', MoveInService(str(tmp_path / 'moveins.json')))
+    monkeypatch.setattr(A, 'team_position_service',
+                        TeamPositionService(str(tmp_path / 'team_positions.json')))
     monkeypatch.setattr(A, 'all_communities', lambda: [VENICE, NAPLES])
     monkeypatch.setattr(A.email_service, 'enabled', False)
     monkeypatch.setattr(A.activity_service, 'log', lambda *a, **k: None)
@@ -160,8 +163,8 @@ POSITIONS = ['Sales and Marketing Director', 'Business Office Director', 'Wellne
 
 
 def test_the_six_positions_in_order(world):
-    """As Gabriel listed them. The form shows them in this order."""
-    assert A.TEAM_POSITIONS == POSITIONS
+    """As Gabriel listed them. The form shows them in this order until an
+    admin changes the list (test_team_positions.py)."""
     d = admin().get('/api/people', headers=HEADERS).get_json()
     assert d['team_positions'] == POSITIONS
 

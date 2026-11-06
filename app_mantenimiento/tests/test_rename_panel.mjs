@@ -44,6 +44,8 @@ function boot(person, { admin = true } = {}) {
     ${grab('regionalExtraChecklist')}
     ${grab('wirePersonExtras')}
     ${grab('checkedCoverage')}
+    ${grab('fillPositionSelect')}
+    ${grab('wirePositionManager')}
     ${grab('openPersonEdit')}
     ${grab('startUsernameChange')}
     ${grab('saveUsername')}

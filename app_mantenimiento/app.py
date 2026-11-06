@@ -476,6 +476,11 @@ from services.raised_category_service import RaisedCategoryService
 RAISED_CATEGORY_FILE = os.path.join(DATA_FOLDER, 'raised_categories.json')
 raised_category_service = RaisedCategoryService(RAISED_CATEGORY_FILE)
 
+# The positions a Staff member can hold. Admins add and remove them in People.
+from services.team_position_service import TeamPositionService
+TEAM_POSITION_FILE = os.path.join(DATA_FOLDER, 'team_positions.json')
+team_position_service = TeamPositionService(TEAM_POSITION_FILE)
+
 
 def _department(key):
     """The department record for an id or a name.
@@ -1037,16 +1042,8 @@ LEADERSHIP_ROLES = ('regional', 'corporate')
 # every one of them the ED's emails, reminders and the right to close items.
 TEAM_ROLE = 'team'
 
-# The positions a Staff member can hold, in the order the form lists them.
-# Required for Staff: "Staff" alone does not say who is answering an item.
-TEAM_POSITIONS = [
-    'Sales and Marketing Director',
-    'Business Office Director',
-    'Wellness Director',
-    'Lifestyles Director',
-    'Executive Chef',
-    'Director of Buildings Services',
-]
+# A Staff member's position is required: "Staff" alone does not say who is
+# answering an item. The list is team_position_service, run by admins.
 
 
 def is_team(role=None):
@@ -5148,7 +5145,7 @@ def list_people():
         counts_by_role[p['role']] = counts_by_role.get(p['role'], 0) + 1
     return jsonify({'status': 'success', 'people': people, 'counts': counts_by_role,
                     'can_grant_admin': is_native_admin(),
-                    'team_positions': TEAM_POSITIONS,
+                    'team_positions': team_position_service.active(),
                     'online_now': sum(1 for p in people if p['online']),
                     'never_signed_in': [p['username'] for p in people if not p['last_login']],
                     'conflicts': conflicts,
@@ -5211,7 +5208,7 @@ def create_person():
     if role == TEAM_ROLE and community and community not in set(all_communities()):
         return jsonify({'status': 'error', 'message': 'Pick a community from the list'}), 400
     position = (data.get('position') or '').strip()
-    if role == TEAM_ROLE and position not in TEAM_POSITIONS:
+    if role == TEAM_ROLE and not team_position_service.is_choosable(position):
         return jsonify({'status': 'error', 'message': 'Pick a position'}), 400
 
     if not name:
@@ -5323,7 +5320,10 @@ def update_person(username):
     if requested_role == TEAM_ROLE:
         communities = [community] if community else []
         position = (data.get('position') or '').strip()
-        if position not in TEAM_POSITIONS:
+        # The one they already hold stays valid after it leaves the list, so
+        # fixing somebody's email does not force a new position on them.
+        current = (user_service.get(username) or {}).get('position') if user_service.exists(username) else None
+        if not (team_position_service.is_choosable(position) or (position and position == current)):
             return jsonify({'status': 'error', 'message': 'Pick a position'}), 400
     else:
         position = None
@@ -5431,6 +5431,41 @@ def update_person(username):
         return jsonify({'status': 'success', 'message': f'{name} updated.'}), 200
 
     return jsonify({'status': 'error', 'message': 'Person not found'}), 404
+
+
+@app.route('/api/team-positions', methods=['POST'])
+@login_required
+def add_team_position():
+    """Admin-only: offer a new position for Staff, without a deploy."""
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    name = team_position_service.add(data.get('name'))
+    if not name:
+        return jsonify({'status': 'error',
+                        'message': 'Give it a name that is not already in the list'}), 400
+    activity_service.log(session.get('user'), 'position_added', f'Added Staff position "{name}"')
+    return jsonify({'status': 'success', 'name': name,
+                    'positions': team_position_service.active()}), 201
+
+
+@app.route('/api/team-positions/remove', methods=['POST'])
+@login_required
+def remove_team_position():
+    """Admin-only: stop offering a position. Whoever holds it keeps it."""
+    if not is_admin():
+        return jsonify({'status': 'error', 'message': 'Admins only'}), 403
+    data = request.get_json(silent=True) or {}
+    wanted = (data.get('name') or '').strip()
+    if wanted not in team_position_service.active():
+        return jsonify({'status': 'error', 'message': 'That position is not in the list'}), 404
+    name = team_position_service.remove(wanted)
+    if not name:
+        return jsonify({'status': 'error',
+                        'message': 'Keep at least one position, or Staff cannot be added'}), 400
+    activity_service.log(session.get('user'), 'position_removed', f'Removed Staff position "{name}"')
+    return jsonify({'status': 'success', 'name': name,
+                    'positions': team_position_service.active()}), 200
 
 
 @app.route('/api/people/<username>/admin-privileges', methods=['POST'])
