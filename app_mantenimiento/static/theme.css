@@ -468,6 +468,15 @@ html[data-theme="dark"] .talk-text { color: #9fb0c4; }
 }
 html[data-theme="dark"] .vnote { background: rgba(31,111,229,.10); }
 html[data-theme="dark"] .vnote-text { color: #eef2f8; }
+/* Who the note reaches: one quiet line under it, never a badge competing
+   with the findings. */
+.vnote-who {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin-top: 10px; font-size: 11.5px; font-weight: 600; color: #5b6b85;
+}
+.vnote-who i { font-size: 11px; color: #8a9ab0; }
+html[data-theme="dark"] .vnote-who { color: #9fb0c4; }
+html[data-theme="dark"] .vnote-who i { color: #7f93ad; }
 
 /* "Raise an item", floating clear of the tab bar on a phone.
    It started life inside the bar as the raised centre button, but that slot is

@@ -248,7 +248,8 @@ class InspectionService(JsonFileBacked):
                          action_items: Optional[List[Dict]] = None,
                          standards_total: Optional[int] = None,
                          notes: str = '', notes_photo: str = '',
-                         sent_on_behalf: Optional[Dict] = None) -> Dict:
+                         sent_on_behalf: Optional[Dict] = None,
+                         notes_shared: bool = False) -> Dict:
         """
         Create new inspection submission.
         
@@ -309,6 +310,12 @@ class InspectionService(JsonFileBacked):
             submission['notes'] = notes[:2000]
         if notes_photo:
             submission['notes_photo'] = notes_photo
+        # Private unless the visitor chose otherwise: the note is for the
+        # Executive Director and leadership, not the community's whole staff
+        # (Lauren Hamilton, Nov 2026). Absent means private, so every visit
+        # filed before this stays private.
+        if notes_shared and (notes or notes_photo):
+            submission['notes_shared'] = True
 
         # Add survey_type_id if provided (backward compatibility)
         if survey_type_id:

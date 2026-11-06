@@ -3683,6 +3683,7 @@
                     sentOnBehalf: chosen.sent_on_behalf || null,
                     notes: chosen.notes || '',
                     notesPhoto: chosen.notes_photo || '',
+                    notesShared: !!chosen.notes_shared,
                     actionItems: actionItems,
                     responses: responses,
                     photos: photos,
@@ -3923,7 +3924,7 @@
             html += renderStats(data.score, data.actionItems,
                                 data.visitScore, data.fixedSinceVisit, data.partial);
             html += renderOnBehalfNote(data.sentOnBehalf, data.inspectorName);
-            html += renderVisitNote(data.notes, data.notesPhoto);
+            html += renderVisitNote(data.notes, data.notesPhoto, data.notesShared);
             
             // Responses section
             html += renderResponses(data.responses);
@@ -6148,6 +6149,7 @@
                     ${v.notes_photo ? `<img class="talk-photo" src="${photoUrl(v.notes_photo)}" data-path="${escapeHtmlForAttr(v.notes_photo)}"
                         alt="${escapeHtmlForAttr('Photo from the visit note')}" style="cursor:zoom-in"
                         onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.style.display='none'">` : ''}
+                    ${visitNoteAudience(v.notes_shared)}
                 </div>` : '';
 
             // Grouped by standard: three replies about one item read as a
@@ -6184,7 +6186,16 @@
         // The note a regional left about the visit as a whole. Not a standard
         // and not a task — the one thing here that isn't a problem, so it is
         // styled to look unlike everything around it.
-        function renderVisitNote(notes, photo) {
+        // Who a visit note reaches. Private unless the visitor shared it: a
+        // note is written to the Executive Director, and Staff only see one
+        // that was shared (filtered on the server, not here).
+        function visitNoteAudience(shared) {
+            return shared
+                ? '<div class="vnote-who"><i class="fas fa-users"></i> Shared with the community\'s staff</div>'
+                : '<div class="vnote-who"><i class="fas fa-lock"></i> Private · Executive Director and leadership</div>';
+        }
+
+        function renderVisitNote(notes, photo, shared) {
             notes = (notes || '').trim();
             if (!notes && !photo) return '';
             const shot = photo
@@ -6199,6 +6210,7 @@
                     <div class="vnote">
                         ${notes ? `<div class="vnote-text">${escapeHtml(notes)}</div>` : ''}
                         ${shot}
+                        ${visitNoteAudience(shared)}
                     </div>
                 </div>`;
         }

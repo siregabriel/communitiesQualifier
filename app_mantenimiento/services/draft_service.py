@@ -156,7 +156,7 @@ class DraftService(JsonFileBacked):
             'id': self.key(username, survey_type_id, community),
             'username': username, 'community': community,
             'survey_type_id': survey_type_id or '',
-            'responses': {}, 'action_items': [], 'notes': '', 'photos': {},
+            'responses': {}, 'action_items': [], 'notes': '', 'notes_shared': False, 'photos': {},
             'total': 0, 'saved_at': 0, 'created_at': now, 'updated_at': now,
         }
         self.drafts.append(d)
@@ -174,7 +174,7 @@ class DraftService(JsonFileBacked):
 
     def save_content(self, username: str, community: str, survey_type_id: str, *,
                      responses, action_items, notes, total: int = 0,
-                     saved_at: int = 0) -> Dict:
+                     saved_at: int = 0, notes_shared: bool = False) -> Dict:
         """Everything typed so far. Photos are sent on their own."""
         with self._lock:
             self._ensure_fresh()
@@ -183,6 +183,7 @@ class DraftService(JsonFileBacked):
             d['responses'] = clean_responses(responses)
             d['action_items'] = clean_action_items(action_items)
             d['notes'] = _text(notes, MAX_NOTES)
+            d['notes_shared'] = notes_shared is True
             try:
                 d['total'] = max(0, min(int(total or 0), 9999))
             except (TypeError, ValueError):

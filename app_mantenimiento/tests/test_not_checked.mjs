@@ -124,6 +124,31 @@ console.log('\nOn a phone it gets its own row (the rule, not the look)');
   ok(ownRow, 'and Not checked takes the whole second row');
 }
 
+console.log('\nThe chosen answer is filled, light and dark (computed from the real CSS)');
+{
+  // In dark mode an !important rule painted every segment the same, so a
+  // picked Pass or Fail had no fill — only a small icon said which it was.
+  const css = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+  const rgb = (c) => (c.match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number);
+  const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+  const contrast = (a, b) => { const [x, y] = [lum(rgb(a)), lum(rgb(b))].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+  const seg = (v, cls, on) => `<label class="radio-button${cls === 'notchecked' ? ' rb-notchecked' : ''}"><input type="radio" name="${v}" ${on ? 'checked' : ''}><span class="radio-label ${cls}">${v}</span></label>`;
+  for (const dark of [false, true]) {
+    const mode = dark ? 'dark' : 'light';
+    const dom = new JSDOM(`<!doctype html><html ${dark ? 'data-theme="dark"' : ''}><head><style>${css}</style></head><body>
+      <div class="condition-rating">${seg('Pass', 'pass', 1)}${seg('Fail', 'fail', 1)}${seg('Not checked', 'notchecked', 1)}${seg('Idle', 'pass', 0)}</div></body></html>`);
+    const w = dom.window;
+    const [pass, fail, nc, idle] = [...w.document.querySelectorAll('.radio-label')].map(l => w.getComputedStyle(l));
+    const fills = { Pass: [pass, [14, 130, 89]], Fail: [fail, [209, 50, 18]], 'Not checked': [nc, [91, 107, 133]] };
+    for (const [name, [st, want]] of Object.entries(fills)) {
+      ok(rgb(st.backgroundColor).join() === want.join(), `${mode}: a chosen ${name} is filled with its own colour (${st.backgroundColor})`);
+      ok(contrast(st.color, st.backgroundColor) >= 4.5, `${mode}: and its label reads on it (${contrast(st.color, st.backgroundColor).toFixed(1)}:1)`);
+    }
+    ok(rgb(idle.backgroundColor).join() !== rgb(pass.backgroundColor).join(), `${mode}: one not chosen is not filled`);
+  }
+}
+
 console.log('\nPicking it asks for a reason');
 {
   const { w } = await ready();

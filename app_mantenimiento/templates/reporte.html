@@ -271,13 +271,14 @@
             color: #1e40af;
         }
 
-        /* Pass - solid green fill when selected */
+        /* Pass - solid green fill when selected. A shade under the brand
+           #0f8a5f: white on that is 4.4:1, just short of readable at 13px. */
         .radio-button input[type="radio"]:checked + .radio-label.pass {
-            background: #0f8a5f;
+            background: #0e8259;
             color: #fff;
             font-weight: 700;
             box-shadow: none;
-            border-left-color: #0f8a5f;
+            border-left-color: #0e8259;
         }
 
         .radio-button input[type="radio"]:checked + .radio-label.pass .rating-icon {
@@ -342,7 +343,7 @@
         /* Dark mode paints every segment the same with !important, which
            also hid the fill of the one chosen: a picked Pass or Fail looked
            like the others but for a small icon. The choice wins back here. */
-        html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.pass { background: #0f8a5f !important; color: #fff; }
+        html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.pass { background: #0e8259 !important; color: #fff; }
         html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.fail { background: #d13212 !important; color: #fff; }
         html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.notchecked { background: #5b6b85 !important; color: #fff; }
         html[data-theme="dark"] .radio-button.rb-notchecked .radio-label { border-top-color: #2b3a52; }
@@ -973,6 +974,28 @@
         .notes-warn { display: flex; gap: 8px; margin-top: 12px; font-size: 12.5px;
             color: #64748b; line-height: 1.5; }
         .notes-warn i { color: #94a3b8; margin-top: 2px; flex-shrink: 0; }
+        /* Both are <label>s, and the page's bare `label` rule (made for form
+           field captions) sets capitals, letter-spacing and 12px bold on every
+           one. These are a button and a sentence, so they opt out. */
+        .notes-share, .notes-photo { text-transform: none; letter-spacing: normal; }
+        .notes-share { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0 0;
+            cursor: pointer; font-weight: 400; font-size: 13px; color: inherit; }
+        .notes-share input { width: 17px; height: 17px; margin-top: 2px; flex-shrink: 0;
+            accent-color: #1f6fe5; }
+        .notes-share b { display: block; font-size: 13px; color: #0f1e36; }
+        .notes-share small { display: block; font-size: 12px; color: #64748b; line-height: 1.45;
+            margin-top: 1px; }
+        /* Dark mode never reached this section: it stayed white while the
+           page's dark `label` rule turned label text near-white with
+           !important, so "Add a photo" and the share box read white on white. */
+        html[data-theme="dark"] .notes-section { background: #161f2e; border-color: #2b3a52; border-left-color: #1f6fe5; }
+        html[data-theme="dark"] .notes-head h3 { color: #e7edf6; }
+        html[data-theme="dark"] .notes-head p,
+        html[data-theme="dark"] .notes-warn { color: #9fb0c4; }
+        html[data-theme="dark"] .notes-photo { background: #1b2537; border-color: #2b3a52; color: #9cc2ff !important; }
+        html[data-theme="dark"] .notes-photo:hover { background: #22304a; }
+        html[data-theme="dark"] .notes-share b { color: #e7edf6; }
+        html[data-theme="dark"] .notes-share small { color: #9fb0c4; }
 
         /* ===== Additional action items (ad-hoc, not tied to a standard) ===== */
         .ai-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
@@ -1255,8 +1278,9 @@
                     <h3><i class="fas fa-comment-dots"></i> Notes from the visit</h3>
                     <p>
                         Anything worth passing on that isn't one of the standards — what went
-                        well, or what was going on that day. This goes to the community with
-                        the report. It doesn't affect the score and doesn't create a task.
+                        well, or what was going on that day. It goes to the Executive Director
+                        and leadership with the report. It doesn't affect the score and doesn't
+                        create a task.
                     </p>
                 </div>
                 <textarea id="visitNotes" name="visit_notes" rows="4" maxlength="2000"
@@ -1272,6 +1296,17 @@
                             onclick="clearNotesPhoto()" hidden>Remove photo</button>
                     <span class="notes-count" id="notesCount"></span>
                 </div>
+                <!-- Private by default: some notes are for the Executive
+                     Director, not the community's whole staff (Lauren
+                     Hamilton, Nov 2026). The findings are always theirs. -->
+                <label class="notes-share">
+                    <input type="checkbox" id="visitNotesShared">
+                    <span>
+                        <b>Share this note with the community's staff</b>
+                        <small>Left unticked, only the Executive Director and leadership read it.
+                            Staff always see the findings either way.</small>
+                    </span>
+                </label>
                 <p class="notes-warn">
                     <i class="fas fa-circle-info"></i>
                     Anything that needs following up belongs in an action item above —
@@ -1489,6 +1524,7 @@
                 photos,
                 actionItems: collectActionItems(),
                 notes: notesEl ? notesEl.value : '',
+                notesShared: !!(document.getElementById('visitNotesShared') || {}).checked,
                 notesPhoto: notesPhotoFile
                     ? { name: notesPhotoFile.name, type: notesPhotoFile.type, blob: notesPhotoFile }
                     : null,
@@ -1669,7 +1705,7 @@
                 community: data.community, survey_type_id: data.surveyTypeId,
                 total: (questions || []).length, saved_at: data.savedAt,
                 responses: data.responses, action_items: data.actionItems,
-                notes: data.notes, device: draftDevice(),
+                notes: data.notes, notes_shared: !!data.notesShared, device: draftDevice(),
             };
         }
 
@@ -1693,7 +1729,7 @@
             try {
                 const body = draftServerBody(data);
                 const shape = JSON.stringify([body.community, body.survey_type_id, body.responses,
-                                              body.action_items, body.notes, body.total]);
+                                              body.action_items, body.notes, body.notes_shared, body.total]);
                 if (shape !== _syncShape) {
                     try {
                         const r = await fetch('/api/drafts/content', {
@@ -1795,7 +1831,8 @@
                     id: key, community, surveyTypeId: '{{ survey_type_id }}',
                     savedAt: r.saved_at || Date.now(),
                     responses: r.responses || {}, photos,
-                    actionItems: r.action_items || [], notes: r.notes || '', notesPhoto,
+                    actionItems: r.action_items || [], notes: r.notes || '',
+                    notesShared: !!r.notes_shared, notesPhoto,
                 },
                 missing,
             };
@@ -1942,6 +1979,8 @@
 
             const notesEl = document.getElementById('visitNotes');
             if (notesEl && d.notes) { notesEl.value = d.notes; updateNotesCount(); }
+            const sharedEl = document.getElementById('visitNotesShared');
+            if (sharedEl) sharedEl.checked = d.notesShared === true;
             if (d.notesPhoto && d.notesPhoto.blob) {
                 try {
                     notesPhotoFile = new File([d.notesPhoto.blob],
@@ -3015,6 +3054,8 @@
             const notes = notesEl ? notesEl.value.trim() : '';
             if (notes) formData.append('visit_notes', notes);
             if (notesPhotoFile) formData.append('visit_notes_photo', notesPhotoFile);
+            const sharedEl = document.getElementById('visitNotesShared');
+            if (sharedEl && sharedEl.checked) formData.append('visit_notes_shared', '1');
             // Regional users submit for a chosen community (staff ignore this server-side)
             formData.append('community', selectedCommunity || userCommunity || '');
             // Ad-hoc action items (follow-up tasks, not standards)

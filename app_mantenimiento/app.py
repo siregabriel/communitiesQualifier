@@ -1053,6 +1053,24 @@ def is_team(role=None):
     return (role or current_role()) == TEAM_ROLE
 
 
+def _visit_note_hidden(submission):
+    """Whether this session may not read the visit's note.
+
+    Notes are written to the Executive Director and leadership, and some are
+    not for the community's whole staff ("ops's notes to Laura, or mine after
+    a sales visit" — Lauren Hamilton, Nov 2026). So Staff only see one the
+    visitor chose to share. The findings themselves stay visible to Staff:
+    those are what they are there to fix."""
+    return is_team() and not is_admin() and not (submission or {}).get('notes_shared')
+
+
+def _without_private_note(submission):
+    """The submission as this session may see it."""
+    if not _visit_note_hidden(submission):
+        return submission
+    return {k: v for k, v in submission.items() if k not in ('notes', 'notes_photo')}
+
+
 def is_leadership(role=None):
     """True for regional and corporate accounts."""
     return (role or current_role()) in LEADERSHIP_ROLES
@@ -3813,7 +3831,8 @@ def _draft_public(d):
     return {
         'community': d['community'], 'survey_type_id': d['survey_type_id'],
         'responses': d.get('responses') or {}, 'action_items': d.get('action_items') or [],
-        'notes': d.get('notes') or '', 'total': d.get('total') or 0,
+        'notes': d.get('notes') or '', 'notes_shared': bool(d.get('notes_shared')),
+        'total': d.get('total') or 0,
         'saved_at': d.get('saved_at') or 0, 'updated_at': d.get('updated_at'),
         'photos': {slot: {'name': p.get('name'), 'type': p.get('type'), 'size': p.get('size')}
                    for slot, p in (d.get('photos') or {}).items()},
@@ -3847,7 +3866,8 @@ def put_draft_content():
     d = draft_service.save_content(
         session.get('user'), community, survey_type_id,
         responses=data.get('responses'), action_items=data.get('action_items'),
-        notes=data.get('notes'), total=data.get('total'), saved_at=data.get('saved_at'))
+        notes=data.get('notes'), total=data.get('total'), saved_at=data.get('saved_at'),
+        notes_shared=data.get('notes_shared') is True)
     # The signpost follows the content, so the dashboard count is the server's
     # own count of what it holds rather than whatever the phone last claimed.
     draft_notice_service.record(
@@ -4157,6 +4177,7 @@ def send_draft_on_behalf():
             standards_total=len(questions) or None,
             notes=InputSanitizer.sanitize_description(d.get('notes') or '')[:2000],
             notes_photo=notes_photo,
+            notes_shared=bool(d.get('notes_shared')),
             sent_on_behalf={'at': now.isoformat()})
     except (ValueError, IOError) as e:
         app.logger.error(f'Could not file a draft on behalf: {e}')
@@ -4645,8 +4666,9 @@ def community_history(community):
             ][:40],
             # The regional's own words about the visit. Read far more often
             # than any per-standard comment, because it explains the number.
-            'notes': s.get('notes', ''),
-            'notes_photo': s.get('notes_photo', ''),
+            'notes': '' if _visit_note_hidden(s) else s.get('notes', ''),
+            'notes_photo': '' if _visit_note_hidden(s) else s.get('notes_photo', ''),
+            'notes_shared': bool(s.get('notes_shared')),
         })
 
     # Per-standard record across the most recent visits, newest first. This is
@@ -7771,7 +7793,8 @@ def submit_inspection():
                 action_items=manual_items,
                 standards_total=standards_total,
                 notes=visit_notes,
-                notes_photo=notes_photo
+                notes_photo=notes_photo,
+                notes_shared=str(_field('visit_notes_shared') or '').lower() in ('1', 'true', 'yes', 'on'),
             )
             
             # The visit is on file, so its draft is done with — here too, not
@@ -7903,7 +7926,7 @@ def get_inspections():
         for sub in submissions:
             uname = sub.get('username', '')
             name = sub.get('inspector_name') or resolve_display_name(uname)
-            new_sub = {**sub, 'inspector_name': name}
+            new_sub = {**_without_private_note(sub), 'inspector_name': name}
             # Unconditionally, unlike the signed-URL work below: that only
             # matters with S3 configured, while a department reads as an id on
             # every installation.

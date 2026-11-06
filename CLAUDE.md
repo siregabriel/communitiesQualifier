@@ -114,6 +114,13 @@ its own location; **where anybody is never reaches this server.**
   is out of every score and pass rate, counts as answered (not partial), and
   is shown in the panel, history, emails, exports and AtlasAI. Anything new
   that counts responses must decide what it does with it.
+- Visit notes are **private** to the ED and leadership unless the visitor
+  ticks "Share this note with the community's staff" (`notes_shared` on the
+  submission; absent = private, so older visits are private). Staff (`team`)
+  still get the visit and its findings; `_without_private_note()` /
+  `_visit_note_hidden()` strip note + photo server-side in `/api/inspections`
+  and the history (Lauren Hamilton, Nov 2026). A new place that serves a
+  visit must use them.
 - Question order: admins move standards up/down in Standards
   (`/api/questions/order`). One global `order`; each survey type shows its own
   questions in it; new ones go last. Never reordered → newest first, as before.
