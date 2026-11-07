@@ -237,6 +237,29 @@ console.log('\nSettings uses its width');
   ok(/Edit in People/.test(desc), 'the card text says what the button does');
 }
 
+/* Gabriel: Raised item categories was one tall column (name, then its email
+   list, per category) beside a short Staff positions card. Two columns, read
+   left to right, and no stray line under the last row of either column. */
+console.log('\nRaised item categories in two columns');
+for (const n of [4, 5]) {
+  const w = await settings({ admin: true, dark: false });
+  const d = w.document;
+  w.eval(`var _rcAll = [];
+    function escapeHtmlForAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
+    fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ categories:
+      ${JSON.stringify(Array.from({ length: n }, (_, i) => ({ id: 'c' + i, name: 'Cat ' + i, recipients: [] })))} }) });
+    ${grab('loadRaisedCategoryAdmin')}`);
+  await w.eval('loadRaisedCategoryAdmin()');
+  const host = d.getElementById('rcList');
+  const gtc = w.getComputedStyle(host).gridTemplateColumns;
+  ok(/^repeat\(2,/.test(gtc), `${n} categories: two columns (${gtc})`);
+  const rows = [...host.querySelectorAll('.rc-row')];
+  const lined = rows.map(r => w.getComputedStyle(r).borderBottomStyle !== 'none' && w.getComputedStyle(r).borderBottomWidth !== '0px');
+  const lastRow = n % 2 ? [n - 1] : [n - 2, n - 1];
+  ok(lastRow.every(i => !lined[i]) && lined.slice(0, lastRow[0]).every(Boolean),
+     `${n} categories: a line under every row but the bottom one (${lined.map(x => x ? '_' : ' ').join('|')})`);
+}
+
 console.log('\nPeople opens the person Settings asked for');
 {
   const dom = new JSDOM('<div id="gallery"></div>', { runScripts: 'outside-only' });

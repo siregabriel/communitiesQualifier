@@ -525,6 +525,15 @@ html[data-theme="dark"] .rc-to label { color: #9fb0c4; }
 html[data-theme="dark"] .rc-row { border-bottom-color: #26324a; }
 .rc-row:last-child { border-bottom: none; }
 .rc-row.rc-off .rc-name { opacity: .55; }
+/* Raised item categories in two columns, read left to right (the order the
+   arrows change): one column made the card twice as tall as its neighbour. */
+.rc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+.rc-grid > .activity-empty { grid-column: 1 / -1; }
+.rc-grid > .rc-row:nth-child(odd):nth-last-child(2) { border-bottom: none; }
+@media (max-width: 640px) {
+    .rc-grid { grid-template-columns: minmax(0, 1fr); }
+    .rc-grid > .rc-row:nth-child(odd):nth-last-child(2) { border-bottom: 1px solid #eef2f7; }
+}
 .rc-move { display: flex; flex-direction: column; gap: 2px; }
 .rc-move button {
     border: 1px solid #d9dfe8; background: #fff; color: #64748b;
