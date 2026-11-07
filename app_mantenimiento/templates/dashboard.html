@@ -11229,9 +11229,8 @@
                             <div class="set-hint set-hint-under">
                                 These addresses receive: new accounts and password activity,
                                 move-in reminders and completions, and the daily summary.
-                                Move-in emails otherwise go only to the community itself —
-                                regionals see every move-in in their region under Move-Ins
-                                rather than being emailed one at a time.
+                                Move-in reminders otherwise go only to the community itself;
+                                when a move-in is completed, the region's leadership is told too.
                             </div>
                             <textarea id="esAdminNotify" class="pw-input set-area" rows="3" placeholder="one per line or comma-separated"></textarea>
                             <label class="set-label set-label-gap">Clinical team <small>(receives comments directed to Clinical)</small></label>
@@ -11578,7 +11577,7 @@
                     const action = p.removable
                         ? `<button class="nsum-del" title="Stop sending to this address"
                               onclick="removeNotificationRecipient('${safeEmail}', '${escapeHtml(p.name || p.email).replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i></button>`
-                        : `<span class="nsum-lock" title="Copied automatically as a region leader — manage this in Regions"><i class="fas fa-lock"></i></span>`;
+                        : `<span class="nsum-lock" title="Copied automatically from their role — manage this in Regions or People"><i class="fas fa-lock"></i></span>`;
                     return `<div class="nsum-row">
                         <div class="nsum-avatar">${escapeHtml(initials)}</div>
                         <div class="nsum-main">

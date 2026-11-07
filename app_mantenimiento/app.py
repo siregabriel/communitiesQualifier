@@ -1375,6 +1375,18 @@ def movein_recipients(community):
     return list(dict.fromkeys(to + admin_notify))
 
 
+def movein_completed_recipients(community):
+    """Who is told a move-in was completed: everyone movein_recipients() tells,
+    plus the leadership of the region that owns the community.
+
+    The reminders stay off the regionals' mailboxes (see above), but a
+    completion is one email per resident, and Settings had been telling
+    Gabriel for months that regionals received them. Nov 2026: Betty Smith's
+    completion reached only Laura Blakeman and him; he chose to send the
+    completions to the region and to make Settings say what is true."""
+    return list(dict.fromkeys(movein_recipients(community) + region_leader_emails(community)))
+
+
 def alert_password_changed(username, changed_by=''):
     """Tell the administrators that an account's password changed.
 
@@ -2698,7 +2710,7 @@ def set_movein_status(mv_id):
     if status == 'completed':
         try:
             community = rec.get('community', '')
-            recipients = movein_recipients(community)
+            recipients = movein_completed_recipients(community)
             if recipients:
                 item_ids = movein_template_service.all_item_ids()
                 done, total = _movein_progress(rec, item_ids)
@@ -5831,7 +5843,9 @@ def email_notification_summary():
                     'Inspectors: ' + ', '.join(insp), 'scoped')
 
     # 2) Region leadership — always copied on their own region's inspections,
-    #    plus move-in reminders and completion summaries for their communities.
+    #    and told when a move-in in one of their communities is completed
+    #    (movein_completed_recipients). Not the reminders: those go to the
+    #    community. Corporate owns no community, so it gets no completions.
     for r in regions:
         if r.get('id') == 'unassigned':
             continue
@@ -5841,8 +5855,20 @@ def email_notification_summary():
                 continue
             add(addr, leader.get('name'), 'Inspection reports',
                 f"{r.get('name')} region (automatic)", 'auto')
-            add(addr, leader.get('name'), 'Move-in emails',
-                f"Reminders and completion summaries — {r.get('name')}", 'auto')
+            if r.get('kind') != CORPORATE_KIND and r.get('communities'):
+                add(addr, leader.get('name'), 'Move-in completions',
+                    f"{r.get('name')} region (automatic)", 'auto')
+
+    # 2b) Each community's own accounts (its Executive Director) — the ones
+    #     movein_recipients() actually sends the move-in emails to. This list
+    #     left them out, so nobody could see who was really told.
+    for u in user_service.get_all():
+        if u.get('role') != 'staff':
+            continue
+        comms = account_communities(u)
+        if comms:
+            add(u.get('email'), u.get('display_name') or u.get('username'), 'Move-in emails',
+                'Reminders and completions — ' + ', '.join(comms), 'auto')
 
     # 3) Admin alerts
     for addr in s.get('admin_notify', []):
