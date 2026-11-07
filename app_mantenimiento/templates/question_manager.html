@@ -1648,9 +1648,12 @@
                 const type = surveyTypes.find(t => t.id === typeId);
                 if (!type) return '';
                 
-                return `<span class="survey-type-badge" style="background: ${type.color}15; color: ${type.color}; border-color: ${type.color}40;">
-                    <i class="fas ${type.icon}"></i> ${type.name}
-                </span>`;
+                /* A neutral tag with a square in the type's colour. The colour
+                   used to tint the text too, and the light ones (a lime green)
+                   could not be read. It is only ever a fill here, and only a
+                   hex is let through. The name was written unescaped. */
+                const colour = /^#[0-9a-f]{3,8}$/i.test(type.color || '') ? type.color : '#5a6872';
+                return `<span class="survey-type-badge st-tag"><span class="st-mark" style="background:${colour}"></span>${escapeHtml(type.name)}</span>`;
             }).join('');
         }
 
@@ -1725,7 +1728,7 @@
                         <td>${photoRequired}</td>
                         <td>${surveyTypeBadges}</td>
                         <td>${communityDisplay}</td>
-                        <td style="color:#94a3b8; font-size:12px; white-space:nowrap;">${createdDate}</td>
+                        <td class="q-date">${createdDate}</td>
                         <td>
                             <div class="action-buttons">
                                 <div class="q-move">
