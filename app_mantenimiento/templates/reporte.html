@@ -1213,17 +1213,17 @@
             </div>
             <div id="nearbySuggest" class="nearby-suggest" role="status" hidden></div>
             <select id="communitySelect" onchange="onCommunityChange()">
-                <option value="">— Select a community in your region —</option>
+                <option value="">— Or choose from your region —</option>
                 {% for c in communities %}
                 <option value="{{ c }}">{{ c|plain }}</option>
                 {% endfor %}
             </select>
             <!-- Says what finds the community, truthfully: the phone's own
                  location, compared on the phone. No map service is involved. -->
-            <div class="cp-foot"><i class="fas fa-location-crosshairs"></i> Located by your phone's GPS · never saved</div>
+            <div class="cp-foot"><i class="fas fa-location-crosshairs"></i> Located by your phone's GPS</div>
         </div>
         <div class="loading-message" id="communityPrompt" style="display:none;">
-            Select a community above to load its visit.
+            Choose one above to start the visit.
         </div>
         {% endif %}
 
@@ -2211,6 +2211,15 @@
             if (!nearbyAskDismissed()) showNearbyAsk();
         }
 
+        /* The small link under the title and the card's button do the same
+           thing, so only one shows at a time: the link is hidden while the
+           card is up (Gabriel: "community" six times on one card). It has an
+           onclick only while finding is possible; refused takes that away. */
+        function nearbyLink(show) {
+            const find = document.getElementById('nearbyFind');
+            if (find && find.onclick) find.hidden = !show;
+        }
+
         function showNearbyAsk() {
             const box = document.getElementById('nearbySuggest');
             if (!box) return;
@@ -2219,8 +2228,8 @@
             head.className = 'nearby-head';
             const text = document.createElement('div');
             const b = document.createElement('b');
-            b.textContent = 'At a community?';
-            text.append(b, ' Tap to find it automatically.');
+            b.textContent = 'Here now?';
+            text.append(b, ' We can find it for you.');
             const note = document.createElement('div');
             note.className = 'nearby-note';
             note.textContent = 'Your location stays on your phone and is never saved.';
@@ -2231,6 +2240,7 @@
             x.textContent = '×';
             x.onclick = () => {
                 box.hidden = true;
+                nearbyLink(true);
                 try { localStorage.setItem(NEARBY_DISMISSED_KEY, '1'); } catch (e) {}
             };
             head.append(text, x);
@@ -2238,12 +2248,13 @@
             actions.className = 'nearby-actions';
             const go = document.createElement('button');
             go.type = 'button'; go.className = 'nearby-go';
-            go.textContent = 'Find my community';
+            go.textContent = 'Use my location';
             go.onclick = () => suggestNearbyCommunity({ asked: true });
             actions.append(go);
             box.append(head, actions);
             box.classList.add('is-ask');   // the illustrated invitation
             box.hidden = false;
+            nearbyLink(false);
         }
 
         // A short answer in the same box, for when somebody asked and there
@@ -2257,6 +2268,7 @@
             box.append(line);
             box.classList.remove('is-ask');
             box.hidden = false;
+            nearbyLink(true);
         }
 
         // `opts.asked`: the person tapped Find, so every outcome gets an answer.
@@ -2285,7 +2297,7 @@
                 // Refused: the link would only lead back here.
                 if (err && err.code === 1) {
                     const find = document.getElementById('nearbyFind');
-                    if (find) find.hidden = true;
+                    if (find) { find.hidden = true; find.onclick = null; }
                 }
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
@@ -2335,6 +2347,7 @@
             box.append(line, actions);
             box.classList.remove('is-ask');
             box.hidden = false;
+            nearbyLink(true);
         }
 
         function onCommunityChange() {

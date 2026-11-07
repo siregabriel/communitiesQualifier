@@ -85,6 +85,7 @@ function world({ here = AT_OSCAR, accuracy = 20, places = PLACES, deny = false,
     ${grab('locationPermission')}
     ${grab('nearbyAskDismissed')}
     ${grab('offerNearbyCommunity')}
+    ${grab('nearbyLink')}
     ${grab('showNearbyAsk')}
     ${grab('nearbySay')}
     ${grab('suggestNearbyCommunity')}
@@ -236,14 +237,19 @@ console.log('\nNot asked yet: our card first, the phone\'s prompt only on a tap'
   await w.offerNearbyCommunity();
   ok(w.asks() === 0, 'opening the form does not trigger the location prompt');
   ok(box(w).hidden === false, 'the card is shown instead');
-  ok(/At a community\?/.test(box(w).textContent), 'saying what it is for');
+  ok(/Here now\?/.test(box(w).textContent), 'saying what it is for');
+  // Gabriel: "community" six times on one card. The link and the card's
+  // button do the same thing, so the link waits until the card is gone.
+  ok(find(w).hidden === true, 'the small link stays out of the way while the card is up');
+  ok(!/community/i.test(box(w).textContent), 'and the card does not repeat "community"');
   ok(box(w).classList.contains('is-ask'), 'the invitation is marked, so it gets its illustration');
   ok(/stays on your phone and is never saved/.test(box(w).textContent),
      'and that the location goes nowhere — the reason people would refuse');
-  buttons(w).find(b => b.textContent === 'Find my community').onclick();
-  ok(w.asks() === 1, 'tapping Find is what asks the phone');
+  buttons(w).find(b => b.textContent === 'Use my location').onclick();
+  ok(w.asks() === 1, 'tapping Use my location is what asks the phone');
   ok(/It looks like you're at The Oscar at Georgetown/.test(box(w).textContent),
      'and the answer replaces the card');
+  ok(find(w).hidden === false, 'and with the card gone, the link is back');
 }
 
 console.log('\nAlready allowed: straight to the answer');
@@ -291,13 +297,13 @@ console.log('\nA tap always gets an answer');
 {
   const nowhere = world({ permission: 'prompt', here: NOWHERE });
   await nowhere.offerNearbyCommunity();
-  buttons(nowhere).find(b => b.textContent === 'Find my community').onclick();
+  buttons(nowhere).find(b => b.textContent === 'Use my location').onclick();
   ok(/None of your communities/.test(nowhere.document.getElementById('nearbySuggest').textContent),
      'nowhere near one: it says so, rather than going quiet');
 
   const refused = world({ permission: 'prompt', deny: true });
   await refused.offerNearbyCommunity();
-  buttons(refused).find(b => b.textContent === 'Find my community').onclick();
+  buttons(refused).find(b => b.textContent === 'Use my location').onclick();
   ok(/Location is turned off/.test(refused.document.getElementById('nearbySuggest').textContent),
      'refused at the prompt: it says so');
   ok(refused.document.getElementById('nearbyFind').hidden === true,
