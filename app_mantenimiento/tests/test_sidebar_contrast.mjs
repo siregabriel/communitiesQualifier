@@ -34,6 +34,14 @@ function build(mode) {
 }
 
 const rgb = (s) => (s.match(/\d+/g) || [0, 0, 0]).slice(0, 3).map(Number);
+/* A translucent colour, as the browser paints it over what is behind it.
+   The navy sidebar's pill is white at 12% and its labels white at 80-86%:
+   compared as if opaque, white on white reads 1:1. */
+const alpha = (s) => { const m = s.match(/rgba\([^)]*,\s*([\d.]+)\s*\)/); return m ? Number(m[1]) : 1; };
+const over = (fg, bg) => {
+  const a = alpha(fg), f = rgb(fg), b = rgb(bg);
+  return `rgb(${f.map((v, i) => Math.round(v * a + b[i] * (1 - a))).join(', ')})`;
+};
 const lum = ([r, g, b]) => {
   const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
@@ -56,21 +64,23 @@ console.log('\nSidebar — light mode, measured');
   const d = w.document;
   const g = (sel) => w.getComputedStyle(d.querySelector(sel));
 
+  const panel = w.getComputedStyle(d.querySelector('.sidebar')).backgroundColor;
   const pill = g('.nav-item.active');
   const text = g('.nav-item.active span');
   const icon = g('.nav-item.active i');
+  const fill = over(pill.backgroundColor, panel);
 
-  const ratio = contrast(text.color, pill.backgroundColor);
+  const ratio = contrast(over(text.color, fill), fill);
   ok(ratio >= 4.5,
      `the current section's label is readable on its fill (${ratio.toFixed(1)}:1, needs 4.5)`);
-  ok(contrast(icon.color, pill.backgroundColor) >= 4.5, 'and so is its icon');
+  ok(contrast(over(icon.color, fill), fill) >= 4.5, 'and so is its icon');
   ok(text.color === pill.color,
      `the label matches the link it sits in (${text.color} vs ${pill.color})`);
+  ok(fill !== over('rgba(0,0,0,0)', panel), 'and the current section is visibly filled');
 
   const rest = g('.nav-item:not(.active) span');
-  const panel = w.getComputedStyle(d.querySelector('.sidebar')).backgroundColor;
-  ok(contrast(rest.color, panel) >= 4.5,
-     `an unselected section is readable on the panel (${contrast(rest.color, panel).toFixed(1)}:1)`);
+  ok(contrast(over(rest.color, panel), panel) >= 4.5,
+     `an unselected section is readable on the panel (${contrast(over(rest.color, panel), panel).toFixed(1)}:1)`);
 }
 
 console.log('\nSidebar — dark mode, by rule');

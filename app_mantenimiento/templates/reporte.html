@@ -14,7 +14,7 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400..800&family=JetBrains+Mono:wght@400..800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Anime.js for premium animations -->
@@ -359,7 +359,7 @@
         .file-upload-label {
             display: block;
             padding: 12px 16px;
-            background: #00285c;
+            background: #003366;
             color: white;
             border-radius: 8px;
             text-align: center;
@@ -518,7 +518,7 @@
         .draft-banner-main span { font-size: 12.5px; color: #475569; }
         .draft-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
         .draft-btn-primary {
-            background: #00285c; color: #fff; border: none; border-radius: 8px;
+            background: #003366; color: #fff; border: none; border-radius: 8px;
             padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
         }
         .draft-btn-ghost {
@@ -531,7 +531,7 @@
             margin-top: 12px;
         }
         .draft-save-btn {
-            background: #fff; color: #00285c; border: 1.5px solid #d9dfe8; border-radius: 10px;
+            background: #fff; color: #003366; border: 1.5px solid #d9dfe8; border-radius: 10px;
             padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
         }
         /* Quieter than Save: it is the rarer choice, and an irreversible one. */
@@ -541,7 +541,7 @@
             font-family: inherit;
         }
         .draft-discard-btn:hover { color: #b42318; }
-        .draft-save-btn:hover { border-color: #00285c; }
+        .draft-save-btn:hover { border-color: #003366; }
         /* Floating save indicator. The reassurance has to be visible WHILE
            filling the form — everything else about drafts sits by the submit
            button, several screens down, where nobody looks mid-visit. */
@@ -680,14 +680,14 @@
         .success-actions button:hover { transform: translateY(-2px); }
 
         .success-btn-primary {
-            background: linear-gradient(135deg, #00285c, #1f6fe5);
+            background: linear-gradient(135deg, #003366, #1f6fe5);
             color: #fff;
             box-shadow: 0 10px 26px rgba(31, 111, 229, 0.34);
         }
 
         .success-btn-secondary {
             background: #fff;
-            color: #00285c;
+            color: #003366;
             border: 1.5px solid #e4ebf5;
         }
 
@@ -713,7 +713,7 @@
             border-radius: 9px; padding: 9px 14px; font-size: 14px; font-weight: 700;
             font-family: inherit; cursor: pointer;
         }
-        .nearby-go { background: #00285c; color: #fff; border: 0; }
+        .nearby-go { background: #003366; color: #fff; border: 0; }
         .nearby-no { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
         .nearby-x { margin-left: auto; background: none; border: 0; color: #64748b;
             font-size: 18px; line-height: 1; padding: 4px 6px; cursor: pointer; }
@@ -1134,7 +1134,7 @@
             .tour-btn, .tour-btn-ghost { padding: 11px 18px; font-size: 13.5px; }
             .tour-skip { padding: 10px 4px; }
         }
-        .tour-btn { background: #00285c; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .tour-btn { background: #003366; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
         .tour-btn-ghost { background: #fff; color: #475569; border: 1px solid #d9dfe8; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
 
         @media (max-width: 768px) {
@@ -1176,10 +1176,10 @@
                      to someone who hasn't started. Leaving is safe: the form saves
                      itself as you go, so the visit is waiting when you return. -->
                 <a class="logout-btn" href="/dashboard"
-                   style="background:#eef2fb;border:1px solid #c7d6f0;color:#00285c;text-decoration:none;display:inline-flex;align-items:center;gap:7px;"
+                   style="background:#eef2fb;border:1px solid #c7d6f0;color:#003366;text-decoration:none;display:inline-flex;align-items:center;gap:7px;"
                    title="Back to the dashboard — your answers are saved on this device"><i class="fas fa-house"></i> Home</a>
-                <button class="logout-btn" type="button" id="themeToggleBtn" onclick="toggleTheme()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#00285c;" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
-                <button class="logout-btn" type="button" onclick="startFormTour()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#00285c;" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
+                <button class="logout-btn" type="button" id="themeToggleBtn" onclick="toggleTheme()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#003366;" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
+                <button class="logout-btn" type="button" onclick="startFormTour()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#003366;" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </div>

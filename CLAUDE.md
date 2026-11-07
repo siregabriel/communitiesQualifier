@@ -121,6 +121,12 @@ its own location; **where anybody is never reaches this server.**
   `_visit_note_hidden()` strip note + photo server-side in `/api/inspections`
   and the history (Lauren Hamilton, Nov 2026). A new place that serves a
   visit must use them.
+- A standard can be **Every community** (`all_communities: true`): it covers
+  communities added later too; `QuestionManager.covers()` is the one test.
+  Standards that listed every community were switched once at startup
+  (`adopt_every_community`, marker `every_community_v1` in the questions
+  file; Greg agreed). Standards → select rows → add/remove one community
+  (`/api/questions/communities`); never leaves a standard with none.
 - Question order: admins move standards up/down in Standards
   (`/api/questions/order`). One global `order`; each survey type shows its own
   questions in it; new ones go last. Never reordered → newest first, as before.
@@ -149,6 +155,18 @@ Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost
   <date> on behalf of <name>" — the admin is **never named** on the visit or
   emails (Gabriel's choice), only in the activity log. Post-visit emails live
   in `_send_visit_emails()`, shared with the normal submit.
+
+## Look ("Precisión" skin, Nov 2026)
+
+- One section at the end of `static/theme.css` (PRECISION SKIN): navy
+  `#003366`, Roboto + JetBrains Mono (numbers), static engineering grid
+  instead of the animated blobs, white cards with hairline + soft shadow,
+  navy sidebar with an electric `#00BFFF` rail on the current item (light
+  mode; dark keeps its own). Revert = remove that section + the font links.
+- `#00BFFF` / `#FFA500` are under 2.2:1 on white: lines, rails, fills only,
+  never text. jsdom ignores `var()` inside the `background:` shorthand, so
+  colours a test measures are written literally.
+- Emails keep the old `#00285c`; templates and theme were moved to `#003366`.
 
 ## Pitfalls already paid for
 

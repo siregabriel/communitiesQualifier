@@ -39,8 +39,11 @@ const VISITS = [
   { id: 's2', username: 'shannon', community: 'A', survey_type_id: 'sales',
     submitted_at: '2026-08-26T10:00:00', pass: 20, fail: 0, actions: 0 },
   { id: 's3', username: 'greg', community: 'B', survey_type_id: 'standards',
-    submitted_at: '2026-08-25T10:00:00', pass: 7, fail: 4, actions: 1 },
+    submitted_at: '2026-08-25T10:00:00', pass: 7, fail: 4, actions: 1, notChecked: 2 },
 ];
+/* s3 also has two standards marked Not checked: answered, with a reason, but
+   not checked — so they belong in neither Pass, Fail nor "Standards checked"
+   (they were counted there at first, Nov 2026). */
 
 const submissions = VISITS.map(v => ({
   id: v.id, username: v.username, community: v.community,
@@ -48,6 +51,7 @@ const submissions = VISITS.map(v => ({
   responses: [
     ...Array.from({ length: v.pass }, (_, i) => ({ question_id: `p${i}`, condition: 'Pass' })),
     ...Array.from({ length: v.fail }, (_, i) => ({ question_id: `f${i}`, condition: 'Fail' })),
+    ...Array.from({ length: v.notChecked || 0 }, (_, i) => ({ question_id: `n${i}`, condition: 'Not checked' })),
   ],
   action_items: Array.from({ length: v.actions }, (_, i) => ({ id: `a${i}`, text: 'Dryer vent' })),
 }));
@@ -94,7 +98,7 @@ w.renderReports();
 
 /* Read the cards back off the page: label -> number. */
 const cards = {};
-for (const box of w.document.querySelectorAll('#gallery div[style*="border-radius: 10px"]')) {
+for (const box of w.document.querySelectorAll('#gallery .rk-kpi')) {
   const kids = box.children;
   if (kids.length === 2 && /^\d+$/.test(kids[1].textContent.trim())) {
     cards[kids[0].textContent.trim()] = Number(kids[1].textContent.trim());

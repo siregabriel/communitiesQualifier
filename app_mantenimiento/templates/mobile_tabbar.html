@@ -30,9 +30,10 @@
        colour rather than one of them being faint. */
     .mtab-ic { font-size: 19px; line-height: 1; color: #475569; transition: color .2s ease, transform .2s cubic-bezier(.2,.8,.2,1); }
     .mtab-lb { font-size: 10px; font-weight: 600; color: #475569; white-space: nowrap; }
-    .mtab-item.on { background: rgba(31,111,229,.14); }
-    .mtab-item.on .mtab-ic { color: #1f6fe5; transform: translateY(-1px); }
-    .mtab-item.on .mtab-lb { color: #1f6fe5; font-weight: 800; }
+    /* Precision skin (Nov 2026): the current tab in the brand navy. */
+    .mtab-item.on { background: rgba(0,51,102,.10); }
+    .mtab-item.on .mtab-ic { color: #003366; transform: translateY(-1px); }
+    .mtab-item.on .mtab-lb { color: #003366; font-weight: 700; }
     .mtab-item:active .mtab-ic { transform: scale(.9); }
     /* Emphasized center action: New Visit is the primary task, so it becomes a
        larger, raised accent button that pops above the bar. */
@@ -41,14 +42,15 @@
         width: 54px; height: 54px; margin-top: -24px; margin-bottom: 1px;
         border-radius: 50%; color: #fff !important; font-size: 21px;
         display: flex; align-items: center; justify-content: center;
-        background: linear-gradient(150deg, #2f86ff 0%, #00285c 100%);
+        background: #003366;
         border: 4px solid #fff;
-        box-shadow: 0 10px 22px rgba(0,40,92,.42), inset 0 1px 0 rgba(255,255,255,.45);
+        box-shadow: 0 6px 14px rgba(0, 51, 102,.28);
     }
-    .mtab-item[data-tab="new-visit"] .mtab-lb { color: #1f6fe5 !important; font-weight: 800; }
+    .mtab-item[data-tab="new-visit"] .mtab-lb { color: #003366 !important; font-weight: 700; }
     .mtab-item[data-tab="new-visit"].on { background: transparent; }
     .mtab-item[data-tab="new-visit"]:active .mtab-ic { transform: scale(.94); }
-    html[data-theme="dark"] .mtab-item[data-tab="new-visit"] .mtab-ic { border-color: #131d2c; }
+    html[data-theme="dark"] .mtab-item[data-tab="new-visit"] .mtab-ic { border-color: #131d2c; background: #1f6fe5; }
+    html[data-theme="dark"] .mtab-item[data-tab="new-visit"] .mtab-lb { color: #7db0ff !important; }
     /* Dark mode (only applies when a page sets data-theme="dark") */
     html[data-theme="dark"] .mtab {
         background: rgba(22,31,46,.72); border-color: rgba(255,255,255,.12);

@@ -32,6 +32,7 @@ class QuestionManager(JsonFileBacked):
         self.questions = []
         self.version = "1.0"
         self.last_modified = None
+        self.migrations = []
 
         self._init_store()
         self.load_from_file()
@@ -81,7 +82,8 @@ class QuestionManager(JsonFileBacked):
 
     def create_question(self, text: str, photo_required: bool, communities: List[str],
                        survey_types: Optional[List[str]] = None,
-                       interpretive_guideline: str = "", pass_criteria=None) -> Dict:
+                       interpretive_guideline: str = "", pass_criteria=None,
+                       all_communities: bool = False) -> Dict:
         """
         Create new question with validation
         
@@ -101,8 +103,10 @@ class QuestionManager(JsonFileBacked):
         if not text or not text.strip():
             raise ValueError("Question text cannot be empty")
         
-        # Validate communities array
-        if not communities or len(communities) == 0:
+        # Validate communities array. "Every community" needs no list: it is
+        # every community there is, including ones added later.
+        communities = list(communities or [])
+        if not all_communities and not communities:
             raise ValueError("At least one community must be selected")
         
         # Handle survey_types: None or empty list means all types (backward compatibility)
@@ -128,6 +132,8 @@ class QuestionManager(JsonFileBacked):
             "updated_at": now,
             "is_active": True
         }
+        if all_communities:
+            question["all_communities"] = True
         
         # Reload latest from disk before appending so we never clobber
         # changes made by another process or an external edit.
@@ -182,12 +188,14 @@ class QuestionManager(JsonFileBacked):
         self._ensure_fresh()
         return self._ordered([
             q for q in self.questions
-            if q.get("is_active", True) and community in q.get("communities", [])
+            if q.get("is_active", True)
+            and (q.get("all_communities") or community in q.get("communities", []))
         ])
 
     def update_question(self, question_id: str, text: str, photo_required: bool,
                        communities: List[str], survey_types: Optional[List[str]] = None,
-                       interpretive_guideline: str = "", pass_criteria=None) -> Optional[Dict]:
+                       interpretive_guideline: str = "", pass_criteria=None,
+                       all_communities: bool = False) -> Optional[Dict]:
         """
         Update existing question, preserving ID and created_at timestamp
         
@@ -208,8 +216,9 @@ class QuestionManager(JsonFileBacked):
         if not text or not text.strip():
             raise ValueError("Question text cannot be empty")
         
-        # Validate communities array
-        if not communities or len(communities) == 0:
+        # Validate communities array (not needed for "Every community")
+        communities = list(communities or [])
+        if not all_communities and not communities:
             raise ValueError("At least one community must be selected")
         
         # Handle survey_types: None or empty list means all types (backward compatibility)
@@ -227,6 +236,10 @@ class QuestionManager(JsonFileBacked):
         question["pass_criteria"] = self._clean_criteria(pass_criteria)
         question["photo_required"] = photo_required
         question["communities"] = communities
+        if all_communities:
+            question["all_communities"] = True
+        else:
+            question.pop("all_communities", None)
         question["survey_types"] = survey_types  # Empty array means all types
         question["updated_at"] = datetime.now().isoformat()
         
@@ -257,6 +270,85 @@ class QuestionManager(JsonFileBacked):
         self.save_to_file()
         
         return True
+
+    @staticmethod
+    def covers(question: Dict, community: str) -> bool:
+        """Whether a standard applies at this community."""
+        return bool(question.get("all_communities")) or community in (question.get("communities") or [])
+
+    def change_communities(self, ids: List[str], community: str, action: str,
+                           everyone: List[str]) -> Dict:
+        """Add or remove one community on several standards at once.
+
+        Greg Crutcher asked (Nov 2026) for an easier way than opening every
+        standard to add a new community. Adding to an "Every community"
+        standard changes nothing: it already has it. Removing from one turns
+        it into a plain list of everyone else, so it stops picking up new
+        communities on its own. A standard is never left with no community;
+        those are reported back, untouched.
+        """
+        if action not in ("add", "remove") or not community:
+            raise ValueError("Say which community, and add or remove")
+        wanted = set(ids or [])
+        changed, unchanged, refused = [], [], []
+        with self._lock:
+            self._ensure_fresh()
+            for q in self.questions:
+                if q.get("id") not in wanted or not q.get("is_active", True):
+                    continue
+                comms = list(q.get("communities") or [])
+                if action == "add":
+                    if self.covers(q, community):
+                        unchanged.append(q["id"])
+                        continue
+                    comms.append(community)
+                    q["communities"] = comms
+                else:
+                    if not self.covers(q, community):
+                        unchanged.append(q["id"])
+                        continue
+                    if q.get("all_communities"):
+                        comms = [c for c in everyone if c != community]
+                    else:
+                        comms = [c for c in comms if c != community]
+                    if not comms:
+                        refused.append(q["id"])
+                        continue
+                    q.pop("all_communities", None)
+                    q["communities"] = comms
+                q["updated_at"] = datetime.now().isoformat()
+                changed.append(q["id"])
+            if changed:
+                self.save_to_file()
+        return {"changed": changed, "unchanged": unchanged, "refused": refused}
+
+    EVERY_COMMUNITY_MIGRATION = "every_community_v1"
+
+    def adopt_every_community(self, everyone: List[str]) -> int:
+        """Once: a standard that already lists every community becomes
+        "Every community", so the next community added gets it too.
+
+        Greg agreed to switch them automatically (Nov 2026). Run once and
+        remembered in the file: a standard somebody later ticks every box on
+        by hand is left as the list they chose. Returns how many changed.
+        """
+        everyone = [c for c in (everyone or []) if c]
+        if not everyone:
+            return 0
+        with self._lock:
+            self._ensure_fresh()
+            if self.EVERY_COMMUNITY_MIGRATION in self.migrations:
+                return 0
+            need = set(everyone)
+            count = 0
+            for q in self.questions:
+                if q.get("is_active", True) and not q.get("all_communities") \
+                        and need <= set(q.get("communities") or []):
+                    q["all_communities"] = True
+                    count += 1
+            self.migrations.append(self.EVERY_COMMUNITY_MIGRATION)
+            self.save_to_file()
+            return count
 
     def rename_community(self, old_name: str, new_name: str) -> int:
         """Rename a community across every question's communities list.
@@ -300,6 +392,8 @@ class QuestionManager(JsonFileBacked):
                 "last_modified": self.last_modified,
                 "questions": self.questions
             }
+            if self.migrations:
+                data["migrations"] = self.migrations
             
             # Atomic write (temp file + os.replace)
             self._atomic_write(data, indent=4)
@@ -327,6 +421,7 @@ class QuestionManager(JsonFileBacked):
             self.version = data.get("version", "1.0")
             self.last_modified = data.get("last_modified")
             self.questions = data.get("questions", [])
+            self.migrations = [m for m in (data.get("migrations") or []) if isinstance(m, str)]
             
         except (json.JSONDecodeError, IOError) as e:
             # If file is malformed or cannot be read, initialize with empty state

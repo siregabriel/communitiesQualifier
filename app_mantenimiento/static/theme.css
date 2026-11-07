@@ -7,7 +7,7 @@
 
 :root {
     /* Brand — from atlas-logo.png (deep navy) energized with vivid azure + gold */
-    --navy:        #00285c;
+    --navy:        #003366;
     --navy-700:    #013a82;
     --navy-900:    #001b42;
     --azure:       #1f6fe5;
@@ -31,7 +31,7 @@
     --warn:    #f59e0b;
 
     /* Bold gradients */
-    --grad-brand:   linear-gradient(135deg, #00285c 0%, #1f6fe5 100%);
+    --grad-brand:   linear-gradient(135deg, #003366 0%, #1f6fe5 100%);
     --grad-vibrant: linear-gradient(135deg, #2563eb 0%, #0bb8d4 100%);
     --grad-gold:    linear-gradient(135deg, #f7b32b 0%, #f59e0b 100%);
     --grad-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -117,7 +117,7 @@ textarea:focus-visible {
 
 .btn-primary,
 .submit-btn {
-    background: #00285c!important;
+    background: #003366!important;
     color: #fff !important;
     box-shadow: var(--sh-brand) !important;
 }
@@ -210,7 +210,7 @@ form#inspectionForm button[type="submit"],
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(0, 40, 92, 0.80);
+    background: rgba(0, 51, 102, 0.80);
     color: #fff;
     font-size: 11px;
     font-weight: 700;
@@ -313,7 +313,7 @@ textarea:focus {
 
 /* ----- Dashboard sidebar + nav ----------------------------------------- */
 .sidebar {
-    background: #00285c!important;
+    background: #003366!important;
     box-shadow: var(--sh-lg) !important;
     border-right: none !important;
 }
@@ -493,9 +493,9 @@ html[data-theme="dark"] .vnote-who i { color: #7f93ad; }
         border-radius: 50% !important;   /* the shared button rule sets var(--r) !important */
         justify-content: center;
         border: 4px solid #fff !important;
-        background: linear-gradient(150deg, #2f86ff 0%, #00285c 100%) !important;
+        background: linear-gradient(150deg, #2f86ff 0%, #003366 100%) !important;
         color: #fff !important;
-        box-shadow: 0 10px 24px rgba(0, 40, 92, .42) !important;
+        box-shadow: 0 10px 24px rgba(0, 51, 102, .42) !important;
         z-index: 901;                  /* above the bar, below the photo viewer */
     }
     #raiseItemBtn.start-visit-btn i { font-size: 22px; margin: 0; }
@@ -543,7 +543,7 @@ html[data-theme="dark"] .rc-move button { background: #131c2b; border-color: #26
     font-size: 12px; font-weight: 700; padding: 6px 12px;
     border-radius: 8px; cursor: pointer; white-space: nowrap;
 }
-.rc-toggle:hover:not(:disabled) { border-color: #00285c; color: #00285c; }
+.rc-toggle:hover:not(:disabled) { border-color: #003366; color: #003366; }
 .rc-toggle:disabled { opacity: .45; cursor: default; }
 html[data-theme="dark"] .rc-toggle { background: #131c2b; border-color: #26324a; color: #cbd8ea; }
 
@@ -2144,7 +2144,7 @@ html[data-theme="dark"] .pe-rename-note { color: #9fb0c4; }
     --sh-gold: none;
 
     /* Flatten gradients to solid fills (navy stays the accent) */
-    --grad-brand:   #00285c;
+    --grad-brand:   #003366;
     --grad-vibrant: #1f6fe5;
     --grad-success: #0f8a5f;
     --grad-danger:  #d13212;
@@ -2188,12 +2188,12 @@ body {
 .profile-stat-clickable:hover {
     transform: none !important;
     box-shadow: none !important;
-    border-color: rgba(0,40,92,.45) !important;
+    border-color: rgba(0, 51, 102,.45) !important;
 }
 
 /* Community card top rail: thin solid navy instead of a vivid gradient */
 .community-card::before {
-    background: #00285c !important;
+    background: #003366 !important;
     opacity: 1;
     height: 3px;
 }
@@ -2203,7 +2203,7 @@ table thead th {
     background: #eef2f7 !important;
     border-bottom: 1px solid var(--line) !important;
 }
-table tbody tr:hover { background: rgba(0,40,92,.04) !important; }
+table tbody tr:hover { background: rgba(0, 51, 102,.04) !important; }
 
 /* Sidebar: flat navy (no gradient/glow), keep the gold active rail */
 .sidebar { box-shadow: var(--sh-md) !important; }
@@ -2238,7 +2238,7 @@ textarea:focus {
 .user-welcome { border-bottom: 1px solid #e4e7ec !important; }
 .welcome-text { color: #0f1e36 !important; }
 .user-role { color: #6b7280 !important; }
-.sidebar-avatar { background: #e4e7ec !important; color: #00285c !important; box-shadow: none !important; }
+.sidebar-avatar { background: #e4e7ec !important; color: #003366 !important; box-shadow: none !important; }
 
 /* Nav items as filled pills: grey on hover, solid on the current section.
    The state used to be carried by a pale tint plus a 3px rail on the left
@@ -2389,7 +2389,7 @@ html[data-theme="dark"] .mini-cal-cell.mini-has {
 }
 html[data-theme="dark"] .mini-cal-cell.mini-has:hover { background: #243147 !important; }
 /* Today is a ring, not a fill, so only the ink needed lifting — but the ring
-   itself was #00285c, which is all but invisible against a dark card. */
+   itself was #003366, which is all but invisible against a dark card. */
 html[data-theme="dark"] .mini-cal-cell.mini-today {
     box-shadow: inset 0 0 0 2px #4f8ef7 !important; color: #eef2f8 !important;
 }
@@ -2495,3 +2495,468 @@ html[data-theme="dark"] .card-image-themed::after {
 .panel-onbehalf { margin: -4px 0 14px; padding: 9px 12px; border-radius: 9px; background: #fffbeb;
     border: 1px solid #fde68a; color: #7c5e10; font-size: 13px; }
 html[data-theme="dark"] .panel-onbehalf { background: #2a2312; border-color: #5c4a15; color: #e8d9a8; }
+
+/* ==========================================================================
+   PRECISION SKIN  (Nov 2026)
+   Gabriel chose the "Precisión" design (design.md, adapted for a work tool):
+   Azul Industrial #003366, Roboto for text and JetBrains Mono for numbers,
+   a faint engineering grid instead of the drifting colour blobs, white cards
+   with a hairline border and a soft shadow, and a navy sidebar whose current
+   section carries an electric-blue rail.
+
+   Kept from the design.md: palette, type, 8px radius, 200ms ease-out motion,
+   no glows. Left out on purpose: its landing-page layout (hero, zig-zag,
+   airy density) — this app lives on dense lists — and "no dark mode": dark
+   mode stays, re-tuned below.
+
+   Electric blue (#00BFFF) and orange (#FFA500) are 2.1:1 and 2:1 on white,
+   so they are only ever lines, rails, dots and fills, never text.
+
+   One section, loaded last, so it can be read (or reverted) in one place.
+   The page templates set their own colours in places; this re-skins the
+   shared surfaces and leaves layout alone.
+   ========================================================================== */
+:root {
+    --font:      'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+    --navy:       #003366;
+    --navy-700:   #002a54;
+    --navy-900:   #001f3f;
+    --electric:   #00bfff;   /* lines and rails only */
+    --charcoal:   #36454f;
+
+    --ink:     #1b2730;
+    --muted:   #5a6872;
+    --line:    #e1e5ea;
+    --bg:      #f4f6f8;
+    --surface: #ffffff;
+
+    --success:      #0e8259;
+    --success-deep: #0b6b49;
+    --danger:       #c62828;
+    --danger-deep:  #a61f1f;
+
+    --grad-brand:   #003366;
+    --grad-vibrant: #1f6fe5;
+    --grad-success: #0e8259;
+    --grad-danger:  #c62828;
+
+    /* Cards lift off the grey page by a hairline and a whisper of shadow. */
+    --sh-sm: 0 1px 3px rgba(0, 0, 0, .05);
+    --sh:    0 2px 12px rgba(0, 0, 0, .06);
+    --sh-md: 0 6px 20px rgba(0, 0, 0, .08);
+
+    --r-sm: 6px;
+    --r:    8px;
+    --r-lg: 8px;
+}
+
+/* ----- Type ------------------------------------------------------------- */
+body { font-family: var(--font) !important; color: var(--ink); }
+button, input, select, textarea { font-family: inherit; }
+/* The headings and numbers that named Helvetica themselves. */
+h1, h2, h3, h4, h5, h6,
+.card-title, .section-title, .modal-header h2, .sidebar-logo span,
+.profile-identity h2, .profile-section-title,
+.sidebar-avatar, .profile-avatar-initials, .activity-avatar-initials {
+    font-family: var(--font) !important;
+}
+.main-content [style*="Helvetica Neue"], .slide-panel [style*="Helvetica Neue"] {
+    font-family: var(--font) !important;
+}
+/* Scores, counts and percentages: monospaced, so columns of them line up. */
+.kpi-val, .pp-kpi-val, .panel-stat-value, .profile-stat-value, .region-stat-value,
+.hist-score, .visit-score, .region-comm-score, .dash-score, .cal-row-score {
+    font-family: var(--font-mono) !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+}
+::selection { background: rgba(0, 51, 102, .18); }
+
+/* ----- The page --------------------------------------------------------- */
+body { background: var(--bg) !important; }
+/* An engineering grid, static: nothing repaints while the page scrolls. */
+.main-content {
+    background-color: var(--bg) !important;
+    background-image:
+        linear-gradient(rgba(0, 51, 102, .045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 51, 102, .045) 1px, transparent 1px) !important;
+    background-size: 24px 24px !important;
+    background-attachment: fixed;
+}
+.main-content::before { display: none !important; animation: none !important; }
+html[data-theme="dark"] .main-content {
+    background-color: #0b1220 !important;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, .028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .028) 1px, transparent 1px) !important;
+}
+
+/* ----- Cards ------------------------------------------------------------ */
+.card, .community-card, .response-card, .panel-stat-card, .survey-type-label,
+.visit-row, .region-card, .profile-header, .profile-section, .profile-stat, .region-stat {
+    border-color: var(--line) !important;
+    box-shadow: var(--sh) !important;
+    transition: border-color .2s ease-out, box-shadow .2s ease-out !important;
+}
+.card:hover, .community-card:hover, .visit-row:hover, .region-card:hover,
+.profile-stat-clickable:hover {
+    border-color: rgba(0, 51, 102, .35) !important;
+    box-shadow: var(--sh-md) !important;
+}
+.community-card::before { background: var(--navy) !important; }
+/* On a dark page a shadow reads as a smudge; the border does the work. */
+html[data-theme="dark"] :is(.card, .community-card, .response-card, .panel-stat-card,
+    .survey-type-label, .visit-row, .region-card, .profile-header, .profile-section,
+    .profile-stat, .region-stat) { box-shadow: none !important; }
+
+table thead th { background: #f1f3f5 !important; }
+
+/* ----- Buttons ---------------------------------------------------------- */
+.btn, .submit-btn, .btn-primary, .btn-success, .btn-danger, .btn-secondary, .start-visit-btn {
+    font-weight: 600 !important;
+    letter-spacing: .1px;
+    transition: transform .2s ease-out, box-shadow .2s ease-out, background-color .2s ease-out,
+                border-color .2s ease-out !important;
+}
+.btn:hover, .submit-btn:hover, .btn-primary:hover, .btn-success:hover, .btn-danger:hover,
+.start-visit-btn:hover { transform: translateY(-1px); filter: none; }
+.btn:active, .submit-btn:active, .btn-primary:active { transform: translateY(1px); }
+.btn-primary, .submit-btn { background: var(--navy) !important; box-shadow: none !important; }
+.btn-primary:hover, .submit-btn:hover {
+    background: var(--navy-700) !important;
+    box-shadow: 0 6px 16px rgba(0, 51, 102, .22) !important;
+}
+.btn-success, .btn-danger { box-shadow: none !important; }
+.btn-secondary {
+    border: 1.5px solid #c9d0d8 !important;
+    color: var(--navy) !important;
+    box-shadow: none !important;
+}
+.btn-secondary:hover {
+    background: rgba(0, 51, 102, .04) !important;
+    border-color: var(--navy) !important;
+    color: var(--navy) !important;
+}
+
+/* ----- Focus ------------------------------------------------------------ */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+html[data-theme="dark"] :is(a, button, input, select, textarea):focus-visible { outline-color: #7db0ff; }
+input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus,
+select:focus, textarea:focus {
+    border-color: var(--navy) !important;
+    box-shadow: 0 0 0 3px rgba(0, 51, 102, .14) !important;
+}
+
+/* ----- Sidebar: navy, with an electric rail on the current section ------
+   Light mode only. The dark sidebar keeps its own colours: its rules sit in
+   the page templates under html[data-theme="dark"], which outrank these. */
+.sidebar { background: #003366 !important; border-right: 1px solid #001f3f !important; }
+.sidebar, .sidebar * { color: rgba(255, 255, 255, .86) !important; }
+.sidebar-logo { border-bottom: 1px solid rgba(255, 255, 255, .12) !important; }
+.sidebar-logo img.sidebar-wordmark { filter: brightness(0) invert(1); opacity: .95; }
+.user-welcome { border-bottom: 1px solid rgba(255, 255, 255, .12) !important; }
+.welcome-text, .welcome-text * { color: #ffffff !important; }
+.user-role { color: rgba(255, 255, 255, .62) !important; }
+.sidebar-avatar { background: rgba(255, 255, 255, .14) !important; color: #ffffff !important; }
+.nav-item { color: rgba(255, 255, 255, .80) !important; }
+.nav-item i { color: rgba(255, 255, 255, .62) !important; }
+.nav-item:hover, .nav-item:hover * { color: #ffffff !important; }
+.nav-item:hover { background: rgba(255, 255, 255, .08) !important; }
+.nav-item.active, .nav-item.active *, .nav-item.active:hover, .nav-item.active:hover * {
+    color: #ffffff !important;
+}
+.nav-item.active, .nav-item.active:hover {
+    background: rgba(255, 255, 255, .12) !important;
+    font-weight: 600 !important;
+    box-shadow: inset 3px 0 0 var(--electric) !important;
+}
+.nav-item[href="/logout"] { border-top: 1px solid rgba(255, 255, 255, .12) !important; }
+.nav-item[href="/logout"]:hover { background: rgba(198, 40, 40, .22) !important; }
+.nav-item[href="/logout"]:hover, .nav-item[href="/logout"]:hover * { color: #ffc9c2 !important; }
+.sidebar-copyright {
+    color: rgba(255, 255, 255, .45) !important;
+    border-top: 1px solid rgba(255, 255, 255, .08) !important;
+}
+.sidebar :focus-visible { outline-color: var(--electric) !important; }
+
+/* ----- PRECISION SKIN, part 2: the components ---------------------------
+   Gabriel compared the first pass with the mock-ups and it only had the
+   colours and type: the screens were still built the old way. These re-shape
+   the real components to the proposal. The dashboard renders its home with
+   its own <style> block placed after this file, so those rules are beaten
+   here by a `body` prefix (specificity), not by order. */
+
+/* Page header: a mono eyebrow above a large, tight title. The subtitle
+   paragraph becomes the eyebrow, so no view's JS had to change. */
+.header-section { padding-bottom: 14px !important; margin-bottom: 18px !important; }
+.header-left { display: flex; flex-direction: column; }
+.header-left p {
+    order: -1;
+    margin: 0 0 6px !important;
+    font-family: var(--font-mono) !important;
+    font-size: 11.5px !important; font-weight: 500 !important;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: #00709a !important;          /* electric, darkened: 5.1:1 on the grey page */
+}
+.header-left h1 {
+    /* Written out, not var(--font): the page sets helvetica !important here. */
+    font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif !important;
+    font-size: 32px !important; font-weight: 700 !important;
+    letter-spacing: -.02em !important; line-height: 1.15;
+    color: var(--ink) !important; margin-bottom: 0 !important;
+}
+.header-left h1 i { display: none; }
+.user-info { font-family: var(--font-mono); color: var(--muted) !important; letter-spacing: .06em; font-weight: 500 !important; }
+html[data-theme="dark"] .header-section .header-left p { color: #5cc8f0 !important; }
+html[data-theme="dark"] .header-section .header-left h1 { color: #eef2f8 !important; }
+@media (max-width: 768px) {
+    .header-left { align-items: center; }
+    .header-left h1 { font-size: 26px !important; }
+}
+
+/* Sidebar details: the role in mono, slightly lighter icons. */
+.user-role { font-family: var(--font-mono) !important; letter-spacing: .04em; font-size: 11.5px !important; }
+.nav-item i { font-size: 15px; }
+
+/* Dashboard numbers: label above, big mono value; the first tile is the
+   navy hero. Its value turns white: a status colour on navy is unreadable
+   (green on #003366 is 2:1), and the score's band is shown elsewhere. */
+body .kpi {
+    display: flex; flex-direction: column-reverse; justify-content: flex-end;
+    border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--sh);
+    padding: 16px 18px; position: relative; overflow: hidden;
+}
+body .kpi-lbl {
+    margin: 0 0 8px; font-size: 11.5px; font-weight: 500; letter-spacing: .06em; color: var(--muted);
+}
+body .kpi-val { font-size: 30px; font-weight: 600; line-height: 1.1; }
+body .dash-kpis > .kpi:first-child { background: #003366; border-color: #003366; }
+body .dash-kpis > .kpi:first-child .kpi-val { color: #ffffff !important; font-size: 34px; }
+body .dash-kpis > .kpi:first-child .kpi-lbl { color: #a9c1d9; }
+/* Hairline ticks on the hero, the "instrument" touch from the mock-up. */
+body .dash-kpis > .kpi:first-child::after {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 46%;
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, .07) 1px, transparent 1px);
+    background-size: 16px 100%; pointer-events: none;
+}
+body .kpi-go:hover { border-color: rgba(0, 51, 102, .45); box-shadow: var(--sh-md); }
+html[data-theme="dark"] body .kpi { box-shadow: none; }
+html[data-theme="dark"] body .dash-kpis > .kpi:first-child { background: #0e2a4d; border-color: #1d4573; }
+
+/* Cards on the dashboard: hairline, soft shadow, quiet headings. */
+body .dash-card, body .attn {
+    border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--sh);
+}
+body .dash-card h3, body .attn-head h3 { font-size: 15px; font-weight: 600; color: var(--ink); }
+body .dash-card h3 i, body .attn-head i { color: #007fad; }
+body .dash-row-name, body .attn-title { font-weight: 500; }
+body .dash-score, body .dash-bars-val { font-family: var(--font-mono); font-weight: 600; letter-spacing: -.02em; }
+body .dash-bar { height: 6px; border-radius: 3px; background: #edf1f4; }
+body .dash-bar-fill { border-radius: 3px; }
+html[data-theme="dark"] body .dash-card, html[data-theme="dark"] body .attn { box-shadow: none; }
+html[data-theme="dark"] body .dash-bar { background: #22304a; }
+
+/* "Needs you": a square status mark on each line, the tone's colour. */
+body .attn-item::before {
+    content: ''; width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; background: #94a3b8;
+}
+body .attn-tone-act   .attn-item::before { background: #c62828; }
+body .attn-tone-plan  .attn-item::before { background: #00bfff; }
+body .attn-tone-watch .attn-item::before { background: #ffa500; }
+body .attn-tone-wait  .attn-item::before { background: #94a3b8; }
+body .attn-badge, body .attn-count { font-family: var(--font-mono); border-radius: 4px; }
+
+/* Filter chips: white with a hairline, the chosen one navy, counts in mono. */
+.ai-chip {
+    border-radius: 6px !important; border: 1px solid var(--line) !important;
+    font-weight: 500 !important; color: var(--charcoal) !important;
+}
+.ai-chip span { font-family: var(--font-mono); }
+.ai-chip:hover { border-color: rgba(0, 51, 102, .4) !important; }
+.ai-chip.on { background: #003366 !important; border-color: #003366 !important; color: #ffffff !important; }
+.ai-chiprow-label { font-family: var(--font-mono); font-weight: 500; letter-spacing: .1em; }
+html[data-theme="dark"] .ai-chip { border-color: #33425c !important; color: #c2cddd !important; }
+html[data-theme="dark"] .ai-chip.on { background: #1f6fe5 !important; border-color: #1f6fe5 !important; color: #fff !important; }
+
+/* Action Items list: flat groups, quiet headers, small square-cornered tags. */
+.ail-group { border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--sh); }
+.ail-head { background: #f8f9fb; }
+.ail-where { font-weight: 600; }
+.ail-count { border-radius: 4px; font-family: var(--font-mono); font-weight: 600; }
+.ail-thumb { border-radius: 6px; }
+.ail-title { font-weight: 500; }
+.ail-tag {
+    border-radius: 4px; text-transform: none; letter-spacing: 0;
+    font-size: 11.5px; font-weight: 600;
+}
+.ail-cat { border-radius: 4px; background: #eaf0f6; color: #003366; font-weight: 600; }
+.ail-meta { font-variant-numeric: tabular-nums; }
+html[data-theme="dark"] .ail-group { box-shadow: none; }
+html[data-theme="dark"] .ail-cat { background: rgba(125, 176, 255, .12); color: #cbd8ea; }
+
+/* Tables everywhere: small, spaced capitals in the header. */
+table thead th {
+    font-size: 11px !important; font-weight: 600 !important;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--muted) !important;
+}
+html[data-theme="dark"] table thead th { color: #9fb0c4 !important; }
+
+/* ----- PRECISION SKIN, part 3: buttons everywhere, and Standards --------
+   Gabriel's look at Standards: buttons in spaced capitals, pill tags, a
+   dotted "Every community", 20px corners — none of it the theme. */
+
+/* Buttons say a sentence, not a shout (dashboard and Standards both had
+   11px spaced capitals). */
+.btn {
+    text-transform: none !important; letter-spacing: .1px !important;
+    font-size: 13px; border-radius: 8px;
+}
+.btn-primary::before { display: none !important; }   /* the sweeping shine */
+
+/* Standards page */
+.content-section {
+    border-radius: 8px !important; border: 1px solid var(--line) !important;
+    box-shadow: var(--sh) !important; padding: 28px !important;
+}
+.filter-label {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .1em; color: var(--muted);
+}
+.filter-select { border-radius: 6px !important; border: 1px solid #c9d0d8 !important; font-size: 13.5px !important; }
+td.q-text { font-weight: 500 !important; }
+#questionsTable td:nth-child(6) { font-family: var(--font-mono); font-size: 12px !important; }
+
+/* Tags: one shape for all of them — square-cornered, 11.5px, no gradients. */
+.survey-type-badge, .community-badge, .community-count.is-every, .community-count.is-partial {
+    border-radius: 4px !important; font-size: 11.5px !important; font-weight: 600 !important;
+    padding: 3px 8px !important; background-image: none !important;
+}
+.survey-type-all { background: #f1f3f5 !important; color: var(--charcoal) !important; border-color: var(--line) !important; }
+.community-badge { background: #eaf0f6 !important; color: #003366 !important; border-color: transparent !important; }
+.community-count.is-every {
+    background: #eaf0f6 !important; color: #003366 !important;
+    border: 1px solid transparent !important;
+}
+.community-count:not(.is-every):not(.is-partial) { font-family: inherit; }
+html[data-theme="dark"] :is(.survey-type-all, .community-badge, .community-count.is-every) {
+    background: rgba(125, 176, 255, .12) !important; color: #cbd8ea !important; border-color: transparent !important;
+}
+
+/* Row actions: one size, one corner. */
+.btn-icon {
+    padding: 7px 10px !important; border-radius: 6px !important;
+    border: 1px solid var(--line) !important; background: #fff;
+}
+.btn-icon:hover { transform: none !important; box-shadow: none !important; }
+.q-move button { border-radius: 4px !important; border-color: var(--line) !important; }
+
+/* ----- PRECISION SKIN, part 4: community cards and the visit panel ------ */
+
+/* A community with no cover photo: a quiet navy grid, not a region's vivid
+   gradient. The gradient comes in an inline style, hence !important; a cover
+   photo is an <img> on top and is not affected. */
+.community-card .card-image {
+    background: #eef2f6 !important;
+    background-image:
+        linear-gradient(rgba(0, 51, 102, .07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 51, 102, .07) 1px, transparent 1px) !important;
+    background-size: 20px 20px !important;
+}
+.community-card .card-image > i.fa-building { color: rgba(0, 51, 102, .22) !important; font-size: 40px; }
+html[data-theme="dark"] .community-card .card-image {
+    background-color: #131c2b !important;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px) !important;
+}
+html[data-theme="dark"] .community-card .card-image > i.fa-building { color: rgba(255, 255, 255, .16) !important; }
+
+/* Region on the card: a square-cornered tag, not a capitalised pill. */
+.community-card .card-region-badge {
+    border-radius: 4px !important; text-transform: none !important; letter-spacing: .01em !important;
+    font-size: 11.5px !important; font-weight: 600 !important; background: rgba(0, 51, 102, .88) !important;
+    box-shadow: none !important;
+}
+
+/* The score medal: a plain white disc with a hairline, the number in mono.
+   No halos (the design has no glows). A clean walk keeps its gold, as a
+   still ring; the "Clean visit" tag on the card says it in words. */
+.cc-medal, .cc-medal.warning, .cc-medal.danger, .cc-medal.na {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .10), 0 0 0 1px var(--line) !important;
+}
+.cc-medal.cc-perfect {
+    animation: none !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .10), 0 0 0 2px #d4a017 !important;
+}
+.cc-medal.cc-perfect::before { display: none !important; }
+html[data-theme="dark"] :is(.cc-medal, .cc-medal.warning, .cc-medal.danger, .cc-medal.na) {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .45), 0 0 0 1px #2b3a52 !important;
+}
+html[data-theme="dark"] .cc-medal.cc-perfect { box-shadow: 0 2px 10px rgba(0, 0, 0, .45), 0 0 0 2px #e0b84a !important; }
+.progress-value { font-family: var(--font-mono); font-weight: 600 !important; letter-spacing: -.03em !important; }
+
+/* Status tags on the card share the one tag shape. */
+.age-chip, .partial-chip, .cc-clean { border-radius: 4px !important; }
+.cc-go { color: #00709a; }
+html[data-theme="dark"] .cc-go { color: #5cc8f0; }
+
+/* The visit panel: Pass / Fail / Not checked as soft square tags in
+   sentence case, not solid capitalised blocks. */
+.response-condition {
+    text-transform: none !important; letter-spacing: 0 !important;
+    border-radius: 4px !important; font-size: 12px !important; font-weight: 600 !important;
+    padding: 3px 9px !important; border: none !important;
+}
+.response-condition.badge-pass       { background: #e6f2ec !important; color: #0b6b49 !important; }
+.response-condition.badge-fail       { background: #fdecec !important; color: #b42318 !important; }
+.response-condition.badge-notchecked { background: #eef1f5 !important; color: #475569 !important; }
+html[data-theme="dark"] .response-condition.badge-pass       { background: rgba(14, 130, 89, .20) !important; color: #5fd6a3 !important; }
+html[data-theme="dark"] .response-condition.badge-fail       { background: rgba(198, 40, 40, .22) !important; color: #ff9d85 !important; }
+html[data-theme="dark"] .response-condition.badge-notchecked { background: rgba(148, 163, 184, .16) !important; color: #c2cddd !important; }
+.panel-section-title i { color: #00709a !important; }
+html[data-theme="dark"] .panel-section-title i { color: #5cc8f0 !important; }
+
+/* ----- PRECISION SKIN, part 5: the rest of the screens ------------------ */
+/* Every remaining pill becomes the one square-cornered tag / chip shape. */
+.ppl-role, .nsum-tag, .pm-rank-chip, .pp-pill, .dash-pill, .badge, .badge-no, .dn-who, .sr-kind,
+.hist-partial, .visit-pill, .region-count, .profile-role-badge { border-radius: 4px !important; }
+.ppl-chip, .chip span, .filter-btn, .cards-due-toggle { border-radius: 6px !important; }
+.ppl-chip.on { background: #003366 !important; border-color: #003366 !important; }
+.pp-card, .pp-comm { border-radius: 8px !important; }
+
+/* Rankings: the four totals as tiles like the dashboard's, not colour blocks. */
+.rk-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.rk-kpi { background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--sh); padding: 16px 18px; }
+.rk-kpi-lbl { font-size: 11.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.rk-kpi-val { font-family: var(--font-mono); font-size: 30px; font-weight: 600; letter-spacing: -.03em; color: #003366; line-height: 1.1; }
+.rk-pass .rk-kpi-val { color: #0b6b49; }
+.rk-fail .rk-kpi-val { color: #b42318; }
+html[data-theme="dark"] .rk-kpi { background: #161f2e; border-color: #2b3a52; box-shadow: none; }
+html[data-theme="dark"] .rk-kpi-val { color: #e8eefc; }
+html[data-theme="dark"] .rk-pass .rk-kpi-val { color: #5fd6a3; }
+html[data-theme="dark"] .rk-fail .rk-kpi-val { color: #ff9d85; }
+
+/* The visit form: sentence-case header buttons, a quiet progress box, a thin
+   navy rail on each standard, and no lift on hover (it is a form). */
+.logout-btn {
+    text-transform: none !important; letter-spacing: .1px !important; font-size: 13px !important;
+    font-weight: 600 !important; border-radius: 8px !important; white-space: nowrap;
+}
+.survey-type-badge { text-transform: none !important; letter-spacing: 0 !important; box-shadow: none !important; }
+.progress-bar-container { border: 1px solid var(--line) !important; border-radius: 8px !important; box-shadow: var(--sh); }
+.progress-bar-container .progress-bar { border-radius: 4px !important; height: 22px; }
+.progress-bar-container .progress-fill { background: #003366 !important; border-radius: 4px !important; font-family: var(--font-mono); }
+.question-section { border-left: 3px solid #003366 !important; border-radius: 8px !important; }
+.question-section:hover { transform: none !important; }
+html[data-theme="dark"] .question-section { border-left-color: #5cc8f0 !important; }
+html[data-theme="dark"] .progress-bar-container { background: #161f2e !important; border-color: #2b3a52 !important; }
+
+/* Choosing the visit type: navy icon tiles and a sentence-case button. */
+.survey-type-icon { background: #003366 !important; box-shadow: none !important; border-radius: 8px !important; }
+.continue-btn {
+    text-transform: none !important; letter-spacing: .1px !important; background: #003366 !important;
+    border-radius: 8px !important; box-shadow: 0 6px 16px rgba(0, 51, 102, .22) !important;
+}

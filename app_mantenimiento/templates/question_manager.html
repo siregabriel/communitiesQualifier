@@ -14,7 +14,7 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400..800&family=JetBrains+Mono:wght@400..800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         (function () {
@@ -490,7 +490,7 @@
             cursor: pointer;
             font-family: inherit;
         }
-        .community-count:hover { color: #00285c; border-bottom-color: #00285c; }
+        .community-count:hover { color: #003366; border-bottom-color: #003366; }
         html[data-theme="dark"] .community-count { color: #9fb0c4; border-bottom-color: #46566f; }
         html[data-theme="dark"] .community-count:hover { color: #cfe0ff; border-bottom-color: #cfe0ff; }
 
@@ -570,7 +570,37 @@
             gap: 12px;
             margin-bottom: 20px;
             align-items: center;
+            flex-wrap: wrap;
         }
+
+        /* Add or remove one community on the selected standards at once. */
+        .bulk-comm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+        .bulk-comm .filter-select { min-width: 220px; }
+        .bulk-comm button {
+            padding: 9px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
+            border: 1.5px solid #cbd5e1; background: #fff; color: #003366; cursor: pointer;
+            font-family: inherit; white-space: nowrap;
+        }
+        .bulk-comm button:hover:not(:disabled) { border-color: #003366; background: #f2f6fc; }
+        .bulk-comm button:disabled { opacity: .45; cursor: default; }
+        html[data-theme="dark"] .bulk-comm button { background: #1b2537; color: #cfe0ff; border-color: #2b3a52; }
+
+        /* "Every community": the standard reaches communities added later too. */
+        /* A <label> inside .form-group, whose caption rule (capitals, 12px,
+           centred) would otherwise win: hence the longer selector. */
+        .form-group label.every-comm {
+            display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: 10px;
+            border: 1.5px solid #cfe0f7; background: #f2f7ff; border-radius: 12px; cursor: pointer;
+            text-transform: none; letter-spacing: normal; font-size: 13px; font-weight: 400; color: inherit;
+        }
+        .every-comm input { width: 17px; height: 17px; margin-top: 2px; flex-shrink: 0; accent-color: #1f6fe5; }
+        .every-comm b { display: block; font-size: 13.5px; color: #0f1e36; }
+        .every-comm small { display: block; font-size: 12px; color: #5b6b85; font-weight: 400; line-height: 1.45; margin-top: 1px; }
+        .community-selector.is-every { opacity: .5; pointer-events: none; }
+        html[data-theme="dark"] .form-group label.every-comm { background: rgba(31,111,229,.12); border-color: #2b3a52; }
+        html[data-theme="dark"] .every-comm b { color: #e8eefc; }
+        html[data-theme="dark"] .every-comm small { color: #9fb0c4; }
+        .community-count.is-every { cursor: default; border-bottom-style: solid; }
 
         .filter-label {
             font-size: 12px;
@@ -779,7 +809,7 @@
         .tour-card p { font-size: 14px; line-height: 1.55; color: #475569; margin: 0; }
         .tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
         .tour-skip { background: none; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 4px; }
-        .tour-btn { background: #00285c; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .tour-btn { background: #003366; color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
         .tour-btn-ghost { background: #fff; color: #475569; border: 1px solid #d9dfe8; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
         /* Phone: the card becomes a scrollable sheet with the actions pinned. */
         @media (max-width: 640px) {
@@ -830,7 +860,7 @@
             margin: 0;
             flex-shrink: 0;
             padding: 22px 28px;
-            background: linear-gradient(135deg, #00285c 0%, #1f6fe5 100%);
+            background: linear-gradient(135deg, #003366 0%, #1f6fe5 100%);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -911,7 +941,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            color: #00285c;
+            color: #003366;
             font-size: 12px;
             font-weight: 700;
             margin-bottom: 9px;
@@ -1218,8 +1248,17 @@
                 <select id="surveyTypeFilter" class="filter-select" onchange="filterQuestions()">
                     <option value="">All Types</option>
                 </select>
-                <button id="deleteSelectedBtn" class="btn btn-danger" onclick="deleteSelected()" disabled
-                        style="margin-left:auto;">
+                <div class="bulk-comm" id="bulkComm">
+                    <select id="bulkCommunity" class="filter-select" aria-label="Community to add or remove">
+                        <option value="">Community for the selected…</option>
+                        {% for community in communities %}
+                        <option value="{{ community }}">{{ community|plain }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" id="bulkAddComm" disabled><i class="fas fa-plus"></i> Add to selected</button>
+                    <button type="button" id="bulkRemoveComm" disabled><i class="fas fa-minus"></i> Remove from selected</button>
+                </div>
+                <button id="deleteSelectedBtn" class="btn btn-danger" onclick="deleteSelected()" disabled>
                     <i class="fas fa-trash"></i> Delete Selected (<span id="selectedRowCount">0</span>)
                 </button>
             </div>
@@ -1312,7 +1351,14 @@
 
                 <div class="form-group">
                     <label><i class="fas fa-building"></i> Assigned Communities</label>
-                    <div class="community-selector">
+                    <label class="every-comm">
+                        <input type="checkbox" id="everyCommunity">
+                        <span>
+                            <b>Every community</b>
+                            <small>Including any added later, so a new community gets this standard without anyone editing it.</small>
+                        </span>
+                    </label>
+                    <div class="community-selector" id="communitySelector">
                         <div class="community-selector-header">
                             <input type="checkbox" id="selectAllCommunities" onchange="toggleSelectAll()">
                             <label for="selectAllCommunities">Select All Communities</label>
@@ -1413,6 +1459,7 @@
 
         // Load survey types and questions on page load
         window.addEventListener('load', async () => {
+            wireBulkCommunities();
             await loadSurveyTypes();
             await loadQuestions();
         });
@@ -1640,7 +1687,9 @@
                 const communities = question.communities || [];
                 const totalCommunities = document.querySelectorAll('.community-checkbox').length;
                 let communityDisplay;
-                if (communities.length > 3) {
+                if (question.all_communities) {
+                    communityDisplay = `<span class="community-count is-every" title="Every community, including any added later">Every community</span>`;
+                } else if (communities.length > 3) {
                     // Collapsible: show a count that expands to the full community list
                     const isEveryone = totalCommunities > 0 && communities.length === totalCommunities;
                     const label = isEveryone
@@ -1730,6 +1779,11 @@
             const btn = document.getElementById('deleteSelectedBtn');
             if (countEl) countEl.textContent = selected;
             if (btn) btn.disabled = selected === 0;
+            const pick = (document.getElementById('bulkCommunity') || {}).value;
+            ['bulkAddComm', 'bulkRemoveComm'].forEach(id => {
+                const b = document.getElementById(id);
+                if (b) b.disabled = selected === 0 || !pick;
+            });
             const selectAllRows = document.getElementById('selectAllRows');
             if (selectAllRows) {
                 selectAllRows.checked = total > 0 && selected === total;
@@ -1768,6 +1822,48 @@
             }
         }
 
+        /* Greg Crutcher had to open every standard to add a new community
+           (Nov 2026). Pick the community, tick the standards, one click. */
+        async function changeSelectedCommunities(action) {
+            const ids = getSelectedQuestionIds();
+            const community = (document.getElementById('bulkCommunity') || {}).value;
+            if (!ids.length || !community) return;
+            const n = `${ids.length} standard${ids.length === 1 ? '' : 's'}`;
+            const ask = action === 'add'
+                ? `Add ${community} to the ${n} selected?`
+                : `Remove ${community} from the ${n} selected?\n\nAny of them set to "Every community" will become a list of every other community, and will stop picking up new ones.`;
+            if (!confirm(ask)) return;
+            let d = {};
+            try {
+                const r = await fetch('/api/questions/communities', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids, community, action })
+                });
+                d = await r.json().catch(() => ({}));
+                if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not change them');
+            } catch (e) {
+                alert(e.message || 'Could not change them');
+                return;
+            }
+            const lines = [`${(d.changed || []).length} changed.`];
+            if ((d.unchanged || []).length) lines.push(`${d.unchanged.length} already ${action === 'add' ? 'had' : 'did not have'} it.`);
+            if ((d.refused || []).length) lines.push(`${d.refused.length} left as they were: removing it would leave them with no community.`);
+            alert(lines.join('\n'));
+            await loadQuestions();
+            filterQuestions();
+        }
+
+        function wireBulkCommunities() {
+            const sel = document.getElementById('bulkCommunity');
+            if (sel) sel.addEventListener('change', updateBulkActions);
+            const add = document.getElementById('bulkAddComm');
+            if (add) add.addEventListener('click', () => changeSelectedCommunities('add'));
+            const rem = document.getElementById('bulkRemoveComm');
+            if (rem) rem.addEventListener('click', () => changeSelectedCommunities('remove'));
+            const every = document.getElementById('everyCommunity');
+            if (every) every.addEventListener('change', () => setEveryCommunity(every.checked));
+        }
+
         function openCreateModal() {
             currentQuestionId = null;
             document.getElementById('modalTitle').textContent = 'Create New Question';
@@ -1780,6 +1876,7 @@
             // Uncheck all communities
             document.querySelectorAll('.community-checkbox').forEach(cb => cb.checked = false);
             document.getElementById('selectAllCommunities').checked = false;
+            setEveryCommunity(false);
             updateSelectedCount();
             
             // Uncheck all survey types
@@ -1808,8 +1905,9 @@
             
             // Check communities
             document.querySelectorAll('.community-checkbox').forEach(cb => {
-                cb.checked = question.communities.includes(cb.value);
+                cb.checked = (question.communities || []).includes(cb.value);
             });
+            setEveryCommunity(!!question.all_communities);
             
             // Update select all checkbox
             const allCheckboxes = document.querySelectorAll('.community-checkbox');
@@ -1859,9 +1957,9 @@
                 const on = ic === cur;
                 return `<button type="button" onclick="stPickIcon('${ic}')" title="${ic}"
                     style="width:42px;height:42px;border-radius:8px;cursor:pointer;font-size:17px;
-                    border:2px solid ${on ? '#00285c' : '#e2e8f0'};
+                    border:2px solid ${on ? '#003366' : '#e2e8f0'};
                     background:${on ? '#eef2fb' : '#fff'};
-                    color:${on ? '#00285c' : '#64748b'};"><i class="fas ${ic}"></i></button>`;
+                    color:${on ? '#003366' : '#64748b'};"><i class="fas ${ic}"></i></button>`;
             }).join('');
         }
         function stPickIcon(ic) {
@@ -1958,11 +2056,24 @@
             updateSelectedCount();
         }
 
+        /* "Every community" stands in for the list: while it is on, the list
+           is set aside (greyed, not cleared), so turning it off again gives
+           back what was there. */
+        function setEveryCommunity(on) {
+            const box = document.getElementById('everyCommunity');
+            if (box) box.checked = !!on;
+            const sel = document.getElementById('communitySelector');
+            if (sel) sel.classList.toggle('is-every', !!on);
+            updateSelectedCount();
+        }
+
         function updateSelectedCount() {
             const total = document.querySelectorAll('.community-checkbox').length;
             const checkedCount = document.querySelectorAll('.community-checkbox:checked').length;
-            document.getElementById('selectedCount').textContent =
-                `${checkedCount} ${checkedCount === 1 ? 'community' : 'communities'} selected`;
+            const every = !!(document.getElementById('everyCommunity') || {}).checked;
+            document.getElementById('selectedCount').textContent = every
+                ? 'Every community, now and later'
+                : `${checkedCount} ${checkedCount === 1 ? 'community' : 'communities'} selected`;
             // Keep the "Select All" checkbox in sync with the list
             const selectAll = document.getElementById('selectAllCommunities');
             if (selectAll) {
@@ -1997,7 +2108,8 @@
                 hasError = true;
             }
             
-            if (communities.length === 0) {
+            const every = !!(document.getElementById('everyCommunity') || {}).checked;
+            if (!every && communities.length === 0) {
                 document.getElementById('communitiesError').textContent = 'At least one community must be selected';
                 hasError = true;
             }
@@ -2022,6 +2134,7 @@
                         pass_criteria: passCriteria,
                         photo_required: photoRequired,
                         communities: communities,
+                        all_communities: every,
                         survey_types: surveyTypes
                     })
                 });

@@ -6759,6 +6759,31 @@ def get_questions():
 
 # ==================== QUESTION MANAGEMENT API ====================
 
+@app.route('/api/questions/communities', methods=['POST'])
+@require_admin
+def change_question_communities():
+    """Admin-only: add or remove one community on the selected standards.
+
+    Greg Crutcher had to open every standard to add a new community (Nov
+    2026). Only a community that exists can be added."""
+    data = request.get_json(silent=True) or {}
+    ids = data.get('ids')
+    community = InputSanitizer.sanitize_community_name(data.get('community') or '')
+    action = data.get('action')
+    if not isinstance(ids, list) or not ids:
+        return jsonify({'status': 'error', 'message': 'Select at least one standard'}), 400
+    everyone = all_communities()
+    if community not in everyone:
+        return jsonify({'status': 'error', 'message': 'Pick a community from the list'}), 400
+    if action not in ('add', 'remove'):
+        return jsonify({'status': 'error', 'message': 'Add or remove?'}), 400
+    result = question_manager.change_communities([str(i)[:80] for i in ids], community, action, everyone)
+    activity_service.log(session.get('user'), 'questions_communities',
+                         f'{"Added" if action == "add" else "Removed"} {community} '
+                         f'{"to" if action == "add" else "from"} {len(result["changed"])} standard(s)')
+    return jsonify({'status': 'success', **result}), 200
+
+
 @app.route('/api/questions/order', methods=['POST'])
 @require_admin
 def reorder_questions():
@@ -6819,8 +6844,9 @@ def create_question():
                 'message': 'Question text cannot be empty'
             }), 400
 
-        # Validate communities array is non-empty
-        if not communities or len(communities) == 0:
+        # Validate communities array is non-empty, unless it is every community
+        every = sanitized_data.get('all_communities') is True
+        if not every and not communities:
             return jsonify({
                 'status': 'error',
                 'message': 'At least one community must be selected'
@@ -6829,7 +6855,8 @@ def create_question():
         pass_criteria = sanitized_data.get('pass_criteria', [])
 
         # Create question using QuestionManager
-        question = question_manager.create_question(text, photo_required, communities, survey_types, interpretive_guideline, pass_criteria)
+        question = question_manager.create_question(text, photo_required, communities, survey_types, interpretive_guideline, pass_criteria,
+                                                   all_communities=every)
 
         activity_service.log(session.get('user'), 'question_created', text)
 
@@ -6910,8 +6937,9 @@ def update_question(question_id):
                 'message': 'Question text cannot be empty'
             }), 400
 
-        # Validate communities array is non-empty
-        if not communities or len(communities) == 0:
+        # Validate communities array is non-empty, unless it is every community
+        every = sanitized_data.get('all_communities') is True
+        if not every and not communities:
             return jsonify({
                 'status': 'error',
                 'message': 'At least one community must be selected'
@@ -6920,7 +6948,8 @@ def update_question(question_id):
         pass_criteria = sanitized_data.get('pass_criteria', [])
 
         # Update question using QuestionManager
-        question = question_manager.update_question(question_id, text, photo_required, communities, survey_types, interpretive_guideline, pass_criteria)
+        question = question_manager.update_question(question_id, text, photo_required, communities, survey_types, interpretive_guideline, pass_criteria,
+                                                   all_communities=every)
         
         # Check if question was found
         if question is None:
@@ -9370,3 +9399,21 @@ def atlerts_visit_places():
         return jsonify({'status': 'error', 'message': 'Could not answer'}), 500
     app.logger.info('Nearby visit places: %d for %s', len(rows), username)
     return jsonify({'status': 'success', 'enabled': True, 'runs_visits': True, 'communities': rows}), 200
+
+
+# A standard that already lists every community becomes "Every community", so
+# the next community added gets it without anyone opening it (Greg Crutcher
+# agreed, Nov 2026). Runs once per install and is remembered in the questions
+# file; never allowed to stop the app from starting.
+def _adopt_every_community_at_start():
+    try:
+        adopted = question_manager.adopt_every_community(all_communities())
+        if adopted:
+            app.logger.info('Every community: %d standard(s) switched', adopted)
+        return adopted
+    except Exception:
+        app.logger.exception('Could not switch standards to Every community')
+        return 0
+
+
+_adopt_every_community_at_start()

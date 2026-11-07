@@ -143,6 +143,9 @@ class InputSanitizer:
             else:
                 sanitized['communities'] = []
         
+        # "Every community": applies everywhere, including communities added later
+        sanitized['all_communities'] = data.get('all_communities') is True
+
         # Sanitize survey_types array (optional, empty means all types)
         if 'survey_types' in data:
             if isinstance(data['survey_types'], list):
