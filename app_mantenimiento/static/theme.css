@@ -3034,9 +3034,16 @@ html[data-theme="dark"] .set-group::after { background: #2b3a52; }
 .set-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; align-items: start; }
 @media (max-width: 1180px) { .set-top { grid-template-columns: minmax(0, 1fr); } }
 /* The four routing lists side by side, two by two when narrower. */
-.set-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; align-items: start; margin-top: 6px; }
-.set-list { display: grid; gap: 6px; align-content: start; min-width: 0; }
-.set-list .set-hint-under { margin: 0; }
+.set-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 16px; margin-top: 6px; }
+/* Each list is title, hint, box. The rows are shared across the four, so the
+   titles, hints and boxes line up whatever a hint's length (Nov 2026: Clinical,
+   Ops and Sales sat at three different heights). Fallback: boxes at the bottom. */
+.set-list { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.set-list .set-area { margin-top: auto; margin-bottom: 10px; }
+@supports (grid-template-rows: subgrid) {
+    .set-list { display: grid; grid-row: span 3; grid-template-rows: subgrid; gap: 6px; }
+    .set-list .set-area { margin-top: 0; }
+}
 /* Visit report subscribers: two per row when there is room. */
 .set-subs { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 10px; align-items: start; }
 @media (max-width: 900px) { .set-grid, .set-subs { grid-template-columns: minmax(0, 1fr); } }
@@ -3065,7 +3072,6 @@ html[data-theme="dark"] .set-group::after { background: #2b3a52; }
 .set-label small { font-size: 12.5px; font-weight: 400; color: #5a6872; }
 .set-label-gap { margin-top: 8px; }
 .set-hint { font-size: 12.5px; color: #5a6872; line-height: 1.5; }
-.set-hint-under { margin: -6px 0 0; max-width: 72ch; }
 .set-area { width: 100%; resize: vertical; }
 
 /* Inputs: label above, 1px stroke, the navy focus ring from part 1. */

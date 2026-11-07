@@ -177,6 +177,14 @@ console.log('\nSettings uses its width');
   const lists = [...d.querySelectorAll('.set-lists > .set-list textarea')].map(t => t.id);
   ok(JSON.stringify(lists) === JSON.stringify(['esAdminNotify', 'esClinical', 'esOps', 'esSales']),
      `the four routing lists sit in one grid (${lists.join(', ')})`);
+  // Gabriel's screenshot: Clinical, Ops and Sales boxes at three heights, because
+  // two titles carried their hint inline and one wrapped. Same shape for all four.
+  const shapes = [...d.querySelectorAll('.set-list')].map(l =>
+    [...l.children].map(c => c.matches('label.set-label') ? 'title' : c.matches('.set-hint') ? 'hint' : c.tagName.toLowerCase()).join('+'));
+  ok(shapes.length === 4 && shapes.every(x => x === 'title+hint+textarea'),
+     `each list is title, hint, box (${shapes.join(' · ')})`);
+  ok(!d.querySelector('.set-list label small'), 'no hint left inside a title');
+  ok(w.getComputedStyle(d.getElementById('esSales')).marginTop === 'auto', 'the boxes sit at the bottom of their column');
   const desc = [...d.querySelectorAll('.set-desc')].map(p => p.textContent).join(' ');
   ok(!/Executive Directors don.t appear/.test(desc), 'nothing claims Executive Directors are not listed');
 
