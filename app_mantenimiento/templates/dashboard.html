@@ -574,7 +574,7 @@
         }
         .cmap-key span { display: inline-flex; align-items: center; gap: 7px; }
         .cmap-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-        .cmap-dot-hollow { background: transparent; border: 2px solid #94a3b8; }
+        .cmap-dot-hollow { background: transparent; border: 2px solid #5b6b85; }
         .cmap-pop b { font-size: 14px; color: #0f1e36; }
         .cmap-pop-sub { font-size: 12px; color: #64748b; margin-top: 3px; }
         .cmap-pop-go {
@@ -2585,9 +2585,9 @@
             <div id="cmapNote" class="cmap-note" hidden></div>
             <div id="communityMap" class="cmap"></div>
             <div class="cmap-key">
-                <span><i class="cmap-dot" style="background:#0f8a5f"></i> 90 and above</span>
+                <span><i class="cmap-dot" style="background:#75fb87"></i> 90 and above</span>
                 <span><i class="cmap-dot" style="background:#d97706"></i> 75 to 89</span>
-                <span><i class="cmap-dot" style="background:#dc2626"></i> below 75</span>
+                <span><i class="cmap-dot" style="background:#ea366e"></i> below 75</span>
                 <span><i class="cmap-dot cmap-dot-hollow"></i> not visited recently</span>
             </div>
         </div>
@@ -4715,7 +4715,13 @@
         let _cmapInfo = null;         // one popup, shared by every pin
         let _cmapLoading = null;      // the script load, asked for once
 
-        const CMAP_COLOURS = { good: '#0f8a5f', watch: '#d97706', poor: '#dc2626' };
+        /* Pins in the visit form's answer colours (Gabriel, Nov 2026): Pass
+           green, Fail pink-red, Not checked grey for no score and for the
+           ring of a score too old to stand behind. Fills only: the popup's
+           score is text, so it uses the readable --score-* tones instead. */
+        const CMAP_COLOURS = { good: '#75fb87', watch: '#d97706', poor: '#ea366e' };
+        const CMAP_GREY = '#5b6b85';
+        const CMAP_TEXT = { good: 'var(--score-pass)', watch: 'var(--score-warn)', poor: 'var(--score-fail)' };
 
         /* Google Maps is fetched the first time somebody opens the map, not
            on every dashboard load. Most people never open it, and every load
@@ -4786,11 +4792,11 @@
            it has to read as different at a glance, not as a paler green. */
         function cmapPin(c) {
             const stale = c.band === 'stale';
-            const colour = CMAP_COLOURS[c.band] || '#94a3b8';
+            const colour = CMAP_COLOURS[c.band] || CMAP_GREY;
             const el = document.createElement('div');
             el.className = 'cmap-pin' + (stale ? ' is-stale' : '');
             el.style.background = stale ? 'transparent' : colour;
-            el.style.borderColor = stale ? '#94a3b8' : '#ffffff';
+            el.style.borderColor = stale ? CMAP_GREY : '#ffffff';
             return el;
         }
 
@@ -4802,7 +4808,7 @@
            parsed as code rather than passed as text. */
         function cmapPopup(c) {
             const stale = c.band === 'stale';
-            const colour = CMAP_COLOURS[c.band] || '#94a3b8';
+            const colour = CMAP_TEXT[c.band] || 'var(--score-na)';
             const score = c.score === null ? 'No score yet' : c.score + '%';
             const when = c.last_visit
                 ? `${formatDate(c.last_visit)} · ${c.days_since} days ago`
@@ -4813,7 +4819,7 @@
                 `<b>${escapeHtml(c.community)}</b>
                  <div class="cmap-pop-sub">${escapeHtml(c.city)}${c.state ? ', ' + escapeHtml(c.state) : ''}</div>
                  <div class="cmap-pop-sub" style="margin-top:7px">
-                   <b style="color:${stale ? '#64748b' : colour}">${score}</b>
+                   <b style="color:${stale ? 'var(--score-na)' : colour}">${score}</b>
                    ${stale ? ' · not visited recently' : ''}
                  </div>
                  <div class="cmap-pop-sub">${escapeHtml(when)}</div>

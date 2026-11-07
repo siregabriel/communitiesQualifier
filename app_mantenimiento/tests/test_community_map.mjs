@@ -137,7 +137,10 @@ function makeWorld({ rows = ROWS, unplaced = [], unverified = [], renamed_from =
     ${grab('cmapPopup')}
     ${grab('renderCommunityMap')}
     var _cmapLayout = 'list', _cmap = null, _cmapPins = [], _cmapInfo = null, _cmapLoading = null;
-    var CMAP_COLOURS = { good: '#0f8a5f', watch: '#d97706', poor: '#dc2626' };
+    // The page's own colours, not a copy: a copy kept passing after they changed.
+    ${html.match(/const CMAP_COLOURS = [^;]+;/)[0]}
+    ${html.match(/const CMAP_GREY = [^;]+;/)[0]}
+    ${html.match(/const CMAP_TEXT = [^;]+;/)[0]}
   `);
   return w;
 }
@@ -187,14 +190,15 @@ console.log('\nA pin per community, coloured by what we know');
   ok(made.length === 3, `three pins (${made.length})`);
 
   const [good, poor, stale] = made.map(m => m.opts.content);
-  ok(good.style.background === 'rgb(15, 138, 95)', `a 95 is green (${good.style.background})`);
-  ok(poor.style.background === 'rgb(220, 38, 38)', `a 60 is red (${poor.style.background})`);
+  // The visit form's Pass and Fail colours (Gabriel asked for the same tones).
+  ok(good.style.background === 'rgb(117, 251, 135)', `a 95 is the Pass green (${good.style.background})`);
+  ok(poor.style.background === 'rgb(234, 54, 110)', `a 60 is the Fail pink-red (${poor.style.background})`);
 
   ok(/transparent/.test(stale.style.background),
      `a four-month-old 100 is hollow, not filled (${stale.style.background})`);
   ok(stale.classList.contains('is-stale'), 'and drawn as the ring');
-  ok(stale.style.borderColor === 'rgb(148, 163, 184)',
-     `ringed in grey rather than green (${stale.style.borderColor})`);
+  ok(stale.style.borderColor === 'rgb(91, 107, 133)',
+     `ringed in the Not checked grey rather than green (${stale.style.borderColor})`);
   ok(!good.classList.contains('is-stale'), 'while a fresh one is solid');
 
   ok(made[0].opts.position.lat === 28.56 && made[0].opts.position.lng === -81.54,
@@ -228,6 +232,11 @@ console.log('\nWhat a pin says when you open it');
   ok(w.info.opened && w.info.opened.anchor === good, 'the popup opens on the pin that was pressed');
   ok(/Madison at Ocoee/.test(g.innerHTML), 'it names the community');
   ok(/95%/.test(g.innerHTML), 'and the score');
+  // The pin's light green is a fill; as text on the white popup it could not
+  // be read, so the score takes the readable band tone.
+  const scoreStyle = g.querySelector('b[style]').getAttribute('style');
+  ok(/var\(--score-pass\)/.test(scoreStyle) && !/#75fb87/i.test(scoreStyle),
+     `the score is written in the readable green, not the pin's (${scoreStyle})`);
   ok(/4 open items/.test(open(poor).innerHTML), 'and how much is open');
   const s = open(stale).innerHTML;
   ok(/1 open item\b/.test(s), 'with the singular when there is one');
