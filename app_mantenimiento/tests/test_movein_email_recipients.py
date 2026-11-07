@@ -89,3 +89,17 @@ def test_settings_lists_what_is_really_sent(world):
     # The ED, who actually receives every move-in email, is on the list.
     assert who['laura@venice.test'] == ['Move-in emails']
     assert not any('Reminders and completion summaries' in str(v) for v in who.values())
+
+
+def test_a_role_row_says_which_account_to_open(world):
+    """Gabriel saw a lock on most rows, hovered it, got a "?" cursor and no
+    explanation (Nov 2026). The lock became "Edit in People", which needs the
+    account behind the row: the regional's and the ED's username. A row that
+    only comes from this page's lists has none to open."""
+    rows = as_('admin', 'admin').get('/api/settings/email/summary', headers=HEADERS).get_json()['people']
+    by = {p['email']: p for p in rows}
+    assert by['kbeattie@atlas.test']['username'] == 'katie.beattie'
+    assert by['kmcdonald@atlas.test']['username'] == 'keely.mcdonald'
+    assert by['laura@venice.test']['username'] == 'laura.blakeman'
+    assert 'username' not in by['gabriel@atlas.test']
+    assert by['gabriel@atlas.test']['removable'] and not by['laura@venice.test']['removable']

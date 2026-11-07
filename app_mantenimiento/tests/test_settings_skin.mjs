@@ -186,16 +186,55 @@ console.log('\nSettings uses its width');
       status: 'success', email_enabled: false,
       missing_email: [{ name: 'No Address', region: 'Magnolia' }],
       people: [
-        { email: 'a@x.com', name: 'Ann Auto', removable: false, items: [{ kind: 'auto', label: 'Inspection reports', detail: 'Magnolia region (automatic)' }] },
-        { email: 'b@x.com', name: 'Bob Sub', removable: true, items: [{ kind: 'all', label: 'Inspection reports', detail: '' }] },
-      ] }) });`);
+        { email: 'a@x.com', name: 'Ann Auto', username: 'ann.auto', removable: false, items: [{ kind: 'auto', label: 'Inspection reports', detail: 'Magnolia region (automatic)' }] },
+        { email: 'b@x.com', name: "Bob O'Sub", removable: true, items: [{ kind: 'all', label: 'Inspection reports', detail: '' }] },
+        { email: 'c@x.com', name: 'Cy Both', username: 'cy.both', removable: true, items: [{ kind: 'auto', label: 'Inspection reports', detail: 'Coastal region (automatic)' }, { kind: 'admin', label: 'Admin alerts', detail: '' }] },
+      ] }) });
+    var peopleOpenOnLoad = '', currentView = 'settings';
+    window.removed = [];
+    function showView(v) { currentView = v; }
+    function removeNotificationRecipient(email, label) { window.removed.push([email, label]); }`);
   await w.eval('loadNotificationSummary()');
   const host = d.getElementById('notifySummary');
-  ok(host.querySelectorAll('.nsum-grid > .nsum-row').length === 2, 'each recipient is a card in the grid');
+  ok(host.querySelectorAll('.nsum-grid > .nsum-row').length === 3, 'each recipient is a card in the grid');
   ok(!host.querySelector('.nsum-grid .nsum-warn') && host.querySelectorAll(':scope > .nsum-warn').length === 2,
      'the warnings sit below the grid, full width');
   const gtc = w.getComputedStyle(host.querySelector('.nsum-grid')).gridTemplateColumns;
   ok(/^repeat\(3,/.test(gtc), `three columns when wide (${gtc})`);
+
+  /* Gabriel saw a lock on most rows, hovered it, got a "?" cursor and nothing
+     else: the explanation lived in a native tooltip. A row that comes from the
+     person's role now says where to change it, and takes him there. */
+  const row = (name) => [...host.querySelectorAll('.nsum-row')].find(r => r.querySelector('.nsum-name').textContent === name);
+  ok(!host.querySelector('.nsum-lock, .fa-lock'), 'no lock is left');
+  const edit = row('Ann Auto').querySelector('.nsum-edit');
+  ok(edit && edit.textContent.trim() === 'Edit in People' && !row('Ann Auto').querySelector('.nsum-del'),
+     'a role-only row offers "Edit in People" and no bin');
+  edit.click();
+  ok(w.eval('currentView') === 'people' && w.eval('peopleOpenOnLoad') === 'ann.auto',
+     'which opens People with that person queued to open');
+  ok(!row("Bob O'Sub").querySelector('.nsum-edit'), 'a list-only row has no account to open');
+  row("Bob O'Sub").querySelector('.nsum-del').click();
+  ok(JSON.stringify(w.removed) === JSON.stringify([['b@x.com', "Bob O'Sub"]]),
+     `its bin removes that address, an apostrophe in the name included (${JSON.stringify(w.removed)})`);
+  ok(row('Cy Both').querySelector('.nsum-del') && row('Cy Both').querySelector('.nsum-edit'),
+     'a row that is both keeps the bin and gets the button');
+  ok(/Edit in People/.test(desc), 'the card text says what the button does');
+}
+
+console.log('\nPeople opens the person Settings asked for');
+{
+  const dom = new JSDOM('<div id="gallery"></div>', { runScripts: 'outside-only' });
+  const w = dom.window;
+  w.eval(`
+    var peopleData = null, peopleOpenOnLoad = 'ann.auto'; window.opened = [];
+    function fetch() { return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'success', people: [{ username: 'ann.auto' }] }) }); }
+    function drawPeople() {} function openPersonEdit(u) { window.opened.push(u); }
+    ${grab('renderPeople')}`);
+  await w.eval('renderPeople()');
+  ok(JSON.stringify(w.opened) === '["ann.auto"]', `the person's edit form opens (${JSON.stringify(w.opened)})`);
+  await w.eval('renderPeople()');
+  ok(w.opened.length === 1, 'once: the next visit to People opens nothing');
 }
 
 console.log(failures ? `\n${failures} failed` : '\nall passed');

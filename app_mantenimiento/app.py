@@ -5817,7 +5817,7 @@ def email_notification_summary():
     region_name = {r.get('id'): r.get('name', r.get('id')) for r in regions}
     people = {}   # lowercase email -> record
 
-    def add(email, name, label, detail='', kind='info'):
+    def add(email, name, label, detail='', kind='info', username=''):
         addr = (email or '').strip()
         if not addr:
             return
@@ -5825,6 +5825,9 @@ def email_notification_summary():
         rec = people.setdefault(key, {'email': addr, 'name': (name or '').strip(), 'items': []})
         if name and not rec['name']:
             rec['name'] = name.strip()
+        # The account behind a role-derived row, so Settings can open it in People.
+        if username and not rec.get('username'):
+            rec['username'] = username
         rec['items'].append({'label': label, 'detail': detail, 'kind': kind})
 
     # 1) Inspection report subscribers (explicitly configured)
@@ -5853,11 +5856,12 @@ def email_notification_summary():
             addr = (leader.get('email') or '').strip()
             if not addr:
                 continue
+            uname = (leader.get('username') or '').strip() or slugify_name(leader.get('name') or '')
             add(addr, leader.get('name'), 'Inspection reports',
-                f"{r.get('name')} region (automatic)", 'auto')
+                f"{r.get('name')} region (automatic)", 'auto', uname)
             if r.get('kind') != CORPORATE_KIND and r.get('communities'):
                 add(addr, leader.get('name'), 'Move-in completions',
-                    f"{r.get('name')} region (automatic)", 'auto')
+                    f"{r.get('name')} region (automatic)", 'auto', uname)
 
     # 2b) Each community's own accounts (its Executive Director) — the ones
     #     movein_recipients() actually sends the move-in emails to. This list
@@ -5868,7 +5872,7 @@ def email_notification_summary():
         comms = account_communities(u)
         if comms:
             add(u.get('email'), u.get('display_name') or u.get('username'), 'Move-in emails',
-                'Reminders and completions — ' + ', '.join(comms), 'auto')
+                'Reminders and completions — ' + ', '.join(comms), 'auto', u.get('username'))
 
     # 3) Admin alerts
     for addr in s.get('admin_notify', []):
@@ -5884,8 +5888,8 @@ def email_notification_summary():
                 f'Visit comments directed to {label}', 'route')
 
     # A recipient can be removed from here when it came from a configurable list
-    # (subscribers / admin alerts / clinical / ops). Region leaders are copied
-    # automatically from their region, so those are managed in Regions instead.
+    # (subscribers / admin alerts / clinical / ops). Region leaders and EDs get
+    # theirs from their role, so those are changed on the person, in People.
     for rec in people.values():
         kinds = {i['kind'] for i in rec['items']}
         rec['removable'] = bool(kinds - {'auto'})
