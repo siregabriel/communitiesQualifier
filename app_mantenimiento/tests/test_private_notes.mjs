@@ -85,6 +85,22 @@ function bootForm() {
     }
     return { ok: true, json: async () => ({}) };
   };
+
+  // The form sends with XMLHttpRequest (it reports upload progress); this
+  // hands each send to the fetch stub above and reports it as fully sent.
+  w.XMLHttpRequest = class {
+    constructor() { this.upload = {}; }
+    open(method, url) { this.method = method; this.url = url; }
+    async send(body) {
+      try {
+        const r = await w.fetch(this.url, { method: this.method, body });
+        if (this.upload.onprogress) this.upload.onprogress({ lengthComputable: true, loaded: 1, total: 1 });
+        this.status = r.status || 200;
+        this.responseText = JSON.stringify(await r.json());
+        this.onload();
+      } catch (e) { this.onerror(); }
+    }
+  };
   const el = w.document.createElement('script');
   el.textContent = script;
   w.document.body.appendChild(el);
