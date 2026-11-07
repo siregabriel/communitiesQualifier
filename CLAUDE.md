@@ -180,7 +180,13 @@ Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost
 - `#00BFFF` / `#FFA500` are under 2.2:1 on white: lines, rails, fills only,
   never text. jsdom ignores `var()` inside the `background:` shorthand, so
   colours a test measures are written literally.
-- Emails keep the old `#00285c`; templates and theme were moved to `#003366`.
+- Emails (Nov 2026): one frame, `EmailService._shell(heading, body, eyebrow)`,
+  for every message, the leadership report included — navy `#003366` band
+  with the grid (Outlook shows it plain), electric rule, mono eyebrow.
+  Findings are `_card(inner, RAIL[...])` in the app's answer colours, section
+  titles `_eyebrow()`, priorities `_priority_tag()`. Only what email clients
+  render: inline styles, no web fonts/var()/:has(). Preview by capturing
+  `_send`/`_send_email`, never by sending. `tests/test_email_design.py`.
 - Gabriel's answer colours: chosen Pass `#75fb87` with dark ink, Fail
   `#ea366e` with white (4.0:1, his choice), Not checked `#5b6b85`. A visit
   card's left rail and a panel response's rail take the answer's colour

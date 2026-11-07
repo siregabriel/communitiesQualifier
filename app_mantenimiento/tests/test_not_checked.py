@@ -173,7 +173,8 @@ SUB = {'community': KELLEY, 'inspector_name': 'Greg Crutcher', 'submitted_at': '
 def test_the_leadership_report_lists_it_with_its_reason():
     subject, html_body, text = EmailService()._build(SUB)
     assert '67%' in subject, 'the score is the same'
-    assert 'Not checked (1)' in html_body and REASON in html_body
+    # The section title reads "Not checked · 1" since the email redesign (Nov 2026).
+    assert 'Not checked &middot; 1' in html_body and REASON in html_body
     assert 'Not checked: 1 (not scored)' in text
     # Under its own heading, not loose after the failed items, where the reason
     # would read as a finding.

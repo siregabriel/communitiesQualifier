@@ -95,6 +95,32 @@ class EmailService:
             return None
         return f"{self.app_base_url}/?community={quote(community or '')}"
 
+    # Pieces of the email design, shared by every message (Nov 2026): a mono
+    # eyebrow for section titles, a card with a rail in the answer's colour
+    # (the same as the app's), and a small square tag.
+    MONO = "'SFMono-Regular',Menlo,Consolas,'Courier New',monospace"
+    RAIL = {'fail': '#ea366e', 'not_checked': '#5b6b85', 'action': '#ffa500', 'pass': '#75fb87'}
+    PRIORITY_TAG = {'high': ('#b42318', '#fdecea'), 'medium': ('#8a5300', '#fff3dc'), 'low': ('#36454f', '#f1f3f5')}
+
+    @classmethod
+    def _eyebrow(cls, text, count=None):
+        n = f" &middot; {count}" if count is not None else ""
+        return (f"<div style=\"font-family:{cls.MONO};font-size:11px;letter-spacing:.14em;"
+                f"text-transform:uppercase;color:#00709a;margin:24px 0 8px\">{html.escape(text)}{n}</div>")
+
+    @staticmethod
+    def _card(inner, rail):
+        return (f"<div style='border:1px solid #e1e5ea;border-left:3px solid {rail};border-radius:6px;"
+                f"padding:12px 14px;margin:8px 0;background:#ffffff'>{inner}</div>")
+
+    @classmethod
+    def _priority_tag(cls, priority):
+        p = (priority or 'medium').lower()
+        fg, bg = cls.PRIORITY_TAG.get(p, cls.PRIORITY_TAG['medium'])
+        return (f"<span style=\"font-family:{cls.MONO};font-size:10.5px;letter-spacing:.08em;"
+                f"text-transform:uppercase;color:{fg};background:{bg};padding:2px 7px;border-radius:4px\">"
+                f"{html.escape(p)}</span>")
+
     @staticmethod
     def _help_for(response, help_map):
         """A failed standard's help material, matched like its criteria."""
@@ -175,34 +201,36 @@ class EmailService:
         def esc(s):
             return html.escape(str(s or ''))
 
-        score_color = '#0f8a5f' if (score is not None and score >= 75) else (
-            '#b58b00' if (score is not None and score >= 50) else '#d13212')
+        score_color = '#0b6b49' if (score is not None and score >= 75) else (
+            '#9a5b00' if (score is not None and score >= 50) else '#b42318')
         def fail_li(r):
             crit = self._criteria_for(r, criteria_map)
             crit_html = ''
             if crit:
                 items = ''.join(f"<li style='margin:2px 0'>{esc(c)}</li>" for c in crit)
-                crit_html = (f"<div style='font-size:12px;color:#6b7280;margin:4px 0 2px'>Standard — to pass, must include:</div>"
+                crit_html = (f"<div style='font-size:12px;color:#5a6872;margin:4px 0 2px'>Standard — to pass, must include:</div>"
                              f"<ul style='margin:0 0 6px;padding-left:16px;color:#475569;font-size:12px'>{items}</ul>")
-            return (f"<li style='margin:8px 0'><strong>{esc(r.get('question_text','Item'))}</strong>"
-                    + (f" — {esc(r.get('description',''))}" if r.get('description') else "")
-                    + crit_html + "</li>")
+            return self._card(
+                f"<div style='font-weight:600;font-size:14.5px;color:#1b2730'>{esc(r.get('question_text','Item'))}</div>"
+                + (f"<div style='font-size:13.5px;color:#36454f;margin-top:3px'>{esc(r.get('description',''))}</div>"
+                   if r.get('description') else "")
+                + crit_html, self.RAIL['fail'])
         fail_rows = ''.join(fail_li(r) for r in fails)
         fail_block = (
-            f"<h3 style='font-size:15px;color:#d13212;margin:18px 0 6px'>Failed items ({failed})</h3>"
-            f"<ul style='margin:0;padding-left:18px;color:#1f2937;font-size:14px'>{fail_rows}</ul>"
-        ) if fails else ("<p style='color:#0f8a5f;font-size:14px;margin:14px 0'>"
+            self._eyebrow('Failed', failed) + fail_rows
+        ) if fails else ("<p style='color:#0b6b49;font-size:14px;margin:14px 0'>"
                          + ("Everything checked passed." if not_checked else "All items passed.") + "</p>")
         # What could not be checked, and why. Out of the score, so it is listed
         # where leadership will see it: an empty Fail list next to five of
         # these is not the same visit as an empty Fail list on its own.
         not_checked_block = (
-            f"<h3 style='font-size:15px;color:#6b7280;margin:18px 0 6px'>Not checked ({len(not_checked)})</h3>"
-            f"<ul style='margin:0;padding-left:18px;color:#1f2937;font-size:14px'>"
-            + ''.join(f"<li style='margin:6px 0'><strong>{esc(r.get('question_text', 'Item'))}</strong>"
-                      + (f" — {esc(r.get('description', ''))}" if r.get('description') else "") + "</li>"
-                      for r in not_checked)
-            + "</ul><p style='color:#9ca3af;font-size:12px;margin:6px 0 0'>"
+            self._eyebrow('Not checked', len(not_checked))
+            + ''.join(self._card(
+                f"<div style='font-weight:600;font-size:14px;color:#1b2730'>{esc(r.get('question_text', 'Item'))}</div>"
+                + (f"<div style='font-size:13px;color:#36454f;margin-top:3px'>{esc(r.get('description', ''))}</div>"
+                   if r.get('description') else ""), self.RAIL['not_checked'])
+                for r in not_checked)
+            + "<p style='color:#5a6872;font-size:12px;margin:6px 0 0'>"
               "Left out of the score. Worth a look next time.</p>"
         ) if not_checked else ""
 
@@ -210,31 +238,27 @@ class EmailService:
         # impact) — surfaced so the right team sees them without digging.
         manual = [i for i in (submission.get('action_items') or []) if not i.get('resolved')]
         if manual:
-            pr_color = {'high': '#b42318', 'medium': '#92620a', 'low': '#475569'}
             rows = ''.join(
-                f"<li style='margin:6px 0'>"
-                f"<b style='color:{pr_color.get(i.get('priority'), '#92620a')}'>"
-                f"[{esc((i.get('priority') or 'medium').upper())}]</b> {esc(i.get('text'))}"
-                # assigned_to holds the department's id; the resolver puts
-                # its name here. Falling back to the id keeps an older record
-                # readable rather than blank.
-                + (f"<br><span style='color:#6b7280;font-size:13px'>For: "
-                   f"{esc(i.get('assigned_to_name') or i.get('assigned_to'))}</span>"
-                   if i.get('assigned_to') else "")
-                + "</li>"
+                self._card(
+                    f"{self._priority_tag(i.get('priority'))} "
+                    f"<span style='font-size:14px;color:#1b2730'>{esc(i.get('text'))}</span>"
+                    # assigned_to holds the department's id; the resolver puts
+                    # its name here. Falling back to the id keeps an older record
+                    # readable rather than blank.
+                    + (f"<div style='color:#5a6872;font-size:13px;margin-top:4px'>For: "
+                       f"{esc(i.get('assigned_to_name') or i.get('assigned_to'))}</div>"
+                       if i.get('assigned_to') else ""), self.RAIL['action'])
                 for i in manual)
             action_block = (
-                f"<h3 style='font-size:15px;color:#d97706;margin:18px 0 6px'>"
-                f"Action items raised on this visit ({len(manual)})</h3>"
-                f"<ul style='margin:0;padding-left:18px;color:#1f2937;font-size:14px'>{rows}</ul>"
-                f"<p style='color:#9ca3af;font-size:12px;margin:6px 0 0'>"
+                self._eyebrow('Action items raised on this visit', len(manual)) + rows
+                + f"<p style='color:#5a6872;font-size:12px;margin:6px 0 0'>"
                 f"These are follow-up tasks noted by the inspector — they don't affect the score.</p>"
             )
         else:
             action_block = ""
 
         button = (
-            f"<a href='{esc(link)}' style='display:inline-block;background:#00285c;color:#fff;"
+            f"<a href='{esc(link)}' style='display:inline-block;background:#003366;color:#fff;"
             f"text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;"
             f"font-size:14px'>View full report</a>"
         ) if link else ""
@@ -243,11 +267,11 @@ class EmailService:
         # to judge a community; the sentence explaining why it scored what it
         # scored belongs above the numbers, not buried under them.
         note = (submission.get('notes') or '').strip()
-        note_block = (f"<div style='margin:14px 0 4px;padding:13px 15px;background:#f2f7ff;"
-                      f"border-left:3px solid #1f6fe5;border-radius:0 8px 8px 0;"
-                      f"font-size:14px;color:#0f1e36;line-height:1.55'>"
-                      f"<div style='font-size:11.5px;font-weight:800;color:#1f4f9e;"
-                      f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px'>"
+        note_block = (f"<div style='margin:14px 0 4px;padding:13px 15px;background:#f1f5fa;"
+                      f"border-left:3px solid #003366;border-radius:0 8px 8px 0;"
+                      f"font-size:14px;color:#1b2730;line-height:1.55'>"
+                      f"<div style=\"font-family:{self.MONO};font-size:11px;color:#00709a;"
+                      f"text-transform:uppercase;letter-spacing:.14em;margin-bottom:5px\">"
                       f"Note from {esc(inspector)}</div>{esc(note)}</div>") if note else ""
         # Sent from an unfinished draft by an administrator: said up front, so
         # nobody reads it as the inspector's finished, reviewed visit.
@@ -257,46 +281,25 @@ class EmailService:
                           f"{esc(behalf)}</div>") + note_block
 
         survey_row = (
-            f"<tr><td style='color:#6b7280;padding:3px 12px 3px 0'>Survey type</td>"
+            f"<tr><td style='color:#5a6872;padding:3px 12px 3px 0'>Survey type</td>"
             f"<td style='font-weight:600'>{esc(survey_type_name)}</td></tr>"
         ) if survey_type_name else ""
 
-        # Logo sits on its own white band (the logo is designed for light
-        # backgrounds); the navy band with the community name goes below it.
-        logo_url = f"{self.app_base_url}/static/arlas-excellence-logo.png" if self.app_base_url else None
-        logo_band = (
-            f"<div style='background:#fff;border:1px solid #d9dfe8;border-bottom:none;"
-            f"border-radius:10px 10px 0 0;padding:16px 24px;text-align:center'>"
-            f"<img src='{esc(logo_url)}' alt='Atlas Excellence' "
-            f"style='height:34px;display:inline-block'></div>"
-        ) if logo_url else ""
-        navy_radius = "0" if logo_band else "10px 10px 0 0"
-
-        html_body = f"""\
-<div style="font-family:Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f1e36">
-  {logo_band}
-  <div style="background:#00285c;color:#fff;padding:18px 24px;border-radius:{navy_radius}">
-    <div style="font-size:12px;letter-spacing:.5px;opacity:.85">COMMUNITIES STANDARDS</div>
-    <div style="font-size:20px;font-weight:800;margin-top:4px">{esc(community)}</div>
-  </div>
-  <div style="border:1px solid #d9dfe8;border-top:none;border-radius:0 0 10px 10px;padding:22px 24px">
-    <div style="font-size:34px;font-weight:800;color:{score_color}">{esc(score_txt)}</div>
-    <div style="color:#6b7280;font-size:13px;margin-bottom:14px">Overall score &middot; {passed}/{total} passed{f" &middot; {len(not_checked)} not checked" if not_checked else ""}</div>
+        body = f"""\
+    <div style="font-family:'SFMono-Regular',Menlo,Consolas,'Courier New',monospace;font-size:36px;font-weight:600;letter-spacing:-.02em;color:{score_color}">{esc(score_txt)}</div>
+    <div style="color:#5a6872;font-size:13px;margin-bottom:16px">Overall score &middot; {passed}/{total} passed{f" &middot; {len(not_checked)} not checked" if not_checked else ""}</div>
     <table style="font-size:14px;border-collapse:collapse;margin-bottom:6px">
-      <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Inspector</td><td style="font-weight:600">{esc(inspector)}</td></tr>
-      <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Date</td><td style="font-weight:600">{esc(when)}</td></tr>
+      <tr><td style="color:#5a6872;padding:3px 14px 3px 0">Inspector</td><td style="font-weight:600">{esc(inspector)}</td></tr>
+      <tr><td style="color:#5a6872;padding:3px 14px 3px 0">Date</td><td style="font-weight:600">{esc(when)}</td></tr>
       {survey_row}
     </table>
     {note_block}
     {fail_block}
     {not_checked_block}
     {action_block}
-    <div style="margin-top:20px">{button}</div>
-  </div>
-  <div style="color:#9ca3af;font-size:11px;text-align:center;padding:14px">
-    Atlas Senior Living — Communities Standards
-  </div>
-</div>"""
+    <div style="margin-top:20px">{button}</div>"""
+        # The same frame as every other email; the community is the heading.
+        html_body = self._shell(community, body, eyebrow='Visit report')
 
         return subject, html_body, text
 
@@ -330,7 +333,7 @@ class EmailService:
                 "Still open</div>" + li_list(missing_other, '#475569'))
 
         link = (f"<p style='margin-top:8px'><a href='{esc(self.app_base_url)}/dashboard?view=move-ins' "
-                f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                f"style='display:inline-block;background:#003366;color:#fff;text-decoration:none;"
                 f"font-weight:700;padding:11px 20px;border-radius:8px;font-size:14px'>Open Move-Ins</a></p>"
                 if self.app_base_url else "")
 
@@ -358,12 +361,12 @@ and some checklist items are still open.</p>
             return html.escape(str(s or ''))
 
         link = (f"<p style='margin-top:8px'><a href='{esc(self.app_base_url)}/dashboard?view=move-ins' "
-                f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                f"style='display:inline-block;background:#003366;color:#fff;text-decoration:none;"
                 f"font-weight:700;padding:11px 20px;border-radius:8px;font-size:14px'>Open Move-Ins</a></p>"
                 if self.app_base_url else "")
         body = f"""\
 <p style="font-size:14px;margin:0 0 12px">The move-in checklist for <b>{esc(resident)}</b> at
-<b>{esc(community)}</b> has been <b style="color:#0f8a5f">completed</b>
+<b>{esc(community)}</b> has been <b style="color:#0b6b49">completed</b>
 ({esc(done)}/{esc(total)} items, target date {esc(target_date) or 'n/a'}).</p>
 <p style="font-size:14px;margin:0 0 4px">Nice work to the whole team. &#127881;</p>
 {link}"""
@@ -372,8 +375,16 @@ and some checklist items are still open.</p>
         return self._send(recipients, f"Move-in completed: {resident} ({community})",
                           self._shell("Move-In Completed", body), text)
 
-    def _shell(self, heading, body_html):
-        """Wrap body in the branded card (logo band + navy header)."""
+    def _shell(self, heading, body_html, eyebrow='Atlas Excellence'):
+        """Wrap a body in the one frame every email uses.
+
+        Precision design (Nov 2026), within what email clients render: a grey
+        page, a white card with a hairline and 8px corners, the wordmark, a
+        navy band with the engineering grid (Gabriel's ask; Outlook, which
+        draws no background patterns, shows it plain navy) and a mono eyebrow,
+        and an electric rule under it. Web fonts
+        and the app's grid do not survive Outlook, so Roboto is asked for by
+        name (Gmail and Android have it) with Helvetica and Arial behind it."""
         def esc(s):
             return html.escape(str(s or ''))
         # The product's own wordmark, not the parent company's. Served from
@@ -381,22 +392,24 @@ and some checklist items are still open.</p>
         # session, so it has to be a URL nobody needs to sign in for.
         logo_url = f"{self.app_base_url}/static/arlas-excellence-logo.png" if self.app_base_url else None
         logo_band = (
-            f"<div style='background:#fff;border:1px solid #d9dfe8;border-bottom:none;"
-            f"border-radius:10px 10px 0 0;padding:16px 24px;text-align:center'>"
-            f"<img src='{esc(logo_url)}' alt='Atlas Excellence' style='height:38px'></div>"
+            f"<div style='background:#ffffff;padding:18px 28px 14px'>"
+            f"<img src='{esc(logo_url)}' alt='Atlas Excellence' style='height:36px;display:block'></div>"
         ) if logo_url else ""
-        navy_radius = "0" if logo_band else "10px 10px 0 0"
+        sans = "Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif"
+        mono = "'SFMono-Regular',Menlo,Consolas,'Courier New',monospace"
         return f"""\
-<div style="font-family:Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f1e36">
+<div style="background:#f4f6f8;padding:24px 12px">
+<div style="font-family:{sans};max-width:600px;margin:0 auto;color:#1b2730;background:#ffffff;border:1px solid #e1e5ea;border-radius:8px;overflow:hidden">
   {logo_band}
-  <div style="background:#00285c;color:#fff;padding:18px 24px;border-radius:{navy_radius}">
-    <div style="font-size:12px;letter-spacing:.5px;opacity:.85">COMMUNITIES STANDARDS</div>
-    <div style="font-size:20px;font-weight:800;margin-top:4px">{esc(heading)}</div>
+  <div style="background-color:#003366;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:20px 20px;color:#ffffff;padding:18px 28px 16px;border-bottom:3px solid #00bfff">
+    <div style="font-family:{mono};font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8fd8ff">{esc(eyebrow)}</div>
+    <div style="font-size:21px;font-weight:700;letter-spacing:-.01em;margin-top:5px;color:#ffffff">{esc(heading)}</div>
   </div>
-  <div style="background:#fff;border:1px solid #d9dfe8;border-top:none;border-radius:0 0 10px 10px;padding:22px 24px">
+  <div style="padding:24px 28px 26px;font-size:14px;line-height:1.55">
     {body_html}
   </div>
-  <div style="color:#9ca3af;font-size:11px;text-align:center;padding:14px">Atlas Senior Living — Communities Standards</div>
+</div>
+<div style="font-family:{sans};color:#5a6872;font-size:11.5px;text-align:center;padding:14px">Atlas Senior Living — Atlas Excellence</div>
 </div>"""
 
     def _send(self, recipients, subject, html_body, text_body):
@@ -451,16 +464,16 @@ and some checklist items are still open.</p>
             f"height:auto;border-radius:10px;margin:0 0 14px'>"
         ) if img_url else ""
         body = f"""\
-<div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb">
-  <p style="font-size:16px;font-weight:700;color:#0f1e36;margin:0 0 6px">The easiest way in: Atlerts</p>
-  <p style="font-size:14px;color:#4b5563;margin:0 0 14px">If you have Atlerts on your phone, you don't need a password. Open Atlerts and tap <b style="color:#0f1e36">Excellence</b> under Apps &amp; Shortcuts — you're signed in straight away.</p>
+<div style="margin-top:24px;padding-top:20px;border-top:1px solid #e1e5ea">
+  <p style="font-size:16px;font-weight:700;color:#1b2730;margin:0 0 6px">The easiest way in: Atlerts</p>
+  <p style="font-size:14px;color:#36454f;margin:0 0 14px">If you have Atlerts on your phone, you don't need a password. Open Atlerts and tap <b style="color:#1b2730">Excellence</b> under Apps &amp; Shortcuts — you're signed in straight away.</p>
   {picture}
-  <table style="font-size:14px;border-collapse:collapse;margin:0 0 14px;color:#1f2937">
-    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#6b7280">1</td><td>Open <b>Atlerts</b>.</td></tr>
-    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#6b7280">2</td><td>Under <b>Apps &amp; Shortcuts</b>, tap <b>Excellence</b> (swipe if you don't see it).</td></tr>
-    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#6b7280">3</td><td>You're in — no password to remember.</td></tr>
+  <table style="font-size:14px;border-collapse:collapse;margin:0 0 14px;color:#1b2730">
+    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#5a6872">1</td><td>Open <b>Atlerts</b>.</td></tr>
+    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#5a6872">2</td><td>Under <b>Apps &amp; Shortcuts</b>, tap <b>Excellence</b> (swipe if you don't see it).</td></tr>
+    <tr><td style="vertical-align:top;padding:2px 10px 2px 0;color:#5a6872">3</td><td>You're in — no password to remember.</td></tr>
   </table>
-  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;color:#1e3a5f">
+  <div style="background:#f1f5fa;border:1px solid #d3dde8;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;color:#1b2730">
     <b>Use a different email in Atlerts?</b><br>
     If your Atlerts account uses another email (a personal Gmail, for example), the first time you'll land on the sign-in page. Sign in once with the username and password above, then tap <b>Link</b> when asked. After that, Atlerts takes you straight in.
   </div>
@@ -481,16 +494,16 @@ and some checklist items are still open.</p>
             return (False, 'no recipient / disabled')
         login = self.app_base_url or ''
         subject = "Your Atlas Excellence account"
-        role_line = f"<tr><td style='color:#6b7280;padding:3px 12px 3px 0'>Role</td><td style='font-weight:600'>{html.escape(role_label)}</td></tr>" if role_label else ""
+        role_line = f"<tr><td style='color:#5a6872;padding:3px 12px 3px 0'>Role</td><td style='font-weight:600'>{html.escape(role_label)}</td></tr>" if role_label else ""
         body = f"""\
 <p style="font-size:14px;margin:0 0 14px">Hi {html.escape(display_name)}, an account was created for you on Atlas Excellence.</p>
 <table style="font-size:14px;border-collapse:collapse;margin-bottom:8px">
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:700">{html.escape(username)}</td></tr>
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Username</td><td style="font-weight:700">{html.escape(username)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
   {role_line}
 </table>
-<p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
-{f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}"""
+<p style="font-size:13px;color:#5a6872;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
+{f'<a href="{html.escape(login)}" style="display:inline-block;background:#003366;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}"""
         tip_html, tip_text = self._atlerts_tip()
         body += tip_html
         text = (f"Hi {display_name}, an account was created for you on Atlas Excellence.\n"
@@ -510,13 +523,13 @@ and some checklist items are still open.</p>
         body = f"""\
 <p style="font-size:14px;margin:0 0 14px">Hi {html.escape(display_name)}, an administrator reset your Atlas Excellence password.</p>
 <table style="font-size:14px;border-collapse:collapse;margin-bottom:8px">
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:700">{html.escape(username)}</td></tr>
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Username</td><td style="font-weight:700">{html.escape(username)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Temporary password</td><td style="font-weight:700;font-family:monospace">{html.escape(password)}</td></tr>
 </table>
-<p style="font-size:13px;color:#6b7280;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
-{f'<a href="{html.escape(login)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}
-<p style="font-size:13px;color:#4b5563;margin:18px 0 0"><b>Tip:</b> with Atlerts on your phone you can skip passwords entirely — tap <b>Excellence</b> under Apps &amp; Shortcuts.</p>
-<p style="font-size:12px;color:#9ca3af;margin:12px 0 0">If you didn't expect this, contact your administrator.</p>"""
+<p style="font-size:13px;color:#5a6872;margin:6px 0 18px">Sign in with the temporary password above — you'll be asked to create your own password right away.</p>
+{f'<a href="{html.escape(login)}" style="display:inline-block;background:#003366;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;font-size:14px">Sign in</a>' if login else ''}
+<p style="font-size:13px;color:#36454f;margin:18px 0 0"><b>Tip:</b> with Atlerts on your phone you can skip passwords entirely — tap <b>Excellence</b> under Apps &amp; Shortcuts.</p>
+<p style="font-size:12px;color:#5a6872;margin:12px 0 0">If you didn't expect this, contact your administrator.</p>"""
         text = (f"Hi {display_name}, an administrator reset your Atlas Excellence password.\n"
                 f"Username: {username}\nTemporary password: {password}\n"
                 "Sign in with the temporary password above — you'll be asked to create your own password right away.\n"
@@ -542,14 +555,14 @@ and some checklist items are still open.</p>
         body = f"""\
 <p style="font-size:14px;margin:0 0 12px">Hi {esc(display_name)}, you have an unfinished visit in Atlas Excellence.</p>
 <table style="font-size:14px;border-collapse:collapse;margin-bottom:10px">
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Community</td><td style="font-weight:700">{esc(community)}</td></tr>
-  {f'<tr><td style="color:#6b7280;padding:3px 12px 3px 0">Visit</td><td>{esc(survey_name)}</td></tr>' if survey_name else ''}
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Progress</td><td>{esc(progress)}</td></tr>
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Last saved</td><td>{esc(when)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Community</td><td style="font-weight:700">{esc(community)}</td></tr>
+  {f'<tr><td style="color:#5a6872;padding:3px 12px 3px 0">Visit</td><td>{esc(survey_name)}</td></tr>' if survey_name else ''}
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Progress</td><td>{esc(progress)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Last saved</td><td>{esc(when)}</td></tr>
 </table>
-<p style="font-size:14px;color:#92620a;margin:0 0 16px">{esc(left)}</p>
-{f'<a href="{esc(link)}" style="display:inline-block;background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px">Finish this visit</a>' if link else ''}
-<p style="font-size:13px;color:#6b7280;margin:16px 0 0">It is saved to your account, so you can finish it on any device.</p>"""
+<p style="font-size:14px;color:#9a5b00;margin:0 0 16px">{esc(left)}</p>
+{f'<a href="{esc(link)}" style="display:inline-block;background:#003366;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;font-size:14px">Finish this visit</a>' if link else ''}
+<p style="font-size:13px;color:#5a6872;margin:16px 0 0">It is saved to your account, so you can finish it on any device.</p>"""
         text = (f"Hi {display_name}, you have an unfinished visit at {community}"
                 + (f" ({survey_name})" if survey_name else "")
                 + f": {progress}, last saved {when}.\n{left}\n"
@@ -565,7 +578,7 @@ and some checklist items are still open.</p>
         subject = f"Your visit to {community} was sent"
         body = f"""\
 <p style="font-size:14px;margin:0 0 12px">Hi {esc(display_name)}, your unfinished visit to <b>{esc(community)}</b>{f' ({esc(survey_name)})' if survey_name else ''} was sent on your behalf by the Excellence Administrator on {esc(sent_on)}.</p>
-<p style="font-size:14px;color:#4b5563;margin:0">It was sent as it was saved, marked as partial where standards were left unanswered. If something needs correcting, reply to this email.</p>"""
+<p style="font-size:14px;color:#36454f;margin:0">It was sent as it was saved, marked as partial where standards were left unanswered. If something needs correcting, reply to this email.</p>"""
         text = (f"Hi {display_name}, your unfinished visit to {community}"
                 + (f" ({survey_name})" if survey_name else "")
                 + f" was sent on your behalf by the Excellence Administrator on {sent_on}.\n"
@@ -580,10 +593,10 @@ and some checklist items are still open.</p>
         body = f"""\
 <p style="font-size:14px;margin:0 0 12px">A new account was created.</p>
 <table style="font-size:14px;border-collapse:collapse">
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Name</td><td style="font-weight:700">{html.escape(display_name)}</td></tr>
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:600">{html.escape(username)}</td></tr>
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Role</td><td style="font-weight:600">{html.escape(role_label or '')}</td></tr>
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Created by</td><td style="font-weight:600">{html.escape(created_by or '')}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Name</td><td style="font-weight:700">{html.escape(display_name)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Username</td><td style="font-weight:600">{html.escape(username)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Role</td><td style="font-weight:600">{html.escape(role_label or '')}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Created by</td><td style="font-weight:600">{html.escape(created_by or '')}</td></tr>
 </table>"""
         text = (f"New account created.\nName: {display_name}\nUsername: {username}\n"
                 f"Role: {role_label}\nCreated by: {created_by}\n")
@@ -594,18 +607,18 @@ and some checklist items are still open.</p>
         if not self.enabled:
             return (False, 'disabled')
         subject = f"Password reset requested: {display_name or username}"
-        ctx_line = (f"<tr><td style='color:#6b7280;padding:3px 12px 3px 0'>Account</td>"
+        ctx_line = (f"<tr><td style='color:#5a6872;padding:3px 12px 3px 0'>Account</td>"
                     f"<td style='font-weight:600'>{html.escape(context)}</td></tr>") if context else ""
         body = f"""\
 <p style="font-size:14px;margin:0 0 12px">A user asked to reset their password. Reset it from
 <b>Settings &rarr; Reset a user's password</b>, then share the temporary password with them.</p>
 <table style="font-size:14px;border-collapse:collapse">
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Name</td><td style="font-weight:700">{html.escape(display_name or '')}</td></tr>
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Username</td><td style="font-weight:700;font-family:monospace">{html.escape(username)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Name</td><td style="font-weight:700">{html.escape(display_name or '')}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Username</td><td style="font-weight:700;font-family:monospace">{html.escape(username)}</td></tr>
   {ctx_line}
-  <tr><td style="color:#6b7280;padding:3px 12px 3px 0">Requested</td><td style="font-weight:600">{html.escape(requested_at)}</td></tr>
+  <tr><td style="color:#5a6872;padding:3px 12px 3px 0">Requested</td><td style="font-weight:600">{html.escape(requested_at)}</td></tr>
 </table>
-<p style="font-size:12px;color:#9ca3af;margin:14px 0 0">If you don't recognize this request, you can ignore it — no change was made.</p>"""
+<p style="font-size:12px;color:#5a6872;margin:14px 0 0">If you don't recognize this request, you can ignore it — no change was made.</p>"""
         text = (f"Password reset requested.\nName: {display_name}\nUsername: {username}\n"
                 + (f"Account: {context}\n" if context else "")
                 + f"Requested: {requested_at}\n"
@@ -631,13 +644,13 @@ and some checklist items are still open.</p>
         if ip:
             rows.append(("From IP", ip))
         table = "".join(
-            f"<tr><td style=\"color:#6b7280;padding:3px 12px 3px 0\">{html.escape(k)}</td>"
+            f"<tr><td style=\"color:#5a6872;padding:3px 12px 3px 0\">{html.escape(k)}</td>"
             f"<td style=\"font-weight:600\">{html.escape(str(v))}</td></tr>"
             for k, v in rows if v)
         body = f"""\
 <p style="font-size:14px;margin:0 0 12px">The password for an account was changed. {html.escape(how)}</p>
 <table style="font-size:14px;border-collapse:collapse">{table}</table>
-<p style="font-size:12px;color:#9ca3af;margin:14px 0 0">If this wasn't expected, reset the
+<p style="font-size:12px;color:#5a6872;margin:14px 0 0">If this wasn't expected, reset the
 account from <b>People</b> and ask the user to sign in again.</p>"""
         text = (f"Password changed.\n{how}\n"
                 + "".join(f"{k}: {v}\n" for k, v in rows if v))
@@ -656,18 +669,18 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             if not rows:
                 if not empty:
                     return "", ""
-                return (f"<p style='font-size:13px;color:#6b7280;margin:0 0 14px'>{html.escape(empty)}</p>",
+                return (f"<p style='font-size:13px;color:#5a6872;margin:0 0 14px'>{html.escape(empty)}</p>",
                         f"{empty}\n")
             lis = "".join(
                 f"<li style='margin:3px 0'>{r}</li>" for r in rows)
             h = (f"<p style='font-size:12px;font-weight:700;text-transform:uppercase;"
-                 f"letter-spacing:.5px;color:#6b7280;margin:16px 0 6px'>{html.escape(title)}</p>"
+                 f"letter-spacing:.5px;color:#5a6872;margin:16px 0 6px'>{html.escape(title)}</p>"
                  f"<ul style='font-size:14px;margin:0;padding-left:18px'>{lis}</ul>")
             t = f"\n{title.upper()}\n" + "".join(f"  - {_strip_tags(r)}\n" for r in rows)
             return h, t
 
         signins = [f"<b>{html.escape(p['name'])}</b>"
-                   + (f" <span style='color:#6b7280'>({p['count']}x)</span>" if p['count'] > 1 else "")
+                   + (f" <span style='color:#5a6872'>({p['count']}x)</span>" if p['count'] > 1 else "")
                    for p in digest['signed_in']]
         visits = [f"<b>{html.escape(v['name'])}</b> — {html.escape(v['detail'] or v['community'])}"
                   for v in digest['visits']]
@@ -730,7 +743,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
 
         subject = (f"Atlas Excellence — daily activity"
                    + ("" if quiet else f" ({digest['total_events']} events)"))
-        header = (f"<p style='font-size:13px;color:#6b7280;margin:0 0 4px'>"
+        header = (f"<p style='font-size:13px;color:#5a6872;margin:0 0 4px'>"
                   f"Since {html.escape(digest['since'])}</p>")
         return self._send(admin_emails, subject,
                           self._shell("Daily activity", header + body_html),
@@ -752,12 +765,12 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         who = item.get('raised_by_name') or item.get('raised_by') or 'The community'
         text = item.get('text', '')
         priority = (item.get('priority') or 'medium').lower()
-        colour = {'high': '#b42318', 'medium': '#92620a', 'low': '#475569'}.get(priority, '#92620a')
+        colour = {'high': '#b42318', 'medium': '#9a5b00', 'low': '#475569'}.get(priority, '#9a5b00')
 
         link = self.report_link(community)
         button = (f"<div style='margin-top:20px'><a href='{esc(link)}' "
-                  f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
-                  f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
+                  f"style='display:inline-block;background:#003366;color:#fff;text-decoration:none;"
+                  f"font-weight:600;padding:12px 22px;border-radius:8px;font-size:14px'>"
                   f"Open in Atlas Excellence</a></div>") if link else ""
 
         subject = f"Raised by {community}: {text[:60]}" + ('…' if len(text) > 60 else '')
@@ -774,8 +787,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 + (f" &middot; {esc(item.get('category_name'))}"
                    if item.get('category_name') else "")
                 + "</div>"
-                f"<div style='font-size:15px;color:#0f1e36;line-height:1.55'>{esc(text)}</div></div>"
-                f"<p style='font-size:13px;color:#6b7280;margin:16px 0 0;line-height:1.55'>"
+                f"<div style='font-size:15px;color:#1b2730;line-height:1.55'>{esc(text)}</div></div>"
+                f"<p style='font-size:13px;color:#5a6872;margin:16px 0 0;line-height:1.55'>"
                 f"This came from the community rather than from a visit, so nothing was marked "
                 f"Fail and no score has changed. It is here for you to look at.</p>"
                 f"{button}")
@@ -806,14 +819,14 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         out = []
         for it in items:
             days = it.get('quiet_days', 0)
-            colour = '#b42318' if days >= 30 else '#92620a'
-            where = (f"<div style='font-size:12px;color:#6b7280;margin-top:3px'>"
+            colour = '#b42318' if days >= 30 else '#9a5b00'
+            where = (f"<div style='font-size:12px;color:#5a6872;margin-top:3px'>"
                      f"{esc(it.get('community'))}</div>") if show_community else ''
             out.append(
                 f"<tr><td style='padding:11px 0;border-bottom:1px solid #e6ebf3'>"
-                f"<div style='font-size:14.5px;color:#0f1e36;line-height:1.5'>"
+                f"<div style='font-size:14.5px;color:#1b2730;line-height:1.5'>"
                 f"{esc(it.get('text'))}</div>"
-                f"<div style='font-size:11.5px;color:#8a94a6;margin-top:4px'>"
+                f"<div style='font-size:11.5px;color:#5a6872;margin-top:4px'>"
                 f"{esc(self.KIND_WORDS.get(it.get('kind'), 'Open item'))}</div>{where}</td>"
                 f"<td style='padding:11px 0 11px 14px;text-align:right;vertical-align:top;"
                 f"white-space:nowrap;font-size:13px;font-weight:700;color:{colour}'>"
@@ -846,8 +859,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         n = len(items)
         link = self.report_link(community)
         button = (f"<div style='margin-top:22px'><a href='{esc(link)}' "
-                  f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
-                  f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
+                  f"style='display:inline-block;background:#003366;color:#fff;text-decoration:none;"
+                  f"font-weight:600;padding:12px 22px;border-radius:8px;font-size:14px'>"
                   f"Open in Atlas Excellence</a></div>") if link else ''
 
         # The subject leads with the worse number when there is one, because
@@ -865,7 +878,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 f"{'it' if n == 1 else 'them'} for {stage} days or more.</p>"
                 f"{escalated}"
                 f"{self._quiet_rows_html(items)}"
-                f"<p style='font-size:13px;color:#6b7280;margin:18px 0 0;line-height:1.6'>"
+                f"<p style='font-size:13px;color:#5a6872;margin:18px 0 0;line-height:1.6'>"
                 f"A comment counts as an update. If something is waiting on a vendor or a "
                 f"budget, saying so on the item is enough to stop this reminder and tells "
                 f"whoever looks next where it stands.</p>"
@@ -908,7 +921,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                            key=lambda i: -i.get('quiet_days', 0))
             blocks.append(
                 f"<div style='margin:0 0 20px'>"
-                f"<div style='font-size:13px;font-weight:800;color:#00285c;"
+                f"<div style='font-size:13px;font-weight:800;color:#003366;"
                 f"text-transform:uppercase;letter-spacing:.4px'>{esc(community)}</div>"
                 f"{self._quiet_rows_html(items)}</div>")
             text_blocks.append(f"{community}\n" + self._quiet_rows_text(items))
@@ -921,7 +934,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 f"{'has' if total == 1 else 'have'} had no update for {stage} days or more. "
                 f"The Executive Directors have been told about their own.</p>"
                 + ''.join(blocks)
-                + f"<p style='font-size:13px;color:#6b7280;margin:6px 0 0;line-height:1.6'>"
+                + f"<p style='font-size:13px;color:#5a6872;margin:6px 0 0;line-height:1.6'>"
                   f"Sent once per item when it passes {stage} days. A comment on an item "
                   f"counts as an update and stops it repeating.</p>")
         text_body = (f"{total} open item(s){where} with no update in {stage} days or more.\n"
@@ -953,12 +966,12 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         # The note the regional left. First thing read, deliberately: it is
         # the only part of this email that isn't a problem.
         notes = (notes or '').strip()
-        notes_html = (f"<div style='margin:0 0 18px;padding:14px 16px;background:#f2f7ff;"
-                      f"border-left:3px solid #1f6fe5;border-radius:0 8px 8px 0'>"
-                      f"<div style='font-size:12px;font-weight:800;color:#1f4f9e;"
-                      f"text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px'>"
+        notes_html = (f"<div style='margin:0 0 18px;padding:14px 16px;background:#f1f5fa;"
+                      f"border-left:3px solid #003366;border-radius:0 8px 8px 0'>"
+                      f"<div style=\"font-family:{self.MONO};font-size:11px;color:#00709a;"
+                      f"text-transform:uppercase;letter-spacing:.14em;margin-bottom:5px\">"
                       f"Note from {esc(inspector) or 'your regional'}</div>"
-                      f"<div style='font-size:14.5px;color:#0f1e36;line-height:1.55'>"
+                      f"<div style='font-size:14.5px;color:#1b2730;line-height:1.55'>"
                       f"{esc(notes)}</div></div>") if notes else ""
         notes_text = (f"NOTE FROM {(inspector or 'YOUR REGIONAL').upper()}\n  {notes}\n\n"
                       if notes else "")
@@ -994,8 +1007,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 f"<div style='margin-top:8px'>Not checked this time (not scored):</div>"
                 f"<ul style='margin:4px 0 0;padding-left:18px'>{rows}</ul>")
         context_html = (
-            f"<div style='margin-top:24px;padding-top:16px;border-top:1px solid #e5e9f0;"
-            f"font-size:13px;color:#6b7280;line-height:1.55'>"
+            f"<div style='margin-top:24px;padding-top:16px;border-top:1px solid #e1e5ea;"
+            f"font-size:13px;color:#5a6872;line-height:1.55'>"
             + ''.join(context_bits) + "</div>") if context_bits else ""
 
         context_text = ""
@@ -1016,8 +1029,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
 
         link = self.report_link(community)
         button = (f"<div style='margin-top:20px'><a href='{esc(link)}' "
-                  f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
-                  f"font-weight:700;padding:12px 22px;border-radius:8px;font-size:14px'>"
+                  f"style='display:inline-block;background:#003366;color:#fff;text-decoration:none;"
+                  f"font-weight:600;padding:12px 22px;border-radius:8px;font-size:14px'>"
                   f"Open in Atlas Excellence</a></div>") if link else ""
 
         # Two ways in: straight after a visit, or when somebody takes over the
@@ -1053,7 +1066,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                         else "Everything passed — nothing needs your attention.")
                 header = "Visit complete"
             body = (opener_html + notes_html
-                    + f"<p style='font-size:15px;color:#0f8a5f;font-weight:700;margin:12px 0 0'>"
+                    + f"<p style='font-size:15px;color:#0b6b49;font-weight:700;margin:12px 0 0'>"
                       f"{esc(good)}</p>{context_html}{button}")
             text = opener_text + "\n\n" + notes_text + good + "\n" + context_text
             return self._send(recipients, subject, self._shell(header, body), text)
@@ -1063,7 +1076,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             if not crit:
                 return ''
             lis = ''.join(f"<li style='margin:2px 0'>{esc(c)}</li>" for c in crit)
-            return (f"<div style='font-size:12px;color:#6b7280;margin:6px 0 2px'>To pass, must include:</div>"
+            return (f"<div style='font-size:12px;color:#5a6872;margin:6px 0 2px'>To pass, must include:</div>"
                     f"<ul style='margin:0;padding-left:16px;color:#475569;font-size:12.5px'>{lis}</ul>")
 
         # The standard's help material (a flyer, a guide), so the community
@@ -1079,35 +1092,26 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             return (f"<div style='font-size:13px;color:#36454f;margin-top:6px'>"
                     f"Help material: {what}</div>")
 
-        std_rows = ''.join(
-            f"<li style='margin:14px 0'>"
-            f"<b style='font-size:14px;color:#0f1e36'>{esc(i.get('question_text', 'Item'))}</b>"
-            + (f"<div style='font-size:13px;color:#475569;margin-top:3px'>{esc(i.get('description'))}</div>"
+        std_rows = ''.join(self._card(
+            f"<div style='font-weight:600;font-size:14.5px;color:#1b2730'>{esc(i.get('question_text', 'Item'))}</div>"
+            + (f"<div style='font-size:13.5px;color:#36454f;margin-top:3px'>{esc(i.get('description'))}</div>"
                if i.get('description') else "")
-            + crit_html(i) + help_html(i) + "</li>"
+            + crit_html(i) + help_html(i), self.RAIL['fail'])
             for i in failed_items)
 
-        pr_color = {'high': '#b42318', 'medium': '#92620a', 'low': '#475569'}
-        act_rows = ''.join(
-            f"<li style='margin:10px 0'>"
-            f"<b style='color:{pr_color.get(i.get('priority'), '#92620a')};font-size:12px'>"
-            f"[{esc((i.get('priority') or 'medium').upper())}]</b> "
-            f"<span style='font-size:14px;color:#0f1e36'>{esc(i.get('text'))}</span>"
-            + (f"<div style='font-size:12.5px;color:#6b7280;margin-top:2px'>For: "
+        act_rows = ''.join(self._card(
+            f"{self._priority_tag(i.get('priority'))} "
+            f"<span style='font-size:14px;color:#1b2730'>{esc(i.get('text'))}</span>"
+            + (f"<div style='font-size:13px;color:#5a6872;margin-top:4px'>For: "
                f"{esc(i.get('assigned_to_name') or i.get('assigned_to'))}</div>"
-               if i.get('assigned_to') else "")
-            + "</li>"
+               if i.get('assigned_to') else ""), self.RAIL['action'])
             for i in action_items)
 
         blocks = ''
         if failed_items:
-            blocks += (f"<h3 style='font-size:15px;color:#d13212;margin:20px 0 4px'>"
-                       f"Standards that need attention ({len(failed_items)})</h3>"
-                       f"<ul style='margin:0;padding-left:18px'>{std_rows}</ul>")
+            blocks += self._eyebrow('Standards that need attention', len(failed_items)) + std_rows
         if action_items:
-            blocks += (f"<h3 style='font-size:15px;color:#d97706;margin:20px 0 4px'>"
-                       f"Other items flagged ({len(action_items)})</h3>"
-                       f"<ul style='margin:0;padding-left:18px'>{act_rows}</ul>")
+            blocks += self._eyebrow('Other items flagged', len(action_items)) + act_rows
 
         subject = (f"Welcome to Atlas Excellence — {total} open item{'s' if total != 1 else ''} at {community}"
                    if handover else
@@ -1115,8 +1119,8 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         body = (opener_html + notes_html
                 + f"{blocks}"
                 + context_html
-                + f"<div style='margin-top:22px;padding:12px 14px;background:#f6f9ff;"
-                f"border-left:3px solid #cfe0fb;font-size:13px;color:#1f2937'>"
+                + f"<div style='margin-top:22px;padding:12px 14px;background:#f1f5fa;"
+                f"border-left:3px solid #d3dde8;font-size:13px;color:#1b2730'>"
                 f"<b>What to do next.</b> As each one is handled, open it in Atlas Excellence "
                 f"and add a comment saying what was done — a photo helps. Your regional will "
                 f"review it and close it out.</div>{button}")
@@ -1164,19 +1168,19 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         if not self.enabled:
             return (False, 'disabled')
         subject = f"New comment — {community}: {standard[:60]}"
-        photo_line = ("<p style='font-size:13px;color:#6b7280;margin:8px 0 0'>"
+        photo_line = ("<p style='font-size:13px;color:#5a6872;margin:8px 0 0'>"
                       "A photo was attached — open the item to see it.</p>") if has_photo else ""
         link = self.report_link(community)
         button = (f"<div style='margin-top:18px'><a href='{html.escape(link)}' "
-                  f"style='display:inline-block;background:#00285c;color:#fff;text-decoration:none;"
+                  f"style='display:inline-block;background:#003366;color:#fff;text-decoration:none;"
                   f"font-weight:700;padding:11px 20px;border-radius:8px;font-size:14px'>"
                   f"Review the item</a></div>") if link else ""
         body = (f"<p style='font-size:14px;margin:0 0 4px'><b>{html.escape(author)}</b> commented on"
                 f" <b>{html.escape(standard)}</b> at {html.escape(community)}.</p>"
-                f"<blockquote style='margin:12px 0;padding:10px 14px;border-left:3px solid #cfe0fb;"
-                f"background:#f6f9ff;font-size:14px;color:#1f2937'>{html.escape(text)}</blockquote>"
+                f"<blockquote style='margin:12px 0;padding:10px 14px;border-left:3px solid #d3dde8;"
+                f"background:#f1f5fa;font-size:14px;color:#1b2730'>{html.escape(text)}</blockquote>"
                 f"{photo_line}"
-                f"<p style='font-size:12.5px;color:#6b7280;margin:14px 0 0'>The item is still open. "
+                f"<p style='font-size:12.5px;color:#5a6872;margin:14px 0 0'>The item is still open. "
                 f"Once you're satisfied it's resolved, mark it as addressed.</p>{button}")
         text_body = (f"{author} commented on {standard} at {community}:\n\n  {text}\n"
                      + ("\n(a photo was attached)\n" if has_photo else "")
@@ -1206,12 +1210,12 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
         )
         link = self.report_link(community)
         button = (f"<div style='margin-top:18px'><a href='{esc(link)}' style='display:inline-block;"
-                  f"background:#00285c;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;"
+                  f"background:#003366;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;"
                   f"border-radius:8px;font-size:14px'>View full report</a></div>") if link else ""
         body = (f"<p style='font-size:14px;margin:0 0 12px'>{esc(inspector)} directed the following "
                 f"{label.lower()} item(s) to your team during a visit to <strong>{esc(community)}</strong>"
                 f"{(' on ' + esc(when)) if when else ''}.</p>"
-                f"<ul style='margin:0;padding-left:18px;font-size:14px;color:#1f2937'>{rows}</ul>{button}")
+                f"<ul style='margin:0;padding-left:18px;font-size:14px;color:#1b2730'>{rows}</ul>{button}")
         subject = f"{label} follow-up — {community} ({len(items)})"
         text_lines = [f"{inspector} directed {len(items)} {label.lower()} item(s) to your team for {community}:"]
         for it in items:
