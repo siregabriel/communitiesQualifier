@@ -127,7 +127,11 @@ for (const dark of [false, true]) {
         <div class="file-upload-wrapper" id="ev2"><label for="p2" class="file-upload-label"><i class="fas fa-camera"></i> Add Photo</label>
           <div class="file-name">photo.jpg</div><div class="image-preview"><img alt=""></div></div></div>
       <div class="notes-foot"><label class="notes-photo"><i class="fas fa-camera"></i> <span>Add a photo</span></label></div>
-      <div class="submit-row"><button type="submit">Submit Visit</button></div>
+      <div class="submit-row"><button type="submit">Submit Visit</button>
+        <div class="submit-aside"><button type="button" class="draft-save-btn"><i class="fas fa-floppy-disk"></i> Save draft</button>
+          <button type="button" class="draft-discard-btn"><i class="fas fa-trash-can"></i> Discard and start over</button>
+          <span class="draft-status" id="draftStatus"></span></div>
+        <p class="draft-hint">Your answers and photos are saved on this device as you go.</p></div>
       <div class="interpretive-guideline"><div class="guideline-title">Standard expectations</div>
         <div class="guideline-content"><div class="g-narr">Lobby clean and free of odors.</div></div></div>
       <div class="question-section" id="q4"><div class="condition-rating"><label class="radio-button rb-notchecked"><input type="radio" name="c" value="Not checked" checked><span class="radio-label notchecked">Not checked</span></label></div></div>
@@ -187,7 +191,18 @@ for (const dark of [false, true]) {
   for (const k of ['backgroundColor', 'color', 'borderTopStyle', 'borderTopColor', 'height', 'fontWeight', 'fontSize']) {
     ok(np[k] === photo[k], `${mode}: the notes' photo button matches the standards' on ${k} (${np[k]} / ${photo[k]})`);
   }
-  const sub = cs('.submit-row button');
+  // Gabriel: Discard read as loose text beside the Save button. Now a pair:
+  // the same shape, Discard on the right, in a red that reads.
+  const save = cs('.draft-save-btn'), disc = cs('.draft-discard-btn');
+  for (const k of ['height', 'borderTopStyle', 'borderTopWidth', 'fontSize', 'fontWeight']) {
+    ok(save[k] === disc[k], `${mode}: Discard has Save's ${k} (${disc[k]})`);
+  }
+  ok(disc.marginLeft === 'auto', `${mode}: and sits on the right`);
+  const dr = rgb(disc.color);
+  ok(dr[0] > dr[2] + 60 && contrast(disc.color, disc.backgroundColor) >= 4.5,
+     `${mode}: in a red that reads (${contrast(disc.color, disc.backgroundColor).toFixed(1)}:1)`);
+  ok(contrast(cs('.draft-hint').color, dark ? 'rgb(11, 18, 32)' : 'rgb(244, 246, 248)') >= 4.5, `${mode}: the note under them reads on the page`);
+  const sub = cs('.submit-row button[type="submit"]');
   ok(sub.backgroundColor === 'rgb(90, 196, 134)', `${mode}: Submit is Gabriel's green (${sub.backgroundColor})`);
   ok(sub.textTransform === 'none' && contrast(sub.color, sub.backgroundColor) >= 4.5,
      `${mode}: a sentence, in ink that reads on it (${contrast(sub.color, sub.backgroundColor).toFixed(1)}:1)`);

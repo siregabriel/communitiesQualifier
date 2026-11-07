@@ -520,18 +520,22 @@
             display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
             margin-top: 12px;
         }
-        .draft-save-btn {
-            background: #fff; color: #003366; border: 1.5px solid #d9dfe8; border-radius: 10px;
-            padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+        /* Save and Discard as a pair: the same button shape, Save on the left,
+           Discard on the right in a muted red, since it throws the visit away
+           (Gabriel, Nov 2026 — it read as loose text). A solid border, not the
+           dashed one: dashed means "add" on this form (photo, action item). */
+        .draft-save-btn, .draft-discard-btn {
+            display: inline-flex; align-items: center; gap: 7px; height: 44px;
+            background: #fff; border: 1px solid #cfd6dd; border-radius: 8px;
+            padding: 0 16px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+            transition: border-color .2s ease-out, background-color .2s ease-out;
         }
-        /* Quieter than Save: it is the rarer choice, and an irreversible one. */
-        .draft-discard-btn {
-            background: none; color: #64748b; border: none; border-radius: 10px;
-            padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
-            font-family: inherit;
-        }
-        .draft-discard-btn:hover { color: #b42318; }
-        .draft-save-btn:hover { border-color: #003366; }
+        .draft-save-btn { color: #003366; }
+        .draft-discard-btn { color: #b42318; margin-left: auto; }
+        .draft-save-btn:hover { border-color: #003366; background: rgba(0, 51, 102, .04); }
+        .draft-discard-btn:hover { border-color: #b42318; background: #fdf3f1; }
+        .submit-aside .draft-status { flex-basis: 100%; }
+        .submit-aside .draft-status:empty { display: none; }
         /* Floating save indicator. The reassurance has to be visible WHILE
            filling the form — everything else about drafts sits by the submit
            button, several screens down, where nobody looks mid-visit. */
@@ -563,7 +567,7 @@
         .draft-status { font-size: 12.5px; font-weight: 600; color: #64748b; }
         .draft-status.ok { color: #0f6b4a; }
         .draft-status.err { color: #b42318; }
-        .draft-hint { font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 10px 0 0; }
+        .draft-hint { font-size: 12px; color: #5a6872; line-height: 1.5; margin: 10px 0 0; }
         @media (max-width: 640px) {
             .draft-banner { flex-direction: column; align-items: stretch; }
             .draft-banner-actions button { flex: 1; }
@@ -574,6 +578,9 @@
         html[data-theme="dark"] .draft-banner-main span { color: #9fb0c4; }
         html[data-theme="dark"] .draft-btn-ghost,
         html[data-theme="dark"] .draft-save-btn { background: #161f2e; color: #c2cddd; border-color: #33425c; }
+        html[data-theme="dark"] .draft-discard-btn { background: #161f2e; color: #ff9d85; border-color: #33425c; }
+        html[data-theme="dark"] .draft-discard-btn:hover { border-color: #ff9d85; background: rgba(209, 50, 18, .12); }
+        html[data-theme="dark"] .draft-hint { color: #9fb0c4; }
 
         .success-screen {
             position: fixed;
