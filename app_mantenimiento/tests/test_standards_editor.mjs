@@ -50,6 +50,13 @@ for (const dark of [false, true]) {
   const opt = cs('.survey-type-option label'), box = cs('.survey-type-selector').backgroundColor;
   ok(contrast(opt.color, box) >= 7, `${mode}: a survey type's name reads (${contrast(opt.color, box).toFixed(1)}:1)`);
   ok(cs('#questionText').borderRadius === '8px', `${mode}: inputs have 8px corners`);
+  // Gabriel: the type icons were cramped dark squares with a faint icon (the
+  // page writes the type's colour inline, on the navy tile).
+  d.querySelector('.survey-type-icon').setAttribute('style', 'color: #1f6fe5;');
+  const ic = cs('.survey-type-icon'), glyph = cs('.survey-type-icon i');
+  ok(ic.width === '28px' && ic.height === '28px', `${mode}: the icon tile is row-sized (${ic.width})`);
+  ok(contrast(glyph.color, ic.backgroundColor) >= 4.5, `${mode}: the icon reads on its tile (${contrast(glyph.color, ic.backgroundColor).toFixed(1)}:1)`);
+  ok(cs('.survey-type-option label').gap === '12px', `${mode}: with room between icon and name`);
   const count = cs('.selected-count');
   ok(!/gradient/.test(count.backgroundImage) && contrast(count.color, count.backgroundColor) >= 4.5,
      `${mode}: the count is a quiet tag that reads (${count.backgroundColor})`);

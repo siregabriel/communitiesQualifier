@@ -3833,7 +3833,18 @@ html[data-theme="dark"] .visit-page .nearby-x { color: #9fb0c4; }
 .modal .survey-type-selector-header label, .modal .community-selector-header label { font-weight: 600 !important; color: #003366 !important; }
 .modal .survey-type-selector-header, .modal .community-selector-header { box-shadow: none !important; border-bottom-color: #e1e5ea !important; }
 .modal .survey-type-option:hover, .modal .community-option:hover { background: #f7f9fb !important; }
-.modal .survey-type-icon { border-radius: 6px !important; }
+/* A survey type's icon in the editor: the same navy tile with a white icon
+   as on the Select survey type screen, at row size and with room around it.
+   The page writes the type's colour inline, which on navy was unreadable. */
+.modal .survey-type-icon {
+    width: 28px !important; height: 28px !important; flex: 0 0 28px; border-radius: 6px !important;
+    display: inline-flex !important; align-items: center; justify-content: center;
+    background: #003366 !important; color: #ffffff !important; font-size: 13px !important; box-shadow: none !important;
+}
+.modal .survey-type-icon i { color: #ffffff !important; }
+.modal .survey-type-option { padding: 7px 8px !important; gap: 12px !important; }
+.modal .survey-type-option label { gap: 12px !important; }
+html[data-theme="dark"] .modal .survey-type-icon { background: #1f6fe5 !important; }
 .modal .form-group label.every-comm { border-radius: 8px !important; background: #f1f5fa !important; border-color: #d3dde8 !important; }
 .modal .every-comm input { accent-color: #003366; }
 
