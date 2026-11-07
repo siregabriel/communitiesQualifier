@@ -9633,13 +9633,14 @@
             const modal = document.getElementById('personModal');
             const body = document.getElementById('personModalBody');
             body.innerHTML = `
-                <div>
-                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Add person</h2>
-                    <p style="font-size:12.5px;color:#64748b;margin-bottom:18px;">Their login is created automatically, with a temporary password they'll change at first sign-in.</p>
-                    <div style="display:grid;gap:12px;">
+                <div class="pf">
+                    <div class="pf-eyebrow">People</div>
+                    <h2 class="pf-title">Add person</h2>
+                    <p class="pf-sub">Their login is created automatically, with a temporary password they'll change at first sign-in.</p>
+                    <div class="pf-grid">
                         <div><label class="mi-label">Full name</label>
                             <input id="apName" class="pw-input" placeholder="e.g. Michael Hamilton" style="width:100%;"></div>
-                        <div><label class="mi-label">Email <span style="font-weight:500;color:#94a3b8;">(sends them their login)</span></label>
+                        <div><label class="mi-label">Email <span class="pf-opt">(sends them their login)</span></label>
                             <input id="apEmail" class="pw-input" type="email" placeholder="name@atlasseniorliving.com" style="width:100%;"></div>
                         <div><label class="mi-label">Role</label>
                             <select id="apRole" class="pw-input" style="width:100%;" onchange="apOnRoleChange()">
@@ -9663,9 +9664,9 @@
                                 <div class="cov-list" id="apExtraComms"></div>
                             </div>
                         </div>
-                        <div id="apRoleNote" style="font-size:12px;color:#64748b;line-height:1.45;"></div>
+                        <div id="apRoleNote" class="pf-note"></div>
                     </div>
-                    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap;">
+                    <div class="pf-actions">
                         <button class="btn btn-primary" onclick="submitAddPerson()"><i class="fas fa-user-plus"></i> Create account</button>
                         <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
                         <span class="pw-msg" id="apMsg"></span>
@@ -9880,9 +9881,10 @@
             const body = document.getElementById('personModalBody');
             const isSelf = p.username === (typeof currentUsername !== 'undefined' ? currentUsername : '');
             body.innerHTML = `
-                <div>
-                    <h2 style="font-size:19px;font-weight:800;color:#0f1e36;margin-bottom:4px;">Edit person</h2>
-                    <p style="font-size:12.5px;color:#64748b;margin-bottom:18px;">Login <b>@${escapeHtml(p.username)}</b>${
+                <div class="pf">
+                    <div class="pf-eyebrow">People</div>
+                    <h2 class="pf-title">Edit person</h2>
+                    <p class="pf-sub">Login <b>@${escapeHtml(p.username)}</b>${
                         (isAdmin && p.username !== 'admin') ? ` · <a class="pe-rename-link" onclick="startUsernameChange()">Change</a>` : ''}</p>
                     <div id="peUserWrap" class="pe-rename" style="display:none;">
                         <label class="mi-label">New username</label>
@@ -9896,7 +9898,7 @@
                             <button class="btn btn-secondary" onclick="startUsernameChange(false)">Cancel</button>
                         </div>
                     </div>
-                    <div style="display:grid;gap:12px;">
+                    <div class="pf-grid">
                         <div><label class="mi-label">Full name</label>
                             <input id="peName" class="pw-input" value="${escapeHtml(p.name)}" style="width:100%;"></div>
                         <div><label class="mi-label">Email</label>
@@ -9943,7 +9945,7 @@
                             <span>Signs in from Atlerts as <b class="pe-atlerts-email"></b></span>
                             <button type="button" class="pe-atlerts-unlink">Unlink</button>
                         </div>` : ''}
-                        <div id="peRoleNote" style="font-size:12px;color:#64748b;line-height:1.45;"></div>
+                        <div id="peRoleNote" class="pf-note"></div>
                         ${(peopleData.can_grant_admin && p.role !== 'admin') ? `
                         <div class="pe-priv">
                             <label class="pe-priv-row">
@@ -9956,17 +9958,17 @@
                             <div class="pe-priv-note"><i class="fas fa-lock"></i> Only the main administrator can change this.</div>
                         </div>` : ''}
                     </div>
-                    <div style="display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap;">
+                    <div class="pf-actions">
                         <button class="btn btn-primary" onclick="savePersonEdit('${(p.username || '').replace(/'/g, "\\'")}')"><i class="fas fa-floppy-disk"></i> Save</button>
                         <button class="btn btn-secondary" onclick="closePersonModal()">Cancel</button>
                         <span class="pw-msg" id="peMsg"></span>
                     </div>
-                    <div style="margin-top:22px;padding-top:16px;border-top:1px solid #eef1f6;">
+                    <div class="pf-danger">
                         ${isSelf
-                            ? `<div style="font-size:12px;color:#94a3b8;"><i class="fas fa-circle-info"></i> This is your own account — you cannot delete it.</div>`
+                            ? `<div class="pf-note"><i class="fas fa-circle-info"></i> This is your own account — you cannot delete it.</div>`
                             : `<button class="btn-danger-solid" onclick="deletePerson('${(p.username || '').replace(/'/g, "\\'")}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
                                    <i class="fas fa-user-slash"></i> Remove this person</button>
-                               <div style="font-size:11.5px;color:#94a3b8;margin-top:7px;line-height:1.45;">
+                               <div class="pf-note pf-note-gap">
                                    Removes their access${isRoster ? ' and takes them off the roster' : ''}. Visits they already submitted are kept.</div>`}
                     </div>
                 </div>`;
