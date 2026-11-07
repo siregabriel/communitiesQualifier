@@ -4053,3 +4053,11 @@ html[data-theme="dark"] .content-section .bulk-comm button { background: #1b2537
 html[data-theme="dark"] .content-section #deleteSelectedBtn { background: #1b2537 !important; color: #ff9d85 !important; border-color: rgba(209, 50, 18, .45) !important; }
 /* The dark catch-all colours every <i> itself, so the icons follow their button. */
 html[data-theme="dark"] #questionsTable .btn-icon i { color: inherit !important; }
+
+/* "Change" on the visit type tag: back to choosing the type (Gabriel, Nov 2026). */
+.visit-page .survey-type-badge .st-change {
+    margin-left: 4px; padding-left: 8px; border-left: 1px solid #c3cfdc;
+    color: #1d4ed8; font-weight: 600; text-decoration: none; font-size: 12.5px;
+}
+.visit-page .survey-type-badge .st-change:hover { text-decoration: underline; }
+html[data-theme="dark"] .visit-page .survey-type-badge .st-change { color: #9cc4ff; border-left-color: #33425c; }

@@ -1186,7 +1186,10 @@
                 {% if survey_type %}
                 <div class="survey-type-badge" id="surveyTypeBadge" data-color="{{ survey_type.color }}">
                     <i class="fas {{ survey_type.icon }}"></i>
-                    <span>{{ survey_type.name }}</span>
+                    <span id="surveyTypeName">{{ survey_type.name }}</span>
+                    <!-- Picked the wrong type? Back to the choice, keeping the
+                         community. A plain link, so it works before the script. -->
+                    <a class="st-change" id="changeTypeLink" href="/select-survey-type">Change</a>
                 </div>
                 <script>
                     (function () {
@@ -2164,6 +2167,34 @@
             if (document.hidden) { clearTimeout(_draftTimer); draftSaveNow(true); }
         });
         window.addEventListener('pagehide', () => { clearTimeout(_draftTimer); draftSaveNow(true); });
+
+        /* "Change" on the survey type: back to choosing the type, with the
+           community already chosen carried along. Nothing is lost: answers so
+           far stay as this type's draft — saved here, and again as the page
+           goes, exactly as when Home is tapped — and if there are any, it says
+           so first and lets them stay. The link itself does the navigating. */
+        function changeSurveyType(e) {
+            const link = e.currentTarget;
+            const sel = document.getElementById('communitySelect');
+            const community = (sel && sel.value) || '';
+            link.href = '/select-survey-type' + (community ? '?community=' + encodeURIComponent(community) : '');
+            let answered = false;
+            try { answered = !!draftKey() && !draftIsEmpty(draftCollect()); } catch (err) {}
+            if (!answered) return;
+            const typeEl = document.getElementById('surveyTypeName');
+            const typeName = typeEl ? typeEl.textContent.trim() : 'this visit type';
+            if (!confirm(`Change the visit type?\n\nYour answers for ${typeName} stay saved as a draft. `
+                + `Choose ${typeName} again to finish them.`)) {
+                e.preventDefault();
+                return;
+            }
+            clearTimeout(_draftTimer);
+            draftSaveNow(true);
+        }
+        (function () {
+            const link = document.getElementById('changeTypeLink');
+            if (link) link.addEventListener('click', changeSurveyType);
+        })();
 
         function saveDraftManually() {
             clearTimeout(_draftTimer);
