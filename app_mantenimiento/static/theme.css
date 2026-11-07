@@ -3027,21 +3027,31 @@ html[data-theme="dark"] .progress-bar-container { background: #161f2e !important
 }
 .set-group::after { content: ''; flex: 1; height: 1px; background: #e1e5ea; }
 html[data-theme="dark"] .set-group::after { background: #2b3a52; }
-.set-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
-.set-grid > .set-wide { grid-column: 1 / -1; }
-@media (max-width: 900px) { .set-grid { grid-template-columns: 1fr; } }
+.set-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.set-grid.set-grid-one { grid-template-columns: minmax(0, 1fr); }
+/* Admin: Your account (one card) | Administration (two cards), one row. */
+.set-col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.set-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+@media (max-width: 1180px) { .set-top { grid-template-columns: minmax(0, 1fr); } }
+/* The four routing lists side by side, two by two when narrower. */
+.set-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; align-items: start; margin-top: 6px; }
+.set-list { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.set-list .set-hint-under { margin: 0; }
+/* Visit report subscribers: two per row when there is room. */
+.set-subs { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 10px; align-items: start; }
+@media (max-width: 900px) { .set-grid, .set-subs { grid-template-columns: minmax(0, 1fr); } }
 /* The two lists carry an email box per category: side by side only when wide. */
 @media (max-width: 1180px) { .set-grid-lists { grid-template-columns: 1fr; } }
 
 /* Each card: header row on a hairline, body below. */
-.profile-section { padding: 0 24px 22px !important; border-radius: 8px !important; }
+.profile-section { padding: 0 20px 18px !important; border-radius: 8px !important; }
 .profile-section-title {
     font-size: 15px !important; font-weight: 600 !important; color: #1b2730 !important;
-    margin: 0 -24px 18px !important; padding: 15px 24px 14px; border-bottom: 1px solid #e1e5ea;
+    margin: 0 -20px 14px !important; padding: 12px 20px 11px; border-bottom: 1px solid #e1e5ea;
 }
 .profile-section-title i { color: #007fad !important; font-size: 14px; }
 .set-desc {
-    font-size: 13px; color: #5a6872; line-height: 1.55; max-width: 72ch; margin: 0 0 16px;
+    font-size: 13px; color: #5a6872; line-height: 1.5; max-width: 72ch; margin: 0 0 12px;
 }
 .set-desc b { color: #1b2730; font-weight: 600; }
 .set-stack { display: grid; gap: 12px; }
@@ -3064,7 +3074,9 @@ html[data-theme="dark"] .set-group::after { background: #2b3a52; }
     background: #ffffff; color: #1b2730; font-size: 14px;
 }
 /* The password form fills its card's width in a row when there is room. */
-.pw-form { max-width: none !important; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); align-items: center; }
+/* Stacked: the card is a third of the row (admin) or half (everyone else). */
+.pw-form { max-width: none !important; grid-template-columns: minmax(0, 1fr); }
+.pw-form > .btn { justify-self: start; }
 .pw-form .pw-msg { grid-column: 1 / -1; }
 .profile-pref { font-weight: 500 !important; }
 
@@ -3076,7 +3088,7 @@ html[data-theme="dark"] .set-group::after { background: #2b3a52; }
 .rc-move button { border-radius: 4px !important; }
 
 /* Who receives what: initials in mono, names at UI weight. */
-.nsum-row { border-top-color: #eef1f3 !important; }
+.nsum-row { border-color: #eef1f3 !important; }
 .nsum-avatar { font-family: var(--font-mono); font-weight: 500 !important; border-radius: 6px !important; background: #e8eef4 !important; color: #003366 !important; }
 .nsum-name { font-weight: 600 !important; color: #1b2730 !important; }
 .nsum-email { font-family: var(--font-mono); font-size: 11.5px !important; color: #5a6872 !important; }

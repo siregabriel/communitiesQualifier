@@ -155,5 +155,48 @@ for (const dark of [false, true]) {
   ok(r > g + 60 && r > b + 60, `${dark ? 'dark' : 'light'}: "No community assigned" is red (${w.getComputedStyle(el).color})`);
 }
 
+/*
+  Nov 2026, Gabriel: the cards took too much room. An admin's "Change password"
+  filled a whole row for three inputs, and "Email recipients" was one long row
+  per person across the full width. Now an admin's account sits beside
+  Administration, the four routing lists share a row, and recipients are cards
+  in a grid. The text also said Executive Directors were not listed, which
+  stopped being true when they were added. Widths still need a human look.
+*/
+console.log('\nSettings uses its width');
+{
+  const w = await settings({ admin: true, dark: false });
+  const d = w.document;
+  const top = d.querySelector('.set-top');
+  const cols = top ? [...top.children].map(c => c.querySelector('.set-group')?.textContent.trim()) : [];
+  ok(JSON.stringify(cols) === JSON.stringify(['Your account', 'Administration']),
+     `an admin's account and Administration share one row (${cols.join(' | ')})`);
+  ok(/minmax\(0px, 1fr\) minmax\(0px, 2fr\)|minmax\(0, 1fr\) minmax\(0, 2fr\)/.test(w.getComputedStyle(top).gridTemplateColumns),
+     `a third for the account, two thirds for Administration (${w.getComputedStyle(top).gridTemplateColumns})`);
+  ok(!d.getElementById('pwCurrent').closest('.set-wide'), 'the password card does not span the row');
+  const lists = [...d.querySelectorAll('.set-lists > .set-list textarea')].map(t => t.id);
+  ok(JSON.stringify(lists) === JSON.stringify(['esAdminNotify', 'esClinical', 'esOps', 'esSales']),
+     `the four routing lists sit in one grid (${lists.join(', ')})`);
+  const desc = [...d.querySelectorAll('.set-desc')].map(p => p.textContent).join(' ');
+  ok(!/Executive Directors don.t appear/.test(desc), 'nothing claims Executive Directors are not listed');
+
+  // The recipients themselves: cards inside the grid, warnings below it.
+  w.eval(`${grab('loadNotificationSummary')}
+    fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve({
+      status: 'success', email_enabled: false,
+      missing_email: [{ name: 'No Address', region: 'Magnolia' }],
+      people: [
+        { email: 'a@x.com', name: 'Ann Auto', removable: false, items: [{ kind: 'auto', label: 'Inspection reports', detail: 'Magnolia region (automatic)' }] },
+        { email: 'b@x.com', name: 'Bob Sub', removable: true, items: [{ kind: 'all', label: 'Inspection reports', detail: '' }] },
+      ] }) });`);
+  await w.eval('loadNotificationSummary()');
+  const host = d.getElementById('notifySummary');
+  ok(host.querySelectorAll('.nsum-grid > .nsum-row').length === 2, 'each recipient is a card in the grid');
+  ok(!host.querySelector('.nsum-grid .nsum-warn') && host.querySelectorAll(':scope > .nsum-warn').length === 2,
+     'the warnings sit below the grid, full width');
+  const gtc = w.getComputedStyle(host.querySelector('.nsum-grid')).gridTemplateColumns;
+  ok(/^repeat\(3,/.test(gtc), `three columns when wide (${gtc})`);
+}
+
 console.log(failures ? `\n${failures} failed` : '\nall passed');
 process.exit(failures ? 1 : 0);

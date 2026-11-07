@@ -2275,15 +2275,17 @@
         html[data-theme="dark"] .corp-all-comms { background: #1b2537; border-color: #33425c; color: #cfe0ff; }
 
         /* ===== Notification summary (who receives what) ===== */
-        .nsum-row { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid #eef1f6; align-items: flex-start; }
-        .nsum-row:first-of-type { border-top: none; }
+        .nsum-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        @media (max-width: 1200px) { .nsum-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 700px)  { .nsum-grid { grid-template-columns: minmax(0, 1fr); } }
+        .nsum-row { display: flex; gap: 12px; padding: 12px; border: 1px solid #eef1f6; border-radius: 10px; align-items: flex-start; }
         .nsum-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; background: #e7edf7;
             color: #003366; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .nsum-main { flex: 1; min-width: 0; }
         .nsum-name { font-size: 14px; font-weight: 700; color: #0f1e36; }
         .nsum-email { font-size: 12px; color: #64748b; word-break: break-all; }
         .nsum-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
-        .nsum-tag { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+        .nsum-tag { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; max-width: 100%; overflow-wrap: anywhere; }
         .nsum-tag small { font-weight: 500; opacity: .85; }
         .nsum-all   { background: #e6f5ee; color: #0f6b4a; border: 1px solid #b7e0cd; }
         .nsum-auto  { background: #e7edf7; color: #003366; border: 1px solid #c7d6f0; }
@@ -2291,17 +2293,17 @@
         .nsum-admin { background: #fef6e0; color: #92620a; border: 1px solid #f3d27a; }
         .nsum-route { background: #f3e8ff; color: #6b21a8; border: 1px solid #e0c9fb; }
         .nsum-del { flex-shrink: 0; width: 30px; height: 30px; border: 1px solid #e2e8f0; background: #fff;
-            border-radius: 8px; color: #b42318; cursor: pointer; font-size: 12px; align-self: center;
+            border-radius: 8px; color: #b42318; cursor: pointer; font-size: 12px; align-self: flex-start;
             display: flex; align-items: center; justify-content: center; transition: all .15s ease; }
         .nsum-del:hover { background: #fdf3f1; border-color: #d13212; }
         .nsum-lock { flex-shrink: 0; width: 30px; height: 30px; color: #c2cad6; font-size: 11px;
-            display: flex; align-items: center; justify-content: center; align-self: center; cursor: help; }
+            display: flex; align-items: center; justify-content: center; align-self: flex-start; cursor: help; }
         html[data-theme="dark"] .nsum-del { background: #1b2537; border-color: #33425c; color: #ff9d85; }
         html[data-theme="dark"] .nsum-del:hover { background: rgba(209,50,18,.18); border-color: #ff9d85; }
         html[data-theme="dark"] .nsum-lock { color: #5b6b83; }
         .nsum-warn { background: #fdf3f1; border: 1px solid #f7d3ca; border-radius: 10px;
             padding: 11px 13px; margin-top: 14px; font-size: 12.5px; color: #7a3227; line-height: 1.5; }
-        html[data-theme="dark"] .nsum-row { border-top-color: #26324a; }
+        html[data-theme="dark"] .nsum-row { border-color: #26324a; }
         html[data-theme="dark"] .nsum-avatar { background: #26324a; color: #cfe0ff; }
         html[data-theme="dark"] .nsum-name { color: #eef2f8; }
         html[data-theme="dark"] .nsum-email { color: #9fb0c4; }
@@ -11152,9 +11154,13 @@
 
                     <div class="profile-stats">${statCards.join('')}</div>
 
+                    <!-- An admin's account holds one card: it sits beside
+                         Administration instead of taking a whole row. -->
+                    <div class="${admin ? 'set-top' : 'set-col'}">
+                    <div class="set-col">
                     <div class="set-group">Your account</div>
-                    <div class="set-grid">
-                        <div class="profile-section${admin ? ' set-wide' : ''}">
+                    <div class="set-grid${admin ? ' set-grid-one' : ''}">
+                        <div class="profile-section">
                             <div class="profile-section-title"><i class="fas fa-lock"></i> Change password</div>
                             <div class="pw-form">
                                 <input type="password" id="pwCurrent" class="pw-input" placeholder="Current password" autocomplete="current-password">
@@ -11171,7 +11177,9 @@
                             <div class="profile-pref"><span>Language</span><span class="muted">English (US)</span></div>
                         </div>`}
                     </div>
+                    </div>
                     ${admin ? `
+                    <div class="set-col">
                     <div class="set-group">Administration</div>
                     <div class="set-grid">
                         <div class="profile-section">
@@ -11198,6 +11206,9 @@
                             <button class="btn btn-primary" onclick="showView('people')"><i class="fas fa-users"></i> Open People</button>
                         </div>
                     </div>
+                    </div>` : ''}
+                    </div>
+                    ${admin ? `
 
                     <div class="set-group">Email</div>
                     <div class="profile-section">
@@ -11215,7 +11226,7 @@
                         </style>
                         <div class="set-stack">
                             <label class="set-label">Visit report subscribers <small>(region leaders always get their own region automatically)</small></label>
-                            <div id="esSubscribers"></div>
+                            <div id="esSubscribers" class="set-subs"></div>
                             <div class="set-inline">
                                 <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()"><i class="fas fa-plus"></i> Add subscriber</button>
                                 <span id="esSubCount" class="set-count"></span>
@@ -11225,7 +11236,9 @@
                                  It was labelled "Notify when a new user is created", so
                                  nobody looking for move-in emails could find it — and
                                  that is exactly where they are configured. -->
-                            <label class="set-label set-label-gap">Administrator notifications</label>
+                            <div class="set-lists">
+                            <div class="set-list">
+                            <label class="set-label">Administrator notifications</label>
                             <div class="set-hint set-hint-under">
                                 These addresses receive: new accounts and password activity,
                                 move-in reminders and completions, and the daily summary.
@@ -11233,12 +11246,20 @@
                                 when a move-in is completed, the region's leadership is told too.
                             </div>
                             <textarea id="esAdminNotify" class="pw-input set-area" rows="3" placeholder="one per line or comma-separated"></textarea>
-                            <label class="set-label set-label-gap">Clinical team <small>(receives comments directed to Clinical)</small></label>
-                            <textarea id="esClinical" class="pw-input set-area" rows="2" placeholder="one per line or comma-separated"></textarea>
-                            <label class="set-label set-label-gap">Operations (Ops) team <small>(receives comments directed to Ops)</small></label>
-                            <textarea id="esOps" class="pw-input set-area" rows="2" placeholder="one per line or comma-separated"></textarea>
-                            <label class="set-label set-label-gap">Sales team <small>(receives comments directed to Sales)</small></label>
-                            <textarea id="esSales" class="pw-input set-area" rows="2" placeholder="one per line or comma-separated"></textarea>
+                            </div>
+                            <div class="set-list">
+                            <label class="set-label">Clinical team <small>(receives comments directed to Clinical)</small></label>
+                            <textarea id="esClinical" class="pw-input set-area" rows="3" placeholder="one per line or comma-separated"></textarea>
+                            </div>
+                            <div class="set-list">
+                            <label class="set-label">Operations (Ops) team <small>(receives comments directed to Ops)</small></label>
+                            <textarea id="esOps" class="pw-input set-area" rows="3" placeholder="one per line or comma-separated"></textarea>
+                            </div>
+                            <div class="set-list">
+                            <label class="set-label">Sales team <small>(receives comments directed to Sales)</small></label>
+                            <textarea id="esSales" class="pw-input set-area" rows="3" placeholder="one per line or comma-separated"></textarea>
+                            </div>
+                            </div>
                             <div class="set-inline">
                                 <button class="btn btn-primary" onclick="saveEmailSettings()"><i class="fas fa-floppy-disk"></i> Save</button>
                                 <span class="pw-msg" id="esMsg"></span>
@@ -11251,9 +11272,9 @@
                         <p class="set-desc">
                             Every address that receives email from Atlas Excellence, and exactly which notifications it gets —
                             including region leaders, who are copied on their own region automatically.
-                            <b>This is not the list of accounts.</b> Executive Directors don't appear here:
-                            they receive email about their own community, not from these lists. To find a
-                            person or reset a password, use <b>People</b>.
+                            <b>This is not the list of accounts.</b> Rows with a lock come from the person's
+                            role (region leaders, Executive Directors): change them in <b>Regions</b> or
+                            <b>People</b>. The bin removes an address from the lists on this page.
                         </p>
                         <div id="notifySummary"><div class="activity-empty">Loading…</div></div>
                     </div>
@@ -11341,19 +11362,19 @@
             const inspChecks = esInspectors.map(n =>
                 `<label class="chip"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" onchange="onScopeToggle(this)" ${subInsp.includes(n) ? 'checked' : ''}><span>${escapeHtml(n)}</span></label>`
             ).join('');
-            return `<div class="sub-row" style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;background:var(--surface);">
+            return `<div class="sub-row" style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--surface);">
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <input class="pw-input sub-email" type="email" placeholder="email" value="${escapeHtml(sub.email || '')}" style="flex:1;min-width:200px;" data-original="${escapeHtml(sub.email || '')}">
                     <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;min-width:160px;">
                     <button class="res-del" type="button" title="${isNew ? 'Discard' : 'Remove this subscriber'}" onclick="${isNew ? 'removeSubRow(this)' : 'deleteSavedSubscriber(this)'}"><i class="fas fa-trash"></i></button>
                 </div>
-                <label class="chip" style="margin-top:14px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}><span><i class="fas fa-globe" style="margin-right:5px;"></i>All visits</span></label>
-                <div class="sub-detail" style="margin-top:14px;border-top:1px solid #eef1f6;padding-top:14px;">
+                <label class="chip" style="margin-top:10px;"><input type="checkbox" class="sub-all" onchange="onSubAllChange(this)" ${all ? 'checked' : ''}><span><i class="fas fa-globe" style="margin-right:5px;"></i>All visits</span></label>
+                <div class="sub-detail" style="margin-top:10px;border-top:1px solid #eef1f6;padding-top:10px;">
                     <div class="scope-label">By region</div>
                     <div class="chip-wrap">${regionChecks}</div>
-                    ${inspChecks ? `<div class="scope-label" style="margin-top:14px;">By inspector</div><div class="chip-wrap">${inspChecks}</div>` : ''}
+                    ${inspChecks ? `<div class="scope-label" style="margin-top:10px;">By inspector</div><div class="chip-wrap">${inspChecks}</div>` : ''}
                 </div>
-                <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <button class="btn btn-primary" type="button" onclick="saveSingleSubscriber(this)">
                         <i class="fas fa-${isNew ? 'user-plus' : 'floppy-disk'}"></i> ${isNew ? 'Add this subscriber' : 'Save changes'}</button>
                     ${isNew ? '<button class="btn btn-secondary" type="button" onclick="removeSubRow(this)">Cancel</button>' : ''}
@@ -11598,7 +11619,7 @@
                 const off = d.email_enabled ? '' : `<div class="nsum-warn" style="margin-top:10px;">
                     <b><i class="fas fa-circle-info"></i> Email sending is currently disabled on this server.</b>
                     These recipients are configured, but nothing will be sent until email is enabled.</div>`;
-                host.innerHTML = rows + warn + off;
+                host.innerHTML = `<div class="nsum-grid">${rows}</div>` + warn + off;
             } catch (e) {
                 host.innerHTML = '<div class="activity-empty">Could not load the notification summary.</div>';
             }
