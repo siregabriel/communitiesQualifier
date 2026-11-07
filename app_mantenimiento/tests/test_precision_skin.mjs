@@ -66,6 +66,7 @@ for (const dark of [false, true]) {
   const h1 = cs('.header-left h1');
   ok(/Roboto/.test(font('.header-left h1')) && h1.fontWeight === '700', `${mode}: the title is Roboto bold`);
   ok(cs('.header-left h1 i').display === 'none', `${mode}: without the old icon`);
+  ok(cs('.header-section').paddingLeft === '0px', `${mode}: the title starts where the cards do, not 36px in (${cs('.header-section').paddingLeft})`);
 
   const hero = cs('.dash-kpis > .kpi:first-child');
   const heroVal = cs('.dash-kpis > .kpi:first-child .kpi-val');

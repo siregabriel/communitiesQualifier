@@ -158,6 +158,8 @@ console.log('\nThe header stops calling an old visit the last one');
     <div id="slidePanelBody"></div></body>`, { runScripts: 'outside-only' });
   const h = hdom.window;
   h.eval(`
+    ${grab('setPanelEyebrow')}
+    function getCommunityRegionName() { return null; }
     ${grab('renderPanelContent')}
     var currentPanelCommunity = null;
     function escapeHtml(s) { return String(s); }

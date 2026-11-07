@@ -327,18 +327,9 @@
             color: #fff;
         }
 
-        /* "NOT CHECKED" does not fit a third of a phone's width in capitals.
-           It is the exception, not a verdict, so on a phone it takes its own
-           row under Pass and Fail instead of squeezing all three. */
-        @media (max-width: 480px) {
-            .condition-rating { flex-wrap: wrap; }
-            .radio-button.rb-notchecked { flex: 1 0 100%; }
-            .radio-button.rb-notchecked .radio-label {
-                height: 40px;
-                border-left: none;
-                border-top: 1px solid #d9dfe8;
-            }
-        }
+        /* "NOT CHECKED" did not fit a third of a phone in capitals, so it had
+           its own row. In sentence case it fits, and the three sit on one
+           line as in the mock-up (Gabriel, Nov 2026): see theme.css. */
 
         /* Dark mode paints every segment the same with !important, which
            also hid the fill of the one chosen: a picked Pass or Fail looked
@@ -346,7 +337,6 @@
         html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.pass { background: #0e8259 !important; color: #fff; }
         html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.fail { background: #d13212 !important; color: #fff; }
         html[data-theme="dark"] .radio-button input[type="radio"]:checked + .radio-label.notchecked { background: #5b6b85 !important; color: #fff; }
-        html[data-theme="dark"] .radio-button.rb-notchecked .radio-label { border-top-color: #2b3a52; }
 
         .file-upload-wrapper {
             position: relative;
@@ -1145,7 +1135,7 @@
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
 
 </head>
-<body>
+<body class="visit-page">
     <div class="container">
         <div class="header">
             <div class="header-left">
@@ -1169,18 +1159,17 @@
                 </script>
                 {% endif %}
             </div>
-            <div style="display:flex;gap:10px;align-items:flex-start;">
+            <div class="hdr-actions">
                 <!-- The way out. Until this existed, choosing the wrong survey type
                      left you with the browser's back button or logging out — and
                      "Back to home" only appeared after submitting, which is no help
                      to someone who hasn't started. Leaving is safe: the form saves
                      itself as you go, so the visit is waiting when you return. -->
-                <a class="logout-btn" href="/dashboard"
-                   style="background:#eef2fb;border:1px solid #c7d6f0;color:#003366;text-decoration:none;display:inline-flex;align-items:center;gap:7px;"
+                <a class="logout-btn hdr-btn" href="/dashboard"
                    title="Back to the dashboard — your answers are saved on this device"><i class="fas fa-house"></i> Home</a>
-                <button class="logout-btn" type="button" id="themeToggleBtn" onclick="toggleTheme()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#003366;" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
-                <button class="logout-btn" type="button" onclick="startFormTour()" style="background:#eef2fb;border:1px solid #c7d6f0;color:#003366;" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
-                <button class="logout-btn" onclick="logout()">Logout</button>
+                <button class="logout-btn hdr-btn" type="button" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
+                <button class="logout-btn hdr-btn" type="button" onclick="startFormTour()" title="Show the tutorial"><i class="fas fa-circle-question"></i> Help</button>
+                <button class="logout-btn hdr-out" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
             </div>
         </div>
 
@@ -2591,6 +2580,13 @@
             const passCriteria = Array.isArray(question.pass_criteria) ? question.pass_criteria : [];
             const hasStandard = guidelineText || passCriteria.length;
 
+            // Where you are in a long visit: "03 / 20", in mono above the title.
+            const qNum = document.createElement('div');
+            qNum.className = 'q-num';
+            const pad = (n) => String(n).padStart(2, '0');
+            qNum.textContent = `${pad(index + 1)} / ${pad(questions.length)}`;
+            section.appendChild(qNum);
+
             // Question title (with a mobile-only info button when guidance exists)
             const titleRow = document.createElement('div');
             titleRow.className = 'question-title-row';
@@ -2716,8 +2712,8 @@
             const routeWrap = document.createElement('div');
             routeWrap.style.marginTop = '12px';
             routeWrap.innerHTML = `
-                <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:6px;">Direct comment to (optional)</label>
-                <select id="route_${question.id}" style="width:100%;padding:11px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;background:#fff;color:#0f172a;">
+                <label class="dc-label">Direct comment to <span class="dc-opt">(optional)</span></label>
+                <select id="route_${question.id}">
                     <option value="">— No one specific —</option>
                     <option value="clinical">Clinical</option>
                     <option value="ops">Operations (Ops)</option>

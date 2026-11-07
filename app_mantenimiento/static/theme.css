@@ -677,56 +677,72 @@ html[data-theme="dark"] .main-content::before {
    A visit somebody started and has not sent. It sits above their submitted
    ones because it is the one thing here that still needs them. */
 .dn {
-    background: #fffdf5;
-    border: 1px solid #f0e3c0;
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-bottom: 18px;
+    /* Precision (Nov 2026): a white panel like the rest, its header row on a
+       hairline, an amber rail for "still needs you" (amber is a line here,
+       never text: it is 2:1 on white). It was cream with gold borders. */
+    background: #ffffff; border: 1px solid #e1e5ea; border-radius: 8px;
+    box-shadow: inset 3px 0 0 #ffa500, 0 2px 12px rgba(0, 0, 0, .06);
+    padding: 0 18px 8px; margin-bottom: 18px;
+    grid-column: 1 / -1;   /* My Visits draws it in the gallery grid: full width, not one column */
 }
-html[data-theme="dark"] .dn { background: rgba(146,98,10,.12); border-color: rgba(245,194,107,.28); }
+html[data-theme="dark"] .dn { background: #161f2e; border-color: #2b3a52; box-shadow: inset 3px 0 0 #f2c94c; }
 
 .dn-title {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 14px; font-weight: 800; color: #7a5504; margin: 0;
+    display: flex; align-items: center; gap: 9px;
+    font-size: 15px; font-weight: 600; color: #1b2730; margin: 0 -18px;
+    padding: 14px 18px 12px; border-bottom: 1px solid #e1e5ea;
 }
-html[data-theme="dark"] .dn-title { color: #f5c26b; }
+.dn-title i { color: #9a5b00; font-size: 14px; }
+html[data-theme="dark"] .dn-title { color: #eef2f8; border-bottom-color: #2b3a52; }
+html[data-theme="dark"] .dn-title i { color: #f2c94c; }
 .dn-title span {
-    background: #f3e3bd; color: #7a5504;
-    font-size: 12px; font-weight: 800;
-    padding: 1px 9px; border-radius: 999px;
+    font-family: var(--font-mono); background: #fff3dc; color: #8a5300;
+    font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px;
 }
-html[data-theme="dark"] .dn-title span { background: rgba(245,194,107,.22); color: #f5c26b; }
+html[data-theme="dark"] .dn-title span { background: rgba(242, 201, 76, .16); color: #f2c94c; }
 
-.dn-note {
-    font-size: 12.5px; color: #8a7340; line-height: 1.5; margin: 6px 0 10px;
-}
-html[data-theme="dark"] .dn-note { color: #c8b284; }
+.dn-note { font-size: 13px; color: #5a6872; line-height: 1.5; margin: 10px 0 4px; max-width: 72ch; }
+html[data-theme="dark"] .dn-note { color: #9fb0c4; }
 
+/* Each visit: a row on a hairline, not a box in a box. */
 .dn-row {
     display: flex; align-items: center; gap: 12px;
-    padding: 11px 12px; min-height: 44px;
-    background: #fff; border: 1px solid #f0e3c0; border-radius: 10px;
-    margin-top: 8px; text-decoration: none;
+    padding: 12px 8px; margin: 0 -8px; min-height: 44px;
+    background: transparent; border: 0; border-top: 1px solid #eef1f3; border-radius: 6px;
+    text-decoration: none; transition: background .2s ease-out;
 }
-.dn-row:hover { border-color: #d9bd6a; }
-html[data-theme="dark"] .dn-row { background: #131c2b; border-color: rgba(245,194,107,.22); }
+.dn-note + .dn-row { border-top-color: transparent; }
+.dn-row:hover { background: #f7f9fb; }
+html[data-theme="dark"] .dn-row { background: transparent; border-top-color: #26324a; }
+html[data-theme="dark"] .dn-note + .dn-row { border-top-color: transparent; }
+html[data-theme="dark"] .dn-row:hover { background: #1b2537; }
 
-.dn-icon { color: #b8860b; font-size: 16px; flex-shrink: 0; }
+.dn-icon {
+    width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0; background: #e8eef4; color: #003366;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+html[data-theme="dark"] .dn-icon { background: #1b2a42; color: #cfe0ff; }
 .dn-body { flex: 1; min-width: 0; }
-.dn-where { display: block; font-size: 14.5px; font-weight: 700; color: #0f1e36; line-height: 1.3; }
+.dn-where { display: block; font-size: 14.5px; font-weight: 600; color: #1b2730; line-height: 1.3; }
 html[data-theme="dark"] .dn-where { color: #e8eefc; }
-.dn-where small { display: block; font-size: 12px; font-weight: 500; color: #64748b; }
+.dn-where small { display: block; font-size: 12.5px; font-weight: 400; color: #5a6872; }
 html[data-theme="dark"] .dn-where small { color: #9fb0c4; }
-.dn-meta { display: block; font-size: 12px; color: #64748b; margin-top: 3px; }
+.dn-meta { display: block; font-family: var(--font-mono); font-size: 11.5px; color: #5a6872; margin-top: 4px; }
 html[data-theme="dark"] .dn-meta { color: #9fb0c4; }
-.dn-go { color: #b8860b; font-size: 13px; flex-shrink: 0; }
+/* How far along: answered of total, navy on a quiet track. */
+.dn-bar { display: block; height: 4px; margin-top: 8px; max-width: 260px; border-radius: 2px; background: #edf1f4; overflow: hidden; }
+.dn-bar i { display: block; height: 100%; border-radius: 2px; background: #003366; }
+html[data-theme="dark"] .dn-bar { background: #22304a; }
+html[data-theme="dark"] .dn-bar i { background: #5cc8f0; }
+.dn-go { color: #5a6872; font-size: 13px; flex-shrink: 0; }
+html[data-theme="dark"] .dn-go { color: #9fb0c4; }
 
 /* Somebody else's unfinished visit, shown to an administrator so they can say
    where the work is. It is on that person's phone, so the row is not a link —
    no hover lift, no chevron, and the name instead. */
-.dn-row.is-theirs { background: #fdfaf2; cursor: default; }
+.dn-row.is-theirs { background: transparent; cursor: default; }
 .dn-row.is-theirs.is-reviewable { cursor: pointer; }
-.dn-row.is-theirs.is-reviewable:hover { border-color: #d9bd6a; }
+.dn-row.is-theirs.is-reviewable:hover { background: #f7f9fb; }
 /* An administrator's read-only view of somebody's unfinished visit */
 .drv-meta { font-size: 13px; color: #475569; line-height: 1.5; margin: 0 0 6px; }
 .drv-ro { font-size: 12px; color: #94a3b8; margin: 0 0 12px; }
@@ -749,14 +765,14 @@ html[data-theme="dark"] .dn-meta { color: #9fb0c4; }
 html[data-theme="dark"] .drv-notes { background: #131c2b; color: #c7d3e8; }
 html[data-theme="dark"] .drv-list { border-color: #2b3a52; }
 html[data-theme="dark"] .drv-item { border-top-color: #26324a; color: #eef2f8; }
-.dn-row.is-theirs:hover { border-color: #f0e3c0; }
-html[data-theme="dark"] .dn-row.is-theirs { background: #101827; }
-html[data-theme="dark"] .dn-row.is-theirs:hover { border-color: rgba(245,194,107,.22); }
+
+
+html[data-theme="dark"] .dn-row.is-theirs.is-reviewable:hover { background: #1b2537; }
 .dn-who {
-    flex-shrink: 0; font-size: 11.5px; font-weight: 600; color: #6b5720;
-    background: #f7edd4; border-radius: 999px; padding: 3px 9px; white-space: nowrap;
+    flex-shrink: 0; font-size: 11.5px; font-weight: 500; color: #003366;
+    background: #e8eef4; border-radius: 4px; padding: 3px 8px; white-space: nowrap;
 }
-html[data-theme="dark"] .dn-who { background: rgba(245,194,107,.16); color: #f5c26b; }
+html[data-theme="dark"] .dn-who { background: #1b2a42; color: #cfe0ff; }
 
 /* ===== Action Items, as a queue =====
    Rows, not a photo grid; grouped by the community the work belongs to.
@@ -2691,7 +2707,9 @@ select:focus, textarea:focus {
 
 /* Page header: a mono eyebrow above a large, tight title. The subtitle
    paragraph becomes the eyebrow, so no view's JS had to change. */
-.header-section { padding-bottom: 14px !important; margin-bottom: 18px !important; }
+/* The title starts where the cards start: the pages' own 36px on the left
+   set it in from everything under it (Gabriel, Nov 2026). */
+.header-section { padding-bottom: 14px !important; margin-bottom: 18px !important; padding-left: 0 !important; }
 .header-left { display: flex; flex-direction: column; }
 .header-left p {
     order: -1;
@@ -2960,3 +2978,739 @@ html[data-theme="dark"] .progress-bar-container { background: #161f2e !important
     text-transform: none !important; letter-spacing: .1px !important; background: #003366 !important;
     border-radius: 8px !important; box-shadow: 0 6px 16px rgba(0, 51, 102, .22) !important;
 }
+
+/* ----- PRECISION SKIN, part 6: Settings ---------------------------------
+   Gabriel found Settings still built the old way: one long column of cards
+   with their colours written inline, the Danger zone between the visit
+   target and the password form. Now: the identity card, number tiles like
+   Rankings', then groups under a mono eyebrow (Your account, Administration,
+   Email, Lists) and the Danger zone last and alone, where the tour already
+   said it was. Each card has a header row on a hairline, like the mock-up's
+   panels. The markup only gained classes; ids and handlers are unchanged. */
+.profile-wrap { gap: 18px; }
+.profile-header { padding: 24px 28px !important; gap: 22px !important; }
+.profile-avatar-img, .profile-avatar-initials { width: 84px !important; height: 84px !important; box-shadow: none !important; }
+.profile-avatar-initials { font-weight: 600 !important; font-size: 30px !important; }
+.profile-photo-btn { background: #003366 !important; width: 30px !important; height: 30px !important; }
+.profile-identity h2 { font-size: 24px !important; font-weight: 700 !important; letter-spacing: -.02em; margin-bottom: 4px !important; }
+.profile-username, .profile-lastactive {
+    font-family: var(--font-mono); font-size: 12px !important; letter-spacing: .02em; color: #5a6872 !important;
+}
+.profile-role-badge {
+    background: #e8eef4 !important; color: #003366 !important; border: 1px solid #d3dde8 !important;
+    font-size: 11.5px !important; font-weight: 600 !important; padding: 3px 9px !important;
+}
+.profile-role-badge.is-admin { background: #003366 !important; color: #ffffff !important; border-color: #003366 !important; }
+.profile-region { font-size: 13px; }
+.profile-region i { color: #007fad; }
+.profile-region.is-empty i { color: inherit; }
+
+/* The numbers: label above, mono value below, left-aligned like Rankings. */
+.profile-stats { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; gap: 16px !important; }
+.profile-stat {
+    display: flex; flex-direction: column-reverse; justify-content: flex-end;
+    text-align: left !important; padding: 16px 18px !important; border-radius: 8px !important;
+}
+.profile-stat-label {
+    margin: 0 0 8px !important; font-size: 11.5px !important; font-weight: 500;
+    letter-spacing: .06em !important; color: #5a6872 !important;
+}
+.profile-stat-value { font-size: 30px !important; font-weight: 600 !important; line-height: 1.1; color: #003366 !important; }
+.profile-stat-clickable:hover { transform: none !important; }
+
+/* A group: the eyebrow above, then its cards. */
+.set-group {
+    font-family: var(--font-mono); font-size: 11.5px; font-weight: 500;
+    letter-spacing: .14em; text-transform: uppercase; color: #00709a;
+    margin: 10px 0 -6px; display: flex; align-items: center; gap: 12px;
+}
+.set-group::after { content: ''; flex: 1; height: 1px; background: #e1e5ea; }
+html[data-theme="dark"] .set-group::after { background: #2b3a52; }
+.set-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+.set-grid > .set-wide { grid-column: 1 / -1; }
+@media (max-width: 900px) { .set-grid { grid-template-columns: 1fr; } }
+/* The two lists carry an email box per category: side by side only when wide. */
+@media (max-width: 1180px) { .set-grid-lists { grid-template-columns: 1fr; } }
+
+/* Each card: header row on a hairline, body below. */
+.profile-section { padding: 0 24px 22px !important; border-radius: 8px !important; }
+.profile-section-title {
+    font-size: 15px !important; font-weight: 600 !important; color: #1b2730 !important;
+    margin: 0 -24px 18px !important; padding: 15px 24px 14px; border-bottom: 1px solid #e1e5ea;
+}
+.profile-section-title i { color: #007fad !important; font-size: 14px; }
+.set-desc {
+    font-size: 13px; color: #5a6872; line-height: 1.55; max-width: 72ch; margin: 0 0 16px;
+}
+.set-desc b { color: #1b2730; font-weight: 600; }
+.set-stack { display: grid; gap: 12px; }
+.set-inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.set-add { margin-top: 14px; }
+.set-add .pw-input { flex: 1; min-width: 180px; }
+.set-unit { font-size: 13px; font-weight: 500; color: #36454f; }
+.set-num { width: 92px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.set-count { font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: #5a6872; }
+.set-label { font-size: 13.5px; font-weight: 600; color: #1b2730; }
+.set-label small { font-size: 12.5px; font-weight: 400; color: #5a6872; }
+.set-label-gap { margin-top: 8px; }
+.set-hint { font-size: 12.5px; color: #5a6872; line-height: 1.5; }
+.set-hint-under { margin: -6px 0 0; max-width: 72ch; }
+.set-area { width: 100%; resize: vertical; }
+
+/* Inputs: label above, 1px stroke, the navy focus ring from part 1. */
+.pw-input {
+    border: 1px solid #cfd6dd !important; border-radius: 8px !important;
+    background: #ffffff; color: #1b2730; font-size: 14px;
+}
+/* The password form fills its card's width in a row when there is room. */
+.pw-form { max-width: none !important; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); align-items: center; }
+.pw-form .pw-msg { grid-column: 1 / -1; }
+.profile-pref { font-weight: 500 !important; }
+
+/* Lists: quieter rows, square controls. */
+.rc-row { border-bottom-color: #eef1f3 !important; padding: 10px 0 !important; }
+.rc-toggle { font-weight: 600 !important; color: #36454f !important; border-color: #cfd6dd !important; }
+.rc-toggle:hover:not(:disabled) { border-color: #003366 !important; color: #003366 !important; }
+.rc-tag { font-family: var(--font-mono); font-weight: 500 !important; letter-spacing: .08em !important; color: #5a6872 !important; }
+.rc-move button { border-radius: 4px !important; }
+
+/* Who receives what: initials in mono, names at UI weight. */
+.nsum-row { border-top-color: #eef1f3 !important; }
+.nsum-avatar { font-family: var(--font-mono); font-weight: 500 !important; border-radius: 6px !important; background: #e8eef4 !important; color: #003366 !important; }
+.nsum-name { font-weight: 600 !important; color: #1b2730 !important; }
+.nsum-email { font-family: var(--font-mono); font-size: 11.5px !important; color: #5a6872 !important; }
+.nsum-tag { font-weight: 500 !important; }
+.nsum-del, .nsum-lock { border-radius: 6px !important; }
+.nsum-warn { border-radius: 8px !important; }
+
+/* Danger zone: a red hairline and a red rail; nothing louder. Its title
+   and border are re-stated: the card and title rules above outrank the
+   page's own .danger-* rules by coming later. */
+.profile-section.danger-zone { border-color: #f3c6bb !important; }
+.profile-section-title.danger-title { color: #b42318 !important; }
+.danger-zone { margin-top: 10px; box-shadow: inset 3px 0 0 #c62828, var(--sh) !important; }
+.danger-title { border-bottom-color: #f3d3cc !important; }
+.danger-title i { color: #c62828 !important; }
+.danger-box { border-radius: 8px !important; }
+.danger-head { font-weight: 600 !important; }
+.danger-input { font-family: var(--font-mono); font-weight: 500 !important; }
+.btn-danger-solid { border-radius: 8px !important; font-weight: 600 !important; }
+
+@media (max-width: 640px) {
+    .profile-section { padding: 0 18px 18px !important; }
+    .profile-section-title { margin: 0 -18px 16px !important; padding: 14px 18px 12px; }
+    .profile-stats { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+    .profile-stat-value { font-size: 24px !important; }
+}
+
+html[data-theme="dark"] .profile-role-badge { background: #1b2a42 !important; color: #cfe0ff !important; border-color: #2b3a52 !important; }
+html[data-theme="dark"] .profile-role-badge.is-admin { background: #1f6fe5 !important; color: #ffffff !important; border-color: #1f6fe5 !important; }
+html[data-theme="dark"] .profile-region i, html[data-theme="dark"] .profile-section-title i { color: #5cc8f0 !important; }
+html[data-theme="dark"] .profile-stat-value { color: #e8eefc !important; }
+html[data-theme="dark"] .set-group { color: #5cc8f0; }
+html[data-theme="dark"] .profile-section-title { color: #eef2f8 !important; border-bottom-color: #2b3a52; }
+html[data-theme="dark"] .set-unit, html[data-theme="dark"] .set-label { color: #dbe4f0; }
+html[data-theme="dark"] .set-desc, html[data-theme="dark"] .set-hint, html[data-theme="dark"] .set-count,
+html[data-theme="dark"] .set-label small { color: #9fb0c4; }
+html[data-theme="dark"] .set-desc b { color: #eef2f8; }
+/* Also the number and untyped inputs, which the dark input rule misses. */
+html[data-theme="dark"] .pw-input { background: #1b2537 !important; color: #e7edf6 !important; border-color: #33425c !important; }
+html[data-theme="dark"] .rc-row, html[data-theme="dark"] .nsum-row { border-color: #26324a !important; }
+html[data-theme="dark"] .rc-toggle { color: #cbd8ea !important; border-color: #33425c !important; }
+html[data-theme="dark"] .nsum-avatar { background: #26324a !important; color: #cfe0ff !important; }
+html[data-theme="dark"] .nsum-name { color: #eef2f8 !important; }
+html[data-theme="dark"] .nsum-email { color: #9fb0c4 !important; }
+html[data-theme="dark"] .danger-zone { box-shadow: inset 3px 0 0 #ff9d85 !important; }
+html[data-theme="dark"] .profile-section.danger-zone { border-color: rgba(209, 50, 18, .45) !important; }
+html[data-theme="dark"] .profile-section-title.danger-title { color: #ff9d85 !important; }
+html[data-theme="dark"] .danger-title { border-bottom-color: rgba(209, 50, 18, .4) !important; }
+html[data-theme="dark"] .danger-title i { color: #ff9d85 !important; }
+
+/* ----- PRECISION SKIN, part 7: Rankings ---------------------------------
+   The four totals already were tiles (part 5); everything under them was
+   still the old build: 20px heavy titles, colour written inline, emoji
+   medals, navy buttons in a row. Now the same panels as Settings (a header
+   row on a hairline), ranks as two-digit mono numbers (the top three on
+   navy), scores as soft band tags, "Top Performers" gone (it repeated
+   "Most visits"), bars navy like the dashboard's, and the
+   exports as outline buttons. Colours are literal: jsdom measures them. */
+.rk-wrap { grid-column: 1 / -1; display: grid; gap: 20px; }
+.rk-card, .lb-card {
+    background: #ffffff; border: 1px solid #e1e5ea; border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .06); padding: 0 24px 20px; min-width: 0;
+}
+.rk-card-h, .lb-card h3 {
+    font-size: 15px; font-weight: 600; color: #1b2730; margin: 0 -24px 14px;
+    padding: 15px 24px 14px; border-bottom: 1px solid #e1e5ea;
+    display: flex; align-items: center; gap: 9px;
+}
+.rk-card-h i, .lb-card h3 i { color: #007fad; font-size: 14px; }
+.lb-grid { gap: 20px; }
+@media (max-width: 640px) {
+    .rk-card, .lb-card { padding: 0 16px 16px; }
+    .rk-card-h, .lb-card h3 { margin: 0 -16px 12px; padding: 14px 16px 12px; }
+}
+
+/* Ranks: 01, 02, 03 on navy; the rest plain. */
+.rk-rank {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 22px;
+    padding: 0 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: #5a6872; background: #f1f3f5;
+}
+.rk-rank.top { background: #003366; color: #ffffff; }
+.lb-rank { width: auto; font-size: 12px; }
+
+/* Leaderboard rows. */
+.lb-row { border-top-color: #eef1f3; padding: 10px 0; }
+.lb-row:hover { background: #f7f9fb; border-radius: 6px; }
+.lb-name { font-weight: 500; color: #1b2730; }
+.lb-sub { color: #5a6872; }
+.lb-val {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: #003366;
+    background: #e8eef4; border-radius: 4px; padding: 3px 9px; font-variant-numeric: tabular-nums;
+}
+.lb-empty { color: #5a6872; }
+
+/* Survey types: navy icon tile, label and mono share, a thin navy bar. */
+.rk-types { display: grid; gap: 14px; }
+.rk-type { display: flex; align-items: center; gap: 12px; }
+.rk-type-icon {
+    width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; background: #e8eef4; color: #003366;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.rk-type-main { flex: 1; min-width: 0; }
+.rk-type-line { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.rk-type-name { font-size: 14px; font-weight: 500; color: #1b2730; }
+.rk-type-val { font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; color: #36454f; white-space: nowrap; }
+.rk-bar { height: 6px; border-radius: 3px; background: #edf1f4; overflow: hidden; }
+.rk-bar-fill { height: 100%; border-radius: 3px; background: #003366; transition: width .3s ease-out; }
+
+/* Tables: quiet header, hairline rows, numbers in mono. */
+.rk-scroll { overflow-x: auto; margin: 0 -24px; padding: 0 24px; }
+.rk-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rk-table th {
+    text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: #5a6872; padding: 9px 10px; border-bottom: 1px solid #e1e5ea; background: #fafbfc !important;
+}
+.rk-table td { padding: 10px; border-bottom: 1px solid #eef1f3; vertical-align: middle; color: #1b2730; }
+.rk-table tr:last-child td { border-bottom: 0; }
+.rk-table .c { text-align: center; }
+.rk-name { font-weight: 500; }
+.rk-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.rk-num { font-weight: 600; }
+.rk-num.rk-open { color: #b42318; }
+.lb-row:focus-visible { outline: 2px solid #003366; outline-offset: -2px; }
+
+/* Score and pass-rate tags by band: soft fill, dark ink. */
+.rk-score {
+    display: inline-block; font-family: var(--font-mono); font-size: 12.5px; font-weight: 600;
+    padding: 3px 9px; border-radius: 4px; font-variant-numeric: tabular-nums;
+}
+.rk-score.rk-pass, .lb-val.rk-pass { background: #e6f4ed; color: #0b6b49; }
+.rk-score.rk-warn, .lb-val.rk-warn { background: #fff3dc; color: #8a5300; }
+.rk-score.rk-fail, .lb-val.rk-fail { background: #fdecea; color: #b42318; }
+.rk-score.rk-na,   .lb-val.rk-na   { background: #f1f3f5; color: #5a6872; }
+
+.rk-desc { font-size: 13px; color: #5a6872; margin: 0 0 14px; }
+.rk-exports { display: flex; gap: 10px; flex-wrap: wrap; }
+
+html[data-theme="dark"] .rk-card, html[data-theme="dark"] .lb-card { background: #161f2e !important; border-color: #2b3a52 !important; box-shadow: none; }
+html[data-theme="dark"] .rk-card-h, html[data-theme="dark"] .lb-card h3 { color: #eef2f8; border-bottom-color: #2b3a52; }
+html[data-theme="dark"] .rk-card-h i, html[data-theme="dark"] .lb-card h3 i { color: #5cc8f0; }
+html[data-theme="dark"] .rk-rank { background: #22304a; color: #c2cddd; }
+html[data-theme="dark"] .rk-rank.top { background: #1f6fe5; color: #ffffff; }
+html[data-theme="dark"] .lb-row { border-top-color: #26324a; }
+html[data-theme="dark"] .lb-row:hover { background: #1b2537; }
+html[data-theme="dark"] .lb-name, html[data-theme="dark"] .rk-type-name,
+html[data-theme="dark"] .rk-table td { color: #e7edf6; }
+html[data-theme="dark"] .lb-sub, html[data-theme="dark"] .lb-empty,
+html[data-theme="dark"] .rk-desc, html[data-theme="dark"] .rk-table th { color: #9fb0c4; }
+html[data-theme="dark"] .rk-type-val { color: #c2cddd; }
+html[data-theme="dark"] .rk-type-icon { background: #1b2a42; color: #cfe0ff; }
+html[data-theme="dark"] .rk-bar { background: #22304a; }
+html[data-theme="dark"] .rk-bar-fill { background: #5cc8f0; }
+html[data-theme="dark"] .rk-table th { background: #1b2537 !important; border-bottom-color: #2b3a52; }
+html[data-theme="dark"] .rk-table td { border-bottom-color: #26324a; }
+html[data-theme="dark"] .rk-num.rk-open { color: #ff9d85; }
+html[data-theme="dark"] .lb-val { background: #1b2a42; color: #cfe0ff; }
+html[data-theme="dark"] .rk-score.rk-pass, html[data-theme="dark"] .lb-val.rk-pass { background: rgba(15, 138, 95, .18); color: #5fd6a3; }
+html[data-theme="dark"] .rk-score.rk-warn, html[data-theme="dark"] .lb-val.rk-warn { background: rgba(242, 183, 5, .16); color: #f2c94c; }
+html[data-theme="dark"] .rk-score.rk-fail, html[data-theme="dark"] .lb-val.rk-fail { background: rgba(209, 50, 18, .16); color: #ff9d85; }
+html[data-theme="dark"] .rk-score.rk-na, html[data-theme="dark"] .lb-val.rk-na { background: #22304a; color: #9fb0c4; }
+
+/* ----- PRECISION SKIN, part 8: phones -----------------------------------
+   Gabriel asked for a complete pass on the phone. What it showed: every
+   section opened with ~330px of stacked buttons (search, Question Manager,
+   theme, help, logout, one per row) before any content; Settings and
+   Standards ran off the right edge; Standards stacked six full-width
+   buttons; and the visit form still had its capitals, a header row whose
+   Logout fell off the screen, and its own colours. The mock-up's phones:
+   a mono eyebrow and a left-aligned title, cards on the grid, a flat tab
+   bar. Phones only (768px and under); the desktop is untouched here. */
+@media (max-width: 768px) {
+    /* Section header: one row of square icon buttons beside the menu
+       button, then the eyebrow and the title, left-aligned. The labels stay
+       in the markup (font-size 0) so screen readers still name each one. */
+    /* The icon row shares the menu button's line, so the page starts there. */
+    .main-content { padding-top: 16px !important; }
+    .header-section:has(#qmCreateBtn) { padding-top: 58px !important; }
+    .header-section {
+        flex-direction: column !important; align-items: stretch !important;
+        text-align: left !important; gap: 14px !important;
+        padding: 0 0 12px !important; margin-bottom: 14px !important;
+    }
+    .header-left { align-items: flex-start !important; text-align: left !important; }
+    .header-left h1 { font-size: 26px !important; }
+    .header-left p { letter-spacing: .12em; }
+    .header-section .user-info { margin-top: 4px; font-size: 11px; }
+    .header-section .header-actions {
+        order: -1; display: flex !important; flex-wrap: nowrap !important;
+        justify-content: flex-end !important; gap: 8px !important;
+        width: auto !important; min-height: 44px; padding-left: 56px; align-items: center;
+    }
+    .header-section .header-actions > .btn {
+        flex: 0 0 40px !important; width: 40px; height: 40px; min-width: 0;
+        padding: 0 !important; font-size: 0 !important; gap: 0 !important;
+        align-items: center; justify-content: center;
+        border-radius: 8px !important; transform: none !important;
+    }
+    /* Only the ones the page shows: it hides some with an inline display
+       (Question Manager for non-admins, Help where there is no tour). */
+    .header-section .header-actions > .btn:not([style*="display: none"]):not([style*="display:none"]):not([hidden]) {
+        display: inline-flex !important;
+    }
+    .header-section .header-actions > .btn i { font-size: 15px !important; margin: 0 !important; }
+    .header-section .header-actions > .btn .search-btn-text { display: none; }
+    /* Standards keeps its three working buttons labelled: they are what the
+       page is for. The rest are squares on one line. */
+    .header-section .header-actions:has(#qmCreateBtn) {
+        order: 0; display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr));
+        padding-left: 0; justify-content: stretch !important;
+    }
+    .header-section .header-actions:has(#qmCreateBtn) > .btn {
+        width: auto; height: 42px; grid-column: span 2; font-size: 0 !important;
+    }
+    .header-section .header-actions:has(#qmCreateBtn) > :is(#qmCreateBtn, #qmSurveyTypesBtn, #qmPdfBtn) {
+        font-size: 13.5px !important; gap: 8px !important; padding: 0 10px !important;
+    }
+    .header-section .header-actions:has(#qmCreateBtn) > #qmCreateBtn { grid-column: span 6; }
+    .header-section .header-actions:has(#qmCreateBtn) > :is(#qmSurveyTypesBtn, #qmPdfBtn) { grid-column: span 3; }
+    .header-section .header-actions:has(#qmCreateBtn) > .btn i { margin: 0 !important; }
+
+    /* The menu button: a white square with a hairline, like the others. */
+    .mobile-menu-toggle {
+        top: 16px !important; left: 16px !important; width: 44px !important; height: 44px !important;
+        border-radius: 8px !important; border: 1px solid #e1e5ea !important;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, .06) !important; color: #003366 !important;
+    }
+    .mobile-menu-toggle i { color: #003366; }
+
+    /* Nothing may push the page sideways: a grid or flex child is allowed
+       to shrink below its content, and wide controls wrap. */
+    .profile-wrap, .profile-wrap > *, .set-grid > *, .rk-wrap > *, .profile-header, .profile-identity { min-width: 0; }
+    .profile-section-title { flex-wrap: wrap; }
+    .set-desc { max-width: 100%; }
+    .pw-form { grid-template-columns: 1fr !important; }
+    .profile-header { padding: 20px !important; }
+    .profile-identity h2 { font-size: 22px !important; }
+    .profile-name-row { justify-content: center; flex-wrap: wrap; }
+    .set-inline > .btn { flex: 0 0 auto; }
+    .filter-section, .filter-section > *, .bulk-comm { min-width: 0; max-width: 100%; }
+    .content-section .filter-section { flex-wrap: wrap; }
+    .content-section .filter-select, .bulk-comm select { width: 100% !important; max-width: 100%; }
+    .bulk-comm { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+    .bulk-comm button { flex: 1 1 140px; }
+    .content-section #deleteSelectedBtn { width: 100%; }
+
+    /* Cards: a touch less padding, so a phone's width goes to the content. */
+    .rk-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+    .rk-kpi { padding: 14px !important; }
+    .rk-kpi-val { font-size: 24px !important; }
+}
+html[data-theme="dark"] .mobile-menu-toggle { border-color: #33425c !important; }
+
+/* ----- The visit form, every width ---------------------------------------
+   Sentence case, labels above inputs, a styled select, the progress as the
+   mock-up's navy instrument panel, and a red rail on a standard marked Fail
+   (the navy rail stays on the rest). */
+.visit-page {
+    background-color: #f4f6f8 !important;
+    background-image:
+        linear-gradient(rgba(0, 51, 102, .045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 51, 102, .045) 1px, transparent 1px) !important;
+    background-size: 24px 24px !important;
+}
+html[data-theme="dark"] .visit-page {
+    background-color: #0b1220 !important;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, .028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .028) 1px, transparent 1px) !important;
+}
+.visit-page .container { border: 1px solid #e1e5ea !important; border-radius: 8px !important; box-shadow: 0 2px 12px rgba(0, 0, 0, .06); }
+.visit-page .header { gap: 16px; border-bottom-color: #e1e5ea !important; }
+.visit-page .header-left h1 { font-size: 28px !important; }
+.visit-page .user-info { color: #5a6872 !important; font-size: 11.5px !important; letter-spacing: .06em !important; font-weight: 500 !important; }
+.visit-page .user-info i { color: #5a6872; }
+.visit-page .survey-type-badge {
+    background: #e8eef4 !important; color: #003366 !important; border: 1px solid #d3dde8 !important;
+    border-radius: 4px !important; padding: 5px 10px !important; font-size: 12px !important; font-weight: 600 !important;
+    gap: 6px !important;
+}
+.hdr-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.logout-btn.hdr-btn, .logout-btn.hdr-out {
+    display: inline-flex !important; align-items: center; justify-content: center; gap: 7px;
+    height: 38px; padding: 0 12px !important; text-decoration: none;
+    background: #ffffff !important; border: 1.5px solid #c9d0d8 !important; color: #003366 !important;
+    font-size: 13px !important; box-shadow: none !important;
+}
+.logout-btn.hdr-btn:hover { border-color: #003366 !important; background: rgba(0, 51, 102, .04) !important; }
+.logout-btn.hdr-out { color: #b42318 !important; }
+.logout-btn.hdr-out:hover { border-color: #b42318 !important; background: #fdf3f1 !important; }
+html[data-theme="dark"] .logout-btn.hdr-btn, html[data-theme="dark"] .logout-btn.hdr-out {
+    background: #1b2537 !important; border-color: #33425c !important; color: #cfe0ff !important;
+}
+html[data-theme="dark"] .logout-btn.hdr-out { color: #ff9d85 !important; }
+
+/* Field captions only. "Add Photo" and the notes' photo and share boxes
+   are <label>s too, with their own look: a bare `.visit-page label` turned
+   the navy Add Photo button's text and camera dark (Gabriel's screenshot). */
+.visit-page label:not([class]), .visit-page .dc-label {
+    text-transform: none; letter-spacing: 0; font-size: 13.5px; font-weight: 600; color: #1b2730;
+}
+.visit-page .dc-label { display: block; margin-bottom: 6px; }
+.visit-page .dc-opt { font-weight: 400; color: #5a6872; }
+html[data-theme="dark"] .visit-page .dc-opt { color: #9fb0c4; }
+/* One photo button for the form: each standard's Add Photo and the notes'
+   Add a photo share this rule, so the two cannot drift apart again (the
+   notes' one was still the old blue-tinted pill). */
+.visit-page .file-upload-label, .visit-page .notes-photo {
+    display: inline-flex !important; align-items: center; justify-content: center; gap: 8px;
+    height: 46px; padding: 0 16px !important;
+    background: #ffffff !important; color: #003366 !important; border: 1.5px dashed #9aa8b6;
+    text-transform: none !important; letter-spacing: 0 !important;
+    font-weight: 600 !important; font-size: 14px !important; filter: none !important;
+}
+.visit-page .file-upload-label:hover, .visit-page .notes-photo:hover { border-color: #003366; background: rgba(0, 51, 102, .04) !important; }
+.visit-page .file-upload-label::before { display: none; }
+.visit-page .required { color: #b42318; }
+.visit-page select, .visit-page input[type="text"], .visit-page textarea {
+    border: 1px solid #cfd6dd !important; border-radius: 8px !important; background-color: #ffffff;
+    font-size: 15px; color: #1b2730;
+}
+.visit-page select {
+    -webkit-appearance: none; appearance: none; height: 46px; padding: 0 40px 0 14px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23003366' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; background-size: 12px 8px;
+}
+html[data-theme="dark"] .visit-page select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%239cc4ff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important; background-position: right 14px center !important; background-size: 12px 8px !important;
+}
+.visit-page select:focus, .visit-page input[type="text"]:focus, .visit-page textarea:focus {
+    border-color: #003366 !important; box-shadow: 0 0 0 3px rgba(0, 51, 102, .14) !important;
+}
+.visit-page .loading-message {
+    background: #e8eef4; border: 1px solid #d3dde8; border-radius: 8px; color: #003366; font-weight: 500;
+}
+html[data-theme="dark"] .visit-page .loading-message { background: #1b2a42; border-color: #2b3a52; color: #cfe0ff; }
+.visit-page .nearby-suggest { background: #f3f6fa; border-color: #d3dde8; border-radius: 8px; color: #36454f; }
+.visit-page .nearby-suggest b { color: #1b2730; }
+.visit-page .nearby-actions button { border-radius: 8px; font-weight: 600; }
+.visit-page .nearby-find { color: #003366; font-weight: 600; }
+html[data-theme="dark"] .visit-page .nearby-find { color: #9cc4ff; }
+html[data-theme="dark"] .visit-page .nearby-suggest { background: #16203a; border-color: #2b3a52; color: #c7d3e8; }
+
+/* The progress: a navy panel with an electric bar, numbers in mono. */
+.visit-page .progress-bar-container {
+    background: #003366 !important; border: 1px solid #003366 !important; border-radius: 8px !important;
+    padding: 16px 18px !important; position: relative; overflow: hidden;
+}
+.visit-page .progress-bar-container::after {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 46%; pointer-events: none;
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, .06) 1px, transparent 1px); background-size: 16px 100%;
+}
+.visit-page .progress-title {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: .14em;
+    text-transform: uppercase; color: #8fd8ff; margin-bottom: 10px;
+}
+.visit-page .progress-bar-container .progress-bar {
+    height: 20px !important; border-radius: 4px !important; background: rgba(255, 255, 255, .14) !important;
+}
+.visit-page .progress-bar-container .progress-fill {
+    background: #00bfff !important; color: #003366 !important; font-family: var(--font-mono);
+    font-size: 12px; font-weight: 600; border-radius: 4px !important; justify-content: flex-end; padding: 0 6px;
+}
+.visit-page .progress-message {
+    position: relative; z-index: 1; margin-top: 10px; padding: 8px 10px; border-radius: 6px;
+    font-size: 13px; font-weight: 500; text-align: left;
+}
+.visit-page .progress-message.warning { background: rgba(255, 165, 0, .16); color: #ffd58a; }
+.visit-page .progress-message.success { background: rgba(14, 130, 89, .30); color: #a5f0cc; }
+html[data-theme="dark"] .visit-page .progress-bar-container { background: #0e2a4d !important; border-color: #1d4573 !important; }
+
+/* A standard: quieter title, sentence-case answers as three buttons. */
+.visit-page .question-section { border: 1px solid #e1e5ea !important; border-left: 3px solid #003366 !important; box-shadow: 0 2px 12px rgba(0, 0, 0, .06); }
+/* The rail takes the colour of the answer chosen, the same as its button
+   (Gabriel, Nov 2026): green Pass, pink-red Fail, grey Not checked. Navy
+   (light blue in dark) until it is answered. Light and dark alike. */
+.visit-page .question-section:has(input[value="Pass"]:checked),
+html[data-theme="dark"] .visit-page .question-section:has(input[value="Pass"]:checked) { border-left-color: #75fb87 !important; }
+.visit-page .question-section:has(input[value="Fail"]:checked),
+html[data-theme="dark"] .visit-page .question-section:has(input[value="Fail"]:checked) { border-left-color: #ea366e !important; }
+.visit-page .question-section:has(input[value="Not checked"]:checked),
+html[data-theme="dark"] .visit-page .question-section:has(input[value="Not checked"]:checked) { border-left-color: #5b6b85 !important; }
+.visit-page .question-title { font-size: 17px; font-weight: 600; color: #1b2730; letter-spacing: -.01em; }
+.visit-page .response-label, .visit-page .comments-label, .visit-page .evidence-label { font-size: 13.5px; font-weight: 600; color: #1b2730; }
+.visit-page .condition-rating { border: 0 !important; gap: 8px; overflow: visible; border-radius: 0; }
+.visit-page .radio-label {
+    text-transform: none !important; letter-spacing: 0 !important; font-size: 14px !important;
+    border: 1px solid #cfd6dd !important; border-radius: 8px !important; color: #36454f; height: 44px;
+}
+.visit-page .radio-button:not(:first-child) .radio-label { border-left: 1px solid #cfd6dd !important; }
+.visit-page .radio-button:hover .radio-label { background: #f7f9fb; border-color: #003366 !important; }
+/* The chosen answer, in Gabriel's colours (Nov 2026): a bright green Pass
+   with dark ink (white on it is 1.3:1) and a pink-red Fail with white
+   (4.0:1 — his choice, just under 4.5; #e41858 is the nearest that clears
+   it). Same in dark mode, where the page's own fills are !important. */
+.visit-page .radio-button input:checked + .radio-label.pass,
+html[data-theme="dark"] .visit-page .radio-button input[type="radio"]:checked + .radio-label.pass {
+    background: #75fb87 !important; border-color: #75fb87 !important; color: #1b2730 !important;
+}
+.visit-page .radio-button input:checked + .radio-label.pass .rating-icon,
+html[data-theme="dark"] .visit-page .radio-button input[type="radio"]:checked + .radio-label.pass .rating-icon { color: #1b2730 !important; }
+.visit-page .radio-button input:checked + .radio-label.fail,
+html[data-theme="dark"] .visit-page .radio-button input[type="radio"]:checked + .radio-label.fail {
+    background: #ea366e !important; border-color: #ea366e !important; color: #ffffff !important;
+}
+.visit-page .radio-button input:checked + .radio-label.notchecked { border-color: #5b6b85 !important; }
+html[data-theme="dark"] .visit-page .radio-label { border-color: #33425c !important; }
+.visit-page .comments-req { border-radius: 4px; text-transform: none; letter-spacing: 0; }
+/* Pass, Fail and Not checked on one line, as in the mock-up. On a phone
+   the tick or dash beside the chosen one goes: the fill already says it,
+   and "Not checked" needs the room. */
+.visit-page .condition-rating { flex-wrap: nowrap !important; }
+.visit-page .radio-button.rb-notchecked { flex: 1 1 0 !important; }
+@media (max-width: 480px) {
+    .visit-page .radio-label { padding: 0 4px !important; font-size: 13.5px !important; gap: 4px !important; }
+    .visit-page .radio-label .rating-icon { display: none !important; }
+}
+
+/* "03 / 20" above each standard. */
+.visit-page .q-num {
+    font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; letter-spacing: .06em;
+    color: #5a6872; margin-bottom: 6px;
+}
+html[data-theme="dark"] .visit-page .q-num { color: #9fb0c4; }
+
+/* Evidence: the photo is a quiet outlined button, not a navy bar that
+   outweighed the answer; the picture sits beside it as a thumbnail, and the
+   empty preview (a stray grey line under every standard) is gone. */
+.visit-page .file-upload-wrapper { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.visit-page .image-preview {
+    order: -1; margin: 0; width: 64px; height: 64px; max-height: none; flex-shrink: 0;
+    border: 1px solid #e1e5ea; border-radius: 8px;
+}
+.visit-page .image-preview:empty { display: none; }
+.visit-page .image-preview img { width: 100%; height: 100%; object-fit: cover; }
+.visit-page .file-name { flex-basis: 100%; margin: 0; font-family: var(--font-mono); font-size: 11.5px; color: #5a6872; }
+.visit-page .file-name:empty { display: none; }
+html[data-theme="dark"] .visit-page .file-name { color: #9fb0c4; }
+html[data-theme="dark"] .visit-page .image-preview { border-color: #2b3a52; }
+
+/* On a phone the form is the page: no card around a card, the cards sit
+   on the grid as in the mock-up, and the header is one row of buttons
+   (Logout on the right) above the eyebrow and the title. */
+@media (max-width: 600px) {
+    .visit-page { padding: 12px 12px 24px !important; }
+    .visit-page .container {
+        background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 4px 2px !important;
+    }
+    .visit-page .header { flex-direction: column; align-items: stretch; gap: 14px; margin-bottom: 18px; padding-bottom: 16px; }
+    .visit-page .header-left { align-items: flex-start !important; text-align: left; }
+    .visit-page .header-left h1 { font-size: 26px !important; }
+    .visit-page .hdr-actions { order: -1; justify-content: flex-start; flex-wrap: nowrap; }
+    .visit-page .hdr-actions .logout-btn { width: auto !important; flex: 0 0 auto; }
+    .visit-page .hdr-actions .hdr-out { margin-left: auto; }
+    .visit-page .question-section { padding: 18px 16px !important; background: #ffffff; }
+    .visit-page .question-title { font-size: 16px; }
+    .visit-page #communityPickerGroup { background: #ffffff; border: 1px solid #e1e5ea; border-radius: 8px; padding: 16px; box-shadow: 0 2px 12px rgba(0, 0, 0, .06); }
+    html[data-theme="dark"] .visit-page #communityPickerGroup { background: #161f2e; border-color: #2b3a52; }
+    html[data-theme="dark"] .visit-page .question-section { background: #161f2e !important; }
+}
+
+/* ----- Choosing the visit type ------------------------------------------ */
+.header .back-btn { color: #003366 !important; border-radius: 8px !important; }
+.header .back-btn:hover { background: rgba(0, 51, 102, .06) !important; }
+.header-title h1 { font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif !important; font-weight: 700 !important; letter-spacing: -.01em; }
+.header-title p { font-family: var(--font-mono); font-size: 11.5px !important; letter-spacing: .04em; }
+.page-title { font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif !important; font-weight: 700 !important; letter-spacing: -.02em !important; }
+html[data-theme="dark"] .header .back-btn { color: #9cc4ff !important; }
+
+/* ----- Found on the phone, true at every width ---------------------------
+   The visit panel's middling score was #f59e0b text (2.2:1) and Regions'
+   was #d97706 (3:1): amber is a fill here, never text. Region totals read
+   like every other tile now: label above, number in mono. */
+.panel-stat-value.warning { color: #9a5b00 !important; }
+html[data-theme="dark"] .panel-stat-value.warning { color: #f2c94c !important; }
+.panel-stat-value { font-family: var(--font-mono) !important; font-weight: 600 !important; letter-spacing: -.02em; }
+.panel-stat-label { font-weight: 500 !important; letter-spacing: .06em !important; color: #5a6872 !important; }
+html[data-theme="dark"] .panel-stat-label { color: #9fb0c4 !important; }
+.panel-stat-card { background: #ffffff !important; border: 1px solid #e1e5ea !important; border-radius: 8px !important; }
+html[data-theme="dark"] .panel-stat-card { background: #161f2e !important; border-color: #2b3a52 !important; }
+
+.region-stat {
+    display: flex; flex-direction: column-reverse; justify-content: flex-end; text-align: left !important;
+    background: #ffffff !important; border: 1px solid #e1e5ea; padding: 12px 14px !important;
+}
+html[data-theme="dark"] .region-stat { background: #1b2537 !important; border-color: #2b3a52; }
+.region-stat-label { margin: 0 0 6px !important; font-weight: 500; letter-spacing: .06em !important; color: #5a6872 !important; }
+html[data-theme="dark"] .region-stat-label { color: #9fb0c4 !important; }
+.region-stat-value { font-size: 22px !important; font-weight: 600 !important; color: #1b2730; }
+.region-stat-value.rs-pass { color: #0b6b49; }
+.region-stat-value.rs-warn { color: #9a5b00; }
+.region-stat-value.rs-fail { color: #b42318; }
+.region-stat-value.rs-na   { color: #5a6872; }
+html[data-theme="dark"] .region-stat-value.rs-pass { color: #5fd6a3; }
+html[data-theme="dark"] .region-stat-value.rs-warn { color: #f2c94c; }
+html[data-theme="dark"] .region-stat-value.rs-fail { color: #ff9d85; }
+html[data-theme="dark"] .region-stat-value.rs-na   { color: #9fb0c4; }
+.region-section-title {
+    font-family: var(--font-mono); font-weight: 500 !important; letter-spacing: .14em !important;
+    color: #00709a !important; display: flex; align-items: center; gap: 10px;
+}
+.region-section-title::after { content: ''; flex: 1; height: 1px; background: #e1e5ea; }
+html[data-theme="dark"] .region-section-title { color: #5cc8f0 !important; }
+html[data-theme="dark"] .region-section-title::after { background: #2b3a52; }
+
+@media (max-width: 768px) {
+    /* The visit panel's two numbers side by side, as on the dashboard. */
+    .panel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+    .panel-stat-card { padding: 14px !important; }
+    .panel-stat-value { font-size: 26px !important; }
+}
+
+/* ----- Dark mode, found on the phone ------------------------------------
+   The form's titles and labels were set dark above and nothing lifted them
+   on a dark card; the survey type tag kept its light fill; and the panel's
+   X stayed #0f172a on a dark button (the light rule names it !important). */
+html[data-theme="dark"] .visit-page :is(.question-title, .response-label, .comments-label, .evidence-label, label:not([class]), .dc-label) { color: #e7edf6 !important; }
+html[data-theme="dark"] .visit-page .file-upload-label,
+html[data-theme="dark"] .visit-page .notes-photo { background: #1b2537 !important; color: #cfe0ff !important; border-color: #4a5b78; }
+html[data-theme="dark"] .visit-page .header-left p { color: #5cc8f0 !important; }
+html[data-theme="dark"] .visit-page .user-info, html[data-theme="dark"] .visit-page .user-info i { color: #9fb0c4 !important; }
+html[data-theme="dark"] .visit-page .survey-type-badge { background: #1b2a42 !important; color: #cfe0ff !important; border-color: #2b3a52 !important; }
+html[data-theme="dark"] .visit-page .header { border-bottom-color: #2b3a52 !important; }
+html[data-theme="dark"] .slide-panel-header .slide-panel-close,
+html[data-theme="dark"] .slide-panel-header .slide-panel-close i,
+html[data-theme="dark"] .modal-header .modal-close,
+html[data-theme="dark"] .modal-header .modal-close i { color: #e7edf6 !important; }
+html[data-theme="dark"] .profile-username, html[data-theme="dark"] .profile-lastactive,
+html[data-theme="dark"] .profile-stat-label { color: #9fb0c4 !important; }
+/* At 0% the bar's own padding drew a sliver with "0%" squeezed into it. */
+.visit-page .progress-bar-container .progress-fill[style*="width: 0%"] { padding: 0; font-size: 0; }
+
+/* Submit: Gabriel's green (#5ac486, Nov 2026), in the theme's shape —
+   sentence case, 8px, no shimmer or glow. Dark ink on it, as on Pass:
+   white on this green is 2.1:1, the ink is 7.1:1. */
+.visit-page .submit-row button[type="submit"] {
+    background: #5ac486 !important; color: #1b2730 !important; border-radius: 8px !important;
+    text-transform: none !important; letter-spacing: 0 !important; font-size: 15px !important;
+    font-weight: 600 !important; height: 50px; box-shadow: none !important;
+}
+.visit-page .submit-row button[type="submit"]::before { display: none; }
+.visit-page .submit-row button[type="submit"]:hover:not(:disabled) {
+    background: #4cb377 !important; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(90, 196, 134, .28) !important;
+}
+/* The page's dark rule paints the answers' container, which showed as a band
+   under the three buttons once they stopped being one segmented box. */
+html[data-theme="dark"] .visit-page .condition-rating { background: transparent !important; border: 0 !important; }
+
+/* ----- PRECISION SKIN, part 9: the community panel ----------------------
+   Gabriel asked after the panel. It had the colours but not the build: big
+   iconed section titles competing with the community's name, a solid white
+   X that outshone the title, tall number tiles, and response cards with a
+   band of empty space under each (a margin inside the grid, plus the tag's
+   own). Now: a mono eyebrow with the region over the name, the visit line in
+   mono, a quiet X, section titles as mono eyebrows on a hairline, compact
+   tiles, and each response sized to its text with a rail in its result's
+   colour, the same as on the visit form. */
+.slide-panel-eyebrow {
+    font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; letter-spacing: .14em;
+    text-transform: uppercase; margin: 0 0 6px; color: #8fd8ff !important;
+}
+.slide-panel-eyebrow[hidden] { display: none; }
+.slide-panel-title h2 {
+    font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif !important;
+    font-weight: 700 !important; letter-spacing: -.02em; margin-bottom: 6px !important;
+}
+.slide-panel-subtitle { font-family: var(--font-mono); font-size: 12.5px !important; letter-spacing: .02em; }
+.slide-panel-subtitle .subtitle-avatar { font-family: var(--font); }
+.slide-panel-header .slide-panel-close {
+    background: rgba(255, 255, 255, .10) !important; border: 1px solid rgba(255, 255, 255, .28) !important;
+    border-radius: 8px !important; width: 40px; height: 40px; font-size: 17px !important;
+}
+.slide-panel-header .slide-panel-close,
+.slide-panel-header .slide-panel-close i { color: #ffffff !important; }
+.slide-panel-header .slide-panel-close:hover { background: rgba(255, 255, 255, .18) !important; transform: none !important; }
+
+/* Section titles: a mono eyebrow running into a hairline. */
+.panel-section-title {
+    /* Written out: jsdom drops var() inside an !important font-family. */
+    font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace !important; font-size: 11.5px !important; font-weight: 500 !important;
+    letter-spacing: .14em; text-transform: uppercase; color: #00709a !important;
+    display: flex !important; align-items: center; gap: 12px !important; margin-bottom: 14px !important;
+}
+.panel-section-title i { display: none; }
+.panel-section-title::after { content: ''; flex: 1; height: 1px; background: #e1e5ea; }
+html[data-theme="dark"] .panel-section-title { color: #5cc8f0 !important; }
+html[data-theme="dark"] .panel-section-title::after { background: #2b3a52; }
+
+/* The two numbers: compact, label above, mono. */
+.panel-stats { gap: 14px !important; margin-bottom: 8px !important; }
+.panel-stat-card { padding: 14px 16px !important; }
+.panel-stat-label { margin-bottom: 6px !important; }
+.panel-stat-value { font-size: 28px !important; line-height: 1.1; }
+
+/* Each response: as tall as its text, its result as the rail. */
+.response-card {
+    margin-bottom: 0 !important; padding: 14px 16px 14px 18px !important;
+    border: 1px solid #e1e5ea !important; border-left: 3px solid #003366 !important; border-radius: 8px !important;
+}
+.response-card:has(.badge-pass) { border-left-color: #75fb87 !important; }
+.response-card:has(.badge-fail) { border-left-color: #ea366e !important; }
+.response-card:has(.badge-notchecked) { border-left-color: #5b6b85 !important; }
+html[data-theme="dark"] .response-card { border-color: #2b3a52 !important; }
+html[data-theme="dark"] .response-card:has(.badge-pass) { border-left-color: #75fb87 !important; }
+html[data-theme="dark"] .response-card:has(.badge-fail) { border-left-color: #ea366e !important; }
+html[data-theme="dark"] .response-card:has(.badge-notchecked) { border-left-color: #5b6b85 !important; }
+.response-question { font-size: 14.5px !important; font-weight: 600 !important; color: #1b2730; margin-bottom: 8px !important; }
+html[data-theme="dark"] .response-question { color: #e7edf6; }
+.response-condition { margin-bottom: 0 !important; }
+.response-description { margin: 8px 0 0 !important; }
+.std-info-btn {
+    background: transparent !important; color: #5a6872 !important; border: 1px solid #e1e5ea !important;
+    width: 26px; height: 26px; border-radius: 6px !important;
+}
+.std-info-btn:hover { color: #003366 !important; border-color: #003366 !important; }
+html[data-theme="dark"] .std-info-btn { color: #9fb0c4 !important; border-color: #2b3a52 !important; }
+
+/* A score's colour as text, by band (scoreColor() in the dashboard). Read
+   on white and on the dark card alike; amber and grey were 3:1 and 2.6:1. */
+:root { --score-pass: #0b6b49; --score-warn: #9a5b00; --score-fail: #b42318; --score-na: #5a6872; }
+html[data-theme="dark"] { --score-pass: #5fd6a3; --score-warn: #f2c94c; --score-fail: #ff9d85; --score-na: #9fb0c4; }
+
+/* Standards on a desktop: its six header buttons broke their labels in two
+   ("Create New / Question") and squeezed the title onto two lines. They keep
+   their labels whole and drop under the title when the row is too short. */
+@media (min-width: 769px) {
+    .header-section:has(#qmCreateBtn) { flex-wrap: wrap; gap: 16px 24px; }
+    .header-section:has(#qmCreateBtn) .header-left h1 { white-space: nowrap; }
+    .header-section:has(#qmCreateBtn) .header-actions { flex-wrap: wrap; }
+    .header-section:has(#qmCreateBtn) .header-actions > .btn { white-space: nowrap; }
+}
+
+/* The standard's expectations inside a visit card stayed a white box in dark
+   mode (no dark rule ever named it). */
+html[data-theme="dark"] .visit-page .interpretive-guideline { background: #1b2537 !important; border-color: #2b3a52 !important; }
+html[data-theme="dark"] .visit-page :is(.guideline-title, .g-crit-title) { color: #e7edf6 !important; }
+html[data-theme="dark"] .visit-page :is(.guideline-content, .g-narr, .guideline-content .g-crit-list li) { color: #c2cddd !important; }

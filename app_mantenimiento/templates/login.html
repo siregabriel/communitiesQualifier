@@ -31,46 +31,63 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; }
+        /* Precision skin (Nov 2026): navy over the photo with the engineering
+           grid, mono eyebrows, the app's grid behind the form, navy accents.
+           The drifting particle network (and its external script) is gone:
+           the design has no motion behind content. */
         body {
-            font-family: 'Inter', sans-serif;
-            background: #ffffff !important;
-            color: #0f1e36;
+            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+            background: #f4f6f8 !important;
+            color: #1b2730;
         }
+        .login-eyebrow {
+            font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+            font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase;
+            color: #00709a; margin-bottom: 8px;
+        }
+        .login-left .login-eyebrow { color: #8fd8ff; margin-bottom: 14px; }
+        html[data-theme="dark"] .login-right .login-eyebrow { color: #5cc8f0; }
 
         /* ===================== Dark mode (right form panel) ===================== */
         html[data-theme="dark"] { color-scheme: dark; }
         html[data-theme="dark"] body { background: #0b1220 !important; color: #e7edf6; }
-        html[data-theme="dark"] .login-right { background: #0f1826 !important; }
+        html[data-theme="dark"] .login-right {
+            background-color: #0b1220 !important;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, .028) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, .028) 1px, transparent 1px) !important;
+        }
         html[data-theme="dark"] .login-card h1 { color: #e7edf6 !important; }
-        html[data-theme="dark"] .form-group label { color: #b9c5d6 !important; }
+        html[data-theme="dark"] .form-group label { color: #dbe4f0 !important; }
+        html[data-theme="dark"] .form-group .help { color: #9fb0c4; }
         html[data-theme="dark"] input[type="text"],
         html[data-theme="dark"] input[type="password"] {
             background: #1b2537 !important; color: #e7edf6 !important; border-color: #2b3a52 !important;
         }
         html[data-theme="dark"] input::placeholder { color: #6b7a90 !important; }
-        html[data-theme="dark"] .theme-toggle-float { color: #b9c5d6; }
         /* The wordmark is navy lettering on a transparent background, which all
            but disappears against the dark background. Same treatment as the
            sidebar: flatten it to white. */
         html[data-theme="dark"] .login-logo { filter: brightness(0) invert(1); opacity: .92; }
         .theme-toggle-float {
-            position: fixed; top: 16px; right: 18px; z-index: 5; background: rgba(255,255,255,.85);
-            border: 1px solid #d9dfe8; color: #475569; width: 38px; height: 38px; border-radius: 10px;
+            position: fixed; top: 16px; right: 18px; z-index: 5; background: #ffffff;
+            border: 1px solid #e1e5ea; color: #003366; width: 40px; height: 40px; border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, .06);
             cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;
         }
-        html[data-theme="dark"] .theme-toggle-float { background: rgba(22,31,46,.85); border-color: #2b3a52; color: #cbd5e1; }
+        html[data-theme="dark"] .theme-toggle-float { background: #1b2537; border-color: #33425c; color: #cfe0ff; box-shadow: none; }
 
         .forgot-row { text-align: center; margin-top: 16px; }
-        .forgot-row a { color: #1f6fe5; text-decoration: none; font-weight: 600; font-size: 13px; }
+        .forgot-row a { color: #003366; text-decoration: none; font-weight: 600; font-size: 13px; }
         .forgot-row a:hover { text-decoration: underline; }
-        .forgot-panel { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
-        .forgot-help { font-size: 13px; color: #64748b; margin-bottom: 12px; line-height: 1.5; }
+        .forgot-panel { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e1e5ea; }
+        .forgot-help { font-size: 13px; color: #5a6872; margin-bottom: 12px; line-height: 1.5; }
         .forgot-msg { font-size: 13px; margin-top: 12px; min-height: 18px; text-align: center; }
-        .forgot-msg.ok { color: #0f8a5f; }
-        .forgot-msg.err { color: #dc2626; }
+        .forgot-msg.ok { color: #0b6b49; }
+        .forgot-msg.err { color: #b42318; }
         html[data-theme="dark"] .forgot-panel { border-top-color: #2b3a52; }
         html[data-theme="dark"] .forgot-help { color: #9fb0c4; }
-        html[data-theme="dark"] .forgot-row a { color: #7db0ff; }
+        html[data-theme="dark"] .forgot-row a { color: #9cc4ff; }
 
         .login-split { display: flex; min-height: 100vh; }
 
@@ -89,15 +106,24 @@
         .login-left::before {
             content: "";
             position: absolute; inset: 0;
-            background: linear-gradient(105deg, rgba(8,16,30,.72) 0%, rgba(8,16,30,.55) 45%, rgba(8,16,30,.30) 100%);
+            background: linear-gradient(105deg, rgba(0,31,63,.90) 0%, rgba(0,51,102,.74) 50%, rgba(0,51,102,.46) 100%);
+        }
+        /* The engineering grid over the photo, as on the app's pages. */
+        .login-left::after {
+            content: "";
+            position: absolute; inset: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+            background-size: 24px 24px;
         }
         .login-left-inner { position: relative; z-index: 1; max-width: 540px; }
         .login-left h2 {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 38px;
+            font-family: inherit;
+            font-size: 40px;
             font-weight: 700;
-            line-height: 1.15;
-            letter-spacing: -0.6px;
+            line-height: 1.12;
+            letter-spacing: -.02em;
             margin-bottom: 22px;
         }
         .login-left .lead {
@@ -107,76 +133,85 @@
             margin-bottom: 30px;
             max-width: 460px;
         }
-        .login-features { list-style: none; display: grid; gap: 8px; }
-        .login-features li { font-size: 16px; color: rgba(255,255,255,.92); }
+        .login-features { list-style: none; display: grid; gap: 10px; }
+        .login-features li { font-size: 16px; color: rgba(255,255,255,.92); position: relative; padding-left: 22px; }
+        /* An electric square per line, the mock-up's marker (a fill, never text). */
+        .login-features li::before {
+            content: ""; position: absolute; left: 0; top: .5em;
+            width: 8px; height: 8px; border-radius: 2px; background: #00bfff;
+        }
         .login-left-foot {
             position: absolute;
-            left: 14%; bottom: 36px;
+            left: 7%; bottom: 36px;
             z-index: 1;
-            font-size: 10px;
-            color: rgb(253, 253, 253);
+            font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+            font-size: 11px; letter-spacing: .06em;
+            color: rgba(255, 255, 255, .78);
         }
 
         /* ---- Right: form ---- */
         .login-right {
             flex: 1 1 50%;
             position: relative;
-            background: #fff;
+            background-color: #f4f6f8;
+            background-image:
+                linear-gradient(rgba(0, 51, 102, .045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 51, 102, .045) 1px, transparent 1px);
+            background-size: 24px 24px;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 48px 40px;
         }
-        #particles-js { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
         .login-card { position: relative; z-index: 1; width: 100%; max-width: 420px; }
 
         .login-logo { height: 80px; margin-bottom: 30px; }
         .login-card h1 {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 27px;
-            font-weight: 800;
-            color: #0f1e36;
-            letter-spacing: -0.4px;
-            /*margin-bottom: 28px;*/
+            font-family: inherit;
+            font-size: 30px;
+            font-weight: 700;
+            color: #1b2730;
+            letter-spacing: -.02em;
+            margin-bottom: 28px;
         }
 
         .form-group { margin-bottom: 22px; }
         .form-group label {
             display: block;
             font-size: 14px;
-            font-weight: 700;
-            color: #0f1e36;
+            font-weight: 600;
+            color: #1b2730;
             margin-bottom: 6px;
         }
         .form-group .help {
             font-size: 13px;
-            color: #5b6b85;
+            color: #5a6872;
             margin-bottom: 10px;
             line-height: 1.45;
         }
         input[type="text"], input[type="password"] {
             width: 100%;
             padding: 13px 15px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid #cfd6dd;
             border-radius: 8px;
             font-size: 15px;
             font-family: inherit;
             background: #fff;
-            color: #0f1e36;
+            color: #1b2730;
             transition: border-color .15s ease, box-shadow .15s ease;
         }
         input::placeholder { color: #b6c0cf; }
         input[type="text"]:focus, input[type="password"]:focus {
             outline: none;
-            border-color: #1f6fe5;
-            box-shadow: 0 0 0 3px rgba(31,111,229,.16);
+            border-color: #003366;
+            box-shadow: 0 0 0 3px rgba(0,51,102,.14);
         }
 
-        .error-message { color: #dc2626; font-size: 12.5px; margin-top: 6px; display: none; font-weight: 500; }
+        .error-message { color: #b42318; font-size: 12.5px; margin-top: 6px; display: none; font-weight: 500; }
         .renamed-note {
-            background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+            background: #e8eef4; border: 1px solid #d3dde8; border-radius: 8px;
             padding: 12px 14px; margin-bottom: 18px; font-size: 13px;
-            color: #1e3a5f; line-height: 1.5;
+            color: #1b2730; line-height: 1.5;
         }
         .error-message.show { display: block; animation: shake 0.4s cubic-bezier(0.36, 0, 0.66, -0.56); }
         @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-4px);} 75%{transform:translateX(4px);} }
@@ -184,22 +219,22 @@
         .submit-btn {
             width: 100%;
             padding: 14px;
-            background: #0d2b6d !important;
+            background: #003366 !important;
             color: #fff;
             border: none;
             border-radius: 8px;
             font-size: 15px;
-            font-weight: 700;
-            letter-spacing: .3px;
+            font-weight: 600;
+            letter-spacing: .1px;
             cursor: pointer;
             margin-top: 10px;
-            transition: transform .15s ease, filter .15s ease;
+            transition: transform .2s ease-out, background-color .2s ease-out, box-shadow .2s ease-out;
         }
-        .submit-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+        .submit-btn:hover:not(:disabled) { transform: translateY(-1px); background: #002a54 !important; box-shadow: 0 6px 16px rgba(0,51,102,.22); }
         .submit-btn:disabled { opacity: .6; cursor: not-allowed; }
 
         .loading { display: none; text-align: center; margin-top: 16px; }
-        .spinner { width: 22px; height: 22px; margin: 0 auto; border: 3px solid #e4ebf5; border-top-color: #1f6fe5; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .spinner { width: 22px; height: 22px; margin: 0 auto; border: 3px solid #e1e5ea; border-top-color: #003366; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ---- Mobile: form first, photo as a slim banner ---- */
@@ -215,8 +250,9 @@
             .login-left .lead { font-size: 15px; margin-bottom: 16px; }
             .login-features li { font-size: 14px; }
             .login-left-foot { display: none; }
+            .login-left .login-eyebrow { margin-bottom: 10px; padding-right: 52px; font-size: 10.5px; letter-spacing: .08em; white-space: nowrap; }
             .login-right { flex: none; padding: 36px 24px 56px; }
-            .login-card h1 { font-size: 23px; }
+            .login-card h1 { font-size: 26px; margin-bottom: 22px; }
             /* 16px inputs prevent iOS auto-zoom on focus */
             input[type="text"], input[type="password"] { font-size: 16px; }
         }
@@ -225,15 +261,15 @@
         .al-veil { position: fixed; inset: 0; background: rgba(15,23,42,.55);
             display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
         .al-veil[hidden] { display: none; }
-        .al-card { background: #fff; color: #0f1e36; border-radius: 16px; padding: 24px;
+        .al-card { background: #fff; color: #1b2730; border-radius: 8px; padding: 24px;
             max-width: 380px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.3);
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+            font-family: inherit; }
         .al-card h2 { font-size: 18px; margin: 0 0 10px; }
         .al-card p { font-size: 14px; line-height: 1.5; color: #475569; margin: 0 0 18px; }
         .al-card b { color: #0f1e36; overflow-wrap: anywhere; }
         .al-actions { display: flex; gap: 10px; }
-        .al-actions button { flex: 1; padding: 11px; border-radius: 10px; font-size: 14px;
-            font-weight: 700; cursor: pointer; font-family: inherit; }
+        .al-actions button { flex: 1; padding: 11px; border-radius: 8px; font-size: 14px;
+            font-weight: 600; cursor: pointer; font-family: inherit; }
         .al-yes { background: #003366; color: #fff; border: 0; }
         .al-no { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
     </style>
@@ -243,6 +279,7 @@
     <div class="login-split">
         <section class="login-left">
             <div class="login-left-inner">
+                <div class="login-eyebrow">Atlas Excellence · Community visits</div>
                 <h2>Excellence visits,<br>made simple.</h2>
                 <p class="lead">Run consistent community visits, capture Pass/Fail results in the field, and give every region clear, real-time visibility.</p>
                 <ul class="login-features">
@@ -255,11 +292,10 @@
         </section>
 
         <section class="login-right">
-            <div id="particles-js" aria-hidden="true"></div>
             <div class="login-card">
                 <img src="/static/arlas-excellence-logo.png" alt="Atlas Senior Living" class="login-logo">
-                <h1>Sign In</h1>
-                <br><br>
+                <div class="login-eyebrow">Secure access</div>
+                <h1>Sign in</h1>
                 <!--<h3 style="color: #6c757d; margin-bottom:30px; font-size: 19px; letter-spacing: -1px; font-weight: 300;">by Atlas Senior Living</h3>-->
                 {% if renamed %}
                 <!-- Their session was ended because their sign-in name moved.
@@ -304,7 +340,7 @@
 
                     <div id="generalError" class="error-message"></div>
 
-                    <button type="submit" class="submit-btn"><span>Sign In</span></button>
+                    <button type="submit" class="submit-btn"><span>Sign in</span></button>
 
                     <div class="loading" id="loading"><div class="spinner"></div></div>
                 </form>
@@ -481,26 +517,6 @@
             _updateThemeIcon();
         }
         document.addEventListener('DOMContentLoaded', _updateThemeIcon);
-    </script>
-
-    <!-- Subtle network pattern behind the form -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
-    <script>
-        if (window.particlesJS) {
-            particlesJS('particles-js', {
-                particles: {
-                    number: { value: 34, density: { enable: true, value_area: 900 } },
-                    color: { value: ['#1f6fe5', '#9db8e8'] },
-                    shape: { type: 'edge' },
-                    opacity: { value: 0.18, random: true },
-                    size: { value: 7, random: true },
-                    line_linked: { enable: true, distance: 150, color: '#bcd0ee', opacity: 0.35, width: 1 },
-                    move: { enable: true, speed: 0.8, direction: 'none', random: true, straight: false, out_mode: 'out' }
-                },
-                interactivity: { detect_on: 'window', events: { onhover: { enable: false }, onclick: { enable: false }, resize: true } },
-                retina_detect: true
-            });
-        }
     </script>
 
     <script src="/static/pwa-install-prompt.js"></script>

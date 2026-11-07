@@ -72,6 +72,8 @@ w.eval(`
   ${grab('escapeHtml')}
   ${grab('decodeEntities')}
   ${grab('formatTimestamp')}
+  ${grab('escapeHtmlForAttr')}
+  ${grab('wirePersonRows')}
   ${grab('renderReports')}
   var allSubmissions = ${JSON.stringify(submissions)};
   var surveyTypes = [

@@ -15,6 +15,7 @@ itself (creates + deletes its own records) and leaves data untouched.
 """
 
 import os
+import re
 import sys
 
 # The app reads config from the environment at import time. Set safe defaults
@@ -1342,9 +1343,13 @@ def test_infrastructure_names_were_not_renamed():
         qm = f.read()
     assert "atlasStandardsTourSeen" in qm, "a tour key was renamed"
 
+    # The page now shows the Atlas Excellence wordmark (Nov 2026); what
+    # matters is that the file it names is there.
     with open(os.path.join(_APP_DIR, "templates", "change_password.html"),
               encoding="utf-8") as f:
-        assert "atlas-standards-logo.svg" in f.read(), "the logo file was renamed"
+        logo = re.search(r'class="cp-logo" src="/static/([^"]+)"', f.read())
+    assert logo and os.path.exists(os.path.join(_APP_DIR, "static", logo.group(1))), \
+        "the change-password logo points at a file that is not there"
 
     backup = os.path.join(os.path.dirname(_APP_DIR), "deploy", "backup_data.sh")
     if os.path.exists(backup):

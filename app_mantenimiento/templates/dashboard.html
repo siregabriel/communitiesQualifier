@@ -2488,7 +2488,6 @@
         .region-name-link:hover { text-decoration:underline; }
         .region-leader-name-link { cursor:pointer; }
         .region-leader-name-link:hover { color:#1f6fe5; text-decoration:underline; }
-        .tp-row:hover { background:rgba(31,111,229,.05); }
 
         /* Hover tooltip for calendar days (desktop) */
         #calDayTip { position:fixed; z-index:5000; width:220px; background:#fff; border:1px solid #d9dfe8;
@@ -2524,10 +2523,10 @@
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-secondary" id="searchBtn" onclick="openSearch()" title="Search communities, people and visits (press / )" aria-label="Search"><i class="fas fa-magnifying-glass"></i> <span class="search-btn-text">Search</span></button>
-                    <a href="/questions/manage" class="btn btn-primary" id="questionManagerBtn" style="display: none; text-decoration: none;"><i class="fas fa-clipboard-list"></i> Question Manager</a>
+                    <a href="/questions/manage" class="btn btn-primary" id="questionManagerBtn" style="display: none; text-decoration: none;" title="Question Manager" aria-label="Question Manager"><i class="fas fa-clipboard-list"></i> Question Manager</a>
                     <button class="btn btn-secondary" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light / dark mode" aria-label="Toggle light or dark mode"><i class="fas fa-moon"></i></button>
                     <button class="btn btn-secondary" id="headerHelpBtn" onclick="contextHelp()" title="Show the tutorial for this screen"><i class="fas fa-circle-question"></i> Help</button>
-                    <button class="btn btn-secondary" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                    <button class="btn btn-secondary" onclick="logout()" title="Log out" aria-label="Log out"><i class="fas fa-sign-out-alt"></i> Logout</button>
                 </div>
             </div>
 
@@ -2780,6 +2779,7 @@
     <aside class="slide-panel" id="slidePanel" role="dialog" aria-modal="true" aria-labelledby="slidePanelTitle">
         <div class="slide-panel-header">
             <div class="slide-panel-title">
+                <p class="slide-panel-eyebrow" id="slidePanelEyebrow" hidden></p>
                 <h2 id="slidePanelTitle">Community Details</h2>
                 <p class="slide-panel-subtitle" id="slidePanelSubtitle">Last visit: N/A</p>
             </div>
@@ -2990,6 +2990,8 @@
                                 where.place ? `<small>${escapeHtml(where.place)}</small>` : ''}</span>
                             <span class="dn-meta">${escapeHtml(progress)} · started ${escapeHtml(timeAgo(d.started_at))}${
                                 d.device ? ' · on ' + escapeHtml(d.device) : ''}</span>
+                            ${d.total ? `<span class="dn-bar" aria-hidden="true"><i style="width:${
+                                Math.min(100, Math.round(100 * (Number(d.answered) || 0) / d.total))}%"></i></span>` : ''}
                         </span>`;
                 // Not a link into the form: the content belongs to the person
                 // who started it. An administrator opens a read-only review
@@ -3845,7 +3847,7 @@
                 return;
             }
 
-            const sc = v => (v == null ? '#94a3b8' : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212')));
+            const sc = scoreColor;
             const ordinal = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
             function rankChip(r, label) {
                 if (!r || !r.pos) return '';
@@ -3891,6 +3893,17 @@
                 <div class="pp-section"><h4>Recent visits</h4>${recent}</div>`;
         }
 
+        /* The mono line above the community's name: what it is and where.
+           Quiet when the region is not known (or this runs without one). */
+        function setPanelEyebrow(communityName) {
+            const el = document.getElementById('slidePanelEyebrow');
+            if (!el) return;
+            let region = null;
+            try { region = communityName ? getCommunityRegionName(communityName) : null; } catch (e) {}
+            el.textContent = region ? `Community · ${region}` : 'Community';
+            el.hidden = !communityName;
+        }
+
         // Render Panel Content
         function renderPanelContent(data) {
             const panelBody = document.getElementById('slidePanelBody');
@@ -3907,6 +3920,7 @@
             if (panelTitle) {
                 panelTitle.textContent = data.communityName;
             }
+            setPanelEyebrow(data.communityName);
             if (panelSubtitle) {
                 /* "Last visit" is a claim, not a label. Saying it over an older
                    visit is the same lie the panel used to tell by showing the
@@ -4402,6 +4416,7 @@
 
             currentPanelCommunity = communityName;
             if (panelTitle) panelTitle.textContent = communityName;
+            setPanelEyebrow(communityName);
             if (panelSubtitle) panelSubtitle.textContent = 'No visits yet';
 
             let html = panelCoverHtml(communityName);
@@ -4423,6 +4438,7 @@
             if (panelTitle) {
                 panelTitle.textContent = 'No Data Available';
             }
+            setPanelEyebrow('');
             if (panelSubtitle) {
                 panelSubtitle.textContent = '';
             }
@@ -6836,9 +6852,14 @@
         // renderDashboard, which meant the community history — written later and
         // calling it by the same name — threw a ReferenceError and never drew
         // its timeline. Global, so there is one definition to call.
+        /* The one colour for a score, wherever it is printed. A variable, not
+           a hex: the four copies this replaced wrote #b58b00 (3:1 on white)
+           and #94a3b8 (2.6:1) as text, and a hex written inline cannot follow
+           the theme when it changes. --score-* live in theme.css, light and
+           dark. */
         function scoreColor(v) {
-            if (v === null || v === undefined || v === 'N/A') return '#94a3b8';
-            return v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212');
+            if (v === null || v === undefined || v === 'N/A') return 'var(--score-na)';
+            return v >= 75 ? 'var(--score-pass)' : (v >= 50 ? 'var(--score-warn)' : 'var(--score-fail)');
         }
 
         // ===== Dashboard overview =====
@@ -8798,9 +8819,7 @@
         function _calKey(d) {
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
-        function _calScoreColor(v) {
-            return (v === null || v === undefined) ? '#94a3b8' : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212'));
-        }
+        function _calScoreColor(v) { return scoreColor(v); }
         function calPrevMonth() { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1); renderCalendar(); }
         function calNextMonth() { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1); renderCalendar(); }
         function calToday() { const n = new Date(); calendarMonth = new Date(n.getFullYear(), n.getMonth(), 1); calSelectedDay = _calKey(n); renderCalendar(); }
@@ -9292,7 +9311,7 @@
                 return;
             }
             currentRegionView = rid;
-            const sc = v => (v == null ? '#94a3b8' : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212')));
+            const sc = scoreColor;
             const byCommunity = {};
             (communityData || []).forEach(c => byCommunity[c.name] = c);
             const rows = (region.communities || []).map(n => {
@@ -10248,7 +10267,9 @@
                     }
                 });
                 const avgScore = scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null;
-                const scoreColor = avgScore === null ? '#94a3b8' : (avgScore >= 75 ? '#059669' : (avgScore >= 50 ? '#d97706' : '#dc2626'));
+                // A band, not a colour: the amber and grey written here were 3:1
+                // and 2.6:1 on white, and stayed the same on the dark card.
+                const scoreBand = avgScore === null ? 'na' : (avgScore >= 75 ? 'pass' : (avgScore >= 50 ? 'warn' : 'fail'));
 
                 const isUnassigned = region.id === 'unassigned';
                 const isCorporate = region.kind === 'corporate';
@@ -10419,11 +10440,11 @@
                         <div class="region-card-body">
                             <div class="region-stats">
                                 <div class="region-stat">
-                                    <div class="region-stat-value" style="color:${scoreColor};">${avgScore === null ? 'N/A' : avgScore + '%'}</div>
+                                    <div class="region-stat-value rs-${scoreBand}">${avgScore === null ? 'N/A' : avgScore + '%'}</div>
                                     <div class="region-stat-label">Avg score</div>
                                 </div>
                                 <div class="region-stat">
-                                    <div class="region-stat-value" style="color:${actionTotal > 0 ? '#dc2626' : '#059669'};">${actionTotal}</div>
+                                    <div class="region-stat-value rs-${actionTotal > 0 ? 'fail' : 'pass'}">${actionTotal}</div>
                                     <div class="region-stat-label">Action items</div>
                                 </div>
                             </div>
@@ -11021,57 +11042,9 @@
 
                     <div class="profile-stats">${statCards.join('')}</div>
 
-
-                    <div class="profile-grid">
-                        ${admin ? `
-                        <div class="profile-section">
-                            <div class="profile-section-title"><i class="fas fa-calendar-day"></i> Visit target</div>
-                            <p style="font-size:13px;color:#64748b;line-height:1.55;margin:-4px 0 14px;">
-                                How often each community should be visited. Nothing is blocked by
-                                this — it decides which communities are flagged as falling behind,
-                                on the dashboard and on the community cards.
-                            </p>
-                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                                <span style="font-size:13px;font-weight:600;color:#475569;">Every</span>
-                                <input type="number" id="cadenceInput" class="pw-input" min="7" max="365"
-                                       value="${visitCadenceDays}" style="width:90px;">
-                                <span style="font-size:13px;font-weight:600;color:#475569;">days</span>
-                                <button class="btn btn-primary" onclick="saveVisitCadence()">Save</button>
-                            </div>
-                            <div class="pw-msg" id="cadenceMsg"></div>
-                        </div>
-                        <div class="profile-section">
-                            <div class="profile-section-title"><i class="fas fa-users-gear"></i> User management</div>
-                            <p style="font-size:13px;color:#64748b;line-height:1.55;margin:-4px 0 14px;">
-                                Add people, change roles, reset passwords and remove access.
-                            </p>
-                            <button class="btn btn-primary" onclick="showView('people')"><i class="fas fa-users"></i> Open People</button>
-                        </div>
-                        <div class="profile-section danger-zone">
-                            <div class="profile-section-title danger-title"><i class="fas fa-triangle-exclamation"></i> Danger zone</div>
-                            <div class="danger-box">
-                                <div class="danger-head">Reset visit data</div>
-                                <p class="danger-text">
-                                    Permanently deletes <b>every submitted visit</b>, so the app starts from zero.
-                                    Scores, action items and recent activity clear with them.
-                                    <br><b>Kept:</b> users, regions, communities, standards, survey types and move-ins.
-                                    A backup is saved on the server first.
-                                </p>
-                                <div class="danger-controls">
-                                    <input id="resetDataConfirm" class="pw-input danger-input" placeholder="Type RESET to confirm" autocomplete="off" maxlength="10">
-                                    <button class="btn btn-danger-solid" onclick="adminResetInspections()"><i class="fas fa-trash-can"></i> Reset visit data</button>
-                                </div>
-                                <div class="pw-msg" id="resetDataMsg"></div>
-                            </div>
-                        </div>
-                        ` : `
-                        <div class="profile-section">
-                            <div class="profile-section-title"><i class="fas fa-palette"></i> Display preferences</div>
-                            <div class="profile-pref"><span>Dark mode</span><span class="muted">Coming soon</span></div>
-                            <div class="profile-pref"><span>Language</span><span class="muted">English (US)</span></div>
-                        </div>
-                        `}
-                        <div class="profile-section">
+                    <div class="set-group">Your account</div>
+                    <div class="set-grid">
+                        <div class="profile-section${admin ? ' set-wide' : ''}">
                             <div class="profile-section-title"><i class="fas fa-lock"></i> Change password</div>
                             <div class="pw-form">
                                 <input type="password" id="pwCurrent" class="pw-input" placeholder="Current password" autocomplete="current-password">
@@ -11081,91 +11054,92 @@
                                 <div class="pw-msg" id="pwMsg"></div>
                             </div>
                         </div>
+                        ${admin ? '' : `
+                        <div class="profile-section">
+                            <div class="profile-section-title"><i class="fas fa-palette"></i> Display preferences</div>
+                            <div class="profile-pref"><span>Dark mode</span><span class="muted">Coming soon</span></div>
+                            <div class="profile-pref"><span>Language</span><span class="muted">English (US)</span></div>
+                        </div>`}
                     </div>
                     ${admin ? `
+                    <div class="set-group">Administration</div>
+                    <div class="set-grid">
+                        <div class="profile-section">
+                            <div class="profile-section-title"><i class="fas fa-calendar-day"></i> Visit target</div>
+                            <p class="set-desc">
+                                How often each community should be visited. Nothing is blocked by
+                                this — it decides which communities are flagged as falling behind,
+                                on the dashboard and on the community cards.
+                            </p>
+                            <div class="set-inline">
+                                <span class="set-unit">Every</span>
+                                <input type="number" id="cadenceInput" class="pw-input set-num" min="7" max="365"
+                                       value="${visitCadenceDays}">
+                                <span class="set-unit">days</span>
+                                <button class="btn btn-primary" onclick="saveVisitCadence()">Save</button>
+                            </div>
+                            <div class="pw-msg" id="cadenceMsg"></div>
+                        </div>
+                        <div class="profile-section">
+                            <div class="profile-section-title"><i class="fas fa-users-gear"></i> User management</div>
+                            <p class="set-desc">
+                                Add people, change roles, reset passwords and remove access.
+                            </p>
+                            <button class="btn btn-primary" onclick="showView('people')"><i class="fas fa-users"></i> Open People</button>
+                        </div>
+                    </div>
+
+                    <div class="set-group">Email</div>
                     <div class="profile-section">
                         <div class="profile-section-title"><i class="fas fa-envelope"></i> Email &amp; notifications</div>
                         <style>
                           .chip{position:relative;display:inline-flex;cursor:pointer;}
                           .chip input{position:absolute;opacity:0;width:0;height:0;}
-                          .chip span{padding:6px 13px;border:1px solid #d9dfe8;border-radius:999px;font-size:13px;font-weight:600;color:#475569;background:#fff;transition:all .12s ease;user-select:none;}
-                          .chip:hover span{border-color:#003366;color:#003366;}
+                          .chip span{padding:6px 12px;border:1px solid #e1e5ea;border-radius:6px;font-size:12.5px;font-weight:500;color:#36454f;background:#fff;transition:all .2s ease-out;user-select:none;}
+                          .chip:hover span{border-color:rgba(0,51,102,.4);color:#003366;}
                           .chip input:checked+span{background:#003366;border-color:#003366;color:#fff;}
                           .chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
-                          .sub-row{transition:border-color .12s ease;}
+                          .sub-row{transition:border-color .2s ease-out;}
                           .sub-row:focus-within{border-color:#003366 !important;}
-                          .scope-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;}
+                          .scope-label{font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#5a6872;margin-bottom:8px;}
                         </style>
-                        <div style="display:grid; gap:12px;">
-                            <label style="font-size:13px;font-weight:700;color:#0f1e36;">Visit report subscribers <span style="font-weight:500;color:#6b7280;">(region leaders always get their own region automatically)</span></label>
+                        <div class="set-stack">
+                            <label class="set-label">Visit report subscribers <small>(region leaders always get their own region automatically)</small></label>
                             <div id="esSubscribers"></div>
-                            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                            <div class="set-inline">
                                 <button class="btn btn-secondary" type="button" onclick="addSubscriberRow()"><i class="fas fa-plus"></i> Add subscriber</button>
-                                <span id="esSubCount" style="font-size:12.5px;font-weight:700;color:#64748b;"></span>
-                                <span style="font-size:12px;color:#9ca3af;">Added one at a time — each is saved on its own.</span>
+                                <span id="esSubCount" class="set-count"></span>
+                                <span class="set-hint">Added one at a time — each is saved on its own.</span>
                             </div>
                             <!-- Named for what it does, not for the first thing it did.
                                  It was labelled "Notify when a new user is created", so
                                  nobody looking for move-in emails could find it — and
                                  that is exactly where they are configured. -->
-                            <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Administrator notifications</label>
-                            <div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin:-4px 0 2px;">
+                            <label class="set-label set-label-gap">Administrator notifications</label>
+                            <div class="set-hint set-hint-under">
                                 These addresses receive: new accounts and password activity,
                                 move-in reminders and completions, and the daily summary.
                                 Move-in emails otherwise go only to the community itself —
                                 regionals see every move-in in their region under Move-Ins
                                 rather than being emailed one at a time.
                             </div>
-                            <textarea id="esAdminNotify" class="pw-input" rows="3" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
-                            <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Clinical team <span style="font-weight:500;color:#6b7280;">(receives comments directed to Clinical)</span></label>
-                            <textarea id="esClinical" class="pw-input" rows="2" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
-                            <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Operations (Ops) team <span style="font-weight:500;color:#6b7280;">(receives comments directed to Ops)</span></label>
-                            <textarea id="esOps" class="pw-input" rows="2" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
-                            <label style="font-size:13px;font-weight:700;color:#0f1e36;margin-top:6px;">Sales team <span style="font-weight:500;color:#6b7280;">(receives comments directed to Sales)</span></label>
-                            <textarea id="esSales" class="pw-input" rows="2" style="width:100%;resize:vertical;" placeholder="one per line or comma-separated"></textarea>
-                            <div style="display:flex;gap:8px;align-items:center;">
+                            <textarea id="esAdminNotify" class="pw-input set-area" rows="3" placeholder="one per line or comma-separated"></textarea>
+                            <label class="set-label set-label-gap">Clinical team <small>(receives comments directed to Clinical)</small></label>
+                            <textarea id="esClinical" class="pw-input set-area" rows="2" placeholder="one per line or comma-separated"></textarea>
+                            <label class="set-label set-label-gap">Operations (Ops) team <small>(receives comments directed to Ops)</small></label>
+                            <textarea id="esOps" class="pw-input set-area" rows="2" placeholder="one per line or comma-separated"></textarea>
+                            <label class="set-label set-label-gap">Sales team <small>(receives comments directed to Sales)</small></label>
+                            <textarea id="esSales" class="pw-input set-area" rows="2" placeholder="one per line or comma-separated"></textarea>
+                            <div class="set-inline">
                                 <button class="btn btn-primary" onclick="saveEmailSettings()"><i class="fas fa-floppy-disk"></i> Save</button>
                                 <span class="pw-msg" id="esMsg"></span>
                             </div>
-                            <div id="esNote" style="font-size:12px;color:#9ca3af;"></div>
-                        </div>
-                    </div>
-                    <div class="profile-section">
-                        <div class="profile-section-title"><i class="fas fa-tags"></i> Raised item categories</div>
-                        <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
-                            What an Executive Director picks from when they raise an item, and what
-                            the filters in Action Items are built from. Renaming one updates every
-                            item that already uses it. Retiring one takes it out of the list without
-                            touching the items that chose it.
-                        </p>
-                        <div id="rcList"><div class="activity-empty">Loading…</div></div>
-                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
-                            <input id="rcNew" class="pw-input" maxlength="40" style="flex:1;min-width:180px;"
-                                   placeholder="New category, e.g. Transportation">
-                            <button class="btn btn-secondary" type="button" onclick="addRaisedCategory()">
-                                <i class="fas fa-plus"></i> Add</button>
-                            <span class="pw-msg" id="rcMsg"></span>
-                        </div>
-                    </div>
-                    <div class="profile-section">
-                        <div class="profile-section-title"><i class="fas fa-id-badge"></i> Staff positions</div>
-                        <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
-                            What a Staff member's position is chosen from when they are added in People.
-                            Only this list is offered there. Removing one takes it out of the list;
-                            whoever already holds it keeps it.
-                        </p>
-                        <div id="tpList"><div class="activity-empty">Loading…</div></div>
-                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
-                            <input id="tpNew" class="pw-input" maxlength="60" style="flex:1;min-width:180px;"
-                                   placeholder="New position, e.g. Move In Coordinator">
-                            <button class="btn btn-secondary" type="button" id="tpAdd">
-                                <i class="fas fa-plus"></i> Add</button>
-                            <span class="pw-msg" id="tpMsg"></span>
+                            <div id="esNote" class="set-hint"></div>
                         </div>
                     </div>
                     <div class="profile-section">
                         <div class="profile-section-title"><i class="fas fa-envelope-open-text"></i> Email recipients</div>
-                        <p style="font-size:12.5px;color:#64748b;margin:-4px 0 12px;line-height:1.5;">
+                        <p class="set-desc">
                             Every address that receives email from Atlas Excellence, and exactly which notifications it gets —
                             including region leaders, who are copied on their own region automatically.
                             <b>This is not the list of accounts.</b> Executive Directors don't appear here:
@@ -11173,6 +11147,64 @@
                             person or reset a password, use <b>People</b>.
                         </p>
                         <div id="notifySummary"><div class="activity-empty">Loading…</div></div>
+                    </div>
+
+                    <div class="set-group">Lists</div>
+                    <div class="set-grid set-grid-lists">
+                        <div class="profile-section">
+                            <div class="profile-section-title"><i class="fas fa-tags"></i> Raised item categories</div>
+                            <p class="set-desc">
+                                What an Executive Director picks from when they raise an item, and what
+                                the filters in Action Items are built from. Renaming one updates every
+                                item that already uses it. Retiring one takes it out of the list without
+                                touching the items that chose it.
+                            </p>
+                            <div id="rcList"><div class="activity-empty">Loading…</div></div>
+                            <div class="set-inline set-add">
+                                <input id="rcNew" class="pw-input" maxlength="40"
+                                       placeholder="New category, e.g. Transportation">
+                                <button class="btn btn-secondary" type="button" onclick="addRaisedCategory()">
+                                    <i class="fas fa-plus"></i> Add</button>
+                                <span class="pw-msg" id="rcMsg"></span>
+                            </div>
+                        </div>
+                        <div class="profile-section">
+                            <div class="profile-section-title"><i class="fas fa-id-badge"></i> Staff positions</div>
+                            <p class="set-desc">
+                                What a Staff member's position is chosen from when they are added in People.
+                                Only this list is offered there. Removing one takes it out of the list;
+                                whoever already holds it keeps it.
+                            </p>
+                            <div id="tpList"><div class="activity-empty">Loading…</div></div>
+                            <div class="set-inline set-add">
+                                <input id="tpNew" class="pw-input" maxlength="60"
+                                       placeholder="New position, e.g. Move In Coordinator">
+                                <button class="btn btn-secondary" type="button" id="tpAdd">
+                                    <i class="fas fa-plus"></i> Add</button>
+                                <span class="pw-msg" id="tpMsg"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Last, where the tour says it is, and alone: nothing that
+                         wipes every visit should sit between the visit target
+                         and the password form. -->
+                    <div class="profile-section danger-zone">
+                        <div class="profile-section-title danger-title"><i class="fas fa-triangle-exclamation"></i> Danger zone</div>
+                        <div class="danger-box">
+                            <div class="danger-head">Reset visit data</div>
+                            <p class="danger-text">
+                                Permanently deletes <b>every submitted visit</b>, so the app starts from zero.
+                                Scores, action items and recent activity clear with them.
+                                <br><b>Kept:</b> users, regions, communities, standards, survey types and move-ins.
+                                A backup is saved on the server first.
+                            </p>
+                            <div class="danger-controls">
+                                <input id="resetDataConfirm" class="pw-input danger-input" placeholder="Type RESET to confirm" autocomplete="off" maxlength="10">
+                                <button class="btn btn-danger-solid" onclick="adminResetInspections()"><i class="fas fa-trash-can"></i> Reset visit data</button>
+                            </div>
+                            <div class="pw-msg" id="resetDataMsg"></div>
+                        </div>
                     </div>` : ''}
                 </div>
             `;
@@ -11200,7 +11232,7 @@
             const inspChecks = esInspectors.map(n =>
                 `<label class="chip"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" onchange="onScopeToggle(this)" ${subInsp.includes(n) ? 'checked' : ''}><span>${escapeHtml(n)}</span></label>`
             ).join('');
-            return `<div class="sub-row" style="border:1px solid var(--border);border-radius:10px;padding:16px 18px;background:var(--surface);">
+            return `<div class="sub-row" style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;background:var(--surface);">
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <input class="pw-input sub-email" type="email" placeholder="email" value="${escapeHtml(sub.email || '')}" style="flex:1;min-width:200px;" data-original="${escapeHtml(sub.email || '')}">
                     <input class="pw-input sub-name" placeholder="name (optional)" value="${escapeHtml(sub.name || '')}" style="flex:1;min-width:160px;">
@@ -11580,23 +11612,14 @@
                 return b.score - a.score;
             }).slice(0, 10); // Top 10
 
-            // Top performers: people who have reported the most visits
-            const performerMap = {};
-            (allSubmissions || []).forEach(s => {
-                const name = s.inspector_name || s.username || 'Unknown';
-                if (!performerMap[name]) performerMap[name] = { name: name, visits: 0, lastVisit: null };
-                performerMap[name].visits++;
-                const t = s.submitted_at ? new Date(s.submitted_at).getTime() : 0;
-                if (!performerMap[name].lastVisit || t > performerMap[name].lastVisit) {
-                    performerMap[name].lastVisit = t;
-                }
-            });
-            const topPerformers = Object.values(performerMap)
-                .sort((a, b) => b.visits - a.visits)
-                .slice(0, 10);
             
+            // Bands as the cards and the map use them; the tag is soft, the
+            // number in mono. Rank is a number: the design has no emoji.
+            const band = (s) => s === 'N/A' ? 'na' : (s >= 75 ? 'pass' : (s >= 50 ? 'warn' : 'fail'));
+            const rank = (i) => `<span class="rk-rank${i < 3 ? ' top' : ''}">${String(i + 1).padStart(2, '0')}</span>`;
+
             gallery.innerHTML = `
-                <div style="grid-column: 1 / -1; display: grid; gap: 24px;">
+                <div class="rk-wrap">
                     <!-- Summary Cards -->
                     <div class="rk-kpis">
                         <div class="rk-kpi"><div class="rk-kpi-lbl">Visits</div><div class="rk-kpi-val">${totalVisits}</div></div>
@@ -11609,128 +11632,80 @@
                     <div id="leaderboardHost"></div>
 
                     <!-- Survey Type Breakdown -->
-                    <div style="background: var(--surface); padding: 32px; border-radius: 10px; border: 1px solid var(--border);">
-                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-chart-pie"></i> Survey Type Breakdown</h3>
-                        <div style="display: grid; gap: 12px;">
+                    <div class="rk-card">
+                        <h3 class="rk-card-h"><i class="fas fa-chart-pie"></i> Survey Type Breakdown</h3>
+                        <div class="rk-types">
                             ${Object.values(surveyTypeBreakdown).map(type => {
                                 const percentage = totalVisits > 0 ? Math.round((type.count / totalVisits) * 100) : 0;
                                 return `
-                                    <div style="display: flex; align-items: center; gap: 12px;">
-                                        <div style="width: 40px; height: 40px; border-radius: 8px; background: ${type.color}15; display: flex; align-items: center; justify-content: center; color: ${type.color};">
-                                            <i class="fas ${type.icon}"></i>
-                                        </div>
-                                        <div style="flex: 1;">
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                                <span style="font-size: 14px; font-weight: 600;">${type.name}</span>
-                                                <span style="font-size: 14px; font-weight: 700; color: ${type.color};">${type.count} (${percentage}%)</span>
+                                    <div class="rk-type">
+                                        <div class="rk-type-icon"><i class="fas ${escapeHtmlForAttr(type.icon || 'fa-clipboard-list')}"></i></div>
+                                        <div class="rk-type-main">
+                                            <div class="rk-type-line">
+                                                <span class="rk-type-name">${escapeHtml(type.name)}</span>
+                                                <span class="rk-type-val">${type.count} (${percentage}%)</span>
                                             </div>
-                                            <div style="height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
-                                                <div style="height: 100%; background: ${type.color}; width: ${percentage}%; transition: width 0.3s ease;"></div>
-                                            </div>
+                                            <div class="rk-bar"><div class="rk-bar-fill" style="width: ${percentage}%;"></div></div>
                                         </div>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
                     </div>
-                    
-                    <!-- Top tables side by side -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 24px;">
-                    <div style="background: var(--surface); padding: 32px; border-radius: 10px; border: 1px solid var(--border);">
-                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-trophy"></i> Top Performing Communities</h3>
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                        <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 800; color: #475569;">Rank</th>
-                                        <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 800; color: #475569;">Community</th>
-                                        <th style="padding: 12px; text-align: center; font-size: 12px; font-weight: 800; color: #475569;">Score</th>
-                                        <th style="padding: 12px; text-align: center; font-size: 12px; font-weight: 800; color: #475569;">Action Items</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${communityScores.map((community, index) => {
-                                        const scoreColor = community.score === 'N/A' ? '#94a3b8' :
-                                                          community.score >= 75 ? '#10b981' :
-                                                          community.score >= 50 ? '#f59e0b' : '#ef4444';
-                                        return `
-                                            <tr style="border-bottom: 1px solid #f1f5f9;">
-                                                <td style="padding: 12px; font-size: 14px; font-weight: 700;">#${index + 1}</td>
-                                                <td style="padding: 12px; font-size: 14px;">${community.name}</td>
-                                                <td style="padding: 12px; text-align: center;">
-                                                    <span style="display: inline-block; padding: 4px 12px; background: ${scoreColor}15; color: ${scoreColor}; border-radius: 6px; font-size: 14px; font-weight: 700;">
-                                                        ${community.score}${community.score !== 'N/A' ? '%' : ''}
-                                                    </span>
-                                                </td>
-                                                <td style="padding: 12px; text-align: center; font-size: 14px; font-weight: 600; color: ${community.actionItems > 0 ? '#ef4444' : '#10b981'};">
-                                                    ${community.actionItems}
-                                                </td>
-                                            </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
 
-                    <!-- Top Performers -->
-                    <div style="background: var(--surface); padding: 32px; border-radius: 10px; border: 1px solid var(--border);">
-                        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;"><i class="fas fa-medal"></i> Top Performers</h3>
-                        ${topPerformers.length === 0 ? `
-                            <div style="color:#64748b; font-size:14px; padding: 8px 0;">No visits reported yet.</div>
-                        ` : `
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
+                    <!-- Top communities. "Top Performers" (visits per person) sat
+                         beside it and said what "Most visits" above already says;
+                         Gabriel had it removed. -->
+                    <div class="rk-card">
+                        <h3 class="rk-card-h"><i class="fas fa-trophy"></i> Top Performing Communities</h3>
+                        <div class="rk-scroll">
+                            <table class="rk-table">
                                 <thead>
-                                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                        <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 800; color: #475569;">Rank</th>
-                                        <th style="padding: 12px; text-align: left; font-size: 12px; font-weight: 800; color: #475569;">Team Member</th>
-                                        <th style="padding: 12px; text-align: center; font-size: 12px; font-weight: 800; color: #475569;">Visits</th>
-                                        <th style="padding: 12px; text-align: center; font-size: 12px; font-weight: 800; color: #475569;">Last Visit</th>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Community</th>
+                                        <th class="c">Score</th>
+                                        <th class="c">Action Items</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${topPerformers.map((p, index) => {
-                                        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
-                                        const last = p.lastVisit ? new Date(p.lastVisit).toLocaleDateString() : '—';
-                                        const safeName = (p.name || '').replace(/'/g, "\\'");
-                                        return `
-                                            <tr class="tp-row" style="border-bottom: 1px solid #f1f5f9; cursor:pointer;" onclick="openPersonPanel('${safeName}')" title="View profile">
-                                                <td style="padding: 12px; font-size: 14px; font-weight: 700;">${medal}</td>
-                                                <td style="padding: 12px; font-size: 14px; color:#1f6fe5; font-weight:600;">${p.name}</td>
-                                                <td style="padding: 12px; text-align: center;">
-                                                    <span style="display: inline-block; padding: 4px 12px; background: rgba(31,111,229,0.1); color: #1f6fe5; border-radius: 6px; font-size: 14px; font-weight: 700;">${p.visits}</span>
-                                                </td>
-                                                <td style="padding: 12px; text-align: center; font-size: 13px; color: #64748b;">${last}</td>
+                                    ${communityScores.map((community, index) => `
+                                            <tr>
+                                                <td>${rank(index)}</td>
+                                                <td class="rk-name">${escapeHtml(community.name)}</td>
+                                                <td class="c"><span class="rk-score rk-${band(community.score)}">${community.score}${community.score !== 'N/A' ? '%' : ''}</span></td>
+                                                <td class="c rk-num${community.actionItems > 0 ? ' rk-open' : ''}">${community.actionItems}</td>
                                             </tr>
-                                        `;
-                                    }).join('')}
+                                        `).join('')}
                                 </tbody>
                             </table>
                         </div>
-                        `}
-                    </div>
                     </div>
 
                     <!-- Export Options -->
-                    <div style="background: var(--surface); padding: 24px; border-radius: 10px; border: 1px solid var(--border);">
-                        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1e40af;"><i class="fas fa-download"></i> Export Reports</h3>
-                        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">Download detailed reports for further analysis</p>
-                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                            <button onclick="exportReport('csv')" style="padding: 10px 20px; background: #003366; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
-                                <i class="fas fa-file-csv"></i> Export CSV
-                            </button>
-                            <button onclick="exportReport('pdf')" style="padding: 10px 20px; background: #003366; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
-                                <i class="fas fa-file-pdf"></i> Export PDF
-                            </button>
-                            <button onclick="exportReport('xlsx')" style="padding: 10px 20px; background: #003366; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
-                                <i class="fas fa-file-excel"></i> Export Excel
-                            </button>
+                    <div class="rk-card">
+                        <h3 class="rk-card-h"><i class="fas fa-download"></i> Export Reports</h3>
+                        <p class="rk-desc">Download detailed reports for further analysis</p>
+                        <div class="rk-exports">
+                            <button class="btn btn-secondary" onclick="exportReport('csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
+                            <button class="btn btn-secondary" onclick="exportReport('pdf')"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                            <button class="btn btn-secondary" onclick="exportReport('xlsx')"><i class="fas fa-file-excel"></i> Export Excel</button>
                         </div>
                     </div>
                 </div>
             `;
             loadLeaderboard();
+        }
+
+        /* A row that opens someone's profile carries their name in data-person
+           and is wired here, never through an onclick string built around the
+           name (an apostrophe in it turned back into code). Enter works too. */
+        function wirePersonRows(root) {
+            root.querySelectorAll('[data-person]').forEach(el => {
+                const open = () => openPersonPanel(el.dataset.person);
+                el.addEventListener('click', open);
+                el.addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
+            });
         }
 
         // ===== Global leaderboard (fills #leaderboardHost in Reports) =====
@@ -11744,18 +11719,18 @@
                 if (data.status !== 'success') throw new Error();
             } catch (e) { host.innerHTML = ''; return; }
 
-            const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span style="color:#94a3b8;font-weight:700;">#${i + 1}</span>`;
-            const sc = v => (v == null ? '#94a3b8' : (v >= 75 ? '#0f8a5f' : (v >= 50 ? '#b58b00' : '#d13212')));
+            const rank = i => `<span class="rk-rank${i < 3 ? ' top' : ''}">${String(i + 1).padStart(2, '0')}</span>`;
+            const sc = v => (v == null ? 'na' : (v >= 75 ? 'pass' : (v >= 50 ? 'warn' : 'fail')));
             const row = (p, i, valueHtml) => `
-                <div class="lb-row" onclick="openPersonPanel('${(p.name || '').replace(/'/g, "\\'")}')">
-                    <span class="lb-rank">${medal(i)}</span>
+                <div class="lb-row" data-person="${escapeHtmlForAttr(p.name || '')}" tabindex="0" title="View profile">
+                    <span class="lb-rank">${rank(i)}</span>
                     <span class="lb-name">${escapeHtml(p.name)}${p.region ? `<span class="lb-sub"> · ${escapeHtml(p.region)}</span>` : ''}</span>
                     ${valueHtml}
                 </div>`;
             const visits = (data.by_visits || []).map((p, i) =>
                 row(p, i, `<span class="lb-val">${p.visits}</span>`)).join('') || '<div class="lb-empty">No visits yet.</div>';
             const passes = (data.by_pass_rate || []).map((p, i) =>
-                row(p, i, `<span class="lb-val" style="color:${sc(p.pass_rate)}">${p.pass_rate}%</span>`)).join('') || '<div class="lb-empty">No visits yet.</div>';
+                row(p, i, `<span class="lb-val rk-${sc(p.pass_rate)}">${p.pass_rate}%</span>`)).join('') || '<div class="lb-empty">No visits yet.</div>';
 
             host.innerHTML = `
                 <div class="lb-grid">
@@ -11768,6 +11743,7 @@
                         ${passes}
                     </div>
                 </div>`;
+            wirePersonRows(host);
         }
 
         function loadReports() {

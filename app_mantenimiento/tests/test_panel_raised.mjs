@@ -204,6 +204,8 @@ console.log('\nA community nobody has walked yet');
     function panelCoverHtml() { return ''; }
     function escapeHtml(s) { return String(s); }
     function loadCommunityRaised(c) { asked.push('raised:' + c); }
+    ${grab('setPanelEyebrow')}
+    function getCommunityRegionName() { return null; }
     ${grab('renderUnvisitedPanel')}
   `);
 

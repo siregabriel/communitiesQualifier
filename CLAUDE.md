@@ -167,6 +167,22 @@ Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost
   never text. jsdom ignores `var()` inside the `background:` shorthand, so
   colours a test measures are written literally.
 - Emails keep the old `#00285c`; templates and theme were moved to `#003366`.
+- Gabriel's answer colours: chosen Pass `#75fb87` with dark ink, Fail
+  `#ea366e` with white (4.0:1, his choice), Not checked `#5b6b85`. A visit
+  card's left rail and a panel response's rail take the answer's colour
+  (`:has()`); navy until answered. Submit is `#5ac486` with dark ink.
+  Visit notes keep their blue rail on purpose: they are not a standard.
+- A score's colour as text: `scoreColor()` only (returns `var(--score-*)`,
+  defined light + dark in theme.css). Never write a band hex inline.
+- Phones: the theme's `@media (max-width: 768px)` parts own the mobile
+  header (one icon row; labels kept at font-size 0), the flat tab bar lives
+  in `mobile_tabbar.html`. A rule that forces `display` must skip elements
+  the page hides inline (Question Manager leaked to regionals once).
+- `login.html` and `change_password.html` style themselves (login loads
+  theme.css *before* its own block). The visit form's body is `.visit-page`.
+- jsdom also drops `var()` in an `!important` `font-family`, has no media
+  queries (tests unwrap them: `test_phone_skin.mjs`) and does not expand
+  `border-radius` longhands. Write measured values literally.
 
 ## Pitfalls already paid for
 

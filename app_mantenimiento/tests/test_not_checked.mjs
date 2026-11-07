@@ -106,22 +106,27 @@ console.log('\nEvery standard offers it, next to Pass and Fail');
   }
 }
 
-console.log('\nOn a phone it gets its own row (the rule, not the look)');
+console.log('\nOn a phone the three share one line (the rule, not the look)');
 {
-  // jsdom has no layout and no media queries, so this cannot show that it
-  // fits; a screenshot on a real phone does. What it can hold down is that
-  // the rule exists, is for phones, and is aimed at the button that has it.
+  // It used to take its own row: "NOT CHECKED" in capitals did not fit a
+  // third of a phone. In sentence case it does, and Gabriel chose the mock-up's
+  // single line (Nov 2026), which saves a row on every standard. jsdom has no
+  // layout or media queries: what it can hold down is that the page no longer
+  // pushes it onto a row of its own, and that the theme keeps the line whole.
   const { w } = await ready();
   const label = w.document.querySelector('input[name="condition_q1"][value="Not checked"]').closest('label');
-  ok(label.classList.contains('rb-notchecked'), 'the Not checked button carries the class the rule targets');
+  ok(label.classList.contains('rb-notchecked'), 'the Not checked button still carries its class');
   const style = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
   const sheet = new w.CSSStyleSheet();
   sheet.replaceSync(style);
-  const phone = [...sheet.cssRules].filter(r => r.media && /max-width:\s*480px/.test(r.media.mediaText));
-  const wraps = phone.some(m => [...m.cssRules].some(r => r.selectorText === '.condition-rating' && r.style.flexWrap === 'wrap'));
-  const ownRow = phone.some(m => [...m.cssRules].some(r => r.selectorText === '.radio-button.rb-notchecked' && /100%/.test(r.style.flex)));
-  ok(wraps, 'on a phone the row may wrap');
-  ok(ownRow, 'and Not checked takes the whole second row');
+  const ownRow = [...sheet.cssRules].some(m => m.cssRules && [...m.cssRules].some(r =>
+    /rb-notchecked/.test(r.selectorText || '') && /100%/.test(r.style.flex)));
+  ok(!ownRow, 'the page no longer gives it a row of its own');
+  const theme = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
+  ok(/\.visit-page \.condition-rating \{ flex-wrap: nowrap !important; \}/.test(theme), 'and the theme keeps the three on one line');
+
+  const nums = [...w.document.querySelectorAll('.question-section .q-num')].map(n => n.textContent);
+  ok(JSON.stringify(nums) === '["01 / 03","02 / 03","03 / 03"]', `each standard says where it is (${nums.join(', ')})`);
 }
 
 console.log('\nThe chosen answer is filled, light and dark (computed from the real CSS)');

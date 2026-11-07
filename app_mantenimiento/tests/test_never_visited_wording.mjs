@@ -101,14 +101,13 @@ console.log('\nEvery reader asks the date, not the words');
 {
   /* A community reader that branches on lastVisit's truthiness is this bug
      again. Narrowed to the community objects on purpose: the leaderboard keeps
-     a performerMap whose lastVisit is a timestamp rather than a formatted
-     date, and branching on that one is correct. An earlier version of this
+     a performerMap whose lastVisit was a timestamp rather than a formatted
+     date, and branching on that one was correct. An earlier version of this
      check flagged it, which is a test complaining about a different field that
-     happens to share a name. */
+     happens to share a name. (That table, "Top Performers", is gone: Gabriel
+     removed it in Nov 2026 as a repeat of "Most visits".) */
   const bad = [...html.matchAll(/\b(community|c)\.lastVisit \?/g)].map(m => m[0]);
   ok(bad.length === 0, `no community reader branches on the text (${bad.join(', ') || 'none'})`);
-  ok(/p\.lastVisit \? new Date\(p\.lastVisit\)/.test(html),
-     'while the leaderboard, whose lastVisit really is a timestamp, still does');
 
   const i = html.indexOf('Last visit: ${escapeHtml(c.lastVisit)}');
   ok(i > 0, 'the dashboard row still shows the date when there is one');
