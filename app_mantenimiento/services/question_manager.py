@@ -83,7 +83,7 @@ class QuestionManager(JsonFileBacked):
     def create_question(self, text: str, photo_required: bool, communities: List[str],
                        survey_types: Optional[List[str]] = None,
                        interpretive_guideline: str = "", pass_criteria=None,
-                       all_communities: bool = False) -> Dict:
+                       all_communities: bool = False, help_resource_id: str = "") -> Dict:
         """
         Create new question with validation
         
@@ -134,6 +134,8 @@ class QuestionManager(JsonFileBacked):
         }
         if all_communities:
             question["all_communities"] = True
+        if help_resource_id:
+            question["help_resource_id"] = help_resource_id
         
         # Reload latest from disk before appending so we never clobber
         # changes made by another process or an external edit.
@@ -195,7 +197,8 @@ class QuestionManager(JsonFileBacked):
     def update_question(self, question_id: str, text: str, photo_required: bool,
                        communities: List[str], survey_types: Optional[List[str]] = None,
                        interpretive_guideline: str = "", pass_criteria=None,
-                       all_communities: bool = False) -> Optional[Dict]:
+                       all_communities: bool = False,
+                       help_resource_id: Optional[str] = None) -> Optional[Dict]:
         """
         Update existing question, preserving ID and created_at timestamp
         
@@ -241,12 +244,34 @@ class QuestionManager(JsonFileBacked):
         else:
             question.pop("all_communities", None)
         question["survey_types"] = survey_types  # Empty array means all types
+        # None leaves the help material as it was; "" takes it off.
+        if help_resource_id is not None:
+            if help_resource_id:
+                question["help_resource_id"] = help_resource_id
+            else:
+                question.pop("help_resource_id", None)
         question["updated_at"] = datetime.now().isoformat()
         
         # Save to file
         self.save_to_file()
         
         return question
+
+    def clear_help_resource(self, resource_id: str) -> int:
+        """Take a deleted resource off every standard that showed it.
+        Returns how many standards changed."""
+        if not resource_id:
+            return 0
+        with self._lock:
+            self._ensure_fresh()
+            changed = 0
+            for q in self.questions:
+                if q.get("help_resource_id") == resource_id:
+                    q.pop("help_resource_id", None)
+                    changed += 1
+            if changed:
+                self.save_to_file()
+        return changed
 
     def delete_question(self, question_id: str) -> bool:
         """

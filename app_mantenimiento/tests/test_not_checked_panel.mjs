@@ -41,6 +41,7 @@ function boot(fetchReply) {
     ${grab('getBadgeClass')}
     ${grab('getBadgeIcon')}
     ${grab('groupResponsesByCondition')}
+    ${grab('helpRowHtml')}
     ${grab('renderResponses')}
     ${grab('loadCommunityHistory')}
     ${grab('draftReviewHtml')}

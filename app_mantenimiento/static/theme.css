@@ -4061,3 +4061,55 @@ html[data-theme="dark"] #questionsTable .btn-icon i { color: inherit !important;
 }
 .visit-page .survey-type-badge .st-change:hover { text-decoration: underline; }
 html[data-theme="dark"] .visit-page .survey-type-badge .st-change { color: #9cc4ff; border-left-color: #33425c; }
+
+/* ----- Help material on a standard (Nov 2026) ---------------------------
+   A flyer or guide offered with the standard during a visit, and in the
+   community panel: one quiet row, the title and its type, Share (the
+   phone's share sheet) and Download. */
+.help-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 4px 0 14px; padding: 10px 12px; border: 1px solid #d3dde8; border-radius: 8px; background: #f1f5fa;
+}
+.help-row-icon {
+    width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0; background: #003366; color: #ffffff;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 13px;
+}
+.help-row-text { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; }
+.help-row-text b { font-size: 14px; font-weight: 600; color: #1b2730; overflow-wrap: anywhere; }
+.help-row-text small {
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: .08em; color: #5a6872;
+}
+.help-share, .help-download {
+    display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 8px;
+    font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.help-share { background: #003366; color: #ffffff; border: 0; }
+.help-share:disabled { opacity: .6; cursor: progress; }
+.help-download { background: #ffffff; color: #003366; border: 1px solid #cfd6dd; }
+.help-download:hover { border-color: #003366; }
+html[data-theme="dark"] .help-row { background: #1b2537; border-color: #2b3a52; }
+html[data-theme="dark"] .help-row-icon { background: #1f6fe5; }
+html[data-theme="dark"] .help-row-text b { color: #e7edf6; }
+html[data-theme="dark"] .help-row-text small { color: #9fb0c4; }
+html[data-theme="dark"] .help-share { background: #1f6fe5; }
+html[data-theme="dark"] .help-download { background: #161f2e; color: #cfe0ff; border-color: #33425c; }
+html[data-theme="dark"] .help-row i { color: inherit !important; }
+
+/* The editor's picker. */
+.modal .help-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+.modal .help-select {
+    flex: 1 1 220px; height: 42px; padding: 0 36px 0 12px; border: 1px solid #cfd6dd; border-radius: 8px;
+    background-color: #ffffff; color: #1b2730; font-size: 14px; font-family: inherit;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23003366' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; background-size: 12px 8px;
+}
+.modal .help-upload-btn { height: 42px; }
+.help-upload-msg { font-size: 12.5px; margin-top: 6px; min-height: 16px; color: #5a6872; }
+.help-upload-msg.ok { color: #0b6b49; }
+.help-upload-msg.err { color: #b42318; }
+.q-help { color: #003366; font-size: 12px; margin-left: 4px; }
+html[data-theme="dark"] .modal .help-select { background-color: #1b2537; color: #e7edf6; border-color: #33425c; }
+html[data-theme="dark"] .help-upload-msg.ok { color: #5fd6a3; }
+html[data-theme="dark"] .help-upload-msg.err { color: #ff9d85; }
+html[data-theme="dark"] .q-help { color: #9cc4ff; }

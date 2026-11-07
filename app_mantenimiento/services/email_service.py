@@ -96,6 +96,23 @@ class EmailService:
         return f"{self.app_base_url}/?community={quote(community or '')}"
 
     @staticmethod
+    def _help_for(response, help_map):
+        """A failed standard's help material, matched like its criteria."""
+        if not help_map:
+            return None
+        qid = response.get('question_id')
+        if qid and help_map.get(qid):
+            return help_map[qid]
+        return help_map.get('t:' + (response.get('question_text') or '').strip().lower())
+
+    def _help_url(self, info):
+        """Where an email reader gets it: the app's own download, which asks
+        them to sign in. Nothing without a base address to build it on."""
+        if not self.app_base_url or not info.get('download'):
+            return None
+        return f"{self.app_base_url}{info['download']}"
+
+    @staticmethod
     def _criteria_for(response, criteria_map):
         if not criteria_map:
             return []
@@ -919,7 +936,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
     def send_community_findings(self, recipients, community, inspector, when,
                                 failed_items, action_items, criteria_map=None,
                                 handover=False, notes='', passed_items=None,
-                                score=None, not_checked_items=None):
+                                score=None, not_checked_items=None, help_map=None):
         """What the community itself needs after a visit.
 
         Still not the leadership report — what needs doing comes first and
@@ -1049,12 +1066,25 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             return (f"<div style='font-size:12px;color:#6b7280;margin:6px 0 2px'>To pass, must include:</div>"
                     f"<ul style='margin:0;padding-left:16px;color:#475569;font-size:12.5px'>{lis}</ul>")
 
+        # The standard's help material (a flyer, a guide), so the community
+        # has what it needs to put the finding right without asking for it.
+        def help_html(item):
+            info = self._help_for(item, help_map)
+            if not info:
+                return ''
+            url = self._help_url(info)
+            name = esc(info.get('title'))
+            what = (f"<a href='{esc(url)}' style='color:#003366;font-weight:700'>{name}</a>"
+                    if url else f"<b>{name}</b> (in Atlas Excellence)")
+            return (f"<div style='font-size:13px;color:#36454f;margin-top:6px'>"
+                    f"Help material: {what}</div>")
+
         std_rows = ''.join(
             f"<li style='margin:14px 0'>"
             f"<b style='font-size:14px;color:#0f1e36'>{esc(i.get('question_text', 'Item'))}</b>"
             + (f"<div style='font-size:13px;color:#475569;margin-top:3px'>{esc(i.get('description'))}</div>"
                if i.get('description') else "")
-            + crit_html(i) + "</li>"
+            + crit_html(i) + help_html(i) + "</li>"
             for i in failed_items)
 
         pr_color = {'high': '#b42318', 'medium': '#92620a', 'low': '#475569'}
@@ -1102,6 +1132,11 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                                   + (f": {i.get('description')}" if i.get('description') else ""))
                 for c in self._criteria_for(i, criteria_map):
                     text_lines.append(f"      to pass: {c}")
+                info = self._help_for(i, help_map)
+                if info:
+                    url = self._help_url(info)
+                    text_lines.append(f"      help material: {info.get('title')}"
+                                      + (f" — {url}" if url else " (in Atlas Excellence)"))
             text_lines.append("")
         if action_items:
             text_lines.append(f"OTHER ITEMS FLAGGED ({len(action_items)})")

@@ -6,7 +6,7 @@ Flask application for managing maintenance and cleaning reports
 With user authentication and automatic community detection
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory, send_file, make_response
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory, send_file, make_response, Response
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -1339,7 +1339,7 @@ def send_community_handover(community, recipients):
 
     email_service.send_community_findings(
         recipients, community, inspector, when, failed, open_items,
-        criteria_map, handover=True)
+        criteria_map, handover=True, help_map=_help_map())
 
 
 def region_leader_emails(community):
@@ -6136,7 +6136,9 @@ def delete_resource(resource_id):
         return jsonify({'status': 'error', 'message': 'Resource not found'}), 404
     if rec.get('kind') == 'file' and rec.get('file_path'):
         file_upload_handler.delete_file(rec['file_path'])
-    return jsonify({'status': 'success'}), 200
+    # A standard that offered it as help material stops offering it.
+    unlinked = question_manager.clear_help_resource(resource_id)
+    return jsonify({'status': 'success', 'standards_unlinked': unlinked}), 200
 
 
 @app.route('/api/resources/<resource_id>/attach', methods=['POST'])
@@ -6320,6 +6322,52 @@ def download_resource(resource_id):
     directory = os.path.join(UPLOAD_FOLDER, os.path.dirname(rel))
     return send_from_directory(directory, os.path.basename(rel),
                                as_attachment=True, download_name=rec.get('filename'))
+
+
+HELP_SHARE_MAX_BYTES = 15 * 1024 * 1024
+# The type is taken from the file's extension, never from what the uploading
+# browser claimed: served from this site, a ".pdf" claimed as text/html would
+# run as a page inside the app.
+HELP_SHARE_TYPES = {
+    'pdf': 'application/pdf', 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+    'gif': 'image/gif', 'webp': 'image/webp', 'txt': 'text/plain', 'csv': 'text/csv',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'zip': 'application/zip',
+}
+
+
+@app.route('/api/resources/<resource_id>/file')
+@login_required
+def resource_file(resource_id):
+    """The file itself, from this site, for any signed-in user.
+
+    The download route sends a browser to a signed S3 address, which is a
+    different site: a phone's Share sheet needs the bytes in the page to
+    attach the file itself (a flyer straight into WhatsApp or a text to the
+    Executive Director), and the page cannot read across to S3. Same access
+    as the download; files only; capped, since this reads into memory."""
+    rec = resource_service.get(resource_id)
+    if not rec or rec.get('kind') != 'file' or not rec.get('file_path'):
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    try:
+        data = file_upload_handler.read_bytes(rec['file_path'])
+    except Exception as e:
+        app.logger.error(f'Help material read failed for {resource_id}: {e}')
+        return jsonify({'status': 'error', 'message': 'Could not read the file'}), 500
+    if len(data) > HELP_SHARE_MAX_BYTES:
+        return jsonify({'status': 'error', 'message': 'Too large to share; download it instead'}), 413
+    name = secure_filename(rec.get('filename') or 'help-material') or 'help-material'
+    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    return Response(data, mimetype=HELP_SHARE_TYPES.get(ext, 'application/octet-stream'),
+                    headers={'Content-Disposition': f'attachment; filename="{name}"',
+                             'Content-Security-Policy': "sandbox; default-src 'none'",
+                             'Cache-Control': 'private, max-age=300',
+                             'X-Content-Type-Options': 'nosniff'})
 
 
 @app.route('/api/settings/email', methods=['GET'])
@@ -6681,6 +6729,47 @@ def question_manager_ui():
                          communities=all_communities() or ALL_COMMUNITIES)
 
 
+def _help_info(resource_id):
+    """What the form, the panel and the emails need to offer a standard's
+    help material: a title, what kind of thing it is, and where to get it.
+    None when the standard has none or the resource is gone."""
+    rec = resource_service.get(resource_id) if resource_id else None
+    if not rec:
+        return None
+    return {
+        'id': rec['id'],
+        'title': rec.get('title') or rec.get('filename') or 'Help material',
+        'kind': rec.get('kind'),
+        'filename': rec.get('filename') if rec.get('kind') == 'file' else None,
+        'content_type': (HELP_SHARE_TYPES.get((rec.get('filename') or '').rsplit('.', 1)[-1].lower(),
+                                              'application/octet-stream')
+                         if rec.get('kind') == 'file' else None),
+        'download': f"/api/resources/{rec['id']}/download",
+        'file': f"/api/resources/{rec['id']}/file" if rec.get('kind') == 'file' else None,
+    }
+
+
+def _with_help(question):
+    """A copy of the question with its help material spelled out (the stored
+    question only keeps the id)."""
+    info = _help_info(question.get('help_resource_id'))
+    return {**question, 'help': info} if info else question
+
+
+def _help_map():
+    """Standard (by id and by text) -> help material, for the emails."""
+    out = {}
+    for q in question_manager.get_all_active_questions():
+        info = _help_info(q.get('help_resource_id'))
+        if not info:
+            continue
+        if q.get('id'):
+            out[q['id']] = info
+        if q.get('text'):
+            out['t:' + q['text'].strip().lower()] = info
+    return out
+
+
 @app.route('/api/questions', methods=['GET'])
 @login_required
 def get_questions():
@@ -6745,7 +6834,7 @@ def get_questions():
         
         return jsonify({
             'status': 'success',
-            'questions': questions
+            'questions': [_with_help(q) for q in questions]
         }), 200
         
     except Exception as e:
@@ -6853,10 +6942,13 @@ def create_question():
             }), 400
 
         pass_criteria = sanitized_data.get('pass_criteria', [])
+        help_id = sanitized_data.get('help_resource_id') or ''
+        if help_id and not resource_service.get(help_id):
+            return jsonify({'status': 'error', 'message': 'That help material no longer exists'}), 400
 
         # Create question using QuestionManager
         question = question_manager.create_question(text, photo_required, communities, survey_types, interpretive_guideline, pass_criteria,
-                                                   all_communities=every)
+                                                   all_communities=every, help_resource_id=help_id)
 
         activity_service.log(session.get('user'), 'question_created', text)
 
@@ -6946,10 +7038,14 @@ def update_question(question_id):
             }), 400
 
         pass_criteria = sanitized_data.get('pass_criteria', [])
+        # Not sent: left as it was. Sent empty: taken off.
+        help_id = sanitized_data.get('help_resource_id')
+        if help_id and not resource_service.get(help_id):
+            return jsonify({'status': 'error', 'message': 'That help material no longer exists'}), 400
 
         # Update question using QuestionManager
         question = question_manager.update_question(question_id, text, photo_required, communities, survey_types, interpretive_guideline, pass_criteria,
-                                                   all_communities=every)
+                                                   all_communities=every, help_resource_id=help_id)
         
         # Check if question was found
         if question is None:
@@ -7507,7 +7603,8 @@ def _send_visit_emails(submission):
                 notes=submission.get('notes', ''),
                 passed_items=passed,
                 not_checked_items=not_checked,
-                score=round(len(passed) / done * 100) if done else None)
+                score=round(len(passed) / done * 100) if done else None,
+                help_map=_help_map())
 
         # Comments a visitor directed at a department, and the action
         # items they raised for one. Both resolve through the same

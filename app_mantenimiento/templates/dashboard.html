@@ -3424,6 +3424,7 @@
 
         // Standards lookup (pass criteria + guideline) for the detail panel.
         let questionsMap = {};   // by id and by lowercased text
+        let helpById = {};       // a standard's help material, by resource id
         async function loadQuestions() {
             try {
                 const r = await fetch('/api/questions');
@@ -3434,13 +3435,66 @@
                     const entry = {
                         text: q.text || '',
                         guideline: q.interpretive_guideline || '',
-                        criteria: Array.isArray(q.pass_criteria) ? q.pass_criteria : []
+                        criteria: Array.isArray(q.pass_criteria) ? q.pass_criteria : [],
+                        help: q.help || null
                     };
+                    if (q.help && q.help.id) helpById[q.help.id] = q.help;
                     if (q.id) questionsMap[q.id] = entry;
                     if (q.text) questionsMap['t:' + q.text.trim().toLowerCase()] = entry;
                 });
             } catch (e) { console.error('Questions load error:', e); }
         }
+        /* A standard's help material (a flyer, a guide) beside a finding, in
+           the community panel and in Action Items, so the Executive Director
+           can get it again after the visit. Share hands the file to the
+           phone's share sheet; Download everywhere. The Share button carries
+           the resource id and is wired by delegation below. */
+        function helpRowHtml(std) {
+            const h = std && std.help;
+            if (!h || !h.download) return '';
+            const ext = h.filename && h.filename.includes('.') ? h.filename.split('.').pop().toUpperCase() : '';
+            return `<div class="help-row">
+                <span class="help-row-icon"><i class="fas fa-paperclip" aria-hidden="true"></i></span>
+                <div class="help-row-text"><b>${escapeHtml(h.title || 'Help material')}</b>
+                    <small>${h.kind === 'link' ? 'Link' : escapeHtml(ext || 'File')}</small></div>
+                ${navigator.share ? `<button type="button" class="help-share" data-help-share="${escapeHtmlForAttr(h.id)}"><i class="fas fa-share-from-square" aria-hidden="true"></i> Share</button>` : ''}
+                <a class="help-download" href="${escapeHtmlForAttr(h.download)}" target="_blank" rel="noopener"><i class="fas fa-download" aria-hidden="true"></i> ${h.kind === 'link' ? 'Open' : 'Download'}</a>
+            </div>`;
+        }
+        async function shareHelpMaterial(help, btn) {
+            // Same as on the visit form (reporte.html): the file itself to the
+            // share sheet, the download when a phone cannot share a file.
+            btn.disabled = true;
+            try {
+                if (help.kind === 'link') {
+                    await navigator.share({ title: help.title, url: new URL(help.download, location.href).href });
+                    return;
+                }
+                const r = await fetch(help.file);
+                if (!r.ok) throw new Error('fetch');
+                const blob = await r.blob();
+                const file = new File([blob], help.filename || 'help-material', { type: help.content_type || blob.type });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: help.title });
+                } else {
+                    window.open(help.download, '_blank', 'noopener');
+                }
+            } catch (e) {
+                if (!(e && e.name === 'AbortError')) window.open(help.download, '_blank', 'noopener');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-help-share]');
+            if (!btn) return;
+            e.stopPropagation();
+            const help = helpById[btn.dataset.helpShare];
+            if (help) shareHelpMaterial(help, btn);
+        });
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.help-download')) e.stopPropagation();
+        }, true);
         function standardFor(response) {
             return (response.questionId && questionsMap[response.questionId])
                 || questionsMap['t:' + (response.questionText || '').trim().toLowerCase()]
@@ -4345,6 +4399,7 @@
                 html += `
                     <div class="response-card${response.addressed ? ' response-card-fixed' : ''}">
                         <div class="response-question-row"><div class="response-question">${escapeHtml(response.questionText)}</div>${stdBtn}</div>
+                        ${helpRowHtml(std)}
                         <div class="response-badges">
                             <span class="response-condition ${response.conditionClass}">
                                 <i class="${response.conditionIcon}"></i> ${response.condition}
@@ -8015,6 +8070,7 @@
                     </div>
                     <div class="ail-detail">
                         ${manual ? '' : `<p class="ail-desc">${escapeHtml(item.description || 'No description provided')}</p>`}
+                        ${manual ? '' : helpRowHtml(standardFor(item))}
                         ${manual && item.assignedTo
                             ? `<p class="ail-desc"><i class="fas fa-user-gear"></i> ${escapeHtml(item.assignedTo)}</p>` : ''}
                         <p class="ail-desc ail-who"><i class="fas fa-user"></i> ${escapeHtml(item.username || '')}</p>

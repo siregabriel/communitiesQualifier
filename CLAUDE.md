@@ -131,6 +131,20 @@ its own location; **where anybody is never reaches this server.**
   (`/api/questions/order`). One global `order`; each survey type shows its own
   questions in it; new ones go last. Never reordered → newest first, as before.
 
+## Help material on a standard (Nov 2026)
+
+- A standard can point at one Resources item (`help_resource_id`): picked or
+  uploaded in the Standards editor ("Upload new" adds it to Resources).
+  `/api/questions` adds a resolved `help` (title, kind, download, file).
+- Shown under the standard on the visit form (Share = the phone's share
+  sheet with the file itself; Download), with each response in the panel and
+  each finding in Action Items, to everyone signed in. A failed standard's
+  material goes in the ED's findings email (`help_map`, link needs sign-in).
+- `/api/resources/<id>/file` serves the bytes from this site for Share (S3
+  is another origin). Type from the extension list `HELP_SHARE_TYPES`, never
+  the uploader's claim; attachment + sandbox CSP + nosniff. Deleting a
+  resource unlinks it from standards. `tests/test_help_material.{py,mjs}`.
+
 ## Unfinished visits (drafts)
 
 Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost

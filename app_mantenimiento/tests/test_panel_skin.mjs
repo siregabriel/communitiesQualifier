@@ -54,6 +54,7 @@ for (const dark of [false, true]) {
     ${grab('getBadgeClass')}
     ${grab('getCommunityRegionName')}
     ${grab('setPanelEyebrow')}
+    ${grab('helpRowHtml')}
     ${grab('renderResponses')}
     const r = (q, c) => ({ questionText: q, condition: c, conditionClass: getBadgeClass(c), conditionIcon: 'fas fa-check',
                            questionId: q, submissionId: 's1', comments: [] });

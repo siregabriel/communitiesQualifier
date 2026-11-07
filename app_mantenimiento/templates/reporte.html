@@ -2168,6 +2168,71 @@
         });
         window.addEventListener('pagehide', () => { clearTimeout(_draftTimer); draftSaveNow(true); });
 
+        /* A standard's help material (a flyer, a guide): Share hands the file
+           itself to the phone's share sheet — WhatsApp, Messages, email,
+           AirDrop — so it can go to the Executive Director on the spot;
+           Download where sharing a file is not possible. Built with DOM
+           methods: titles and file names are typed by people. */
+        function helpMaterialRow(help) {
+            if (!help || !help.download) return null;
+            const row = document.createElement('div');
+            row.className = 'help-row';
+            const icon = document.createElement('span');
+            icon.className = 'help-row-icon';
+            icon.innerHTML = '<i class="fas fa-paperclip" aria-hidden="true"></i>';
+            const text = document.createElement('div');
+            text.className = 'help-row-text';
+            const title = document.createElement('b');
+            title.textContent = help.title || 'Help material';
+            const kind = document.createElement('small');
+            const ext = help.filename && help.filename.includes('.') ? help.filename.split('.').pop().toUpperCase() : '';
+            kind.textContent = help.kind === 'link' ? 'Link' : (ext || 'File');
+            text.append(title, kind);
+            row.append(icon, text);
+            if (navigator.share) {
+                const share = document.createElement('button');
+                share.type = 'button';
+                share.className = 'help-share';
+                share.innerHTML = '<i class="fas fa-share-from-square" aria-hidden="true"></i> ';
+                share.append('Share');
+                share.addEventListener('click', () => shareHelpMaterial(help, share));
+                row.append(share);
+            }
+            const dl = document.createElement('a');
+            dl.className = 'help-download';
+            dl.href = help.download;
+            dl.target = '_blank';
+            dl.rel = 'noopener';
+            dl.innerHTML = '<i class="fas fa-download" aria-hidden="true"></i> ';
+            dl.append(help.kind === 'link' ? 'Open' : 'Download');
+            row.append(dl);
+            return row;
+        }
+
+        async function shareHelpMaterial(help, btn) {
+            btn.disabled = true;
+            try {
+                if (help.kind === 'link') {
+                    await navigator.share({ title: help.title, url: new URL(help.download, location.href).href });
+                    return;
+                }
+                const r = await fetch(help.file);
+                if (!r.ok) throw new Error('fetch');
+                const blob = await r.blob();
+                const file = new File([blob], help.filename || 'help-material', { type: help.content_type || blob.type });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: help.title });
+                } else {
+                    window.open(help.download, '_blank', 'noopener');
+                }
+            } catch (e) {
+                // Closing the share sheet is a choice, not a failure.
+                if (!(e && e.name === 'AbortError')) window.open(help.download, '_blank', 'noopener');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
         /* "Change" on the survey type: back to choosing the type, with the
            community already chosen carried along. Nothing is lost: answers so
            far stay as this type's draft — saved here, and again as the page
@@ -2702,6 +2767,8 @@
                 titleRow.appendChild(infoBtn);
             }
             section.appendChild(titleRow);
+            const helpRow = helpMaterialRow(question.help);
+            if (helpRow) section.appendChild(helpRow);
 
             // Question description (if available)
             if (question.description) {

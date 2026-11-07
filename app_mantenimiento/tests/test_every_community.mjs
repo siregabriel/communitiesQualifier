@@ -95,6 +95,8 @@ function boot({ dark = false, questions = [] } = {}) {
     ${grab('setEveryCommunity')}
     ${grab('updateSelectedCount')}
     ${grab('updateSelectedSurveyTypesCount')}
+    ${grab('fillHelpSelect')}
+    var helpResources = [];
     ${grab('openCreateModal')}
     ${grab('openEditModal')}
     ${grab('changeSelectedCommunities')}

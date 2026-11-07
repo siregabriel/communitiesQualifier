@@ -146,6 +146,15 @@ class InputSanitizer:
         # "Every community": applies everywhere, including communities added later
         sanitized['all_communities'] = data.get('all_communities') is True
 
+        # Help material: the id of a Resources item shown with the standard
+        # during a visit. Only the id's own characters survive; the endpoint
+        # checks it names a resource that exists. Absent means "leave as is";
+        # an empty string clears it.
+        if 'help_resource_id' in data:
+            raw = data.get('help_resource_id')
+            raw = raw if isinstance(raw, str) else ''
+            sanitized['help_resource_id'] = re.sub(r'[^A-Za-z0-9_\-]', '', raw)[:64]
+
         # Sanitize survey_types array (optional, empty means all types)
         if 'survey_types' in data:
             if isinstance(data['survey_types'], list):

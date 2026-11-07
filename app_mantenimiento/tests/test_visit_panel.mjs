@@ -91,6 +91,7 @@ function boot(width) {
     ${grab('formatDate')}
     ${grab('photoUrl')}
     ${grab('commentThreadHtml')}
+    ${grab('helpRowHtml')}
     ${grab('renderResponses')}
     function standardFor() { return null; }
     var currentUsername = 'gabriel';
