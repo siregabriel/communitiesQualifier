@@ -5887,13 +5887,10 @@ def email_notification_summary():
             add(addr, '', f'{label} comments',
                 f'Visit comments directed to {label}', 'route')
 
-    # A recipient can be removed from here when it came from a configurable list
-    # (subscribers / admin alerts / clinical / ops). Region leaders and EDs get
-    # theirs from their role, so those are changed on the person, in People.
-    for rec in people.values():
-        kinds = {i['kind'] for i in rec['items']}
-        rec['removable'] = bool(kinds - {'auto'})
-        rec['auto_only'] = kinds == {'auto'}
+    # Read-only: nothing is removed from here. A bin on the person removed
+    # only their list entries, never what their role brings, so it looked like
+    # "stop emailing them" and wasn't (Nov 2026). Lists are edited above in
+    # Settings; role-derived email on the person, in People (`username`).
 
     rows = sorted(people.values(), key=lambda p: (p['name'] or p['email']).lower())
     # Leaders without an email on file can't be reached — surface that too.

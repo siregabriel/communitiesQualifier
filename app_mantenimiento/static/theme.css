@@ -3093,7 +3093,7 @@ html[data-theme="dark"] .set-group::after { background: #2b3a52; }
 .nsum-name { font-weight: 600 !important; color: #1b2730 !important; }
 .nsum-email { font-family: var(--font-mono); font-size: 11.5px !important; color: #5a6872 !important; }
 .nsum-tag { font-weight: 500 !important; }
-.nsum-del, .nsum-edit { border-radius: 6px !important; }
+.nsum-edit { border-radius: 6px !important; }
 .nsum-warn { border-radius: 8px !important; }
 
 /* Danger zone: a red hairline and a red rail; nothing louder. Its title

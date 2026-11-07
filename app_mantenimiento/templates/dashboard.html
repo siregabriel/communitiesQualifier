@@ -2292,16 +2292,10 @@
         .nsum-scoped{ background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
         .nsum-admin { background: #fef6e0; color: #92620a; border: 1px solid #f3d27a; }
         .nsum-route { background: #f3e8ff; color: #6b21a8; border: 1px solid #e0c9fb; }
-        .nsum-del { flex-shrink: 0; width: 30px; height: 30px; border: 1px solid #e2e8f0; background: #fff;
-            border-radius: 8px; color: #b42318; cursor: pointer; font-size: 12px; align-self: flex-start;
-            display: flex; align-items: center; justify-content: center; transition: all .15s ease; }
-        .nsum-del:hover { background: #fdf3f1; border-color: #d13212; }
-        .nsum-actions { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+        .nsum-actions { flex-shrink: 0; }
         .nsum-edit { border: 1px solid #c7d6f0; background: #fff; color: #003366; border-radius: 8px; cursor: pointer;
             font-size: 11.5px; font-weight: 600; padding: 5px 9px; white-space: nowrap; transition: all .15s ease; }
         .nsum-edit:hover { background: #e7edf7; border-color: #003366; }
-        html[data-theme="dark"] .nsum-del { background: #1b2537; border-color: #33425c; color: #ff9d85; }
-        html[data-theme="dark"] .nsum-del:hover { background: rgba(209,50,18,.18); border-color: #ff9d85; }
         html[data-theme="dark"] .nsum-edit { background: #1b2537; border-color: #33425c; color: #9cc4ff; }
         html[data-theme="dark"] .nsum-edit:hover { background: rgba(31,111,229,.20); border-color: #9cc4ff; }
         .nsum-warn { background: #fdf3f1; border: 1px solid #f7d3ca; border-radius: 10px;
@@ -11277,8 +11271,8 @@
                         <p class="set-desc">
                             Every address that receives email from Atlas Excellence, and exactly which notifications it gets —
                             including region leaders, who are copied on their own region automatically.
-                            <b>This is not the list of accounts.</b> The bin removes an address from the lists on
-                            this page. Region leaders and Executive Directors get email because of their role:
+                            <b>Nothing is changed here.</b> Subscribers and the team lists are edited above.
+                            Region leaders and Executive Directors get email because of their role:
                             <b>Edit in People</b> opens the person to change it.
                         </p>
                         <div id="notifySummary"><div class="activity-empty">Loading…</div></div>
@@ -11555,29 +11549,8 @@
             } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
         }
 
-        // ---- User management (admin only) -------------------------------
-        // Remove an address from every list it can be removed from, then refresh
-        // both the summary and the editable subscriber rows above it.
-        async function removeNotificationRecipient(email, label) {
-            if (!confirm(`Stop sending notifications to ${label || email}?\n\nThey will be removed from the subscriber and alert lists. You can add them back any time.`)) return;
-            try {
-                const r = await fetch('/api/settings/email/recipient', {
-                    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                });
-                const d = await r.json();
-                if (r.ok && d.status === 'success') {
-                    await loadEmailSettings();       // refresh the editable rows
-                    await loadNotificationSummary(); // refresh this list
-                } else {
-                    alert(d.message || 'Could not remove that recipient.');
-                }
-            } catch (e) {
-                alert('Network error while removing the recipient.');
-            }
-        }
-
         // "Who receives what" — consolidated view of every outgoing notification.
+        // Read-only: lists are edited above, role-derived email in People.
         async function loadNotificationSummary() {
             const host = document.getElementById('notifySummary');
             if (!host) return;
@@ -11602,11 +11575,8 @@
                     // Role-derived emails are changed on the person, so say where
                     // in words: a lock with a tooltip explained nothing (Nov 2026).
                     // The server sends a username only for those rows.
-                    const action = (p.removable
-                        ? `<button class="nsum-del" type="button" data-remove="${escapeHtml(p.email)}"
-                              data-label="${escapeHtml(p.name || p.email)}" title="Stop sending to this address"><i class="fas fa-trash"></i></button>` : '')
-                        + (p.username
-                        ? `<button class="nsum-edit" type="button" data-person="${escapeHtml(p.username)}">Edit in People</button>` : '');
+                    const action = p.username
+                        ? `<button class="nsum-edit" type="button" data-person="${escapeHtml(p.username)}">Edit in People</button>` : '';
                     return `<div class="nsum-row">
                         <div class="nsum-avatar">${escapeHtml(initials)}</div>
                         <div class="nsum-main">
@@ -11628,8 +11598,6 @@
                     <b><i class="fas fa-circle-info"></i> Email sending is currently disabled on this server.</b>
                     These recipients are configured, but nothing will be sent until email is enabled.</div>`;
                 host.innerHTML = `<div class="nsum-grid">${rows}</div>` + warn + off;
-                host.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click',
-                    () => removeNotificationRecipient(b.dataset.remove, b.dataset.label)));
                 host.querySelectorAll('[data-person]').forEach(b => b.addEventListener('click', () => {
                     peopleOpenOnLoad = b.dataset.person;
                     showView('people');

@@ -102,4 +102,3 @@ def test_a_role_row_says_which_account_to_open(world):
     assert by['kmcdonald@atlas.test']['username'] == 'keely.mcdonald'
     assert by['laura@venice.test']['username'] == 'laura.blakeman'
     assert 'username' not in by['gabriel@atlas.test']
-    assert by['gabriel@atlas.test']['removable'] and not by['laura@venice.test']['removable']
