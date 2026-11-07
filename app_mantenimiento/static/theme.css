@@ -3776,3 +3776,92 @@ html[data-theme="dark"] .visit-page .nearby-suggest.is-ask {
 html[data-theme="dark"] .visit-page .nearby-suggest.is-ask .nearby-note { color: #c2cddd; }
 html[data-theme="dark"] .visit-page .cp-foot, html[data-theme="dark"] .visit-page .cp-foot i { color: #9fb0c4; }
 html[data-theme="dark"] .visit-page .nearby-x { color: #9fb0c4; }
+
+/* ----- PRECISION SKIN, part 10: the Standards editor ---------------------
+   Gabriel found the Edit question window still in the old build: a 22px
+   card, a gradient header, every field label and every survey-type name in
+   capitals (the page's `.form-group label` reached the option rows too),
+   12px rounded inputs, a blue gradient count pill and a green Save. Now the
+   theme's modal: navy header, 8px corners, section labels as mono eyebrows,
+   options in sentence case, inputs with a 1px stroke, the count as a quiet
+   tag and Save in navy. The Survey types and Delete windows share it. */
+.modal .modal-content { border-radius: 8px !important; box-shadow: 0 24px 60px rgba(0, 31, 63, .28) !important; animation-duration: .2s !important; }
+.modal .modal-header { background: #003366 !important; padding: 18px 24px !important; }
+.modal .modal-header h2, .modal .modal-header-title {
+    font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif !important;
+    font-size: 19px !important; font-weight: 700 !important; letter-spacing: -.01em !important;
+}
+.modal .modal-header-icon { border-radius: 8px !important; background: rgba(255, 255, 255, .12) !important; width: 36px !important; height: 36px !important; font-size: 16px !important; }
+.modal .modal-close {
+    border-radius: 8px !important; background: rgba(255, 255, 255, .10) !important;
+    border: 1px solid rgba(255, 255, 255, .28) !important;
+}
+.modal .modal-close:hover { background: rgba(255, 255, 255, .18) !important; transform: none !important; }
+.modal .modal-close, .modal .modal-close i { color: #ffffff !important; }
+
+/* Section labels: mono eyebrows, no icon. Their parenthetical stays a sentence. */
+.modal .form-group > label:not(.every-comm) {
+    font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace !important;
+    font-size: 11.5px !important; font-weight: 500 !important; letter-spacing: .14em !important;
+    text-transform: uppercase !important; color: #00709a !important; margin-bottom: 8px !important;
+}
+.modal .form-group > label:not(.every-comm) i { display: none; }
+.modal .form-group > label:not(.every-comm) span {
+    font-family: 'Roboto', system-ui, sans-serif; text-transform: none; letter-spacing: 0; color: #5a6872 !important;
+}
+.modal .help-text { color: #5a6872 !important; font-size: 13px !important; font-style: normal !important; }
+
+.modal .form-group input[type="text"], .modal .form-group textarea {
+    border: 1px solid #cfd6dd !important; border-radius: 8px !important; background: #ffffff !important;
+    color: #1b2730 !important; font-size: 14.5px !important;
+}
+.modal .form-group input:focus, .modal .form-group textarea:focus {
+    border-color: #003366 !important; box-shadow: 0 0 0 3px rgba(0, 51, 102, .14) !important;
+}
+.modal input[type="checkbox"] { accent-color: #003366; }
+
+/* Option rows and boxes: sentence case, hairline boxes. */
+.modal .checkbox-group, .modal .survey-type-selector, .modal .community-selector {
+    border: 1px solid #e1e5ea !important; border-radius: 8px !important; background: #ffffff !important;
+}
+.modal .checkbox-group label, .modal .survey-type-option label, .modal .community-option label,
+.modal .survey-type-selector-header label, .modal .community-selector-header label {
+    font-family: 'Roboto', system-ui, sans-serif !important;
+    text-transform: none !important; letter-spacing: 0 !important; font-size: 14px !important;
+    color: #1b2730 !important; font-weight: 500 !important; margin: 0 !important;
+}
+.modal .survey-type-selector-header label, .modal .community-selector-header label { font-weight: 600 !important; color: #003366 !important; }
+.modal .survey-type-selector-header, .modal .community-selector-header { box-shadow: none !important; border-bottom-color: #e1e5ea !important; }
+.modal .survey-type-option:hover, .modal .community-option:hover { background: #f7f9fb !important; }
+.modal .survey-type-icon { border-radius: 6px !important; }
+.modal .form-group label.every-comm { border-radius: 8px !important; background: #f1f5fa !important; border-color: #d3dde8 !important; }
+.modal .every-comm input { accent-color: #003366; }
+
+/* "1 type selected": a quiet tag, the count in mono. */
+.modal .selected-count {
+    background: #e8eef4 !important; color: #003366 !important; border-radius: 4px !important;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 11.5px !important; font-weight: 500 !important;
+    padding: 4px 8px !important;
+}
+
+/* Footer: Cancel outlined, Save navy. */
+.modal .modal-actions { border-top-color: #e1e5ea !important; }
+.modal .modal-actions .btn { border-radius: 8px !important; height: 44px; }
+.modal .modal-actions .btn-success { background: #003366 !important; color: #ffffff !important; border: none !important; box-shadow: none !important; }
+.modal .modal-actions .btn-success:hover { background: #002a54 !important; }
+.modal .modal-actions .btn-cancel { background: #ffffff !important; color: #003366 !important; border: 1px solid #cfd6dd !important; }
+.modal .modal-actions .btn-cancel:hover { border-color: #003366 !important; }
+
+html[data-theme="dark"] .modal .form-group { background: transparent !important; }
+html[data-theme="dark"] .modal .form-group > label:not(.every-comm) { color: #5cc8f0 !important; }
+html[data-theme="dark"] .modal .form-group > label:not(.every-comm) span, html[data-theme="dark"] .modal .help-text { color: #9fb0c4 !important; }
+html[data-theme="dark"] .modal .form-group input[type="text"], html[data-theme="dark"] .modal .form-group textarea { background: #1b2537 !important; color: #e7edf6 !important; border-color: #33425c !important; }
+html[data-theme="dark"] .modal :is(.checkbox-group, .survey-type-selector, .community-selector, .survey-type-selector-header, .community-selector-header) { background: #1b2537 !important; border-color: #2b3a52 !important; }
+html[data-theme="dark"] .modal :is(.checkbox-group label, .survey-type-option label, .community-option label) { color: #e7edf6 !important; }
+html[data-theme="dark"] .modal :is(.survey-type-selector-header label, .community-selector-header label) { color: #9cc4ff !important; }
+html[data-theme="dark"] .modal .form-group label.every-comm { background: #1b2a42 !important; border-color: #2b3a52 !important; }
+html[data-theme="dark"] .modal .selected-count { background: #1b2a42 !important; color: #cfe0ff !important; }
+html[data-theme="dark"] .modal .modal-header { background: #0e2a4d !important; }
+html[data-theme="dark"] .modal .modal-actions .btn-success { background: #1f6fe5 !important; }
+html[data-theme="dark"] .modal .modal-actions .btn-cancel { background: #1b2537 !important; color: #cfe0ff !important; border-color: #33425c !important; }
+html[data-theme="dark"] .modal .modal-actions { background: #161f2e !important; }
