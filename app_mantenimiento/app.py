@@ -2531,6 +2531,7 @@ def list_moveins():
             'target_date': rec.get('target_date'),
             'status': rec.get('status', 'active'),
             'created_at': rec.get('created_at'),
+            'completed_at': rec.get('completed_at', ''),
             'done': done, 'total': total,
             'blockers': len(_movein_blockers(rec)),
         })
@@ -2646,6 +2647,30 @@ def delete_movein(mv_id):
     movein_service.delete(mv_id)
     activity_service.log(session.get('user'), 'movein_deleted', f"Deleted move-in for {rec.get('resident_name')}")
     return jsonify({'status': 'success'}), 200
+
+
+@app.route('/api/moveins/<mv_id>/date', methods=['POST'])
+@login_required
+def set_movein_date(mv_id):
+    """Change a move-in's target date.
+
+    The date was fixed at creation, so a move-in that slipped stayed on the
+    calendar on its old day. Whoever can open the move-in can move it — the
+    same rule as completing or deleting it."""
+    data = request.get_json(silent=True) or {}
+    target_date = (data.get('target_date') or '').strip()
+    try:
+        datetime.strptime(target_date, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'A valid date is required'}), 400
+    rec = movein_service.get(mv_id)
+    if rec is None or not _can_access_movein(rec):
+        return jsonify({'status': 'error', 'message': 'Move-in not found'}), 404
+    movein_service.set_target_date(mv_id, target_date)
+    activity_service.log(session.get('user'), 'movein_date_changed',
+                         f"Moved the move-in for {rec.get('resident_name')} from "
+                         f"{rec.get('target_date') or 'no date'} to {target_date}")
+    return jsonify({'status': 'success', 'target_date': target_date}), 200
 
 
 @app.route('/api/moveins/<mv_id>/status', methods=['POST'])

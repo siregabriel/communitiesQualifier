@@ -2473,6 +2473,7 @@ html[data-theme="dark"] .cal-insp,
 html[data-theme="dark"] .mi-att-link { background: rgba(31,111,229,.20) !important; color: #9cc4ff !important; }
 html[data-theme="dark"] .cal-mv { background: rgba(217,119,6,.24) !important; color: #f0b968 !important; }
 html[data-theme="dark"] .cal-fup { background: rgba(14,116,144,.26) !important; color: #6fd0e6 !important; }
+html[data-theme="dark"] .cal-done { background: rgba(22,163,74,.22) !important; color: #6ee7a0 !important; }
 html[data-theme="dark"] .pp-pill,
 html[data-theme="dark"] .visit-fail { background: rgba(209,50,18,.20) !important; color: #ff9d85 !important; }
 html[data-theme="dark"] .visit-pass { background: rgba(16,185,129,.18) !important; color: #5fd6a3 !important; }

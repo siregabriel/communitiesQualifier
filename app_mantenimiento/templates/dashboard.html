@@ -2389,10 +2389,12 @@
         .cal-insp { background:#e7edf7; color:#003366; }
         .cal-mv { background:#fef0e6; color:#b45309; }
         .cal-fup { background:#e0f2f7; color:#0e7490; }
+        .cal-done { background:#e3f6ea; color:#166534; }
         .cal-dot { display:inline-block; width:9px; height:9px; border-radius:50%; flex-shrink:0; }
         .cal-dot-insp { background:#1f6fe5; }
         .cal-dot-mv { background:#d97706; }
         .cal-dot-fup { background:#0e7490; }
+        .cal-dot-done { background:#16a34a; }
         .cal-detail { margin-top:20px; background:#fff; border:1px solid #e4e7ec; border-radius:12px; padding:16px 18px; }
         .cal-detail-head { font-size:15px; font-weight:800; color:#0f1e36; margin-bottom:10px; }
         .cal-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid #eef1f6; cursor:pointer; }
@@ -8682,7 +8684,13 @@
                                 <h2 style="margin:0;font-size:22px;color:#0f1e36;">${escapeHtml(mv.resident_name)}</h2>
                                 <div style="color:#64748b;font-size:14px;margin-top:4px;">
                                     <i class="fas fa-building"></i> ${escapeHtml(mv.community)}
-                                    &nbsp;·&nbsp; <i class="fas fa-calendar-day"></i> ${mv.target_date ? escapeHtml(mv.target_date) : '—'}
+                                    &nbsp;·&nbsp; <span id="miDateView"><i class="fas fa-calendar-day"></i> ${mv.target_date ? escapeHtml(mv.target_date) : '—'}
+                                    <button type="button" class="btn-link" onclick="editMoveInDate()" title="Change the move-in date" aria-label="Change the move-in date" style="background:none;border:0;cursor:pointer;color:#64748b;padding:0 4px;"><i class="fas fa-pen"></i></button></span>
+                                    <span id="miDateEdit" hidden>
+                                        <input id="miDateInput" type="date" class="mi-input" style="padding:4px 8px;">
+                                        <button type="button" class="btn btn-primary" onclick="saveMoveInDate()" style="padding:4px 10px;">Save</button>
+                                        <button type="button" class="btn btn-secondary" onclick="cancelMoveInDate()" style="padding:4px 10px;">Cancel</button>
+                                    </span>
                                 </div>
                             </div>
                             <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -8764,6 +8772,33 @@
                 }
                 openMoveIn(mvId);
             } catch (e) { alert('Could not update status.'); }
+        }
+
+        // The target date decides the move-in's day on the calendar, so the
+        // people running it can move it when the date slips.
+        function editMoveInDate() {
+            const mv = (currentMoveInData || {}).movein || {};
+            document.getElementById('miDateInput').value = mv.target_date || '';
+            document.getElementById('miDateView').hidden = true;
+            document.getElementById('miDateEdit').hidden = false;
+        }
+        function cancelMoveInDate() {
+            document.getElementById('miDateEdit').hidden = true;
+            document.getElementById('miDateView').hidden = false;
+        }
+        async function saveMoveInDate() {
+            const mv = (currentMoveInData || {}).movein || {};
+            const target_date = document.getElementById('miDateInput').value;
+            if (!target_date) { alert('Pick a date.'); return; }
+            try {
+                const r = await fetch(`/api/moveins/${encodeURIComponent(mv.id)}/date`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_date })
+                });
+                const d = await r.json();
+                if (!r.ok || d.status !== 'success') { alert(d.message || 'Could not change the date.'); return; }
+                openMoveIn(mv.id);
+            } catch (e) { alert('Could not change the date.'); }
         }
 
         async function deleteMoveIn(mvId, name) {
@@ -8907,7 +8942,7 @@
             if (!calendarMonth) { const n = new Date(); calendarMonth = new Date(n.getFullYear(), n.getMonth(), 1); }
             await loadMoveInsRaw();   // keep move-in dates fresh
 
-            const insp = {}, mvs = {}, fups = {};
+            const insp = {}, mvs = {}, fups = {}, dones = {};
             (allSubmissions || []).forEach(s => {
                 if (!s.submitted_at || !_calPass(s.community)) return;
                 const d = new Date(s.submitted_at);
@@ -8918,6 +8953,12 @@
             (moveInsRaw || []).forEach(m => {
                 if (!m.target_date || !_calPass(m.community)) return;
                 (mvs[m.target_date] = mvs[m.target_date] || []).push(m);
+                // The day it was marked complete, which is often not the
+                // planned day (Betty Smith: planned Oct 12, closed Nov 7).
+                if (m.status !== 'active' && m.completed_at) {
+                    const cd = new Date(m.completed_at);
+                    if (!isNaN(cd.getTime())) { const ck = _calKey(cd); (dones[ck] = dones[ck] || []).push(m); }
+                }
                 // Follow-up reminders (skip archived move-ins)
                 if (m.status !== 'archived') {
                     CAL_FOLLOWUPS.forEach(([n, label]) => {
@@ -8938,18 +8979,19 @@
             for (let i = 0; i < startWeekday; i++) cells += `<div class="cal-cell cal-empty"></div>`;
             for (let day = 1; day <= daysInMonth; day++) {
                 const k = _calKey(new Date(year, month, day));
-                const ic = (insp[k] || []).length, mc = (mvs[k] || []).length, fc = (fups[k] || []).length;
+                const ic = (insp[k] || []).length, mc = (mvs[k] || []).length, fc = (fups[k] || []).length, dc = (dones[k] || []).length;
                 let badges = '';
                 if (ic) badges += `<span class="cal-badge cal-insp">${ic} insp</span>`;
                 if (mc) badges += `<span class="cal-badge cal-mv">${mc} move-in</span>`;
                 if (fc) badges += `<span class="cal-badge cal-fup">${fc} follow-up</span>`;
-                cells += `<div class="cal-cell ${k === todayKey ? 'cal-today' : ''} ${k === calSelectedDay ? 'cal-selected' : ''} ${(ic || mc || fc) ? 'cal-has' : ''}" onclick="calSelectDay('${k}')">
+                if (dc) badges += `<span class="cal-badge cal-done">${dc} completed</span>`;
+                cells += `<div class="cal-cell ${k === todayKey ? 'cal-today' : ''} ${k === calSelectedDay ? 'cal-selected' : ''} ${(ic || mc || fc || dc) ? 'cal-has' : ''}" onclick="calSelectDay('${k}')">
                             <div class="cal-daynum">${day}</div>${badges}</div>`;
             }
 
             let detail = '';
             if (calSelectedDay) {
-                const ins = insp[calSelectedDay] || [], mv = mvs[calSelectedDay] || [], fu = fups[calSelectedDay] || [];
+                const ins = insp[calSelectedDay] || [], mv = mvs[calSelectedDay] || [], fu = fups[calSelectedDay] || [], dn = dones[calSelectedDay] || [];
                 const dlabel = new Date(calSelectedDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
                 const rows = [];
                 ins.forEach(s => {
@@ -8963,6 +9005,9 @@
                 });
                 fu.forEach(m => {
                     rows.push(`<div class="cal-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${m.id}'),250)"><span class="cal-dot cal-dot-fup"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(m.resident_name)}</div><div class="cal-row-sub">${escapeHtml(m._fupLabel)} · ${escapeHtml(m.community)}</div></div><span class="cal-row-score" style="color:#0e7490;"><i class="fas fa-bell"></i></span></div>`);
+                });
+                dn.forEach(m => {
+                    rows.push(`<div class="cal-row" onclick="showView('move-ins');setTimeout(()=>openMoveIn('${m.id}'),250)"><span class="cal-dot cal-dot-done"></span><div class="cal-row-main"><div class="cal-row-title">${escapeHtml(m.resident_name)}</div><div class="cal-row-sub">Move-in completed · ${escapeHtml(m.community)}${m.target_date ? ` · planned ${escapeHtml(m.target_date)}` : ''}</div></div><span class="cal-row-score" style="color:#166534;"><i class="fas fa-circle-check"></i></span></div>`);
                 });
                 detail = `<div class="cal-detail"><div class="cal-detail-head"><i class="fas fa-calendar-day"></i> ${dlabel}</div>${rows.length ? rows.join('') : '<div class="cal-empty-note">Nothing scheduled this day.</div>'}</div>`;
             }
@@ -8990,6 +9035,7 @@
                         <span><span class="cal-dot cal-dot-insp"></span> Visits</span>
                         <span><span class="cal-dot cal-dot-mv"></span> Move-ins</span>
                         <span><span class="cal-dot cal-dot-fup"></span> Follow-ups</span>
+                        <span><span class="cal-dot cal-dot-done"></span> Completed</span>
                     </div>
                 </div>
                 <div class="cal-toolbar" id="calFilterBar" style="margin-bottom:18px;">

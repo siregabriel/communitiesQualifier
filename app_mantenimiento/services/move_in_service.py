@@ -15,7 +15,7 @@ import json
 import os
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 from services.json_store import JsonFileBacked
 
@@ -213,7 +213,23 @@ class MoveInService(JsonFileBacked):
             rec = next((m for m in self.moveins if m.get('id') == mv_id), None)
             if rec is None:
                 return None
+            # When it was completed, so the calendar can show that day. UTC
+            # with its offset: the browser turns it into the viewer's own day.
+            if status == 'completed' and rec.get('status') != 'completed':
+                rec['completed_at'] = datetime.now(timezone.utc).isoformat()
+            elif status == 'active':
+                rec.pop('completed_at', None)
             rec['status'] = status
+            self._save()
+            return json.loads(json.dumps(rec))
+
+    def set_target_date(self, mv_id, target_date) -> dict:
+        with self._lock:
+            self._ensure_fresh()
+            rec = next((m for m in self.moveins if m.get('id') == mv_id), None)
+            if rec is None:
+                return None
+            rec['target_date'] = target_date
             self._save()
             return json.loads(json.dumps(rec))
 
