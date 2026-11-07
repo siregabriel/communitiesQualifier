@@ -237,6 +237,7 @@ console.log('\nNot asked yet: our card first, the phone\'s prompt only on a tap'
   ok(w.asks() === 0, 'opening the form does not trigger the location prompt');
   ok(box(w).hidden === false, 'the card is shown instead');
   ok(/At a community\?/.test(box(w).textContent), 'saying what it is for');
+  ok(box(w).classList.contains('is-ask'), 'the invitation is marked, so it gets its illustration');
   ok(/stays on your phone and is never saved/.test(box(w).textContent),
      'and that the location goes nowhere — the reason people would refuse');
   buttons(w).find(b => b.textContent === 'Find my community').onclick();
@@ -306,6 +307,17 @@ console.log('\nA tap always gets an answer');
   await quiet.offerNearbyCommunity();
   ok(quiet.document.getElementById('nearbySuggest').hidden === true,
      'but unasked, nowhere near one stays silent');
+}
+
+console.log('\nThe card says truthfully what finds you');
+{
+  // Gabriel's mock-up had "powered by Google Maps" at the foot. No map
+  // service takes part — the phone compares its own position — and the card
+  // promises the location never leaves it, so the foot says that instead.
+  const foot = (html.match(/<div class="cp-foot">([\s\S]*?)<\/div>/) || [])[1] || '';
+  ok(/GPS/.test(foot) && !/google/i.test(foot), `the foot names the phone's GPS, not a map service (${foot.replace(/<[^>]+>/g, '').trim()})`);
+  ok(!/google/i.test(html.slice(html.indexOf('id="communityPickerGroup"'), html.indexOf('id="communityPrompt"'))),
+     'nothing in the picker claims Google');
 }
 
 console.log(failures ? `\n${failures} failure(s)` : '\nThe form knows which building you are in.');

@@ -3714,3 +3714,59 @@ html[data-theme="dark"] { --score-pass: #5fd6a3; --score-warn: #f2c94c; --score-
 html[data-theme="dark"] .visit-page .interpretive-guideline { background: #1b2537 !important; border-color: #2b3a52 !important; }
 html[data-theme="dark"] .visit-page :is(.guideline-title, .g-crit-title) { color: #e7edf6 !important; }
 html[data-theme="dark"] .visit-page :is(.guideline-content, .g-narr, .guideline-content .g-crit-list li) { color: #c2cddd !important; }
+
+/* ----- The community picker on the visit form ----------------------------
+   Gabriel's mock-up (Nov 2026): an icon in a soft circle and a divider beside
+   the title, Find my community under it, the invitation illustrated with a
+   phone and a pin, the button with an arrow, and a quiet line at the foot
+   saying what locates you — the phone's own GPS. (The mock-up's "powered by
+   Google Maps" is not used: no map service takes part, and the card promises
+   the location never leaves the phone.) */
+.visit-page .cp-head { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.visit-page .cp-icon {
+    width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0; background: #e3ecfb; color: #1d4ed8;
+    display: flex; align-items: center; justify-content: center; font-size: 22px; position: relative; margin-right: 16px;
+}
+.visit-page .cp-icon::after { content: ''; position: absolute; right: -17px; top: 8px; bottom: 8px; width: 1px; background: #d3dde8; }
+.visit-page .cp-head-text { min-width: 0; }
+.visit-page .cp-head-text label { font-size: 17px !important; font-weight: 700 !important; margin-bottom: 4px !important; }
+.visit-page .cp-head .nearby-find { margin: 0; padding: 2px 0; font-size: 14px; color: #1d4ed8; }
+.visit-page .nearby-suggest {
+    border-radius: 12px; border-color: #d3dde8; background: #f1f5fa; padding: 14px 16px;
+    margin: 0 0 12px; position: relative; overflow: hidden;
+}
+/* The invitation: a phone with a pin on the left, a soft swell at the corner. */
+.visit-page .nearby-suggest.is-ask {
+    padding-left: 104px; min-height: 132px;
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 96'%3E%3Cg transform='rotate(-14 40 50)'%3E%3Crect x='20' y='14' width='40' height='72' rx='7' fill='%23fff' stroke='%23003366' stroke-width='3'/%3E%3Crect x='25' y='22' width='30' height='56' rx='2' fill='%23e8eef4'/%3E%3Cpath d='M25 40 L55 34 M25 60 L55 54 M37 22 L41 78' stroke='%23fff' stroke-width='3'/%3E%3Cpath d='M40 33c-5 0-9 4-9 9 0 7 9 15 9 15s9-8 9-15c0-5-4-9-9-9z' fill='%231f6fe5'/%3E%3Ccircle cx='40' cy='42' r='3.2' fill='%23fff'/%3E%3Cellipse cx='40' cy='60' rx='5' ry='1.6' fill='%239db8e8'/%3E%3C/g%3E%3Cpath d='M9 15 L15 21 M18 4 L19 13 M4 27 L12 28' stroke='%2300bfff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") 14px 50% / 78px 94px no-repeat,
+        radial-gradient(120px 80px at 100% 100%, rgba(31, 111, 229, .10), transparent 70%),
+        #f1f5fa;
+}
+.visit-page .nearby-suggest.is-ask .nearby-note { color: #36454f; font-size: 13px; }
+.visit-page .nearby-suggest .nearby-go {
+    border-radius: 10px; padding: 11px 18px; font-size: 14.5px; font-weight: 600;
+    background: #1d4ed8; box-shadow: 0 6px 16px rgba(29, 78, 216, .22);
+}
+.visit-page .nearby-suggest.is-ask .nearby-go::before {
+    content: "\f124"; font-family: "Font Awesome 6 Free"; font-weight: 900; margin-right: 9px; font-size: 13px;
+}
+.visit-page .nearby-x { font-size: 22px; color: #5a6872; }
+.visit-page .cp-foot {
+    margin-top: 10px; text-align: right; font-size: 12px; color: #5a6872;
+}
+.visit-page .cp-foot i { color: #003366; margin-right: 4px; }
+@media (max-width: 600px) {
+    .visit-page #communityPickerGroup { border-radius: 14px !important; padding: 18px !important; }
+    .visit-page .nearby-suggest.is-ask { padding-left: 92px; background-position: 8px 50%, 0 0, 0 0; background-size: 72px 88px, auto, auto; }
+}
+html[data-theme="dark"] .visit-page .cp-icon { background: #1b2a42; color: #cfe0ff; }
+html[data-theme="dark"] .visit-page .cp-icon::after { background: #2b3a52; }
+html[data-theme="dark"] .visit-page .nearby-suggest.is-ask {
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 96'%3E%3Cg transform='rotate(-14 40 50)'%3E%3Crect x='20' y='14' width='40' height='72' rx='7' fill='%23161f2e' stroke='%239cc4ff' stroke-width='3'/%3E%3Crect x='25' y='22' width='30' height='56' rx='2' fill='%23233350'/%3E%3Cpath d='M25 40 L55 34 M25 60 L55 54 M37 22 L41 78' stroke='%23161f2e' stroke-width='3'/%3E%3Cpath d='M40 33c-5 0-9 4-9 9 0 7 9 15 9 15s9-8 9-15c0-5-4-9-9-9z' fill='%235c9dff'/%3E%3Ccircle cx='40' cy='42' r='3.2' fill='%23161f2e'/%3E%3C/g%3E%3Cpath d='M9 15 L15 21 M18 4 L19 13 M4 27 L12 28' stroke='%2300bfff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") 14px 50% / 78px 94px no-repeat,
+        #16203a !important;
+}
+html[data-theme="dark"] .visit-page .nearby-suggest.is-ask .nearby-note { color: #c2cddd; }
+html[data-theme="dark"] .visit-page .cp-foot, html[data-theme="dark"] .visit-page .cp-foot i { color: #9fb0c4; }
+html[data-theme="dark"] .visit-page .nearby-x { color: #9fb0c4; }

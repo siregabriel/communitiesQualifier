@@ -1200,12 +1200,17 @@
 
         {% if role == 'regional' %}
         <div class="form-group" id="communityPickerGroup" style="margin-bottom: 24px;">
-            <label for="communitySelect">Community to inspect <span class="required">*</span></label>
-            <!-- Asked for by the person, then filled in when the phone says
-                 they are standing at one. -->
-            <button type="button" id="nearbyFind" class="nearby-find" hidden>
-                <i class="fas fa-location-dot"></i> Find my community
-            </button>
+            <div class="cp-head">
+                <div class="cp-icon" aria-hidden="true"><i class="fas fa-map-location-dot"></i></div>
+                <div class="cp-head-text">
+                    <label for="communitySelect">Community to inspect <span class="required">*</span></label>
+                    <!-- Asked for by the person, then filled in when the phone says
+                         they are standing at one. -->
+                    <button type="button" id="nearbyFind" class="nearby-find" hidden>
+                        <i class="fas fa-map-location-dot"></i> Find my community
+                    </button>
+                </div>
+            </div>
             <div id="nearbySuggest" class="nearby-suggest" role="status" hidden></div>
             <select id="communitySelect" onchange="onCommunityChange()">
                 <option value="">— Select a community in your region —</option>
@@ -1213,6 +1218,9 @@
                 <option value="{{ c }}">{{ c|plain }}</option>
                 {% endfor %}
             </select>
+            <!-- Says what finds the community, truthfully: the phone's own
+                 location, compared on the phone. No map service is involved. -->
+            <div class="cp-foot"><i class="fas fa-location-crosshairs"></i> Located by your phone's GPS · never saved</div>
         </div>
         <div class="loading-message" id="communityPrompt" style="display:none;">
             Select a community above to load its visit.
@@ -2234,6 +2242,7 @@
             go.onclick = () => suggestNearbyCommunity({ asked: true });
             actions.append(go);
             box.append(head, actions);
+            box.classList.add('is-ask');   // the illustrated invitation
             box.hidden = false;
         }
 
@@ -2246,6 +2255,7 @@
             const line = document.createElement('div');
             line.textContent = message;
             box.append(line);
+            box.classList.remove('is-ask');
             box.hidden = false;
         }
 
@@ -2323,6 +2333,7 @@
             no.onclick = () => { box.hidden = true; };
             actions.append(no);
             box.append(line, actions);
+            box.classList.remove('is-ask');
             box.hidden = false;
         }
 
