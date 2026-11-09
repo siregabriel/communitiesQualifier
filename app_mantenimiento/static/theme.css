@@ -4040,9 +4040,12 @@ html[data-theme="dark"] .pf-actions, html[data-theme="dark"] .pf-danger { border
 #questionsTable .btn-icon.delete { color: #b42318 !important; }
 #questionsTable .btn-icon.delete:hover { border-color: #b42318 !important; background: #fdf3f1 !important; }
 
-/* The filter bar: 40px controls, one corner, the theme's chevron. */
+/* The filter bar: 40px controls, one corner, the theme's chevron.
+   A fixed width: left to size itself, a select grows to its longest option
+   (a survey type or community name) and pushes the bar onto two rows. */
 .content-section .filter-section { gap: 10px; padding-bottom: 18px; border-bottom: 1px solid #e1e5ea; margin-bottom: 18px; }
 .content-section .filter-select {
+    width: 240px; min-width: 0; text-overflow: ellipsis;
     height: 40px; padding: 0 36px 0 12px !important; border: 1px solid #cfd6dd !important; border-radius: 8px !important;
     color: #1b2730 !important; font-size: 13.5px !important; background-color: #ffffff !important;
     -webkit-appearance: none; appearance: none;
