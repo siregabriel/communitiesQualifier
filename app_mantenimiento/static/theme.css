@@ -3543,6 +3543,8 @@ html[data-theme="dark"] .visit-page .q-num { color: #9fb0c4; }
 .visit-page .file-name { flex-basis: 100%; margin: 0; font-family: var(--font-mono); font-size: 11.5px; color: #5a6872; }
 .visit-page .file-name:empty { display: none; }
 html[data-theme="dark"] .visit-page .file-name { color: #9fb0c4; }
+.visit-page .file-name.photo-lost { color: #b42318; font-weight: 600; }
+html[data-theme="dark"] .visit-page .file-name.photo-lost { color: #ff8a80; }
 html[data-theme="dark"] .visit-page .image-preview { border-color: #2b3a52; }
 
 /* On a phone the form is the page: no card around a card, the cards sit

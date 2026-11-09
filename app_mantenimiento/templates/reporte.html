@@ -1649,7 +1649,13 @@
             const f = ev.target.files && ev.target.files[0];
             if (!f) { notesPhotoFile = null; showNotesPhotoName(''); draftScheduleSave(); return; }
             showNotesPhotoName('Preparing…');
-            notesPhotoFile = await shrinkPhoto(f);
+            notesPhotoFile = await photoInMemory(await shrinkPhoto(f));
+            if (!notesPhotoFile) {
+                ev.target.value = '';
+                showNotesPhotoName('');
+                alert(PHOTO_LOST_TEXT);
+                return;
+            }
             showNotesPhotoName(notesPhotoFile.name);
             draftScheduleSave();
         }
@@ -1660,6 +1666,81 @@
             if (input) input.value = '';
             showNotesPhotoName('');
             draftScheduleSave();
+        }
+
+        /* ===================== Photos the phone can no longer read =====================
+
+           Shannon Cook (Nov 2026) could not send a visit. The server log showed
+           her draft text arriving every few seconds while every upload carrying
+           two particular photos — taken at the same moment — was cut off before
+           it reached the app, the submission included. The browser had a
+           reference to those two photos but could not read their bytes, so it
+           dropped the connection mid-upload and she was told her signal was
+           weak. Retrying could never work, and two photos held the whole visit
+           hostage.
+
+           So a photo is copied into memory as soon as it is chosen (while the
+           picker's file is certainly readable), and read again before anything
+           sends it. One that cannot be read is taken off its standard and the
+           person is told to take it again, instead of the upload failing. */
+        const PHOTO_LOST_TEXT = 'This photo could not be read on this phone. Please take it again.';
+
+        /* A copy of the photo held in memory, or null if its bytes cannot be read. */
+        async function photoInMemory(file) {
+            if (!file) return null;
+            try {
+                const bytes = await file.arrayBuffer();
+                if (!bytes || bytes.byteLength === 0) return null;
+                return new File([bytes], file.name || 'photo.jpg',
+                                { type: file.type || 'image/jpeg', lastModified: Date.now() });
+            } catch (e) {
+                console.warn('A photo could not be read:', e);
+                return null;
+            }
+        }
+
+        /* Take an unreadable photo off its standard (or off the visit notes)
+           and say so where the photo was. `slot` is a question id or '__notes__'. */
+        function markPhotoLost(slot) {
+            if (slot === '__notes__') {
+                notesPhotoFile = null;
+                const input = document.getElementById('visitNotesPhoto');
+                if (input) input.value = '';
+                showNotesPhotoName('');
+                const label = document.getElementById('notesPhotoLabel');
+                if (label) label.textContent = 'Photo lost — add it again';
+            } else {
+                delete photoFiles[slot];
+                const input = document.getElementById(`photo_${slot}`);
+                if (input) input.value = '';
+                const prev = document.getElementById(`imagePreview_${slot}`);
+                if (prev) prev.innerHTML = '';
+                const nameEl = document.getElementById(`fileName_${slot}`);
+                if (nameEl) {
+                    nameEl.textContent = PHOTO_LOST_TEXT;
+                    nameEl.classList.add('photo-lost');
+                }
+            }
+            draftScheduleSave();
+        }
+
+        /* Every photo on the visit, re-read into memory. The readable ones
+           replace what was held; the unreadable ones are marked lost. Returns
+           the slots that were lost. */
+        async function checkVisitPhotos() {
+            const lost = [];
+            for (const qid of Object.keys(photoFiles)) {
+                if (!photoFiles[qid]) continue;
+                const copy = await photoInMemory(photoFiles[qid]);
+                if (copy) photoFiles[qid] = copy;
+                else { markPhotoLost(qid); lost.push(qid); }
+            }
+            if (notesPhotoFile) {
+                const copy = await photoInMemory(notesPhotoFile);
+                if (copy) notesPhotoFile = copy;
+                else { markPhotoLost('__notes__'); lost.push('__notes__'); }
+            }
+            return lost;
         }
 
         function initVisitNotes() {
@@ -1805,11 +1886,15 @@
                 const p = current[slot];
                 const sig = `${p.name || 'photo.jpg'}|${p.blob.size}`;
                 if (_photoSent[slot] === sig) continue;
+                // An unreadable photo would only cut the upload off, every
+                // save, for good. Say so on the form instead.
+                const photo = await photoInMemory(p.blob);
+                if (!photo) { markPhotoLost(slot); continue; }
                 const fd = new FormData();
                 fd.append('community', data.community);
                 fd.append('survey_type_id', data.surveyTypeId);
                 fd.append('slot', slot);
-                fd.append('photo', p.blob, p.name || 'photo.jpg');
+                fd.append('photo', photo, p.name || 'photo.jpg');
                 try {
                     const r = await fetch('/api/drafts/photo', { method: 'POST', body: fd });
                     if (await draftOk(r)) _photoSent[slot] = sig;
@@ -2049,6 +2134,9 @@
                 const prev = document.getElementById(`imagePreview_${qid}`);
                 if (prev) prev.innerHTML = `<img src="${URL.createObjectURL(p.blob)}" alt="Preview">`;
             });
+            // A photo saved on the phone may no longer be readable; say so now,
+            // on the standard, rather than when the visit will not send.
+            checkVisitPhotos();
 
             updateProgress();
             draftStatus('saved', d.savedAt);
@@ -3002,7 +3090,14 @@
                 if (fileNameElEarly) fileNameElEarly.textContent = 'Preparing…';
                 // Shrunk before it is stored, so the draft and the submission
                 // both carry the small one.
-                const file = await shrinkPhoto(picked);
+                const file = await photoInMemory(await shrinkPhoto(picked));
+                if (!file) {
+                    event.target.value = '';
+                    if (fileNameElEarly) fileNameElEarly.textContent = '';
+                    alert(PHOTO_LOST_TEXT);
+                    return;
+                }
+                if (fileNameElEarly) fileNameElEarly.classList.remove('photo-lost');
                 if (file.size > 16 * 1024 * 1024) {
                     alert('That photo is too large to send, even after resizing.');
                     event.target.value = '';
@@ -3197,6 +3292,25 @@
                         !document.querySelector(`input[name="condition_${q.id}"]:checked`));
                     const el = firstBlank && document.querySelector(
                         `.question-section[data-question-id="${firstBlank.id}"]`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+            }
+
+            /* Read every photo before sending. One the phone can no longer
+               read would cut the whole upload off and leave the visit stuck;
+               take it off, show where it was, and let them choose. */
+            const lostPhotos = await checkVisitPhotos();
+            if (lostPhotos.length) {
+                const n = lostPhotos.length;
+                const send = confirm(
+                    `${n} photo${n === 1 ? '' : 's'} on this visit could not be read on this phone ` +
+                    `and ${n === 1 ? 'was' : 'were'} removed.\n\n` +
+                    `Send the visit without ${n === 1 ? 'it' : 'them'}? ` +
+                    `Choose Cancel to take ${n === 1 ? 'it' : 'them'} again first.`);
+                if (!send) {
+                    const el = document.getElementById(lostPhotos[0] === '__notes__'
+                        ? 'visitNotes' : `fileName_${lostPhotos[0]}`);
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     return;
                 }
