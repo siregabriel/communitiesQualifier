@@ -1224,6 +1224,67 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             text_lines += ["", f"View the full report: {link}"]
         return self._send(recipients, subject, self._shell(f"{label} follow-up", body), "\n".join(text_lines))
 
+    def send_selected_standards(self, recipients, submission, responses,
+                                survey_type_name=None, criteria_map=None):
+        """A subscriber who asked for only some standards: those answers from
+        this visit, and nothing else — no score, no note, no action items."""
+        if not self.enabled:
+            return (False, 'disabled')
+        community = submission.get('community', 'a community')
+        inspector = submission.get('inspector_name') or submission.get('username') or 'Unknown'
+        when = (submission.get('submitted_at') or '')[:10]
+        link = self.report_link(community)
+
+        def esc(s):
+            return html.escape(str(s or ''))
+        rail = {'Pass': self.RAIL['pass'], 'Fail': self.RAIL['fail'], NOT_CHECKED: self.RAIL['not_checked']}
+
+        def card(r):
+            cond = r.get('condition') or ''
+            crit = self._criteria_for(r, criteria_map) if cond == 'Fail' else []
+            crit_html = ''
+            if crit:
+                items = ''.join(f"<li style='margin:2px 0'>{esc(c)}</li>" for c in crit)
+                crit_html = (f"<div style='font-size:12px;color:#5a6872;margin:4px 0 2px'>Standard — to pass, must include:</div>"
+                             f"<ul style='margin:0 0 6px;padding-left:16px;color:#475569;font-size:12px'>{items}</ul>")
+            return self._card(
+                f"<div style=\"font-family:{self.MONO};font-size:10.5px;letter-spacing:.08em;"
+                f"text-transform:uppercase;color:#5a6872;margin-bottom:3px\">{esc(cond)}</div>"
+                f"<div style='font-weight:600;font-size:14.5px;color:#1b2730'>{esc(r.get('question_text', 'Item'))}</div>"
+                + (f"<div style='font-size:13.5px;color:#36454f;margin-top:3px'>{esc(r.get('description', ''))}</div>"
+                   if r.get('description') else "")
+                + crit_html, rail.get(cond, '#003366'))
+
+        survey_row = (f"<tr><td style='color:#5a6872;padding:3px 14px 3px 0'>Survey type</td>"
+                      f"<td style='font-weight:600'>{esc(survey_type_name)}</td></tr>") if survey_type_name else ""
+        button = (f"<div style='margin-top:20px'><a href='{esc(link)}' style='display:inline-block;"
+                  f"background:#003366;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;"
+                  f"border-radius:8px;font-size:14px'>View full report</a></div>") if link else ""
+        body = (f"<table style='font-size:14px;border-collapse:collapse;margin-bottom:6px'>"
+                f"<tr><td style='color:#5a6872;padding:3px 14px 3px 0'>Inspector</td><td style='font-weight:600'>{esc(inspector)}</td></tr>"
+                f"<tr><td style='color:#5a6872;padding:3px 14px 3px 0'>Date</td><td style='font-weight:600'>{esc(when)}</td></tr>"
+                f"{survey_row}</table>"
+                + self._eyebrow('Your standards', len(responses))
+                + ''.join(card(r) for r in responses)
+                + "<p style='color:#5a6872;font-size:12px;margin:6px 0 0'>"
+                  "You get only the standards you chose in Atlas Excellence.</p>"
+                + button)
+        fails = sum(1 for r in responses if r.get('condition') == 'Fail')
+        subject = (f"Visit — {community}: {len(responses)} standard(s) you follow"
+                   + (f", {fails} failed" if fails else ""))
+        text_lines = [f"Visit to {community}", f"Inspector: {inspector}", f"Date: {when}"]
+        if survey_type_name:
+            text_lines.append(f"Survey type: {survey_type_name}")
+        text_lines.append("")
+        for r in responses:
+            note = r.get('description', '')
+            text_lines.append(f"  - [{r.get('condition', '')}] {r.get('question_text', 'Item')}"
+                              + (f": {note}" if note else ""))
+        if link:
+            text_lines += ["", f"View the full report: {link}"]
+        return self._send(recipients, subject,
+                          self._shell(community, body, eyebrow='Visit report'), "\n".join(text_lines))
+
     def send_inspection_report(self, submission, recipients=None, survey_type_name=None, criteria_map=None):
         """
         Send the summary email. recipients = region-leader addresses; the fixed

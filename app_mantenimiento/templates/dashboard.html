@@ -11222,6 +11222,9 @@
                           .sub-row{transition:border-color .2s ease-out;}
                           .sub-row:focus-within{border-color:#003366 !important;}
                           .scope-label{font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#5a6872;margin-bottom:8px;}
+                          .sub-std-list{max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-top:6px;}
+                          .sub-std-item{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:3px 0;cursor:pointer;}
+                          .sub-std-item[hidden]{display:none;}
                         </style>
                         <div class="set-stack">
                             <label class="set-label">Visit report subscribers <small>(region leaders always get their own region automatically)</small></label>
@@ -11348,10 +11351,12 @@
 
         let esRegions = [];
         let esInspectors = [];
+        let esStandards = [];
         function subscriberRowHtml(sub, isNew) {
-            sub = sub || { email: '', name: '', regions: [], inspectors: [] };
+            sub = sub || { email: '', name: '', regions: [], inspectors: [], standards: [] };
             const subRegions = sub.regions || [];
             const subInsp = sub.inspectors || [];
+            const subStd = sub.standards || [];
             // New rows start with "All visits" OFF so the options are visible.
             const all = isNew ? false : (subRegions.length === 0 && subInsp.length === 0);
             const regionChecks = esRegions.map(r =>
@@ -11359,6 +11364,11 @@
             ).join('');
             const inspChecks = esInspectors.map(n =>
                 `<label class="chip"><input type="checkbox" class="sub-inspector" value="${escapeHtml(n)}" onchange="onScopeToggle(this)" ${subInsp.includes(n) ? 'checked' : ''}><span>${escapeHtml(n)}</span></label>`
+            ).join('');
+            // Narrows WHAT they are sent, not which visits: kept apart from
+            // "All visits" and the scope pills on purpose.
+            const stdChecks = esStandards.map(q =>
+                `<label class="sub-std-item"><input type="checkbox" class="sub-standard" value="${escapeHtml(q.id)}" ${subStd.includes(q.id) ? 'checked' : ''}><span>${escapeHtml(q.text)}</span></label>`
             ).join('');
             return `<div class="sub-row" style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--surface);">
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -11372,6 +11382,11 @@
                     <div class="chip-wrap">${regionChecks}</div>
                     ${inspChecks ? `<div class="scope-label" style="margin-top:10px;">By inspector</div><div class="chip-wrap">${inspChecks}</div>` : ''}
                 </div>
+                ${stdChecks ? `<div class="sub-standards" style="margin-top:10px;border-top:1px solid #eef1f6;padding-top:10px;">
+                    <div class="scope-label">Only these standards <small style="text-transform:none;letter-spacing:0;">(none = the whole report)</small></div>
+                    <input class="pw-input sub-std-filter" type="search" placeholder="Filter standards" oninput="filterSubStandards(this)" style="width:100%;">
+                    <div class="sub-std-list">${stdChecks}</div>
+                </div>` : ''}
                 <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <button class="btn btn-primary" type="button" onclick="saveSingleSubscriber(this)">
                         <i class="fas fa-${isNew ? 'user-plus' : 'floppy-disk'}"></i> ${isNew ? 'Add this subscriber' : 'Save changes'}</button>
@@ -11390,6 +11405,12 @@
             if (!el.checked) return;
             const all = el.closest('.sub-row').querySelector('.sub-all');
             if (all) all.checked = false;
+        }
+        function filterSubStandards(input) {
+            const q = (input.value || '').trim().toLowerCase();
+            input.closest('.sub-standards').querySelectorAll('.sub-std-item').forEach(l => {
+                l.hidden = !!q && !l.textContent.toLowerCase().includes(q);
+            });
         }
         // Delete an already-saved subscriber row (server-side, immediately).
         async function deleteSavedSubscriber(btn) {
@@ -11422,6 +11443,7 @@
             const all = row.querySelector('.sub-all').checked;
             const regions = all ? [] : Array.from(row.querySelectorAll('.sub-region:checked')).map(c => c.value);
             const inspectors = all ? [] : Array.from(row.querySelectorAll('.sub-inspector:checked')).map(c => c.value);
+            const standards = Array.from(row.querySelectorAll('.sub-standard:checked')).map(c => c.value);
             msg.className = 'pw-msg sub-msg';
             if (!email) {
                 msg.textContent = 'Enter an email address.'; msg.classList.add('error');
@@ -11431,7 +11453,7 @@
             try {
                 const r = await fetch('/api/settings/email/subscriber', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, name, regions, inspectors })
+                    body: JSON.stringify({ email, name, regions, inspectors, standards })
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') {
@@ -11482,6 +11504,7 @@
                 if (!r.ok || d.status !== 'success') return;
                 esRegions = d.regions || [];
                 esInspectors = d.inspectors || [];
+                esStandards = d.standards || [];
                 const wrap = document.getElementById('esSubscribers');
                 if (wrap) {
                     wrap.innerHTML = (d.subscribers && d.subscribers.length)

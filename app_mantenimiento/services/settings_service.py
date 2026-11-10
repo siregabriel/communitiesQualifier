@@ -55,8 +55,10 @@ class SettingsService(JsonFileBacked):
 
     @staticmethod
     def _normalize_subscribers(subs):
-        """Each subscriber: {email, name, regions:[ids], inspectors:[names]}.
-        Empty regions AND empty inspectors = subscribed to everything."""
+        """Each subscriber: {email, name, regions:[ids], inspectors:[names],
+        standards:[question ids]}. Empty regions AND empty inspectors =
+        subscribed to every visit. Standards narrow what they are sent: none =
+        the whole report; some = only those standards' answers."""
         out, seen = [], set()
         for s in (subs or []):
             if not isinstance(s, dict):
@@ -67,8 +69,13 @@ class SettingsService(JsonFileBacked):
             seen.add(email.lower())
             regions = [r for r in (s.get('regions') or []) if isinstance(r, str) and r]
             inspectors = [i.strip() for i in (s.get('inspectors') or []) if isinstance(i, str) and i.strip()]
+            standards = []
+            for q in (s.get('standards') or []):
+                if isinstance(q, str) and q.strip() and q.strip() not in standards:
+                    standards.append(q.strip())
             out.append({'email': email, 'name': (s.get('name') or '').strip(),
-                        'regions': regions, 'inspectors': inspectors})
+                        'regions': regions, 'inspectors': inspectors,
+                        'standards': standards})
         return out
 
     def get_email_settings(self) -> dict:
@@ -140,20 +147,34 @@ class SettingsService(JsonFileBacked):
             return []
         return self.get_email_settings().get(route, [])
 
+    @staticmethod
+    def _covers_visit(sub, region_id, inspector_name) -> bool:
+        """empty regions AND empty inspectors = every visit; otherwise match
+        on the visit's region OR its inspector."""
+        regions = sub.get('regions') or []
+        inspectors = sub.get('inspectors') or []
+        return bool((not regions and not inspectors)
+                    or (region_id and region_id in regions)
+                    or (inspector_name and inspector_name in inspectors))
+
     def recipients_for_inspection(self, region_id, inspector_name=None) -> list:
-        """Subscriber emails whose scope covers this inspection.
-        empty regions AND empty inspectors = everything; otherwise match on
-        the inspection's region OR its inspector."""
+        """Subscriber emails sent the whole report for this inspection. Anyone
+        who picked standards is not: they get standard_subscribers' email."""
         out = []
         for s in self.get_email_settings()['subscribers']:
-            regions = s.get('regions') or []
-            inspectors = s.get('inspectors') or []
-            match = (not regions and not inspectors) \
-                or (region_id and region_id in regions) \
-                or (inspector_name and inspector_name in inspectors)
-            if match and s['email'] not in out:
+            if s.get('standards'):
+                continue
+            if self._covers_visit(s, region_id, inspector_name) and s['email'] not in out:
                 out.append(s['email'])
         return out
+
+    def standard_subscribers(self, region_id, inspector_name=None) -> list:
+        """[{email, standards}] for subscribers who asked for only some
+        standards and whose region/inspector scope covers this inspection.
+        The standards narrow the scope; they never widen it."""
+        return [{'email': s['email'], 'standards': list(s['standards'])}
+                for s in self.get_email_settings()['subscribers']
+                if s.get('standards') and self._covers_visit(s, region_id, inspector_name)]
 
     def seed_subscribers(self, emails) -> None:
         """One-time: turn env MAIL_EXTRA_RECIPIENTS into all-regions subscribers."""

@@ -5831,19 +5831,27 @@ def email_notification_summary():
         rec['items'].append({'label': label, 'detail': detail, 'kind': kind})
 
     # 1) Inspection report subscribers (explicitly configured)
+    standard_text = {c['id']: c['text'] for c in _standard_choices()}
     for sub in s.get('subscribers', []):
         regs = sub.get('regions') or []
         insp = sub.get('inspectors') or []
+        stds = sub.get('standards') or []
+        label = 'Selected standards only' if stds else 'Inspection reports'
         if not regs and not insp:
-            add(sub['email'], sub.get('name'), 'Inspection reports',
+            add(sub['email'], sub.get('name'), label,
                 'All inspections, every region', 'all')
         else:
             if regs:
-                add(sub['email'], sub.get('name'), 'Inspection reports',
+                add(sub['email'], sub.get('name'), label,
                     'Regions: ' + ', '.join(region_name.get(r, r) for r in regs), 'scoped')
             if insp:
-                add(sub['email'], sub.get('name'), 'Inspection reports',
+                add(sub['email'], sub.get('name'), label,
                     'Inspectors: ' + ', '.join(insp), 'scoped')
+        if stds:
+            # A standard deleted since is left out: it can never be sent.
+            add(sub['email'], sub.get('name'), label,
+                'Standards: ' + ', '.join(standard_text[q] for q in stds if q in standard_text),
+                'scoped')
 
     # 2) Region leadership — always copied on their own region's inspections,
     #    and told when a move-in in one of their communities is completed
@@ -5907,6 +5915,18 @@ def email_notification_summary():
                     'email_enabled': bool(email_service.enabled)}), 200
 
 
+def _standard_choices():
+    """The standards a subscriber can narrow their visit email to."""
+    return [{'id': q['id'], 'text': q.get('text', '')}
+            for q in question_manager.get_all_active_questions() if q.get('id')]
+
+
+def _valid_standards(ids):
+    """Only ids of standards that exist; anything else is dropped."""
+    known = {c['id'] for c in _standard_choices()}
+    return [i for i in (ids or []) if isinstance(i, str) and i in known]
+
+
 @app.route('/api/settings/email/subscriber', methods=['POST'])
 @login_required
 def add_email_subscriber():
@@ -5924,19 +5944,20 @@ def add_email_subscriber():
     valid_names = set(leadership_names())
     regions = [r for r in (data.get('regions') or []) if r in valid_ids]
     inspectors = [n for n in (data.get('inspectors') or []) if n in valid_names]
+    standards = _valid_standards(data.get('standards'))
 
     current = settings_service.get_email_settings()['subscribers']
     subs, replaced = [], False
     for s in current:
         if (s.get('email') or '').lower() == email.lower():
             subs.append({'email': email, 'name': (data.get('name') or s.get('name') or '').strip(),
-                         'regions': regions, 'inspectors': inspectors})
+                         'regions': regions, 'inspectors': inspectors, 'standards': standards})
             replaced = True
         else:
             subs.append(s)
     if not replaced:
         subs.append({'email': email, 'name': (data.get('name') or '').strip(),
-                     'regions': regions, 'inspectors': inspectors})
+                     'regions': regions, 'inspectors': inspectors, 'standards': standards})
 
     saved = settings_service.set_email_settings(subscribers=subs)
     activity_service.log(session.get('user'), 'email_subscriber_added',
@@ -6434,6 +6455,7 @@ def get_email_settings():
     return jsonify({'status': 'success', 'subscribers': s['subscribers'],
                     'admin_notify': s['admin_notify'], 'regions': regions,
                     'inspectors': leadership_names(),
+                    'standards': _standard_choices(),
                     'clinical': s['clinical'], 'ops': s['ops'], 'sales': s['sales'],
                     'email_enabled': email_service.enabled}), 200
 
@@ -6459,7 +6481,8 @@ def save_email_settings():
             regions = [rid for rid in (s.get('regions') or []) if rid in valid_ids]
             inspectors = [n for n in (s.get('inspectors') or []) if n in valid_names]
             subs.append({'email': s.get('email', ''), 'name': s.get('name', ''),
-                         'regions': regions, 'inspectors': inspectors})
+                         'regions': regions, 'inspectors': inspectors,
+                         'standards': _valid_standards(s.get('standards'))})
     saved = settings_service.set_email_settings(
         subscribers=subs, admin_notify=data.get('admin_notify', ''),
         clinical=data.get('clinical', ''), ops=data.get('ops', ''),
@@ -7632,6 +7655,21 @@ def _send_visit_emails(submission):
             {**submission,
              'action_items': _with_department_names(submission.get('action_items'))},
             recipients, survey_name, criteria_map)
+
+        # Subscribers who chose only some standards: those answers, one email
+        # each, and only when this visit answered one of them. Anyone already
+        # sent the whole report above does not get the short one as well.
+        full = {a.strip().lower() for a in recipients + email_service.extra_recipients if a}
+        for sub in settings_service.standard_subscribers(
+                region_id, submission.get('inspector_name')):
+            if sub['email'].lower() in full:
+                continue
+            wanted = set(sub['standards'])
+            answers = [r for r in (submission.get('responses') or [])
+                       if r.get('question_id') in wanted]
+            if answers:
+                email_service.send_selected_standards(
+                    [sub['email']], submission, answers, survey_name, criteria_map)
 
         # The community gets its own, narrower email: what was found
         # here and what to do about it — no score, no comparisons.
