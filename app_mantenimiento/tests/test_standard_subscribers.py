@@ -114,7 +114,9 @@ def test_somebody_already_sent_the_whole_report_is_not_sent_both(settings, visit
 # --------------------------------------------------------------- the email
 
 def test_the_email_carries_their_answers_and_nothing_else(monkeypatch):
-    e = EmailService(mail_from='x@atlas.com')
+    """Sent to teams outside Excellence (PPC, Social Media): no account, so a
+    link to the report would only ask them to sign in (Gabriel, Nov 2026)."""
+    e = EmailService(mail_from='x@atlas.com', app_base_url='https://excellence.example')
     out = []
     monkeypatch.setattr(e, '_send', lambda to, subj, html_body, text: out.append((subj, html_body, text)))
     e.send_selected_standards(
@@ -127,6 +129,7 @@ def test_the_email_carries_their_answers_and_nothing_else(monkeypatch):
         assert 'Social Media' in body and 'No posts in a month' in body
         assert 'Lobby' not in body, 'a standard they did not pick'
         assert 'PRIVATE NOTE' not in body, 'the visit note is not theirs to read'
+        assert '?community=' not in body, 'a sign-in link they have no account for'
     assert '1 failed' in subj
 
 

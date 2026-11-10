@@ -1227,13 +1227,15 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
     def send_selected_standards(self, recipients, submission, responses,
                                 survey_type_name=None, criteria_map=None):
         """A subscriber who asked for only some standards: those answers from
-        this visit, and nothing else — no score, no note, no action items."""
+        this visit, and nothing else — no score, no note, no action items.
+        No link to the report either: these are teams outside Excellence
+        (PPC, Social Media) with no account, so it would only ask them to
+        sign in."""
         if not self.enabled:
             return (False, 'disabled')
         community = submission.get('community', 'a community')
         inspector = submission.get('inspector_name') or submission.get('username') or 'Unknown'
         when = (submission.get('submitted_at') or '')[:10]
-        link = self.report_link(community)
 
         def esc(s):
             return html.escape(str(s or ''))
@@ -1257,9 +1259,6 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
 
         survey_row = (f"<tr><td style='color:#5a6872;padding:3px 14px 3px 0'>Survey type</td>"
                       f"<td style='font-weight:600'>{esc(survey_type_name)}</td></tr>") if survey_type_name else ""
-        button = (f"<div style='margin-top:20px'><a href='{esc(link)}' style='display:inline-block;"
-                  f"background:#003366;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;"
-                  f"border-radius:8px;font-size:14px'>View full report</a></div>") if link else ""
         body = (f"<table style='font-size:14px;border-collapse:collapse;margin-bottom:6px'>"
                 f"<tr><td style='color:#5a6872;padding:3px 14px 3px 0'>Inspector</td><td style='font-weight:600'>{esc(inspector)}</td></tr>"
                 f"<tr><td style='color:#5a6872;padding:3px 14px 3px 0'>Date</td><td style='font-weight:600'>{esc(when)}</td></tr>"
@@ -1267,8 +1266,7 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                 + self._eyebrow('Your standards', len(responses))
                 + ''.join(card(r) for r in responses)
                 + "<p style='color:#5a6872;font-size:12px;margin:6px 0 0'>"
-                  "You get only the standards you chose in Atlas Excellence.</p>"
-                + button)
+                  "You receive only the standards chosen for you.</p>")
         fails = sum(1 for r in responses if r.get('condition') == 'Fail')
         subject = (f"Visit — {community}: {len(responses)} standard(s) you follow"
                    + (f", {fails} failed" if fails else ""))
@@ -1280,8 +1278,6 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
             note = r.get('description', '')
             text_lines.append(f"  - [{r.get('condition', '')}] {r.get('question_text', 'Item')}"
                               + (f": {note}" if note else ""))
-        if link:
-            text_lines += ["", f"View the full report: {link}"]
         return self._send(recipients, subject,
                           self._shell(community, body, eyebrow='Visit report'), "\n".join(text_lines))
 
