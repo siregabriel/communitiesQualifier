@@ -2530,6 +2530,8 @@ html[data-theme="dark"] .panel-onbehalf { background: #2a2312; border-color: #5c
 .panel-withdraw .withdraw-redo span { color: #5a6872; }
 .panel-withdraw .withdraw-warn { color: #7c5e10; }
 .panel-withdraw .withdraw-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+html[data-theme="dark"] .panel-withdraw .withdraw-redo span { color: #9fb0c4; }
+html[data-theme="dark"] .panel-withdraw .withdraw-warn { color: #e8d9a8; }
 
 /* ==========================================================================
    PRECISION SKIN  (Nov 2026)

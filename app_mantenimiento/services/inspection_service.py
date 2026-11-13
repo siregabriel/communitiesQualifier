@@ -493,16 +493,23 @@ class InspectionService(JsonFileBacked):
                 return True
         return False
 
-    def withdraw(self, submission_id: str, by: str, reason: str) -> Optional[Dict]:
+    def withdraw(self, submission_id: str, by: str, reason: str,
+                 only_if_untouched: bool = False) -> Optional[Dict]:
         """Take a filed visit back. It leaves `submissions` for `withdrawn`,
         stamped with who, when and why, and nothing else about it changes, so
         putting it back is moving it the other way. Returns the visit as it was
-        stored, or None when there is no such visit."""
+        stored, or None when there is no such visit.
+
+        only_if_untouched re-checks worked_on() under the lock, from the file
+        as it is now: a comment written between the caller's check and this
+        write must not be taken away with the visit. Raises ValueError then."""
         with self._lock:
             self._ensure_fresh()
             for i, sub in enumerate(self.submissions):
                 if sub.get('id') != submission_id:
                     continue
+                if only_if_untouched and self.worked_on(sub):
+                    raise ValueError('followed up')
                 self.submissions.pop(i)
                 sub['withdrawn'] = {
                     'at': datetime.now().isoformat(),

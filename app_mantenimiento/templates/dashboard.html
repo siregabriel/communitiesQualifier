@@ -4370,6 +4370,8 @@
                                     : `Withdrawn. ${w.inspector} has it as an unfinished visit.`)
                         : d.redo === 'exists'
                             ? 'Withdrawn. There was already an unfinished visit there, so it was left as it was.'
+                        : (d.redo === 'failed' || d.redo === 'unavailable')
+                            ? 'Withdrawn, but the answers could not be brought back as an unfinished visit.'
                         : 'Withdrawn.', false);
                     // The visit is gone from the server; nothing on screen may
                     // keep drawing it from a copy fetched before.

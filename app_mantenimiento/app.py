@@ -7782,10 +7782,15 @@ def _draft_from_visit(submission):
     """Put a withdrawn visit's answers back in front of whoever filed it, as an
     unfinished visit. Text only: the photos stay with the withdrawn record.
     Returns 'created', or 'exists' when they already have an unfinished visit
-    there, which is never overwritten."""
+    there, which is never overwritten, or 'unavailable' when the visit has no
+    survey type to reopen it under."""
     username = submission.get('username') or ''
     community = submission.get('community') or ''
     survey_type_id = submission.get('survey_type_id') or ''
+    # Visits from before survey types have none, and a draft without one is
+    # one the form can never open.
+    if not username or not survey_type_id:
+        return 'unavailable'
     if draft_service.get(username, community, survey_type_id):
         return 'exists'
     # Stored HTML-escaped when filed; a draft goes back into form fields as
@@ -7848,7 +7853,12 @@ def withdraw_inspection(submission_id):
         return jsonify({'status': 'error', 'message': why_not}), 403
 
     me = session.get('user')
-    sub = inspection_service.withdraw(submission_id, me, reason[:500])
+    try:
+        sub = inspection_service.withdraw(submission_id, me, reason[:500],
+                                          only_if_untouched=not is_admin())
+    except ValueError:
+        return jsonify({'status': 'error',
+                        'message': 'Somebody has just followed this visit up. Ask an administrator.'}), 403
     if not sub:
         return jsonify({'status': 'error', 'message': 'No such visit'}), 404
 

@@ -114,6 +114,18 @@ console.log('\nUnticked, no redo is asked for');
   ok(w.posted[0].body.redo === false, 'redo: false');
 }
 
+console.log('\nWhen the answers could not come back, it says so');
+{
+  const w = boot('katie.beattie', { status: 200, body: { status: 'success', redo: 'unavailable' } });
+  w.show(KATIES);
+  $(w, 'withdrawOpen').click();
+  $(w, 'withdrawReason').value = 'Wrong';
+  $(w, 'withdrawGo').click();
+  await tick(); await tick();
+  ok(/could not be brought back/.test($(w, 'withdrawMsg').textContent),
+     `not a silent "Withdrawn." — ${$(w, 'withdrawMsg').textContent}`);
+}
+
 console.log('\nAn administrator, on a visit somebody already followed up');
 {
   const w = boot('gabriel');

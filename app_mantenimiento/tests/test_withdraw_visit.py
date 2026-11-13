@@ -323,3 +323,35 @@ def test_redo_by_an_administrator_goes_to_whoever_filed_it(world):
     withdraw(admin(), sid, redo=True)
     assert A.draft_service.get(KATIE, NONA, ST) is not None
     assert A.draft_service.get('gabriel', NONA, ST) is None
+
+
+# ------------------------------------------------- found on a second look
+
+def test_a_comment_written_just_before_the_withdrawal_is_not_taken_with_it(world):
+    """The route checks, then writes. Somebody else's process can comment in
+    between; the service checks again under its lock, from the file."""
+    sid = visit()
+    other = InspectionService(world['store'], world['uploads'])   # the other worker
+    real = A._withdraw_refusal
+
+    def check_then_comment(sub):
+        verdict = real(sub)
+        other.add_comment(sid, 'q2', 'ed.nona', 'ED', 'Booked the training')
+        return verdict
+    A._withdraw_refusal = check_then_comment
+    try:
+        r = withdraw(katie(), sid)
+    finally:
+        A._withdraw_refusal = real
+    assert r.status_code == 403
+    assert sid in {s['id'] for s in A.inspection_service.get_all_submissions()}
+
+
+def test_an_old_visit_without_a_survey_type_is_not_reopened_as_a_dead_draft(world):
+    sid = visit()
+    for s in A.inspection_service.submissions:
+        s.pop('survey_type_id', None)
+    A.inspection_service.save_to_file()
+    r = withdraw(admin(), sid, redo=True)
+    assert r.status_code == 200 and r.get_json()['redo'] == 'unavailable'
+    assert A.draft_service.drafts == []
