@@ -377,6 +377,9 @@
         const passwordInput = document.getElementById('password');
         const generalError = document.getElementById('generalError');
         const loading = document.getElementById('loading');
+        // The page a link was opening before sign-in got in the way. The
+        // server only puts a checked local path here, never the raw URL.
+        const NEXT_PATH = {{ next_path|tojson }} || '/';
 
         /* Atlerts sent this person here with an address no account has —
            usually a personal Gmail, where the account carries the corporate
@@ -441,7 +444,7 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    const next = data.must_change_password ? '/change-password' : '/';
+                    const next = data.must_change_password ? '/change-password' : NEXT_PATH;
                     if (data.atlerts_link) {
                         offerAtlertsLink(data.atlerts_link, next);
                         return;

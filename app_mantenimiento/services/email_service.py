@@ -93,7 +93,23 @@ class EmailService:
     def report_link(self, community):
         if not self.app_base_url:
             return None
-        return f"{self.app_base_url}/?community={quote(community or '')}"
+        return f"{self.app_base_url}/dashboard?community={quote(community or '')}"
+
+    def thread_link(self, submission_id=None, question_id=None, item_id=None, raised_id=None):
+        """The one item a comment is about, with its thread open.
+
+        A comment email used to link to the community, and the reader had to
+        hunt for the standard. The dashboard reads these and lands on the row."""
+        if not self.app_base_url:
+            return None
+        if raised_id:
+            q = f"raised={quote(raised_id)}"
+        elif submission_id and (question_id or item_id):
+            q = (f"visit={quote(submission_id)}&"
+                 + (f"standard={quote(question_id)}" if question_id else f"item={quote(item_id)}"))
+        else:
+            return None
+        return f"{self.app_base_url}/dashboard?{q}"
 
     # Pieces of the email design, shared by every message (Nov 2026): a mono
     # eyebrow for section titles, a card with a rail in the answer's colour
@@ -1188,15 +1204,17 @@ account from <b>People</b> and ask the user to sign in again.</p>"""
                           "\n".join(text_lines))
 
     def send_standard_comment(self, recipients, community, standard,
-                              author, text, has_photo=False):
+                              author, text, has_photo=False, link=None):
         """Tell the inspector that someone commented on one of their findings —
-        usually the community reporting that it has been fixed."""
+        usually the community reporting that it has been fixed.
+
+        `link` is the item itself (thread_link); without one, the community."""
         if not self.enabled:
             return (False, 'disabled')
         subject = f"New comment — {community}: {standard[:60]}"
         photo_line = ("<p style='font-size:13px;color:#5a6872;margin:8px 0 0'>"
                       "A photo was attached — open the item to see it.</p>") if has_photo else ""
-        link = self.report_link(community)
+        link = link or self.report_link(community)
         button = (f"<div style='margin-top:18px'><a href='{html.escape(link)}' "
                   f"style='display:inline-block;background:#003366;color:#fff;text-decoration:none;"
                   f"font-weight:700;padding:11px 20px;border-radius:8px;font-size:14px'>"

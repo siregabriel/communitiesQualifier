@@ -1472,6 +1472,13 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
+            # A link from an email (a comment, a visit) opens once they have
+            # signed in. Until this, signing in always landed on the home
+            # page and the link was simply lost.
+            if request.method == 'GET' and not request.path.startswith('/api/'):
+                nxt = _login_next(request.full_path.rstrip('?'))
+                if nxt:
+                    return redirect(url_for('login', next=nxt))
             return redirect(url_for('login'))
         renamed_to = username_renamer.retired(session['user'])
         if renamed_to:
@@ -1512,9 +1519,12 @@ def login():
     """
     Display the login page
     """
+    # Only ever a local page on the allow-list, so a link cannot use this
+    # screen to send somebody to another site after they sign in.
+    nxt = _login_next(request.args.get('next'))
     # If already logged in, redirect to report form
     if 'user' in session:
-        return redirect(url_for('report_form'))
+        return redirect(nxt or url_for('report_form'))
     # Set when a rename ended their session: says what happened, and fills in
     # the name they should use now.
     renamed = InputSanitizer.sanitize_string(request.args.get('renamed', ''), max_length=60)
@@ -1522,7 +1532,8 @@ def login():
     # never the URL, so a link cannot put words on this screen.
     atlerts_pending = (session.get('atlerts_pending') or '').strip()
     return render_template('login.html', renamed=renamed or None,
-                           atlerts_pending=atlerts_pending or None)
+                           atlerts_pending=atlerts_pending or None,
+                           next_path=nxt or '')
 
 
 @app.route('/api/login', methods=['POST'])
@@ -1782,6 +1793,16 @@ def index():
     - Admin user: Redirect to dashboard
     - Staff user: Redirect to survey type selection (start new visit)
     """
+    # Emails sent before Nov 2026 link here with ?community=. Both redirects
+    # below dropped it, so the button opened the home page and never the
+    # report. It belongs to the dashboard, for every role.
+    community = request.args.get('community')
+    if community:
+        target = url_for('dashboard', community=community)
+        if 'user' not in session:
+            return redirect(url_for('login', next=target))
+        return redirect(target)
+
     if 'user' not in session:
         return redirect(url_for('login'))
 
@@ -4582,7 +4603,8 @@ def notify_raised_item_comment(item, comment):
         # the conversation is about.
         item.get('text', '')[:80],
         comment.get('author', ''), comment.get('text', ''),
-        bool(comment.get('photo')))
+        bool(comment.get('photo')),
+        link=email_service.thread_link(raised_id=item.get('id')))
 
 
 def notify_raised_item(item):
@@ -4857,7 +4879,7 @@ def add_item_comment(submission_id, item_id):
                          meta={'community': sub.get('community'),
                                'submission_id': submission_id, 'item_id': item_id})
     try:
-        notify_item_comment(sub, item_text, comment)
+        notify_item_comment(sub, item_text, comment, item_id)
     except Exception as e:
         app.logger.error(f'Comment notification failed: {e}')
 
@@ -4882,7 +4904,7 @@ def delete_item_comment(submission_id, item_id, comment_id):
     return jsonify({'status': 'success'}), 200
 
 
-def notify_item_comment(sub, item_text, comment):
+def notify_item_comment(sub, item_text, comment, item_id=None):
     """Same audience as a comment on a standard: whoever is on the other side."""
     if not email_service.enabled:
         return
@@ -4904,7 +4926,8 @@ def notify_item_comment(sub, item_text, comment):
     email_service.send_standard_comment(
         recipients, sub.get('community', ''), item_text,
         comment.get('author', ''), comment.get('text', ''),
-        bool(comment.get('photo')))
+        bool(comment.get('photo')),
+        link=email_service.thread_link(sub.get('id'), item_id=item_id))
 
 
 @app.route('/api/action-items/<submission_id>/standard/<question_id>/comments/<comment_id>',
@@ -4978,7 +5001,8 @@ def notify_comment(sub, question_id, comment):
     email_service.send_standard_comment(
         recipients, sub.get('community', ''), standard,
         comment.get('author', ''), comment.get('text', ''),
-        bool(comment.get('photo')))
+        bool(comment.get('photo')),
+        link=email_service.thread_link(sub.get('id'), question_id=question_id))
 
 
 @app.route('/api/action-items/<submission_id>/standard/<question_id>/resolve', methods=['POST'])
@@ -9193,7 +9217,7 @@ def _atlerts_gave_up(reason, email=''):
 _SSO_NEXT_PATHS = ('/select-survey-type', '/reporte')
 
 
-def _sso_next(value):
+def _sso_next(value, allowed=_SSO_NEXT_PATHS):
     """Where /sso may send someone after signing in, or None.
 
     A local path on the allow-list, with its query (the community) kept. Never
@@ -9204,9 +9228,18 @@ def _sso_next(value):
     if not value.startswith('/') or value.startswith('//') or '\\' in value:
         return None
     parts = urlsplit(value)
-    if parts.scheme or parts.netloc or parts.path not in _SSO_NEXT_PATHS:
+    if parts.scheme or parts.netloc or parts.path not in allowed:
         return None
     return parts.path + (('?' + parts.query) if parts.query else '')
+
+
+# Where the sign-in page may send someone back to: the page a link in an email
+# was trying to open. Same checks as /sso, one more page.
+_LOGIN_NEXT_PATHS = ('/dashboard',) + _SSO_NEXT_PATHS
+
+
+def _login_next(value):
+    return _sso_next(value, _LOGIN_NEXT_PATHS)
 
 
 @app.route("/sso")

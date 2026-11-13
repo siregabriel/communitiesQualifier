@@ -1125,5 +1125,90 @@ console.log('\nUnfinished visits — nothing to say, nothing shown');
      `and both call it the same thing (${tourTitles.join(', ')})`);
 }
 
+console.log('\nA link to one item — the row is found once the list has loaded');
+{
+  // The landing used to be a 160 ms timer started next to showView, while
+  // showView itself waits for the server before drawing. On a slow connection
+  // the timer looked first, found nothing and gave up: the list appeared,
+  // folded, with nothing highlighted. A comment email arrives cold, with the
+  // whole page still loading, which is exactly when that happens.
+  run(`openActivityTarget = window.__real.openActivityTarget;
+       showView = v => { window.__view = v;
+         if (v === 'action-items') setTimeout(() => renderActionItems(), 400); };`);
+  const many = [];
+  for (let i = 0; i < 5; i++) many.push(finding({ community: 'Community ' + i,
+    submissionId: 's' + i, questionId: 'q' + i, addressed: true }));
+  many.push(finding({ community: 'Slow Place', submissionId: 'sS', questionId: 'qS', addressed: true,
+                      comments: [{ id: 'c1', author: 'Ann', at: NOW, text: 'Fixed the latch' }] }));
+  aiRender({ inspections: many, raised: [], categories: CATS, scope: 'all' });
+  run(`openActivityTarget('sS','qS','')`);
+  await new Promise(r => setTimeout(r, 500));
+  const row = gallery.querySelector('#ai_sS_qS');
+  ok(!!row && row.classList.contains('is-open'), 'the row is open after a slow load');
+  ok(!!row && !row.closest('.ail-group').classList.contains('is-folded'), 'its group unfolded');
+  ok(!!row && row.classList.contains('ai-flash'), 'and it is the one highlighted');
+  ok(!gallery.querySelector('.ai-missing'), 'no "not available" note when it is there');
+}
+
+console.log('\nA link to one item — something they cannot see, or that is gone');
+{
+  // The list is scoped by the server, so an item from a community this
+  // person does not cover is simply absent. From an email, silence there
+  // reads as a broken link.
+  run(`showView = v => { window.__view = v; if (v === 'action-items') renderActionItems(); };`);
+  aiRender({ inspections: [finding()], raised: [], categories: CATS });
+  run(`openActivityTarget('gone','q9','')`);
+  const note = gallery.querySelector('.ai-missing');
+  ok(!!note, 'the person is told');
+  ok(note && /isn't available to you, or it no longer exists/.test(note.textContent), 'in plain words');
+  ok(!!gallery.querySelector('.ail-row'), 'and the list is still there under it');
+  run(`openRaisedTarget('nope')`);
+  ok(!!gallery.querySelector('.ai-missing'), 'the same for a raised item');
+  // Told once, for the link that missed — not on every redraw after.
+  run(`renderActionItems()`);
+  ok(!gallery.querySelector('.ai-missing'), 'the note does not come back on the next draw');
+  // An empty list is still somewhere a link can miss.
+  aiRender({ inspections: [], raised: [], categories: CATS });
+  run(`openActivityTarget('gone','q9','')`);
+  ok(!!gallery.querySelector('.ai-missing'), 'even when there is nothing else in the list');
+}
+
+console.log('\nA link to one item — the address the email uses');
+{
+  // Boots the page the way an email link opens it. Everything that talks to
+  // the server is stood in for; what is under test is which landing the
+  // address asks for.
+  const boot = async (query) => {
+    w.history.replaceState(null, '', '/dashboard' + query);
+    run(`window.__calls = [];
+         openActivityTarget = (...a) => __calls.push(['finding', ...a]);
+         openRaisedTarget = (...a) => __calls.push(['raised', ...a]);
+         openSlidePanel = (...a) => __calls.push(['panel', ...a]);
+         showView = v => __calls.push(['view', v]);
+         maybeStartTour = () => __calls.push(['tour']);`);
+    w.fetch = async (url) => ({ ok: true, status: 200,
+      json: async () => (String(url).includes('user-info')
+        ? { username: 'greg', is_admin: false, communities: ['C'] } : {}) });
+    await run('loadUserInfo()');
+    await new Promise(r => setTimeout(r, 450));
+    return run('__calls');
+  };
+  let calls = await boot('?visit=s1&standard=q1');
+  ok(calls.some(c => c[0] === 'finding' && c[1] === 's1' && c[2] === 'q1' && !c[3]),
+     `a standard opens that standard (${JSON.stringify(calls)})`);
+  ok(!calls.some(c => c[0] === 'tour'), 'and no tour is started on top of it');
+  calls = await boot('?visit=s1&item=i1');
+  ok(calls.some(c => c[0] === 'finding' && c[1] === 's1' && !c[2] && c[3] === 'i1'),
+     `an item raised on a visit opens that item (${JSON.stringify(calls)})`);
+  calls = await boot('?raised=r1');
+  ok(calls.some(c => c[0] === 'raised' && c[1] === 'r1'),
+     `something a community raised opens that (${JSON.stringify(calls)})`);
+  calls = await boot('?visit=s1');
+  ok(!calls.some(c => c[0] === 'finding'), 'a visit with no standard is not a link to anything');
+  calls = await boot('?community=Kelley%20Place');
+  ok(calls.some(c => c[0] === 'panel' && c[1] === 'Kelley Place'), 'the community link still works');
+  w.fetch = async () => ({ ok: true, status: 200, json: async () => ({}) });
+}
+
 console.log(failures ? `${failures} failure(s)` : 'The dashboard renders as intended.');
 process.exit(failures ? 1 : 0);

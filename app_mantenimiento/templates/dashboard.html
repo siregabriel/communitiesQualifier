@@ -2067,6 +2067,11 @@
         @media (prefers-reduced-motion: reduce) {
             .card.ai-flash, .ail-row.ai-flash { animation: none; box-shadow: inset 0 0 0 3px rgba(31,111,229,.45); }
         }
+        /* A link to an item this person cannot see, or that is gone. */
+        .ai-missing { display: flex; gap: 10px; align-items: center; margin: 0 0 14px;
+            padding: 10px 14px; border-radius: 8px; border-left: 3px solid #92620a;
+            background: #fdf6e7; color: #4a3a12; font-size: 14px; }
+        html[data-theme="dark"] .ai-missing { background: #2c2617; color: #f1e3c0; }
         .ai-chip { background: #fff; border: 1.5px solid #e4ebf5; color: #475569; border-radius: 999px;
             padding: 7px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
         .ai-chip span { opacity: .6; margin-left: 3px; }
@@ -5535,12 +5540,27 @@
                 const params = new URLSearchParams(window.location.search);
                 const requested = params.get('view');
                 const requestedCommunity = params.get('community');
+                // A comment email links to the one item it is about, with its
+                // thread open: ?visit=&standard= (or &item=) for a finding,
+                // ?raised= for something a community raised.
+                const linkVisit = params.get('visit');
+                const linkThread = params.get('standard') || params.get('item');
+                const linkRaised = params.get('raised');
                 const validViews = ['dashboard', 'my-visits', 'communities', 'regions', 'people', 'reports', 'action-items', 'move-ins', 'calendar', 'resources', 'settings', 'region-detail'];
-                showView(validViews.includes(requested) ? requested : (requestedCommunity ? 'communities' : 'dashboard'));
+                if (linkRaised) {
+                    openRaisedTarget(linkRaised);
+                } else if (linkVisit && linkThread) {
+                    openActivityTarget(linkVisit,
+                        params.get('standard') || '', params.get('standard') ? '' : params.get('item'));
+                } else {
+                    showView(validViews.includes(requested) ? requested : (requestedCommunity ? 'communities' : 'dashboard'));
+                }
                 updateDashboardNavBadge();
 
                 // Deep link from the inspection email: open that community's report.
-                if (requestedCommunity) {
+                if (linkRaised || (linkVisit && linkThread)) {
+                    // Arrived at one item; a tour would cover it.
+                } else if (requestedCommunity) {
                     setTimeout(() => {
                         try { openSlidePanel(requestedCommunity); }
                         catch (e) { console.error('Deep-link open failed:', e); }
@@ -5637,7 +5657,8 @@
             try {
                 const u = new URL(window.location);
                 u.searchParams.set('view', view);
-                u.searchParams.delete('community'); // one-time deep-link; don't re-open on refresh
+                // One-time deep links; don't re-open on refresh.
+                ['community', 'visit', 'standard', 'item', 'raised'].forEach(k => u.searchParams.delete(k));
                 history.replaceState(null, '', u);
             } catch (e) { /* older browsers: ignore */ }
 
@@ -7618,15 +7639,11 @@
             aiScope = 'all';              // it may be closed, or from an earlier visit
             currentSurveyTypeFilter = 'all';
             raisedCategoryFilter = '';    // a filter left on would hide it
+            // The list draws once its data has come back from the server,
+            // and the draw itself scrolls to the row (revealAiRow). A timer
+            // here used to guess how long that takes; on a slow connection
+            // it looked before the row existed and quietly gave up.
             showView('action-items');
-            setTimeout(() => {
-                const el = document.getElementById(cardId);
-                _aiRevealRow = '';
-                if (!el) return;
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                el.classList.add('ai-flash');
-                setTimeout(() => el.classList.remove('ai-flash'), 2200);
-            }, 160);
         }
 
         // The same landing as a finding, for something a community raised.
@@ -7640,14 +7657,33 @@
             currentSurveyTypeFilter = 'all';
             raisedCategoryFilter = '';
             showView('action-items');
-            setTimeout(() => {
-                const el = document.getElementById(key);
-                _aiRevealRow = '';
-                if (!el) return;
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                el.classList.add('ai-flash');
-                setTimeout(() => el.classList.remove('ai-flash'), 2200);
-            }, 160);
+        }
+
+        /* Called at the end of every Action Items draw. If the person was
+           sent to a row (the activity feed, a panel, a link in an email),
+           take them to it — or say plainly that it is not there. A link from
+           an email can point at something they cannot see or that has been
+           withdrawn since; the list is scoped by the server, so absence is
+           the only answer the page gets, and silence read as a broken link. */
+        function revealAiRow(gallery) {
+            const key = _aiRevealRow;
+            if (!key) return;
+            _aiRevealRow = '';
+            // Looked up inside the list, by exact id: the ids carry whatever
+            // the stored ids carry, so no selector is built from them.
+            const el = [...gallery.querySelectorAll('[id]')].find(e => e.id === key);
+            if (!el) {
+                const note = document.createElement('div');
+                note.className = 'ai-missing';
+                note.setAttribute('role', 'status');
+                note.innerHTML = '<i class="fas fa-circle-info"></i>';
+                note.append("That item isn't available to you, or it no longer exists.");
+                gallery.prepend(note);
+                return;
+            }
+            if (el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ai-flash');
+            setTimeout(() => el.classList.remove('ai-flash'), 2200);
         }
 
         function startLiveActivity() {
@@ -8060,6 +8096,7 @@
                     : 'Nothing here.';
                 gallery.innerHTML = bar +
                     `<div class="empty-state"><i class="fas fa-check-circle"></i><p>${msg}</p></div>`;
+                revealAiRow(gallery);
                 return;
             }
 
@@ -8108,6 +8145,7 @@
                         <div class="ail-rows">${items.map(r => aiRowHtml(r)).join('')}</div>
                     </section>`;
             }).join('') + `</div>`;
+            revealAiRow(gallery);
         }
 
         // One row. Everything that used to shout from a card is either gone or
