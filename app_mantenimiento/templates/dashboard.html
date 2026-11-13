@@ -4316,9 +4316,14 @@
                 ? `<p class="withdraw-warn"><i class="fas fa-triangle-exclamation"></i>
                        Somebody has already followed this visit up. Their comments and closed items go with it.</p>`
                 : '';
+            // The 24 hours are the filer's limit; an administrator has none.
+            const hint = mine
+                ? '<div class="withdraw-hint" id="withdrawHint">Available for 24 hours after sending.</div>'
+                : '';
             return `<div class="panel-section panel-withdraw">
-                <button type="button" class="btn btn-secondary" id="withdrawOpen">
-                    <i class="fas fa-rotate-left"></i> Withdraw this visit</button>
+                <button type="button" class="btn withdraw-btn" id="withdrawOpen">
+                    <i class="fas fa-rotate-left"></i> Withdraw &amp; redo this visit</button>
+                ${hint}
                 <div class="withdraw-form" id="withdrawForm" hidden>
                     <p>This visit and its findings leave the scores, Action Items and history.
                        Everyone who was sent its report is told it was withdrawn.</p>
@@ -4345,9 +4350,16 @@
             const msg = document.getElementById('withdrawMsg');
             if (!open || !form) return;
             const say = (text, bad) => { msg.className = 'pw-msg ' + (bad ? 'err' : 'ok'); msg.textContent = text; };
-            open.addEventListener('click', () => { form.hidden = false; open.hidden = true; reason.focus(); });
+            const hint = document.getElementById('withdrawHint');
+            open.addEventListener('click', () => {
+                form.hidden = false; open.hidden = true;
+                if (hint) hint.hidden = true;
+                reason.focus();
+            });
             document.getElementById('withdrawCancel').addEventListener('click', () => {
-                form.hidden = true; open.hidden = false; say('', false);
+                form.hidden = true; open.hidden = false;
+                if (hint) hint.hidden = false;
+                say('', false);
             });
             go.addEventListener('click', async () => {
                 const why = reason.value.trim();

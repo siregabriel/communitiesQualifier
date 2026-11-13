@@ -82,9 +82,12 @@ console.log('\nKatie, on her own visit');
      'the redo is worded for the person who filed it');
   ok($(w, 'withdrawRedo').checked, 'and starts ticked: she asked to redo it');
   ok(!/already followed/.test($(w, 'withdrawForm').textContent), 'no follow-up warning when there was none');
+  ok(/Withdraw & redo this visit/.test($(w, 'withdrawOpen').textContent), 'the button says it can be redone');
+  ok(/24 hours/.test(($(w, 'withdrawHint') || {}).textContent || ''), 'and she is told how long she has');
 
   $(w, 'withdrawOpen').click();
   ok(!$(w, 'withdrawForm').hidden && $(w, 'withdrawOpen').hidden, 'opening shows the form');
+  ok($(w, 'withdrawHint').hidden, 'and puts the hint away with the button');
 
   $(w, 'withdrawGo').click();
   await tick();
@@ -133,6 +136,7 @@ console.log('\nAn administrator, on a visit somebody already followed up');
   ok(/Give Katie Beattie an unfinished visit/.test($(w, 'withdrawForm').textContent),
      'the redo names who it goes to');
   ok(/already followed this visit up/.test($(w, 'withdrawForm').textContent), 'and warns what goes with it');
+  ok(!$(w, 'withdrawHint'), 'no 24-hour hint: an administrator has no limit');
 }
 
 console.log('\nA refusal is shown, and nothing is dropped');
