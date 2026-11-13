@@ -2522,6 +2522,15 @@ html[data-theme="dark"] .card-image-themed::after {
     border: 1px solid #fde68a; color: #7c5e10; font-size: 13px; }
 html[data-theme="dark"] .panel-onbehalf { background: #2a2312; border-color: #5c4a15; color: #e8d9a8; }
 
+/* Withdrawing a visit, at the foot of its panel */
+.panel-withdraw .withdraw-form { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.panel-withdraw .withdraw-form[hidden], .panel-withdraw .btn[hidden] { display: none; }
+.panel-withdraw .withdraw-form p { margin: 0; }
+.panel-withdraw textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; border-radius: 6px; border: 1px solid var(--border, #d0d7de); }
+.panel-withdraw .withdraw-redo span { color: #5a6872; }
+.panel-withdraw .withdraw-warn { color: #7c5e10; }
+.panel-withdraw .withdraw-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
 /* ==========================================================================
    PRECISION SKIN  (Nov 2026)
    Gabriel chose the "Precisión" design (design.md, adapted for a work tool):

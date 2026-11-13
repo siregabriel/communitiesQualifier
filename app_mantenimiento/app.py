@@ -7613,6 +7613,28 @@ def remove_region_community():
 
 # ==================== INSPECTION SUBMISSION API ====================
 
+def _visit_report_recipients(submission):
+    """(region id, addresses) for a visit's leadership report: the region's
+    leadership, whoever Settings adds for that region or inspector, and the
+    person who walked it."""
+    community = submission.get('community')
+    region = region_for_community(community)
+    region_id = region.get('id') if region else None
+    recipients = region_leader_emails(community)
+    recipients += settings_service.recipients_for_inspection(
+        region_id, submission.get('inspector_name'))
+    # And whoever walked it. They used to get their own report
+    # only by leading the region that owns the community, so
+    # Corporate never did, and neither would a regional visiting
+    # outside their region (Carol Brinegar, once she could).
+    mine = (resolve_account_context(submission.get('username') or '')
+            .get('email') or '').strip()
+    if mine:
+        # send_inspection_report drops duplicates, case-blind.
+        recipients.append(mine)
+    return region_id, recipients
+
+
 def _send_visit_emails(submission):
     """Every email a filed visit sends: the leadership report, the
     community's findings, and the department notices. One function, so a visit
@@ -7625,20 +7647,7 @@ def _send_visit_emails(submission):
         survey_name = (survey_type_service.get_survey_type_name(submission.get('survey_type_id'))
                        if submission.get('survey_type_id') else None)
         community = submission.get('community')
-        region = region_for_community(community)
-        region_id = region.get('id') if region else None
-        recipients = region_leader_emails(community)
-        recipients += settings_service.recipients_for_inspection(
-            region_id, submission.get('inspector_name'))
-        # And whoever walked it. They used to get their own report
-        # only by leading the region that owns the community, so
-        # Corporate never did, and neither would a regional visiting
-        # outside their region (Carol Brinegar, once she could).
-        mine = (resolve_account_context(submission.get('username') or '')
-                .get('email') or '').strip()
-        if mine:
-            # send_inspection_report drops duplicates, case-blind.
-            recipients.append(mine)
+        region_id, recipients = _visit_report_recipients(submission)
         # criteria lookup so the email can show "must include to pass" per failed item
         criteria_map = {}
         for q in question_manager.get_all_active_questions():
@@ -7726,6 +7735,145 @@ def _send_visit_emails(submission):
                       'description': ''} for i in items])
     except Exception as e:
         app.logger.error(f'Post-visit email step failed: {e}')
+
+
+# ==================== WITHDRAWING A VISIT ====================
+#
+# Katie Beattie filed a Community Sales Improvement Plan at The Goldton At Lake
+# Nona on Nov 3 2026, realised she had done it wrong, and asked whether she
+# could restart it or remove it and redo it. There was no way to: it took an
+# edit of inspections.json on the server. Gabriel's rules for doing it here:
+#
+#   * whoever filed it may take it back for WITHDRAW_WINDOW_HOURS, as long as
+#     nobody has followed it up yet (a finding addressed, a comment, an item
+#     closed) — that work would go with it;
+#   * an administrator may, always;
+#   * it is withdrawn, not deleted: the record is kept aside, untouched;
+#   * everyone who was sent the report is told it no longer stands;
+#   * it can come back as an unfinished visit with the same answers, so the
+#     redo is a correction rather than a second walk.
+
+WITHDRAW_WINDOW_HOURS = 24
+
+
+def _withdraw_refusal(submission):
+    """None when the person signed in may withdraw this visit, otherwise the
+    sentence that says why not."""
+    if is_admin():
+        return None
+    if not is_leadership() or submission.get('username') != session.get('user'):
+        return 'Only the person who filed this visit, or an administrator, can withdraw it.'
+    if not _can_see_community(submission.get('community')):
+        return 'This community is no longer one of yours.'
+    try:
+        filed = datetime.fromisoformat(submission.get('submitted_at') or '')
+    except ValueError:
+        return 'This visit has no filing time, so an administrator has to withdraw it.'
+    if (datetime.now() - filed).total_seconds() > WITHDRAW_WINDOW_HOURS * 3600:
+        return (f'Visits can be withdrawn by the person who filed them for '
+                f'{WITHDRAW_WINDOW_HOURS} hours. Ask an administrator.')
+    if inspection_service.worked_on(submission):
+        return ('Somebody has already followed this visit up, and withdrawing it '
+                'would take their work with it. Ask an administrator.')
+    return None
+
+
+def _draft_from_visit(submission):
+    """Put a withdrawn visit's answers back in front of whoever filed it, as an
+    unfinished visit. Text only: the photos stay with the withdrawn record.
+    Returns 'created', or 'exists' when they already have an unfinished visit
+    there, which is never overwritten."""
+    username = submission.get('username') or ''
+    community = submission.get('community') or ''
+    survey_type_id = submission.get('survey_type_id') or ''
+    if draft_service.get(username, community, survey_type_id):
+        return 'exists'
+    # Stored HTML-escaped when filed; a draft goes back into form fields as
+    # typed text, so it is unescaped here or "&#39;" lands in a sentence.
+    un = lambda v: html_lib.unescape(v or '')
+    responses = {r.get('question_id'): {'condition': r.get('condition') or '',
+                                        'description': un(r.get('description')),
+                                        'routeTo': r.get('route_to') or ''}
+                 for r in submission.get('responses') or [] if r.get('question_id')}
+    items = [{'text': un(i.get('text')), 'assigned_to': un(i.get('assigned_to')),
+              'priority': i.get('priority') or 'medium'}
+             for i in submission.get('action_items') or []]
+    d = draft_service.save_content(
+        username, community, survey_type_id,
+        responses=responses, action_items=items, notes=un(submission.get('notes')),
+        total=submission.get('standards_total') or len(responses),
+        saved_at=int(_time.time() * 1000),
+        notes_shared=bool(submission.get('notes_shared')))
+    draft_notice_service.record(username, community, survey_type_id,
+                                answered=len(d.get('responses') or {}),
+                                total=d.get('total') or 0)
+    return 'created'
+
+
+def _send_withdrawn_emails(submission, withdrawn_by, reason):
+    """Everyone who was sent the visit's report, and its Executive Director."""
+    if not email_service.enabled:
+        return
+    try:
+        _, recipients = _visit_report_recipients(submission)
+        recipients += community_account_emails(submission.get('community'))
+        sid = submission.get('survey_type_id')
+        try:
+            when = datetime.fromisoformat(submission.get('submitted_at') or '').strftime('%b %-d, %Y')
+        except ValueError:
+            when = (submission.get('submitted_at') or '')[:10]
+        email_service.send_visit_withdrawn(
+            recipients, submission.get('community'),
+            survey_type_service.get_survey_type_name(sid) if sid else None,
+            when, submission.get('inspector_name') or submission.get('username') or '',
+            withdrawn_by, reason)
+    except Exception:
+        app.logger.exception('Could not send the visit-withdrawn emails')
+
+
+@app.route('/api/inspections/<submission_id>/withdraw', methods=['POST'])
+@login_required
+def withdraw_inspection(submission_id):
+    data = request.get_json(silent=True) or {}
+    reason = (data.get('reason') or '').strip()
+    if not reason:
+        return jsonify({'status': 'error',
+                        'message': 'Say why this visit is being withdrawn.'}), 400
+    sub = next((s for s in inspection_service.get_all_submissions()
+                if s.get('id') == submission_id), None)
+    if not sub:
+        return jsonify({'status': 'error', 'message': 'No such visit'}), 404
+    why_not = _withdraw_refusal(sub)
+    if why_not:
+        return jsonify({'status': 'error', 'message': why_not}), 403
+
+    me = session.get('user')
+    sub = inspection_service.withdraw(submission_id, me, reason[:500])
+    if not sub:
+        return jsonify({'status': 'error', 'message': 'No such visit'}), 404
+
+    redo = None
+    if data.get('redo') is True:
+        try:
+            redo = _draft_from_visit(sub)
+        except Exception:
+            app.logger.exception('Could not reopen a withdrawn visit as a draft')
+            redo = 'failed'
+
+    community = sub.get('community')
+    inspector = sub.get('inspector_name') or sub.get('username') or ''
+    by_owner = sub.get('username') == me
+    whose = 'their' if by_owner else f"{inspector}'s"
+    activity_service.log(me, 'inspection_withdrawn',
+                         f"Withdrew {whose} visit for {community}",
+                         meta={'community': community, 'submission_id': submission_id,
+                               'username': sub.get('username'), 'reason': reason[:500],
+                               'redo': redo})
+    # Named the way a visit sent on somebody's behalf is: the administrator
+    # is the Excellence Administrator to everyone but the activity log.
+    _send_withdrawn_emails(sub, inspector if by_owner else 'the Excellence Administrator',
+                           reason[:500])
+    return jsonify({'status': 'success', 'redo': redo}), 200
 
 
 @app.route('/api/inspections', methods=['POST'])
@@ -8143,6 +8291,11 @@ def get_inspections():
             uname = sub.get('username', '')
             name = sub.get('inspector_name') or resolve_display_name(uname)
             new_sub = {**_without_private_note(sub), 'inspector_name': name}
+            # The panel offers "Withdraw this visit" only where the server
+            # would accept it; the rule itself stays in _withdraw_refusal.
+            if _withdraw_refusal(sub) is None:
+                new_sub['can_withdraw'] = True
+                new_sub['worked_on'] = inspection_service.worked_on(sub)
             # Unconditionally, unlike the signed-URL work below: that only
             # matters with S3 configured, while a department reads as an id on
             # every installation.

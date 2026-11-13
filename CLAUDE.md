@@ -170,6 +170,20 @@ Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost
   emails (Gabriel's choice), only in the activity log. Post-visit emails live
   in `_send_visit_emails()`, shared with the normal submit.
 
+## Withdrawing a visit (Nov 2026, Katie Beattie)
+
+- Panel → "Withdraw this visit": whoever filed it for `WITHDRAW_WINDOW_HOURS`
+  (24) while nobody followed it up (`InspectionService.worked_on`); admins
+  always. Rule lives only in `_withdraw_refusal()`; `/api/inspections` sends
+  `can_withdraw` so the panel just asks. Reason required.
+- Withdrawn = moved from `submissions` to `withdrawn` in the same file,
+  stamped `withdrawn: {at, withdrawn_by, reason}`, otherwise untouched. Every
+  reader stops seeing it with no filter. No restore button: move it back by hand.
+- Report recipients + ED get "Visit withdrawn"; an admin is "the Excellence
+  Administrator" there, named only in the activity log.
+- Optional redo: the owner gets a draft with the answers (text only, never
+  overwrites an existing draft). `tests/test_withdraw_visit.{py,mjs}`.
+
 ## Look ("Precisión" skin, Nov 2026)
 
 - One section at the end of `static/theme.css` (PRECISION SKIN): navy

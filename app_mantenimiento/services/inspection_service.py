@@ -46,6 +46,11 @@ class InspectionService(JsonFileBacked):
         self.storage_path = storage_path
         self.upload_path = upload_path
         self.submissions = []
+        # Visits taken back by whoever filed them, or by an administrator.
+        # Kept in the same file but outside `submissions`, so every reader —
+        # scores, items, history, emails, exports, reminders, AtlasAI — stops
+        # seeing them without each having to remember a filter.
+        self.withdrawn = []
 
         # Ensure upload directory exists
         os.makedirs(upload_path, exist_ok=True)
@@ -475,6 +480,42 @@ class InspectionService(JsonFileBacked):
         self._ensure_fresh()
         return self.submissions.copy()
 
+    @staticmethod
+    def worked_on(submission: Dict) -> bool:
+        """True once anybody has followed the visit up: a finding marked
+        addressed, a comment, an action item closed or commented on. Taking
+        such a visit back would take that work with it."""
+        for r in submission.get('responses') or []:
+            if r.get('addressed') or r.get('comments'):
+                return True
+        for it in submission.get('action_items') or []:
+            if it.get('resolved') or it.get('comments'):
+                return True
+        return False
+
+    def withdraw(self, submission_id: str, by: str, reason: str) -> Optional[Dict]:
+        """Take a filed visit back. It leaves `submissions` for `withdrawn`,
+        stamped with who, when and why, and nothing else about it changes, so
+        putting it back is moving it the other way. Returns the visit as it was
+        stored, or None when there is no such visit."""
+        with self._lock:
+            self._ensure_fresh()
+            for i, sub in enumerate(self.submissions):
+                if sub.get('id') != submission_id:
+                    continue
+                self.submissions.pop(i)
+                sub['withdrawn'] = {
+                    'at': datetime.now().isoformat(),
+                    # Named like the other identity fields, so a username
+                    # rename (services/username_rename.py) carries it along.
+                    'withdrawn_by': (by or '').strip(),
+                    'reason': (reason or '').strip()[:500],
+                }
+                self.withdrawn.append(sub)
+                self.save_to_file()
+                return sub
+            return None
+
     def reset_all(self) -> int:
         """Delete every submission and start fresh. Returns how many were removed.
         Photo files are intentionally left on disk/S3 — only the records are cleared."""
@@ -482,6 +523,7 @@ class InspectionService(JsonFileBacked):
             self._ensure_fresh()
             count = len(self.submissions)
             self.submissions = []
+            self.withdrawn = []
             self.save_to_file()
             return count
 
@@ -495,7 +537,7 @@ class InspectionService(JsonFileBacked):
         with self._lock:
             self._ensure_fresh()
             count = 0
-            for s in self.submissions:
+            for s in self.submissions + self.withdrawn:
                 if s.get('community') == old_name:
                     s['community'] = new_name
                     count += 1
@@ -515,7 +557,8 @@ class InspectionService(JsonFileBacked):
             data = {
                 'version': '1.0',
                 'last_modified': datetime.now().isoformat(),
-                'submissions': self.submissions
+                'submissions': self.submissions,
+                'withdrawn': self.withdrawn,
             }
 
             # Atomic write (temp file + os.replace)
@@ -530,6 +573,7 @@ class InspectionService(JsonFileBacked):
         
         If file doesn't exist or is malformed, initializes with empty state.
         """
+        self.withdrawn = []
         try:
             if os.path.exists(self.storage_path):
                 with open(self.storage_path, 'r', encoding='utf-8') as f:
@@ -538,6 +582,7 @@ class InspectionService(JsonFileBacked):
                 # Validate structure
                 if isinstance(data, dict) and 'submissions' in data:
                     self.submissions = data['submissions']
+                    self.withdrawn = data.get('withdrawn') or []
                 else:
                     # Malformed data, initialize empty
                     self.submissions = []

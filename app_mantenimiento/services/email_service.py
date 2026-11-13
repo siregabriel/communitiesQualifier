@@ -585,6 +585,32 @@ and some checklist items are still open.</p>
                 "It was sent as it was saved, marked as partial where standards were left unanswered.\n")
         return self._send([to_email], subject, self._shell("Visit sent", body), text)
 
+    def send_visit_withdrawn(self, recipients, community, survey_name, visit_date,
+                             inspector, withdrawn_by, reason):
+        """Tell the people who got a visit's report that it no longer stands.
+
+        Katie Beattie filed a Community Sales Improvement Plan at The Goldton
+        At Lake Nona, realised she had done it wrong and asked for it to be
+        removed (Nov 2026). The Executive Director had already been emailed
+        seven failed standards; without a word, they would go on working
+        through findings that no longer exist."""
+        if not self.enabled:
+            return (False, 'email not configured')
+        esc = html.escape
+        visit = f"{survey_name} visit" if survey_name else "visit"
+        subject = f"Visit withdrawn: {community}"
+        reason_html = (f'<p style="font-size:14px;margin:0 0 12px;color:#36454f">'
+                       f'<b>Reason:</b> {esc(reason)}</p>') if reason else ''
+        body = f"""\
+<p style="font-size:14px;margin:0 0 12px">The {esc(visit)} to <b>{esc(community)}</b> by {esc(inspector)} on {esc(visit_date)} was withdrawn by {esc(withdrawn_by)}.</p>
+{reason_html}<p style="font-size:14px;margin:0">Its findings no longer apply, and they are no longer in Atlas Excellence. There is nothing to follow up from that visit.</p>"""
+        text = (f"The {visit} to {community} by {inspector} on {visit_date} "
+                f"was withdrawn by {withdrawn_by}.\n"
+                + (f"Reason: {reason}\n" if reason else "")
+                + "Its findings no longer apply, and they are no longer in Atlas Excellence. "
+                  "There is nothing to follow up from that visit.\n")
+        return self._send(recipients, subject, self._shell("Visit withdrawn", body), text)
+
     def send_new_user_alert(self, admin_emails, display_name, username, role_label, created_by):
         """Notify admins that a new account was created."""
         if not self.enabled:

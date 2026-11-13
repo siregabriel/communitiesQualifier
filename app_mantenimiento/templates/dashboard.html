@@ -3738,6 +3738,14 @@
                     isLatest: isLatest,
                     partial: partialInfo(chosen),
                     sentOnBehalf: chosen.sent_on_behalf || null,
+                    // Only when the server says this person may; the rule
+                    // (who, how long, nobody has followed it up) is there.
+                    withdraw: chosen.can_withdraw ? {
+                        id: chosen.id,
+                        owner: chosen.username || '',
+                        inspector: inspectorName,
+                        workedOn: !!chosen.worked_on,
+                    } : null,
                     notes: chosen.notes || '',
                     notesPhoto: chosen.notes_photo || '',
                     notesShared: !!chosen.notes_shared,
@@ -4000,6 +4008,7 @@
             
             // Photos section
             html += renderPhotos(data.photos);
+            html += renderWithdrawSection(data.withdraw);
 
             /* What has been raised for this community.
             
@@ -4031,6 +4040,7 @@
                rename and the region assignment, which is where everything else
                about a community is edited. */
             panelBody.innerHTML = html;
+            wireWithdrawSection(data.withdraw);
             loadCommunityRaised(data.communityName);
             loadCommunityHistory(data.communityName);
         }
@@ -4285,6 +4295,96 @@
             const when = isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             return `<div class="panel-onbehalf"><i class="fas fa-paper-plane"></i>
                 Sent by Excellence Administrator${when ? ' on ' + escapeHtml(when) : ''} on behalf of ${escapeHtml(inspector || 'the inspector')}</div>`;
+        }
+
+        /* Withdrawing a visit (Nov 2026).
+
+           Katie Beattie filed a Community Sales Improvement Plan at The
+           Goldton At Lake Nona, saw she had done it wrong, and asked how to
+           restart it. There was no way short of editing the server's files.
+           The person who filed a visit can take it back for a day while
+           nobody has followed it up; an administrator can at any time. The
+           server decides who sees this (can_withdraw) and checks again when
+           it is used — nothing about the rule is repeated here. */
+        function renderWithdrawSection(w) {
+            if (!w) return '';
+            const mine = w.owner === currentUsername;
+            const redo = mine
+                ? 'Start it again with these answers'
+                : `Give ${escapeHtml(w.inspector || 'the inspector')} an unfinished visit with these answers`;
+            const worked = w.workedOn
+                ? `<p class="withdraw-warn"><i class="fas fa-triangle-exclamation"></i>
+                       Somebody has already followed this visit up. Their comments and closed items go with it.</p>`
+                : '';
+            return `<div class="panel-section panel-withdraw">
+                <button type="button" class="btn btn-secondary" id="withdrawOpen">
+                    <i class="fas fa-rotate-left"></i> Withdraw this visit</button>
+                <div class="withdraw-form" id="withdrawForm" hidden>
+                    <p>This visit and its findings leave the scores, Action Items and history.
+                       Everyone who was sent its report is told it was withdrawn.</p>
+                    ${worked}
+                    <label for="withdrawReason">Why is it being withdrawn?</label>
+                    <textarea id="withdrawReason" rows="2" maxlength="500"></textarea>
+                    <label class="withdraw-redo"><input type="checkbox" id="withdrawRedo" checked>
+                        ${redo} <span>(photos are not carried over)</span></label>
+                    <div class="withdraw-actions">
+                        <button type="button" class="btn btn-danger" id="withdrawGo">Withdraw</button>
+                        <button type="button" class="btn btn-secondary" id="withdrawCancel">Cancel</button>
+                        <span class="pw-msg" id="withdrawMsg"></span>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function wireWithdrawSection(w) {
+            if (!w) return;
+            const open = document.getElementById('withdrawOpen');
+            const form = document.getElementById('withdrawForm');
+            const reason = document.getElementById('withdrawReason');
+            const go = document.getElementById('withdrawGo');
+            const msg = document.getElementById('withdrawMsg');
+            if (!open || !form) return;
+            const say = (text, bad) => { msg.className = 'pw-msg ' + (bad ? 'err' : 'ok'); msg.textContent = text; };
+            open.addEventListener('click', () => { form.hidden = false; open.hidden = true; reason.focus(); });
+            document.getElementById('withdrawCancel').addEventListener('click', () => {
+                form.hidden = true; open.hidden = false; say('', false);
+            });
+            go.addEventListener('click', async () => {
+                const why = reason.value.trim();
+                if (!why) { say('Say why it is being withdrawn.', true); reason.focus(); return; }
+                go.disabled = true;
+                try {
+                    const r = await fetch(`/api/inspections/${encodeURIComponent(w.id)}/withdraw`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: why, redo: document.getElementById('withdrawRedo').checked }),
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok || d.status !== 'success') {
+                        say(d.message || 'Could not withdraw it.', true);
+                        go.disabled = false;
+                        return;
+                    }
+                    const mine = w.owner === currentUsername;
+                    say(d.redo === 'created'
+                            ? (mine ? 'Withdrawn. Your answers are waiting under unfinished visits.'
+                                    : `Withdrawn. ${w.inspector} has it as an unfinished visit.`)
+                        : d.redo === 'exists'
+                            ? 'Withdrawn. There was already an unfinished visit there, so it was left as it was.'
+                        : 'Withdrawn.', false);
+                    // The visit is gone from the server; nothing on screen may
+                    // keep drawing it from a copy fetched before.
+                    inspectionsCache = { data: null, timestamp: 0 };
+                    setTimeout(async () => {
+                        closeSlidePanel();
+                        await loadInspections();
+                        if (typeof loadDraftNotices === 'function') await loadDraftNotices();
+                        if (typeof showView === 'function' && typeof currentView !== 'undefined') showView(currentView);
+                    }, 1400);
+                } catch (e) {
+                    say('Could not reach the server.', true);
+                    go.disabled = false;
+                }
+            });
         }
 
         function renderStats(score, actionItems, visitScore, fixedSinceVisit, partial) {
@@ -7428,6 +7528,7 @@
             // knows them by to their account here.
             atlerts_linked:         { icon: 'fa-link',            color: '#0f8a5f', verb: 'linked their Atlerts account' },
             inspection_sent_on_behalf: { icon: 'fa-paper-plane',  color: '#92620a', verb: 'sent a visit on someone\'s behalf' },
+            inspection_withdrawn:   { icon: 'fa-rotate-left',     color: '#92620a', verb: 'withdrew a visit' },
             draft_reminded:         { icon: 'fa-bell',            color: '#64748b', verb: 'reminded someone of an unfinished visit' },
             atlerts_unlinked:       { icon: 'fa-link-slash',      color: '#64748b', verb: 'unlinked an Atlerts account' },
             // A visit whose community never got its copy. Amber, not

@@ -170,6 +170,8 @@ console.log('\nThe header stops calling an old visit the last one');
     function renderOnBehalfNote() { return ''; }
     function renderResponses() { return ''; }
     function renderPhotos() { return ''; }
+    function renderWithdrawSection() { return ''; }
+    function wireWithdrawSection() {}
     function loadCommunityHistory() {}
     function loadCommunityRaised() {}
     function loadCommunityPlace() {}

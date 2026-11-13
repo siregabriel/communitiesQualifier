@@ -50,6 +50,7 @@ IDENTITY_FIELDS = (
     'created_by',
     'deleted_by',
     'verified_by',
+    'withdrawn_by',
 )
 
 # Files where the username is also a key in a map, not just a value in a field.
