@@ -1173,6 +1173,32 @@ console.log('\nA link to one item — something they cannot see, or that is gone
   ok(!!gallery.querySelector('.ai-missing'), 'even when there is nothing else in the list');
 }
 
+console.log('\nA link to one item — the glow on arrival can be seen');
+{
+  // Gabriel clicked through and saw no glow. The ring was drawn outside the
+  // row, and the row's group clips its contents (overflow: hidden), so it
+  // was cut off; and it began during the scroll and was faded on arrival.
+  // jsdom draws nothing, so this checks the two causes, not the pixels.
+  const theme = fs.readFileSync(path.join(HERE, '..', 'static', 'theme.css'), 'utf8');
+  ok(/\.ail-group\s*\{[^}]*overflow:\s*hidden/.test(theme),
+     'the premise: a group still clips its rows (if not, this section can relax)');
+  const frames = (html_src.match(/@keyframes aiFlash\s*\{([\s\S]*?)\n\s*\}\n/) || [])[1] || '';
+  const shadows = [...frames.matchAll(/box-shadow:([^;]+);/g)].map(m => m[1]);
+  ok(shadows.length >= 2, `the glow has frames (${shadows.length})`);
+  ok(shadows.every(v => v.split(/,(?![^(]*\))/).every(part => /\binset\b/.test(part))),
+     'every shadow in it is inset, so the clip cannot hide it');
+  const tints = [...frames.matchAll(/background-color:\s*rgba\(0,191,255,([\d.]+)\)/g)].map(m => +m[1]);
+  ok(shadows.length === tints.length && tints.slice(0, -1).every(a => a >= 0.05) && tints.at(-1) === 0,
+     `and the row itself lights up until the last frame (${tints.join(', ')})`);
+  const rule = (html_src.match(/\.ail-row\.ai-flash \{ animation: aiFlash ([\d.]+)s [\w-]+ ([\d.]+)s/) || []);
+  ok(rule.length === 3, 'the row rule names a duration and a delay');
+  const total = (parseFloat(rule[1]) + parseFloat(rule[2])) * 1000;
+  ok(total >= 2500, `it lasts long enough to be seen after the scroll (${total} ms)`);
+  ok(parseFloat(rule[2]) > 0, 'and waits for the scroll before it starts');
+  const ms = run('AI_FLASH_MS');
+  ok(ms >= total, `the class is not taken away mid-glow (${ms} ≥ ${total})`);
+}
+
 console.log('\nA link to one item — the address the email uses');
 {
   // Boots the page the way an email link opens it. Everything that talks to

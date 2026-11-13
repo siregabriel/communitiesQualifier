@@ -2056,16 +2056,28 @@
         html[data-theme="dark"] .score-note { color: #9fb0c4; }
         .live-row-link { cursor: pointer; }
         .live-row-link:hover { background: rgba(31,111,229,.05); }
-        /* Brief highlight so the card you were sent to is obvious on arrival. */
+        /* The row you were sent to glows on arrival.
+           Inset on purpose: a row sits inside its community's group, which
+           clips (overflow: hidden), so the old outer ring was cut off on
+           every side and barely showed. It also started while the page was
+           still scrolling and had faded by the time the row arrived — hence
+           the delay. Two soft pulses of electric blue, then gone. The JS
+           that removes the class waits AI_FLASH_MS, which covers all of it. */
         .card.ai-flash,
-        .ail-row.ai-flash { animation: aiFlash 2.2s ease-out 1; }
+        .ail-row.ai-flash { animation: aiFlash 2.6s ease-out .45s 1 both; }
         @keyframes aiFlash {
-            0%   { box-shadow: 0 0 0 3px rgba(31,111,229,.55); }
-            70%  { box-shadow: 0 0 0 3px rgba(31,111,229,.18); }
-            100% { box-shadow: 0 0 0 3px rgba(31,111,229,0); }
+            0%   { background-color: rgba(0,191,255,.22);
+                   box-shadow: inset 4px 0 0 #00BFFF, inset 0 0 0 2px rgba(0,191,255,.6); }
+            25%  { background-color: rgba(0,191,255,.07);
+                   box-shadow: inset 4px 0 0 #00BFFF, inset 0 0 0 2px rgba(0,191,255,.25); }
+            45%  { background-color: rgba(0,191,255,.2);
+                   box-shadow: inset 4px 0 0 #00BFFF, inset 0 0 0 2px rgba(0,191,255,.55); }
+            100% { background-color: rgba(0,191,255,0);
+                   box-shadow: inset 4px 0 0 rgba(0,191,255,0), inset 0 0 0 2px rgba(0,191,255,0); }
         }
         @media (prefers-reduced-motion: reduce) {
-            .card.ai-flash, .ail-row.ai-flash { animation: none; box-shadow: inset 0 0 0 3px rgba(31,111,229,.45); }
+            .card.ai-flash, .ail-row.ai-flash { animation: none; background-color: rgba(0,191,255,.12);
+                box-shadow: inset 4px 0 0 #00BFFF; }
         }
         /* A link to an item this person cannot see, or that is gone. */
         .ai-missing { display: flex; gap: 10px; align-items: center; margin: 0 0 14px;
@@ -7665,6 +7677,7 @@
            an email can point at something they cannot see or that has been
            withdrawn since; the list is scoped by the server, so absence is
            the only answer the page gets, and silence read as a broken link. */
+        const AI_FLASH_MS = 3200;   // .45s delay + 2.6s glow in the .ai-flash rule, and a margin
         function revealAiRow(gallery) {
             const key = _aiRevealRow;
             if (!key) return;
@@ -7682,8 +7695,11 @@
                 return;
             }
             if (el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Restarted if it is already glowing (a second click on the same row).
+            el.classList.remove('ai-flash');
+            void el.offsetWidth;
             el.classList.add('ai-flash');
-            setTimeout(() => el.classList.remove('ai-flash'), 2200);
+            setTimeout(() => el.classList.remove('ai-flash'), AI_FLASH_MS);
         }
 
         function startLiveActivity() {
