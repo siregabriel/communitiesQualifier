@@ -30,6 +30,9 @@
        active tab stays blue, so the contrast between chosen and not is now
        colour rather than one of them being faint. */
     .mtab-ic { font-size: 18px; line-height: 1; color: #5a6872; transition: color .2s ease-out, transform .2s ease-out; }
+    /* Home is the Excellence "e" in its own colours, not a glyph (Nov 2026).
+       Height matches the 18px glyphs so the labels stay on one line. */
+    .mtab-logo { display: block; width: auto; height: 20px; margin-top: -1px; }
     .mtab-lb { font-size: 10.5px; font-weight: 500; color: #5a6872; white-space: nowrap; }
     /* Precision skin (Nov 2026): the current tab in the brand navy. */
     /* The current tab: navy, with the electric rail on top (a line, never text). */
@@ -67,7 +70,7 @@
 </style>
 <nav class="mtab" aria-label="Quick navigation">
     <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'home' else '' }}" data-tab="home" data-view="dashboard" href="/dashboard">
-        <span class="mtab-ic"><i class="fas fa-gauge-high"></i></span><span class="mtab-lb">Home</span>
+        <span class="mtab-ic"><img class="mtab-logo" src="/static/excellence-e-72.png" alt=""></span><span class="mtab-lb">Home</span>
     </a>
     <a class="mtab-item {{ 'on' if (tabbar_active|default('')) == 'my-visits' else '' }}" data-tab="my-visits" data-view="my-visits" href="/dashboard?view=my-visits">
         <span class="mtab-ic"><i class="fas fa-file-lines"></i></span><span class="mtab-lb">My Visits</span>

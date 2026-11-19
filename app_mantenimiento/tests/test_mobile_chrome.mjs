@@ -121,6 +121,20 @@ console.log('\nIt still looks like something on a phone');
   ok(/linear-gradient/.test(dark || ''), 'and the dark one too');
 }
 
+console.log('\nHome on the tab bar is the Excellence "e"');
+{
+  // Gabriel, Nov 2026: Home showed a generic gauge; it should be the brand's
+  // own mark. The small copy is the one served — the original is 137 KB.
+  const dom = new JSDOM(tabbar);
+  const img = dom.window.document.querySelector('.mtab-item[data-tab="home"] .mtab-ic img');
+  ok(!!img, 'the Home tab carries an image, not a glyph');
+  const src = img ? img.getAttribute('src') : '';
+  ok(src === '/static/excellence-e-72.png', 'and it is the small copy of the "e"');
+  const file = new URL('../static/excellence-e-72.png', import.meta.url);
+  ok(fs.existsSync(file) && fs.statSync(file).size < 20000, 'which exists and stays small');
+  ok(img && img.getAttribute('alt') === '', 'decorative: the "Home" label already names it');
+}
+
 console.log('\nAnd the page still parses');
 {
   const dom = new JSDOM(`<!doctype html><html><head><style>${head}</style>
