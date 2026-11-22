@@ -12,6 +12,7 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/dashboard.html', import.meta.url), 'utf8');
 
@@ -48,6 +49,7 @@ function bootPeople(positions) {
   const dom = new JSDOM(`<!doctype html><body>
     <div id="personModal"><div id="personModalBody"></div></div></body>`, { runScripts: 'outside-only' });
   const w = dom.window;
+  installDialogs(w);
   const posted = [];
   w.eval(`
     ${grab('escapeHtml')}
@@ -125,6 +127,7 @@ function bootSettings(list, { fail } = {}) {
     <div id="tpList"></div><input id="tpNew"><button id="tpAdd"></button><span id="tpMsg"></span>
     </body>`, { runScripts: 'outside-only' });
   const w = dom.window;
+  installDialogs(w);
   const server = list.map(n => (typeof n === 'string' ? { name: n, active: true } : n));
   const posted = [];
   const active = () => server.filter(p => p.active).map(p => p.name);

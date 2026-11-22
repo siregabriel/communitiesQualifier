@@ -19,6 +19,7 @@
 import fs from 'fs';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { IDBFactory } from 'fake-indexeddb';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/reporte.html', import.meta.url), 'utf8');
 
@@ -89,7 +90,8 @@ async function boot({ seed = true } = {}) {
   // and point at elements this page does not have.
   w.localStorage.setItem('atlasFormTourSeen_v1', '1');
   const notices = [];
-  w.confirm = () => true;
+
+  installDialogs(w);  w.uiConfirm = async () => true;
   w.fetch = async (url, opts) => {
     url = String(url);
     if (url.startsWith('/api/user-info')) {
@@ -176,7 +178,7 @@ console.log('\nStart fresh still works, and asks first');
 {
   const { w, factory } = await boot();
   let asked = 0;
-  w.confirm = () => { asked++; return true; };
+  w.uiConfirm = async () => { asked++; return true; };
   const btn = w.document.getElementById('draftFreshBtn');
   ok(!!btn, 'the banner offers it');
   await btn.onclick();
@@ -188,7 +190,7 @@ console.log('\nStart fresh still works, and asks first');
 console.log('\nAnd saying no to it keeps everything');
 {
   const { w, factory } = await boot();
-  w.confirm = () => false;
+  w.uiConfirm = async () => false;
   await w.document.getElementById('draftFreshBtn').onclick();
   await settle(50);
   const stored = await idb(factory);

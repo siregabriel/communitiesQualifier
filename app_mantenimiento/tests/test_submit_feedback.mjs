@@ -13,6 +13,7 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/reporte.html', import.meta.url), 'utf8');
 
@@ -46,8 +47,9 @@ function boot() {
     </body></html>`, { runScripts: 'dangerously', url: 'http://localhost/reporte?community=' + encodeURIComponent(COMMUNITY) });
   const w = dom.window;
   const alerts = [];
-  w.alert = (m) => alerts.push(String(m));
-  w.confirm = () => true;
+
+  installDialogs(w);  w.uiAlert = async (m) => alerts.push(String(m));
+  w.uiConfirm = async () => true;
   w.console.error = () => {};   // the page logs a dropped connection; expected here
   w.Element.prototype.scrollIntoView = function () {};
   w.scrollTo = function () {};

@@ -233,6 +233,15 @@ Phone first (IndexedDB, works offline), server second. Since Greg Crutcher lost
 - `lastVisit` holds a date or `''`. "Never visited" is `lastVisitTs == 0`.
   Never put display text in a data field.
 - `[hidden]` loses to any author `display:` rule. Add `.x[hidden]{display:none}`.
+- **No `confirm()` / `alert()` / `prompt()`.** Use `await uiConfirm(msg, {ok, danger})`,
+  `uiAlert`, `uiPrompt` from `static/dialogs.js` (native `<dialog>`, message as
+  text, one at a time). They are async: `await` before anything that navigates.
+  Modals are `<dialog>`s opened with `uiOpen()` / closed with `uiClose()`; do
+  cleanup in the `close` event (the back gesture skips your close function).
+  A modal dialog sits in the top layer: anything with a `z-index` that must show
+  over it (a tour, a toast) ends up underneath. That is why Survey Types, the
+  visit panel, search and the bottom sheets are still `<div>`s.
+  `tests/test_native_dialogs.mjs`; suites load it via `tests/helpers/dialogs.mjs`.
 - Never build `onclick` strings around names. `escapeHtmlForAttr` turns `'` into
   `&#39;`, which the parser decodes back into code. Attach handlers in JS.
 - A community rename walks: regions, questions, inspections, move-ins, raised

@@ -9,6 +9,7 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/dashboard.html', import.meta.url), 'utf8');
 
@@ -33,6 +34,7 @@ function boot(person, { admin = true } = {}) {
     <div id="personModal"><div id="personModalBody"></div></div>
     </body>`, { runScripts: 'outside-only' });
   const w = dom.window;
+  installDialogs(w);
   const posted = [];
 
   w.eval(`

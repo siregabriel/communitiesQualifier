@@ -7,15 +7,17 @@
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Questionnaire-based visit system for assisted living communities">
-    <meta name="theme-color" content="#4CAF50">
+    <meta name="theme-color" content="#003366">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Atlas Excellence">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400..800&family=JetBrains+Mono:wght@400..800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <script>
         (function () {
             try {
@@ -776,6 +778,7 @@
             top: 0;
             width: 100%;
             height: 100%;
+            padding: 0;
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(4px);
             animation: fadeIn 0.3s ease;
@@ -786,7 +789,10 @@
             to { opacity: 1; }
         }
 
-        .modal.show {
+        /* Survey Types is still a <div> shown with .show: its walkthrough
+           highlights what is inside it, and a <dialog> would sit above the
+           walkthrough. The Standard editor and Delete are <dialog>s. */
+        .modal.show, .modal[open] {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1195,6 +1201,7 @@
         }
     </style>
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
+    <script src="{{ static_v('dialogs.js') }}"></script>
 
 </head>
 <body>
@@ -1296,7 +1303,7 @@
     </div>
 
     <!-- Create/Edit Question Modal -->
-    <div id="questionModal" class="modal">
+    <dialog id="questionModal" class="modal" aria-label="Standard">
         <div class="modal-content">
             <div class="modal-header">
                 <div class="modal-header-title">
@@ -1398,10 +1405,10 @@
                 </div>
             </form>
         </div>
-    </div>
+    </dialog>
 
     <!-- Delete Confirmation Modal -->
-    <div id="deleteModal" class="modal">
+    <dialog id="deleteModal" class="modal" aria-label="Delete standard">
         <div class="modal-content" style="max-width: 440px;">
             <div class="modal-header">
                 <div class="modal-header-title">
@@ -1426,7 +1433,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </dialog>
 
     <div id="surveyTypesModal" class="modal">
         <div class="modal-content" style="max-width:640px;">
@@ -1587,7 +1594,7 @@
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not save the order');
             } catch (e) {
-                alert(e.message || 'Could not save the order');
+                uiAlert(e.message || 'Could not save the order');
                 return;
             }
             await loadQuestions();
@@ -1607,7 +1614,7 @@
                 checkEmptySurveyTypes();
             } catch (error) {
                 console.error('Error loading questions:', error);
-                alert('Failed to load questions. Please refresh the page.');
+                uiAlert('Failed to load questions. Please refresh the page.');
             }
         }
 
@@ -1812,7 +1819,7 @@
             const ids = getSelectedQuestionIds();
             if (ids.length === 0) return;
 
-            const confirmed = confirm(`Delete ${ids.length} selected question${ids.length === 1 ? '' : 's'}? This cannot be undone.`);
+            const confirmed = await uiConfirm(`Delete ${ids.length} selected question${ids.length === 1 ? '' : 's'}? This cannot be undone.`, { ok: 'Delete', danger: true });
             if (!confirmed) return;
 
             const btn = document.getElementById('deleteSelectedBtn');
@@ -1828,11 +1835,11 @@
                 if (response.ok && result.status === 'success') {
                     await loadQuestions();
                 } else {
-                    alert(result.message || 'Failed to delete selected questions');
+                    uiAlert(result.message || 'Failed to delete selected questions');
                 }
             } catch (error) {
                 console.error('Bulk delete error:', error);
-                alert('Error deleting selected questions. Please try again.');
+                uiAlert('Error deleting selected questions. Please try again.');
             } finally {
                 if (btn) { btn.innerHTML = '<i class="fas fa-trash"></i> Delete Selected (<span id="selectedRowCount">0</span>)'; }
                 updateBulkActions();
@@ -1849,7 +1856,7 @@
             const ask = action === 'add'
                 ? `Add ${community} to the ${n} selected?`
                 : `Remove ${community} from the ${n} selected?\n\nAny of them set to "Every community" will become a list of every other community, and will stop picking up new ones.`;
-            if (!confirm(ask)) return;
+            if (!await uiConfirm(ask)) return;
             let d = {};
             try {
                 const r = await fetch('/api/questions/communities', {
@@ -1859,13 +1866,13 @@
                 d = await r.json().catch(() => ({}));
                 if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not change them');
             } catch (e) {
-                alert(e.message || 'Could not change them');
+                uiAlert(e.message || 'Could not change them');
                 return;
             }
             const lines = [`${(d.changed || []).length} changed.`];
             if ((d.unchanged || []).length) lines.push(`${d.unchanged.length} already ${action === 'add' ? 'had' : 'did not have'} it.`);
             if ((d.refused || []).length) lines.push(`${d.refused.length} left as they were: removing it would leave them with no community.`);
-            alert(lines.join('\n'));
+            uiAlert(lines.join('\n'));
             await loadQuestions();
             filterQuestions();
         }
@@ -1972,7 +1979,7 @@
             document.getElementById('textError').textContent = '';
             document.getElementById('communitiesError').textContent = '';
             
-            document.getElementById('questionModal').classList.add('show');
+            uiOpen(document.getElementById('questionModal'));
         }
 
         function openEditModal(questionId) {
@@ -2020,11 +2027,11 @@
             document.getElementById('textError').textContent = '';
             document.getElementById('communitiesError').textContent = '';
             
-            document.getElementById('questionModal').classList.add('show');
+            uiOpen(document.getElementById('questionModal'));
         }
 
         function closeModal() {
-            document.getElementById('questionModal').classList.remove('show');
+            uiClose(document.getElementById('questionModal'));
         }
 
         // ===== Survey Types manager =====
@@ -2124,13 +2131,13 @@
             } catch (e) { msg.textContent = 'Network error.'; }
         }
         async function stDelete(id, name) {
-            if (!confirm('Delete survey type "' + name + '"? Questions tagged only to it will no longer appear under any type.')) return;
+            if (!await uiConfirm('Delete survey type "' + name + '"? Questions tagged only to it will no longer appear under any type.', { ok: 'Delete', danger: true })) return;
             try {
                 const r = await fetch('/api/survey-types/' + encodeURIComponent(id), { method: 'DELETE' });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') loadSurveyTypesList();
-                else alert(d.message || 'Could not delete.');
-            } catch (e) { alert('Network error.'); }
+                else uiAlert(d.message || 'Could not delete.');
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         function toggleSelectAll() {
@@ -2233,22 +2240,22 @@
                     closeModal();
                     await loadQuestions();
                 } else {
-                    alert(data.message || 'Failed to save question');
+                    uiAlert(data.message || 'Failed to save question');
                 }
             } catch (error) {
                 console.error('Error saving question:', error);
-                alert('Failed to save question. Please try again.');
+                uiAlert('Failed to save question. Please try again.');
             }
         });
 
         function openDeleteModal(questionId) {
             deleteQuestionId = questionId;
-            document.getElementById('deleteModal').classList.add('show');
+            uiOpen(document.getElementById('deleteModal'));
         }
 
         function closeDeleteModal() {
             deleteQuestionId = null;
-            document.getElementById('deleteModal').classList.remove('show');
+            uiClose(document.getElementById('deleteModal'));
         }
 
         async function confirmDelete() {
@@ -2265,16 +2272,16 @@
                     closeDeleteModal();
                     await loadQuestions();
                 } else {
-                    alert(data.message || 'Failed to delete question');
+                    uiAlert(data.message || 'Failed to delete question');
                 }
             } catch (error) {
                 console.error('Error deleting question:', error);
-                alert('Failed to delete question. Please try again.');
+                uiAlert('Failed to delete question. Please try again.');
             }
         }
 
-        function logout() {
-            if (confirm('Are you sure you want to logout?')) {
+        async function logout() {
+            if (await uiConfirm('Are you sure you want to logout?', { ok: 'Log out' })) {
                 window.location.href = '/logout';
             }
         }
@@ -2323,9 +2330,10 @@
 
         // Close modal when clicking outside
         window.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) {
-                e.target.classList.remove('show');
-            }
+            const m = e.target;
+            if (!m.classList.contains('modal')) return;
+            if (m.tagName === 'DIALOG') uiClose(m);
+            else m.classList.remove('show');
         });
     </script>
 

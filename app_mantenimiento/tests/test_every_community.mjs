@@ -13,6 +13,7 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/question_manager.html', import.meta.url), 'utf8');
 
@@ -71,8 +72,9 @@ function boot({ dark = false, questions = [] } = {}) {
   const posted = [];
   const confirms = [];
   const alerts = [];
-  w.confirm = (m) => { confirms.push(m); return true; };
-  w.alert = (m) => alerts.push(m);
+
+  installDialogs(w);  w.uiConfirm = async (m) => { confirms.push(m); return true; };
+  w.uiAlert = async (m) => alerts.push(m);
   let server = questions.map(q => ({ ...q }));
   w.fetch = async (url, opts) => {
     if (opts && opts.method && opts.method !== 'GET') {

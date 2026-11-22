@@ -11,6 +11,7 @@
 
 import fs from 'fs';
 import { JSDOM, VirtualConsole } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/reporte.html', import.meta.url), 'utf8');
 
@@ -28,7 +29,11 @@ function boot(confirmAnswer = true) {
     .replace(/\{\{\s*survey_type_id\s*\}\}/g, 'sales')
     .replace(/\{\{\s*departments\s*\|\s*tojson\s*\}\}/g, '[]')
     .replace(/\{\{\s*community_places\s*\|\s*tojson\s*\}\}/g, '[]');
-  const vc = new VirtualConsole();   // jsdom cannot follow the link; that is fine
+  // jsdom cannot follow a link or a location change; it says it tried, and
+  // that is the evidence the page went.
+  const vc = new VirtualConsole();
+  const went = [];
+  vc.on('jsdomError', (e) => { if (/navigation/i.test(String(e && e.message))) went.push(e.message); });
   const dom = new JSDOM(`<!doctype html><html><body>
     ${badge}
     <div id="userInfo"></div>
@@ -45,8 +50,9 @@ function boot(confirmAnswer = true) {
       url: 'http://localhost/reporte?community=' + encodeURIComponent(COMMUNITY) });
   const w = dom.window;
   const confirms = [];
-  w.confirm = (m) => { confirms.push(String(m)); return confirmAnswer; };
-  w.alert = () => {};
+
+  installDialogs(w);  w.uiConfirm = async (m) => { confirms.push(String(m)); return confirmAnswer; };
+  w.uiAlert = async () => {};
   w.Element.prototype.scrollIntoView = function () {};
   w.scrollTo = function () {};
   w.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
@@ -60,7 +66,7 @@ function boot(confirmAnswer = true) {
   const el = w.document.createElement('script');
   el.textContent = script;
   w.document.body.appendChild(el);
-  return { w, confirms };
+  return { w, confirms, went };
 }
 const settle = () => new Promise((r) => setTimeout(r, 30));
 async function ready(confirmAnswer) {
@@ -103,8 +109,12 @@ console.log('\nWith answers: it says they are kept, and Cancel stays');
   const i2 = go.w.document.querySelector('input[name="condition_q1"][value="Pass"]');
   i2.checked = true;
   i2.dispatchEvent(new go.w.Event('change', { bubbles: true }));
-  const r2 = click(go.w);
-  ok(!r2.prevented, 'OK goes to choosing the type');
+  // The answer comes after the click, so the click is held either way and
+  // the page goes itself once they say OK.
+  click(go.w);
+  await settle();
+  ok(go.went.length === 1, 'OK goes to choosing the type');
+  ok(stay.went.length === 0, 'and Cancel never went anywhere');
 }
 
 console.log(failures ? `\n${failures} failed` : '\nall passed');

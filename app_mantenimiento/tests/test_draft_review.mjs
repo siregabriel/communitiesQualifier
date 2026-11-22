@@ -10,6 +10,7 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/dashboard.html', import.meta.url), 'utf8');
 
@@ -47,13 +48,14 @@ async function world({ confirmAnswer = true } = {}) {
   const dom = new JSDOM(`<!doctype html><body>
     <div id="personModal"><div id="personModalBody"></div></div></body>`, { runScripts: 'outside-only' });
   const w = dom.window;
+  installDialogs(w);
   w.eval(`
     var calls = [], asked = [], closed = 0;
     function escapeHtml(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
     function timeAgo() { return '2 days ago'; }
     function closePersonModal() { closed++; }
-    function confirm(t) { asked.push(t); return ${confirmAnswer}; }
+    async function uiConfirm(t) { asked.push(t); return ${confirmAnswer}; }
     function fetch(url, opts) {
       calls.push({ url: String(url), method: (opts && opts.method) || 'GET',
                    body: opts && opts.body ? JSON.parse(opts.body) : null });

@@ -1046,7 +1046,7 @@ body.has-viewas { padding-bottom: 58px; }
     backdrop-filter: blur(3px);
     cursor: zoom-out;
 }
-.plb.show { display: flex; }
+.plb[open] { display: flex; }
 .plb-img {
     max-width: 100%;
     max-height: 82vh;
@@ -2543,6 +2543,67 @@ html[data-theme="dark"] .panel-withdraw .withdraw-hint { color: #9fb0c4; }
 .panel-withdraw .withdraw-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 html[data-theme="dark"] .panel-withdraw .withdraw-redo span { color: #9fb0c4; }
 html[data-theme="dark"] .panel-withdraw .withdraw-warn { color: #e8d9a8; }
+
+/* ===== Dialogs =====
+   Every modal is a native <dialog> opened with showModal() (static/dialogs.js).
+   Scrolling over a modal or its backdrop must not move the page behind it.
+   Safari ignores this on content that does not overflow; the page is still
+   inert there, it can just scroll. */
+dialog:modal { overscroll-behavior: contain; }
+dialog::backdrop { overflow: hidden; overscroll-behavior: contain; }
+
+/* The pages' own overlays (person, move-in, photo viewer, Standards editor)
+   were full-screen <div>s that paint their own dim layer and centre a card.
+   As <dialog>s they keep doing exactly that: the element is still the full
+   screen, so the browser's dialog box styling is taken off. */
+dialog.modal, dialog.pm-overlay, dialog.plb {
+    box-sizing: border-box;   /* they keep their own padding inside the 100% */
+    width: 100%; height: 100%;
+    max-width: none; max-height: none;
+    margin: 0; border: 0;
+    color: inherit;
+}
+dialog.modal::backdrop, dialog.pm-overlay::backdrop, dialog.plb::backdrop { background: transparent; }
+
+/* uiConfirm / uiAlert / uiPrompt: the questions confirm() used to ask. */
+.ui-dialog {
+    margin: auto;   /* the browser centres a modal with this; the pages' margin-0 reset took it away */
+    width: min(420px, calc(100vw - 32px));
+    box-sizing: border-box;
+    padding: 22px 22px 18px;
+    border: 1px solid #d9dfe8;
+    border-radius: 14px;
+    background: #fff;
+    color: #0f1e36;
+    box-shadow: 0 24px 64px rgba(2, 32, 80, .28);
+}
+.ui-dialog::backdrop { background: rgba(15, 30, 54, .45); }
+.ui-dialog-msg {
+    margin: 0 0 18px;
+    font-size: 15px; line-height: 1.5;
+    white-space: pre-line;          /* the messages are written with \n breaks */
+    overflow-wrap: anywhere;
+}
+.ui-dialog-input {
+    display: block; width: 100%; box-sizing: border-box;
+    margin: 0 0 16px; padding: 10px 12px;
+    border: 1px solid #c9d3e0; border-radius: 8px;
+    font: inherit; font-size: 16px;  /* under 16px, iOS zooms the page in */
+    color: inherit; background: #fff;
+}
+.ui-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.ui-dialog-btn {
+    min-height: 42px; padding: 0 18px;
+    border: 1px solid #c9d3e0; border-radius: 8px;
+    background: #fff; color: #0f1e36;
+    font: inherit; font-size: 14px; font-weight: 700;
+    cursor: pointer;
+}
+.ui-dialog-btn.ui-dialog-ok { background: #003366; border-color: #003366; color: #fff; }
+.ui-dialog-btn.ui-dialog-danger { background: #ea366e; border-color: #ea366e; color: #fff; }
+html[data-theme="dark"] .ui-dialog { background: #1b2537; border-color: #2b3a52; color: #e6edf6; }
+html[data-theme="dark"] .ui-dialog-input { background: #0f1726; border-color: #2b3a52; }
+html[data-theme="dark"] .ui-dialog-btn.ui-dialog-cancel { background: #223047; border-color: #2b3a52; color: #e6edf6; }
 
 /* ==========================================================================
    PRECISION SKIN  (Nov 2026)

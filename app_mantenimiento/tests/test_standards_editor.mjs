@@ -16,7 +16,7 @@ import { JSDOM } from 'jsdom';
 const theme = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../templates/question_manager.html', import.meta.url), 'utf8');
 const css = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
-const modal = html.slice(html.indexOf('<div id="questionModal"'), html.indexOf('<!-- Delete Confirmation Modal -->'))
+const modal = html.slice(html.indexOf('<dialog id="questionModal"'), html.indexOf('<!-- Delete Confirmation Modal -->'))
   .replace(/\{%[\s\S]*?%\}/g, '').replace(/\{\{[\s\S]*?\}\}/g, 'x')
   .replace('<div id="surveyTypesList">', `<div id="surveyTypesList"><div class="survey-type-option">
       <input type="checkbox" id="surveyType_0" class="survey-type-checkbox">

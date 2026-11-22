@@ -7,18 +7,18 @@
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Questionnaire-based visit system for assisted living communities">
-    <meta name="theme-color" content="#4CAF50">
+    <meta name="theme-color" content="#003366">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Atlas Excellence">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400..800&family=JetBrains+Mono:wght@400..800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
     
-    <!-- Anime.js for premium animations -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     <script>
         (function () {
             try {
@@ -1174,6 +1174,7 @@
         }
     </style>
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
+    <script src="{{ static_v('dialogs.js') }}"></script>
 
 </head>
 <body class="visit-page">
@@ -1653,7 +1654,7 @@
             if (!notesPhotoFile) {
                 ev.target.value = '';
                 showNotesPhotoName('');
-                alert(PHOTO_LOST_TEXT);
+                uiAlert(PHOTO_LOST_TEXT);
                 return;
             }
             showNotesPhotoName(notesPhotoFile.name);
@@ -2052,9 +2053,9 @@
            whose submission failed has no way to start clean; one asked for
            hers to be deleted by someone who had no access to it. */
         async function discardDraft() {
-            const ok = confirm('Discard this draft and start over?\n\n'
+            const ok = await uiConfirm('Discard this draft and start over?\n\n'
                 + 'Everything you have filled in on this visit will be cleared from this device. '
-                + 'This cannot be undone.');
+                + 'This cannot be undone.', { ok: 'Discard', danger: true });
             if (!ok) return;
             try {
                 clearTimeout(_draftTimer);
@@ -2181,7 +2182,7 @@
            then reloads: unpicking a restored form by hand would leave half of
            it behind. */
         async function draftDiscard() {
-            if (!confirm('Discard the saved answers and start this visit from scratch?\n\nThis cannot be undone.')) return;
+            if (!await uiConfirm('Discard the saved answers and start this visit from scratch?\n\nThis cannot be undone.', { ok: 'Discard', danger: true })) return;
             clearTimeout(_draftTimer);
             _draftReady = false;
             const key = draftKey();
@@ -2325,8 +2326,10 @@
            community already chosen carried along. Nothing is lost: answers so
            far stay as this type's draft — saved here, and again as the page
            goes, exactly as when Home is tapped — and if there are any, it says
-           so first and lets them stay. The link itself does the navigating. */
-        function changeSurveyType(e) {
+           so first and lets them stay. With nothing to keep, the link itself
+           does the navigating; otherwise the answer comes after the click is
+           over, so the click is held and the page goes once they say yes. */
+        async function changeSurveyType(e) {
             const link = e.currentTarget;
             const sel = document.getElementById('communitySelect');
             const community = (sel && sel.value) || '';
@@ -2334,15 +2337,14 @@
             let answered = false;
             try { answered = !!draftKey() && !draftIsEmpty(draftCollect()); } catch (err) {}
             if (!answered) return;
+            e.preventDefault();
             const typeEl = document.getElementById('surveyTypeName');
             const typeName = typeEl ? typeEl.textContent.trim() : 'this visit type';
-            if (!confirm(`Change the visit type?\n\nYour answers for ${typeName} stay saved as a draft. `
-                + `Choose ${typeName} again to finish them.`)) {
-                e.preventDefault();
-                return;
-            }
+            if (!await uiConfirm(`Change the visit type?\n\nYour answers for ${typeName} stay saved as a draft. `
+                + `Choose ${typeName} again to finish them.`, { ok: 'Change type' })) return;
             clearTimeout(_draftTimer);
             draftSaveNow(true);
+            window.location.href = link.href;
         }
         (function () {
             const link = document.getElementById('changeTypeLink');
@@ -3094,12 +3096,12 @@
                 if (!file) {
                     event.target.value = '';
                     if (fileNameElEarly) fileNameElEarly.textContent = '';
-                    alert(PHOTO_LOST_TEXT);
+                    uiAlert(PHOTO_LOST_TEXT);
                     return;
                 }
                 if (fileNameElEarly) fileNameElEarly.classList.remove('photo-lost');
                 if (file.size > 16 * 1024 * 1024) {
-                    alert('That photo is too large to send, even after resizing.');
+                    uiAlert('That photo is too large to send, even after resizing.');
                     event.target.value = '';
                     if (fileNameElEarly) fileNameElEarly.textContent = '';
                     return;
@@ -3249,7 +3251,7 @@
             
             // Validate at least one question was answered
             if (responses.length === 0) {
-                alert('Please answer at least one question before submitting.');
+                uiAlert('Please answer at least one question before submitting.');
                 return;
             }
 
@@ -3260,16 +3262,16 @@
                     if (box) box.classList.add('comments-invalid');
                 });
                 const first = document.getElementById(`description_${missingComment[0].id}`);
-                if (first) {
-                    first.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    setTimeout(() => first.focus({ preventScroll: true }), 350);
-                }
+                if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 const pickedOf = q => (document.querySelector(`input[name="condition_${q.id}"]:checked`) || {}).value;
-                alert(missingComment.length === 1
+                // Into the box once the message is closed: while it is open
+                // the page behind cannot take focus.
+                await uiAlert(missingComment.length === 1
                     ? (pickedOf(missingComment[0]) === 'Not checked'
                         ? 'Please say why "' + missingComment[0].text + '" could not be checked.'
                         : 'Please add a comment explaining the Fail on "' + missingComment[0].text + '".')
                     : `Please add a comment on the ${missingComment.length} items marked Fail or Not checked: what you found, or why it couldn't be checked.`);
+                if (first) first.focus({ preventScroll: true });
                 return;
             }
 
@@ -3279,12 +3281,12 @@
             // eight all passed reads as 100%. Say so, and let them decide.
             const unanswered = questions.length - responses.length;
             if (unanswered > 0) {
-                const ok = confirm(
+                const ok = await uiConfirm(
                     `${unanswered} of ${questions.length} standards ${unanswered === 1 ? 'has' : 'have'} no answer yet.\n\n` +
                     `You can send this now and the visit will be marked as partial — the score will only ` +
                     `cover the ${responses.filter(r => r.condition !== 'Not checked').length} you did ` +
                     `${responses.some(r => r.condition === 'Not checked') ? 'pass or fail' : 'answer'}.\n\n` +
-                    `Send anyway? Choose Cancel to go back and finish.`);
+                    `Send anyway? Choose Cancel to go back and finish.`, { ok: 'Send anyway' });
                 if (!ok) {
                     // Take them to the first one still blank rather than
                     // leaving them to hunt for it.
@@ -3303,11 +3305,11 @@
             const lostPhotos = await checkVisitPhotos();
             if (lostPhotos.length) {
                 const n = lostPhotos.length;
-                const send = confirm(
+                const send = await uiConfirm(
                     `${n} photo${n === 1 ? '' : 's'} on this visit could not be read on this phone ` +
                     `and ${n === 1 ? 'was' : 'were'} removed.\n\n` +
                     `Send the visit without ${n === 1 ? 'it' : 'them'}? ` +
-                    `Choose Cancel to take ${n === 1 ? 'it' : 'them'} again first.`);
+                    `Choose Cancel to take ${n === 1 ? 'it' : 'them'} again first.`, { ok: 'Send' });
                 if (!send) {
                     const el = document.getElementById(lostPhotos[0] === '__notes__'
                         ? 'visitNotes' : `fileName_${lostPhotos[0]}`);
@@ -3396,13 +3398,13 @@
                     document.body.style.overflow = 'hidden';
                     window.scrollTo({ top: 0 });
                 } else if (response.status === 413) {
-                    alert("That visit is too big to send — usually too many photos at once.\n\n"
+                    uiAlert("That visit is too big to send — usually too many photos at once.\n\n"
                         + "Your draft is saved on this phone, so nothing is lost. Remove a photo "
                         + "or two and submit again.");
                 } else {
                     let message = 'Unknown error';
                     try { message = (await response.json()).message || message; } catch (e) {}
-                    alert('The visit could not be sent: ' + message
+                    uiAlert('The visit could not be sent: ' + message
                         + '\n\nYour draft is saved on this phone — nothing is lost.');
                 }
             } catch (error) {
@@ -3414,7 +3416,7 @@
                    safe, because it is: it lives in this phone's storage and is
                    only cleared once the server has the visit. */
                 console.error('Error submitting visit:', error);
-                alert("Couldn't reach the server — the connection dropped part way.\n\n"
+                uiAlert("Couldn't reach the server — the connection dropped part way.\n\n"
                     + "This usually means a weak signal or too many photos at once. "
                     + "Your draft is saved on this phone, so nothing is lost: move somewhere "
                     + "with a better signal, or use Wi-Fi, and submit again.");
@@ -3552,8 +3554,8 @@
             return out;
         }
 
-        function logout() {
-            if (confirm('Logout?')) window.location.href = '/logout';
+        async function logout() {
+            if (await uiConfirm('Logout?', { ok: 'Log out' })) window.location.href = '/logout';
         }
 
         function _updateThemeIcon() {

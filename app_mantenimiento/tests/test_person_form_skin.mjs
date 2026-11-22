@@ -10,11 +10,12 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const theme = fs.readFileSync(new URL('../static/theme.css', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../templates/dashboard.html', import.meta.url), 'utf8');
 const head = html.slice(html.indexOf('<style>') + 7, html.indexOf('</style>'));
-const modal = html.slice(html.indexOf('<div id="personModal"'), html.indexOf('</div>\n    </div>', html.indexOf('<div id="personModal"')) + 18);
+const modal = html.slice(html.indexOf('<dialog id="personModal"'), html.indexOf('</div>\n    </dialog>', html.indexOf('<dialog id="personModal"')) + 21);
 
 let failures = 0;
 const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) failures++; };
@@ -37,6 +38,7 @@ for (const dark of [false, true]) {
   const mode = dark ? 'dark' : 'light';
   const w = new JSDOM(`<!doctype html><html ${dark ? 'data-theme="dark"' : ''}><head>
     <style>${head}</style><style>${theme}</style></head><body>${modal}</body></html>`, { runScripts: 'outside-only' }).window;
+  installDialogs(w);
   w.eval(`
     var peopleData = { regions: [{ id: 'coastal', name: 'Coastal' }], communities: ['Kelley Place, Enterprise'], team_positions: ['Chef'] };
     function escapeHtml(s) { return String(s); }

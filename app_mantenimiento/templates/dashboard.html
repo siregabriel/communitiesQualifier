@@ -7,15 +7,17 @@
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Questionnaire-based visit and inspection system for Atlas Senior Living Communities">
-    <meta name="theme-color" content="#4CAF50">
+    <meta name="theme-color" content="#003366">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Atlas Excellence">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/atlas-globe-1.png">
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400..800&family=JetBrains+Mono:wght@400..800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <script>
         // Apply the saved (or system) theme before first paint to avoid a flash.
         (function () {
@@ -1268,7 +1270,7 @@
             padding: 20px;
         }
 
-        /* Move-In modals use the .modal class — hidden until .show is added */
+        /* Move-In modals: <dialog class="modal">, a full-screen layer once open */
         .modal {
             display: none;
             position: fixed;
@@ -1277,7 +1279,7 @@
             z-index: 2000;
             animation: fadeIn 0.25s ease;
         }
-        .modal.show {
+        .modal[open] {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2382,7 +2384,7 @@
             .mi-note { min-width:120px; }
             .mi-initials { width:72px; }
             .mi-phase-head { font-size:14px; padding:11px 14px; }
-            .modal.show { padding:10px; }
+            .modal[open] { padding:10px; }
             .modal .modal-body { padding:18px 16px 20px; }
         }
 
@@ -2447,7 +2449,7 @@
 
         /* Team-member profile popover (centered modal) */
         .pm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:3000; display:none; align-items:center; justify-content:center; padding:24px; animation:fadeIn .2s ease; }
-        .pm-overlay.show { display:flex; }
+        .pm-overlay[open] { display:flex; }
         .pm-card { position:relative; background:#fff; border-radius:16px; width:100%; max-width:560px; max-height:88vh; overflow-y:auto; padding:28px 30px; box-shadow:0 30px 70px rgba(2,32,80,.35); animation:slideUp .25s ease; }
         .pm-close { position:absolute; top:14px; right:14px; width:34px; height:34px; border:none; background:#f1f5f9; color:#475569; border-radius:9px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; transition:background .15s ease; }
         .pm-close:hover { background:#e2e8f0; }
@@ -2515,6 +2517,7 @@
         #calDayTip .cdt-foot { font-size:10px; color:#1f6fe5; font-weight:700; margin-top:6px; }
     </style>
     <link rel="stylesheet" href="{{ static_v('theme.css') }}">
+    <script src="{{ static_v('dialogs.js') }}"></script>
 
 </head>
 <body>
@@ -2667,7 +2670,7 @@
     <!-- Team-member profile popover -->
     <!-- Photo viewer. Photos used to open in a new tab, which on a phone means
          losing your place in a list you were working through. -->
-    <div id="photoLightbox" class="plb" onclick="closePhoto(event)" role="dialog" aria-label="Photo">
+    <dialog id="photoLightbox" class="plb" onclick="closePhoto(event)" aria-label="Photo">
         <a id="plbDownload" class="plb-dl" href="#" download
            onclick="event.stopPropagation()" aria-label="Download this photo"
            title="Download with the community and date on it">
@@ -2678,7 +2681,7 @@
         </button>
         <img id="plbImg" class="plb-img" src="" alt="">
         <div id="plbCap" class="plb-cap"></div>
-    </div>
+    </dialog>
 
     <!-- Search. Everything it looks through is already loaded and already
          scoped by the server, so there is no new way to reach another
@@ -2696,15 +2699,15 @@
         </div>
     </div>
 
-    <div id="personModal" class="pm-overlay" onclick="if(event.target===this) closePersonModal()">
+    <dialog id="personModal" class="pm-overlay" aria-label="Details" onclick="if(event.target===this) closePersonModal()">
         <div class="pm-card">
             <button class="pm-close" onclick="closePersonModal()" aria-label="Close"><i class="fas fa-times"></i></button>
             <div id="personModalBody"></div>
         </div>
-    </div>
+    </dialog>
 
     <!-- New Move-In Modal -->
-    <div id="moveInModal" class="modal">
+    <dialog id="moveInModal" class="modal" aria-label="New move-in">
         <div class="modal-content" style="max-width:480px;">
             <div class="modal-header">
                 <div class="modal-header-title"><i class="fas fa-house-circle-check"></i> New move-in</div>
@@ -2733,10 +2736,10 @@
                 </div>
             </div>
         </div>
-    </div>
+    </dialog>
 
     <!-- Move-In Checklist Template Editor (admin) -->
-    <div id="moveInTemplateModal" class="modal">
+    <dialog id="moveInTemplateModal" class="modal" aria-label="Edit move-in checklist">
         <div class="modal-content" style="max-width:720px;">
             <div class="modal-header">
                 <div class="modal-header-title"><i class="fas fa-list-check"></i> Edit move-in checklist</div>
@@ -2753,7 +2756,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </dialog>
 
     <!-- Inspection Details Modal -->
 
@@ -3060,7 +3063,7 @@
             const body = document.getElementById('personModalBody');
             if (!modal || !body) return;
             body.innerHTML = '<div class="activity-empty">Loading…</div>';
-            modal.classList.add('show');
+            uiOpen(modal);
             let dr;
             try {
                 const r = await fetch('/api/drafts/review?' + new URLSearchParams(
@@ -3146,7 +3149,7 @@
                 }
                 lines.push('', `It will read "Sent by Excellence Administrator on behalf of ${dr.owner}", `
                     + `go to the community and the region like any visit, and ${dr.owner} will be emailed.`);
-                if (!confirm(lines.join('\n'))) return;
+                if (!await uiConfirm(lines.join('\n'), { ok: 'Send' })) return;
                 try {
                     const r = await fetch('/api/drafts/send-on-behalf', { method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -3216,7 +3219,7 @@
                 window.location.href = '/questions/manage';
             } catch (error) {
                 console.error('❌ Error navigating to Question Manager:', error);
-                alert('Error al navegar a Question Manager. Por favor, intenta de nuevo.');
+                uiAlert('Error al navegar a Question Manager. Por favor, intenta de nuevo.');
             }
         }
 
@@ -3227,7 +3230,7 @@
                 window.location.href = '/';
             } catch (error) {
                 console.error('❌ Error navigating to New Report:', error);
-                alert('Error al navegar a New Report. Por favor, intenta de nuevo.');
+                uiAlert('Error al navegar a New Report. Por favor, intenta de nuevo.');
             }
         }
 
@@ -3238,7 +3241,7 @@
                 window.location.href = '/select-survey-type';
             } catch (error) {
                 console.error('❌ Error navigating to Start New Visit:', error);
-                alert('Error al navegar a Start New Visit. Por favor, intenta de nuevo.');
+                uiAlert('Error al navegar a Start New Visit. Por favor, intenta de nuevo.');
             }
         }
 
@@ -3779,7 +3782,7 @@
                 
             } catch (error) {
                 console.error('Error opening slide panel:', error);
-                alert('Failed to load community details. Please try again.');
+                uiAlert('Failed to load community details. Please try again.');
             }
         }
 
@@ -3899,22 +3902,16 @@
             if (currentView === 'regions') renderRegions();
         }
 
+        // A <dialog>: Escape and the phone's back gesture close it on their own.
         function closePersonModal() {
-            const m = document.getElementById('personModal');
-            if (m) m.classList.remove('show');
+            uiClose(document.getElementById('personModal'));
         }
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const m = document.getElementById('personModal');
-                if (m && m.classList.contains('show')) closePersonModal();
-            }
-        });
         async function openPersonPanel(name) {
             if (!name) return;
             const modal = document.getElementById('personModal');
             const body = document.getElementById('personModalBody');
             body.innerHTML = '<div style="padding:60px;text-align:center;color:#94a3b8;"><div class="spinner-sm"></div></div>';
-            modal.classList.add('show');
+            uiOpen(modal);
 
             let p;
             try {
@@ -4540,7 +4537,7 @@
                         </div>
                         ${response.description ? `<div class="response-description">${
                             response.condition === 'Not checked' ? '<b>Why:</b> ' : ''}${escapeHtml(response.description)}</div>` : ''}
-                        ${response.photoPath ? `<div class="response-photo"><div class="rp-wrap"><img src="${photoUrl(response.photoPath)}" data-path="${escapeHtmlForAttr(response.photoPath)}" alt="${escapeHtmlForAttr(response.questionText || 'Response photo')}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.closest('.response-photo').style.display='none'"><a class="rp-dl" href="/api/photo/download?path=${encodeURIComponent(response.photoPath)}" download onclick="event.stopPropagation()" title="Download with the community and date on it" aria-label="Download this photo"><i class="fas fa-download"></i></a></div></div>` : ''}
+                        ${response.photoPath ? `<div class="response-photo"><div class="rp-wrap"><img loading="lazy" src="${photoUrl(response.photoPath)}" data-path="${escapeHtmlForAttr(response.photoPath)}" alt="${escapeHtmlForAttr(response.questionText || 'Response photo')}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.closest('.response-photo').style.display='none'"><a class="rp-dl" href="/api/photo/download?path=${encodeURIComponent(response.photoPath)}" download onclick="event.stopPropagation()" title="Download with the community and date on it" aria-label="Download this photo"><i class="fas fa-download"></i></a></div></div>` : ''}
                         ${outcome}
                         ${thread}
                     </div>
@@ -4581,7 +4578,7 @@
             for (const photo of photos) {
                 html += `
                     <div class="photo-item">
-                        <img src="${photoUrl(photo.path)}" data-path="${escapeHtmlForAttr(photo.path)}" alt="${escapeHtmlForAttr(photo.alt)}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.parentElement.style.display='none'">
+                        <img loading="lazy" src="${photoUrl(photo.path)}" data-path="${escapeHtmlForAttr(photo.path)}" alt="${escapeHtmlForAttr(photo.alt)}" style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.parentElement.style.display='none'">
                     </div>
                 `;
             }
@@ -5363,7 +5360,7 @@
                 const res = await fetch('/api/communities/cover', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (!res.ok || data.status !== 'success') {
-                    alert(data.message || 'Could not upload the cover image.');
+                    uiAlert(data.message || 'Could not upload the cover image.');
                     return;
                 }
                 // Use the signed URL as-is. (Appending a cache-bust param would
@@ -5376,12 +5373,12 @@
                 }
             } catch (e) {
                 console.error('Cover upload failed:', e);
-                alert('Could not upload the cover image.');
+                uiAlert('Could not upload the cover image.');
             }
         }
 
         async function removeCover(name) {
-            if (!confirm('Remove the cover photo for this community?')) return;
+            if (!await uiConfirm('Remove the cover photo for this community?', { ok: 'Remove', danger: true })) return;
             const slug = getCommunitySlug(name);
             try {
                 const res = await fetch('/api/communities/cover', {
@@ -5391,7 +5388,7 @@
                 });
                 const data = await res.json();
                 if (!res.ok || data.status !== 'success') {
-                    alert(data.message || 'Could not remove the cover image.');
+                    uiAlert(data.message || 'Could not remove the cover image.');
                     return;
                 }
                 delete communityCovers[slug];
@@ -5401,7 +5398,7 @@
                 }
             } catch (e) {
                 console.error('Cover remove failed:', e);
-                alert('Could not remove the cover image.');
+                uiAlert('Could not remove the cover image.');
             }
         }
 
@@ -6371,7 +6368,7 @@
                 <div class="talk-note">
                     <div class="talk-label">Note from ${escapeHtml(v.inspector || 'the visit')}</div>
                     <div class="talk-text">${escapeHtml(note)}</div>
-                    ${v.notes_photo ? `<img class="talk-photo" src="${photoUrl(v.notes_photo)}" data-path="${escapeHtmlForAttr(v.notes_photo)}"
+                    ${v.notes_photo ? `<img loading="lazy" class="talk-photo" src="${photoUrl(v.notes_photo)}" data-path="${escapeHtmlForAttr(v.notes_photo)}"
                         alt="${escapeHtmlForAttr('Photo from the visit note')}" style="cursor:zoom-in"
                         onclick="openPhoto(this.src, this.alt, this.dataset.path)" onerror="this.style.display='none'">` : ''}
                     ${visitNoteAudience(v.notes_shared)}
@@ -6392,7 +6389,7 @@
                             <div class="talk-who">${escapeHtml(c.author || '')}
                                 <span>${escapeHtml(timeAgo(c.at))}</span></div>
                             ${c.text ? `<div class="talk-text">${escapeHtml(c.text)}</div>` : ''}
-                            ${c.photo ? `<img class="talk-photo" src="${photoUrl(c.photo)}" data-path="${escapeHtmlForAttr(c.photo)}"
+                            ${c.photo ? `<img loading="lazy" class="talk-photo" src="${photoUrl(c.photo)}" data-path="${escapeHtmlForAttr(c.photo)}"
                                 alt="${escapeHtmlForAttr(std)}" style="cursor:zoom-in"
                                 onclick="openPhoto(this.src, this.alt, this.dataset.path)"
                                 onerror="this.style.display='none'">` : ''}
@@ -6424,7 +6421,7 @@
             notes = (notes || '').trim();
             if (!notes && !photo) return '';
             const shot = photo
-                ? `<img class="vnote-photo" src="${photoUrl(photo)}" data-path="${escapeHtmlForAttr(photo)}"
+                ? `<img loading="lazy" class="vnote-photo" src="${photoUrl(photo)}" data-path="${escapeHtmlForAttr(photo)}"
                         alt="Photo from the visit note"
                         style="cursor:zoom-in" onclick="openPhoto(this.src, this.alt, this.dataset.path)"
                         onerror="this.style.display='none'">`
@@ -6459,7 +6456,7 @@
                 if (!r.ok || d.status !== 'success') throw new Error(d.message || 'Could not start');
                 location.reload();   // simplest way to have every view re-read the role
             } catch (e) {
-                alert(e.message || 'Could not start the preview.');
+                uiAlert(e.message || 'Could not start the preview.');
             }
         }
 
@@ -6871,7 +6868,7 @@
                         <span class="pw-msg" id="riMsg"></span>
                     </div>
                 </div>`;
-            host.classList.add('show');
+            uiOpen(host);
             setTimeout(() => { const t = document.getElementById('riText'); if (t) t.focus(); }, 60);
         }
 
@@ -6944,7 +6941,18 @@
             img.src = src;
             img.alt = caption || 'Photo';
             if (cap) cap.textContent = caption || '';
-            box.classList.add('show');
+            if (!box.dataset.wired) {
+                // However it closes (the button, the backdrop, Escape, the
+                // phone's back gesture), the page gets its scroll back and the
+                // photo stops loading.
+                box.dataset.wired = '1';
+                box.addEventListener('close', () => {
+                    document.body.style.overflow = '';
+                    const im = document.getElementById('plbImg');
+                    if (im) im.src = '';
+                });
+            }
+            uiOpen(box);
             // Stop the page behind from scrolling under the viewer.
             document.body.style.overflow = 'hidden';
         }
@@ -6953,17 +6961,11 @@
             // Clicking the photo itself shouldn't dismiss it — only the
             // backdrop or the close button.
             if (e && e.target && e.target.id === 'plbImg') return;
-            const box = document.getElementById('photoLightbox');
-            if (!box) return;
-            box.classList.remove('show');
-            document.body.style.overflow = '';
-            const img = document.getElementById('plbImg');
-            if (img) img.src = '';   // stop it loading if it was still fetching
+            uiClose(document.getElementById('photoLightbox'));
         }
 
         function photoIsOpen() {
-            const box = document.getElementById('photoLightbox');
-            return !!(box && box.classList.contains('show'));
+            return uiIsOpen(document.getElementById('photoLightbox'));
         }
 
         // ===================== Partial visits =====================
@@ -8174,7 +8176,7 @@
             const open = _aiOpenRows.has(key);
             const iconClass = manual ? 'fa-clipboard-list' : standardIcon(item.questionText);
             const thumb = item.photoPath
-                ? `<img src="${photoUrl(item.photoPath)}" data-path="${escapeHtmlForAttr(item.photoPath)}"
+                ? `<img loading="lazy" src="${photoUrl(item.photoPath)}" data-path="${escapeHtmlForAttr(item.photoPath)}"
                         alt="${escapeHtmlForAttr(item.questionText || 'Visit photo')}"
                         onclick="event.stopPropagation();openPhoto(this.src, this.alt, this.dataset.path)"
                         onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fas ${iconClass}'}))">`
@@ -8253,7 +8255,7 @@
             const key = aiRowKey({ kind: 'raised', id: a.id });
             const open = _aiOpenRows.has(key);
             const thumb = a.photoPath
-                ? `<img src="${photoUrl(a.photoPath)}" data-path="${escapeHtmlForAttr(a.photoPath)}"
+                ? `<img loading="lazy" src="${photoUrl(a.photoPath)}" data-path="${escapeHtmlForAttr(a.photoPath)}"
                         alt="${escapeHtmlForAttr(a.title)}"
                         onclick="event.stopPropagation();openPhoto(this.src, this.alt, this.dataset.path)"
                         onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-hand'}))">`
@@ -8397,7 +8399,7 @@
                         <span class="pw-msg" id="cmMsg"></span>
                     </div>
                 </div>`;
-            host.classList.add('show');
+            uiOpen(host);
         }
 
         async function submitComment(submissionId, questionId, itemId) {
@@ -8458,7 +8460,7 @@
                         <span class="pw-msg" id="cmMsg"></span>
                     </div>
                 </div>`;
-            host.classList.add('show');
+            uiOpen(host);
             setTimeout(() => { const t = document.getElementById('cmText'); if (t) t.focus(); }, 60);
         }
 
@@ -8495,27 +8497,27 @@
         }
 
         async function deleteRaisedComment(itemId, commentId) {
-            if (!confirm('Delete this comment?')) return;
+            if (!await uiConfirm('Delete this comment?', { ok: 'Delete', danger: true })) return;
             try {
                 const r = await fetch(
                     `/api/raised-items/${encodeURIComponent(itemId)}/comment/${encodeURIComponent(commentId)}`,
                     { method: 'DELETE' });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') { await loadRaisedItems(); renderActionItems(); }
-                else { alert(d.message || 'Could not delete the comment.'); }
-            } catch (e) { alert('Network error.'); }
+                else { uiAlert(d.message || 'Could not delete the comment.'); }
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         async function deleteComment(submissionId, questionId, commentId, itemId) {
-            if (!confirm('Delete this comment?')) return;
+            if (!await uiConfirm('Delete this comment?', { ok: 'Delete', danger: true })) return;
             try {
                 const r = await fetch(
                     `${commentUrl(submissionId, questionId, itemId)}/${encodeURIComponent(commentId)}`,
                     { method: 'DELETE' });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') { await loadInspections(); renderActionItems(); }
-                else { alert(d.message || 'Could not delete the comment.'); }
-            } catch (e) { alert('Network error.'); }
+                else { uiAlert(d.message || 'Could not delete the comment.'); }
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         function aiSetScope(scope) {
@@ -8548,7 +8550,7 @@
                         <span class="pw-msg" id="asMsg"></span>
                     </div>
                 </div>`;
-            host.classList.add('show');
+            uiOpen(host);
         }
 
         async function submitAddressStandard(submissionId, questionId) {
@@ -8581,7 +8583,7 @@
         }
 
         async function reopenStandard(submissionId, questionId) {
-            if (!confirm('Reopen this item? It will show as still needing attention.')) return;
+            if (!await uiConfirm('Reopen this item? It will show as still needing attention.', { ok: 'Reopen' })) return;
             try {
                 const r = await fetch(`/api/action-items/${encodeURIComponent(submissionId)}/standard/${encodeURIComponent(questionId)}/resolve`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -8589,18 +8591,18 @@
                 });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') { await loadInspections(); renderActionItems(); }
-                else { alert(d.message || 'Could not reopen.'); }
-            } catch (e) { alert('Network error.'); }
+                else { uiAlert(d.message || 'Could not reopen.'); }
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         async function resolveActionItem(submissionId, itemId) {
-            const note = prompt('Mark this as done.\n\nOptional: what was fixed?');
+            const note = await uiPrompt('Mark this as done.\n\nOptional: what was fixed?');
             if (note === null) return;   // cancelled
             await sendActionItemResolution(submissionId, itemId, true, note);
         }
 
         async function reopenActionItem(submissionId, itemId) {
-            if (!confirm('Reopen this action item?')) return;
+            if (!await uiConfirm('Reopen this action item?', { ok: 'Reopen' })) return;
             await sendActionItemResolution(submissionId, itemId, false, '');
         }
 
@@ -8614,8 +8616,8 @@
                 if (r.ok && d.status === 'success') {
                     await loadInspections();
                     renderActionItems();
-                } else { alert(d.message || 'Could not update this action item.'); }
-            } catch (e) { alert('Network error.'); }
+                } else { uiAlert(d.message || 'Could not update this action item.'); }
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         // ============================================================
@@ -8899,7 +8901,7 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ item_id: itemId, done })
             }).then(r => { if (!r.ok) throw new Error(); })
-              .catch(() => { if (it) { it.done = !done; renderMoveInDetail(); } alert('Could not save. Try again.'); });
+              .catch(() => { if (it) { it.done = !done; renderMoveInDetail(); } uiAlert('Could not save. Try again.'); });
         }
 
         function saveMoveInField(mvId, itemId, field, value) {
@@ -8909,7 +8911,7 @@
             fetch(`/api/moveins/${mvId}/item`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ item_id: itemId, [field]: value })
-            }).catch(() => alert('Could not save. Try again.'));
+            }).catch(() => uiAlert('Could not save. Try again.'));
         }
 
         async function uploadMoveInAttachment(mvId, itemId, input) {
@@ -8921,9 +8923,9 @@
             try {
                 const r = await fetch(`/api/moveins/${mvId}/item/attachment`, { method: 'POST', body: fd });
                 const d = await r.json();
-                if (!r.ok || d.status !== 'success') { alert(d.message || 'Upload failed.'); return; }
+                if (!r.ok || d.status !== 'success') { uiAlert(d.message || 'Upload failed.'); return; }
                 openMoveIn(mvId);
-            } catch (e) { alert('Upload failed.'); }
+            } catch (e) { uiAlert('Upload failed.'); }
         }
 
         async function setMoveInStatus(mvId, status) {
@@ -8935,11 +8937,11 @@
                 const d = await r.json();
                 if (!r.ok || d.status !== 'success') {
                     const miss = (d.blockers || []).map(b => '• ' + b.text).join('\n');
-                    alert((d.message || 'Could not update status.') + (miss ? '\n\n' + miss : ''));
+                    uiAlert((d.message || 'Could not update status.') + (miss ? '\n\n' + miss : ''));
                     return;
                 }
                 openMoveIn(mvId);
-            } catch (e) { alert('Could not update status.'); }
+            } catch (e) { uiAlert('Could not update status.'); }
         }
 
         // The target date decides the move-in's day on the calendar, so the
@@ -8957,24 +8959,24 @@
         async function saveMoveInDate() {
             const mv = (currentMoveInData || {}).movein || {};
             const target_date = document.getElementById('miDateInput').value;
-            if (!target_date) { alert('Pick a date.'); return; }
+            if (!target_date) { uiAlert('Pick a date.'); return; }
             try {
                 const r = await fetch(`/api/moveins/${encodeURIComponent(mv.id)}/date`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ target_date })
                 });
                 const d = await r.json();
-                if (!r.ok || d.status !== 'success') { alert(d.message || 'Could not change the date.'); return; }
+                if (!r.ok || d.status !== 'success') { uiAlert(d.message || 'Could not change the date.'); return; }
                 openMoveIn(mv.id);
-            } catch (e) { alert('Could not change the date.'); }
+            } catch (e) { uiAlert('Could not change the date.'); }
         }
 
         async function deleteMoveIn(mvId, name) {
-            if (!confirm(`Delete the move-in for ${name}? This cannot be undone.`)) return;
+            if (!await uiConfirm(`Delete the move-in for ${name}? This cannot be undone.`, { ok: 'Delete', danger: true })) return;
             try {
                 await fetch('/api/moveins/' + mvId, { method: 'DELETE' });
                 showView('move-ins');
-            } catch (e) { alert('Could not delete.'); }
+            } catch (e) { uiAlert('Could not delete.'); }
         }
 
         // ---- New move-in modal ----
@@ -8985,9 +8987,9 @@
             document.getElementById('miCommunity').value = '';
             document.getElementById('miDate').value = '';
             document.getElementById('miMsg').textContent = '';
-            document.getElementById('moveInModal').classList.add('show');
+            uiOpen(document.getElementById('moveInModal'));
         }
-        function closeNewMoveIn() { document.getElementById('moveInModal').classList.remove('show'); }
+        function closeNewMoveIn() { uiClose(document.getElementById('moveInModal')); }
         async function submitNewMoveIn() {
             const resident = document.getElementById('miResident').value.trim();
             const community = document.getElementById('miCommunity').value.trim();
@@ -9023,9 +9025,9 @@
             } catch (e) { tmplDraft = []; }
             tmplRender();
             document.getElementById('tmplMsg').textContent = '';
-            document.getElementById('moveInTemplateModal').classList.add('show');
+            uiOpen(document.getElementById('moveInTemplateModal'));
         }
-        function closeMoveInTemplate() { document.getElementById('moveInTemplateModal').classList.remove('show'); }
+        function closeMoveInTemplate() { uiClose(document.getElementById('moveInTemplateModal')); }
         function tmplRender() {
             const host = document.getElementById('tmplPhases');
             host.innerHTML = tmplDraft.map((ph, pi) => `
@@ -9541,13 +9543,13 @@
             } catch (e) { msg.textContent = 'Network error.'; msg.classList.add('error'); }
         }
         async function deleteResource(id, title) {
-            if (!confirm('Remove “' + title + '”?')) return;
+            if (!await uiConfirm('Remove “' + title + '”?', { ok: 'Remove', danger: true })) return;
             try {
                 const r = await fetch('/api/resources/' + encodeURIComponent(id), { method: 'DELETE' });
                 const d = await r.json();
                 if (r.ok && d.status === 'success') renderResources();
-                else alert(d.message || 'Could not remove.');
-            } catch (e) { alert('Network error.'); }
+                else uiAlert(d.message || 'Could not remove.');
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         // Load regional structure (leadership + community assignments)
@@ -9951,7 +9953,7 @@
                     </div>
                     <div id="apResult" class="usermgmt-credential" style="display:none;margin-top:16px;"></div>
                 </div>`;
-            modal.classList.add('show');
+            uiOpen(modal);
             fillPositionSelect('apPosition');
             apOnRoleChange();
         }
@@ -10136,7 +10138,7 @@
             if (!row) return;
             row.querySelector('.pe-atlerts-email').textContent = p.atlerts_email;
             row.querySelector('.pe-atlerts-unlink').onclick = async () => {
-                if (!confirm(`Unlink ${p.atlerts_email}?\n\n${p.name} will sign in with their password until they link it again.`)) return;
+                if (!await uiConfirm(`Unlink ${p.atlerts_email}?\n\n${p.name} will sign in with their password until they link it again.`, { ok: 'Unlink', danger: true })) return;
                 const r = await fetch(`/api/people/${encodeURIComponent(p.username)}/atlerts-link`, { method: 'DELETE' });
                 const d = await r.json().catch(() => ({}));
                 if (r.ok && d.status === 'success') {
@@ -10144,7 +10146,7 @@
                     row.remove();
                     await refreshPeopleViews();
                 } else {
-                    alert(d.message || 'Could not unlink it.');
+                    uiAlert(d.message || 'Could not unlink it.');
                 }
             };
         }
@@ -10250,7 +10252,7 @@
                                    Removes their access${isRoster ? ' and takes them off the roster' : ''}. Visits they already submitted are kept.</div>`}
                     </div>
                 </div>`;
-            modal.classList.add('show');
+            uiOpen(modal);
             wirePersonAtlerts(p);
             wirePersonExtras(p);
             const pePosition = document.getElementById('pePosition');
@@ -10307,7 +10309,7 @@
         }
 
         async function deletePerson(username, name) {
-            if (!confirm(`Remove ${name} (@${username})?\n\nThey will lose access to Atlas Excellence.\nVisits they already submitted are kept.`)) return;
+            if (!await uiConfirm(`Remove ${name} (@${username})?\n\nThey will lose access to Atlas Excellence.\nVisits they already submitted are kept.`, { ok: 'Remove', danger: true })) return;
             try {
                 const r = await fetch(`/api/people/${encodeURIComponent(username)}`, { method: 'DELETE' });
                 const d = await r.json();
@@ -10316,9 +10318,9 @@
                     await refreshPeopleViews();
                     await loadRegions();
                 } else {
-                    alert(d.message || 'Could not remove this person.');
+                    uiAlert(d.message || 'Could not remove this person.');
                 }
-            } catch (e) { alert('Network error.'); }
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         /* Changing somebody's sign-in name.
@@ -10470,7 +10472,7 @@
         }
 
         async function peopleResetPassword(username) {
-            if (!confirm(`Reset the password for @${username}?\n\nThey'll get a temporary password and must choose a new one at next sign-in.`)) return;
+            if (!await uiConfirm(`Reset the password for @${username}?\n\nThey'll get a temporary password and must choose a new one at next sign-in.`, { ok: 'Reset password', danger: true })) return;
             try {
                 const r = await fetch('/api/admin/reset-password', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -10483,10 +10485,10 @@
                         : (d.email
                             ? `\n\n⚠ Could not email it to ${d.email} — share it with them directly.\nReason: ${d.reason || 'unknown'}`
                             : `\n\n⚠ No email on file — share this with them directly. (Add their email with the pencil so future resets are emailed automatically.)`);
-                    alert(`Temporary password for ${d.display_name}:\n\n${d.password}\n\nThey'll be asked to set their own password at sign-in.${sent}`);
+                    uiAlert(`Temporary password for ${d.display_name}:\n\n${d.password}\n\nThey'll be asked to set their own password at sign-in.${sent}`);
                     refreshPeopleViews();
-                } else { alert(d.message || 'Could not reset the password.'); }
-            } catch (e) { alert('Network error.'); }
+                } else { uiAlert(d.message || 'Could not reset the password.'); }
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         /* Who runs this community, or a visible gap when nobody does.
@@ -10755,11 +10757,11 @@
                     await loadRegions();
                     renderRegions();
                 } else {
-                    alert(data.message || 'Action failed. Please try again.');
+                    uiAlert(data.message || 'Action failed. Please try again.');
                 }
             } catch (e) {
                 console.error('Region action error:', e);
-                alert('Error: ' + e.message);
+                uiAlert('Error: ' + e.message);
             }
         }
 
@@ -10767,16 +10769,16 @@
             regionAction('/api/regions/assign', { community: name, region_id: regionId });
         }
 
-        function renameRegion(regionId) {
+        async function renameRegion(regionId) {
             const r = (regions || []).find(x => x.id === regionId);
             const current = r ? (r.name || '') : '';
-            const name = (prompt('Rename region:', current) || '').trim();
+            const name = (await uiPrompt('Rename region:', current) || '').trim();
             if (!name || name === current) return;
             regionAction('/api/regions/rename', { region_id: regionId, name: name });
         }
 
-        function deleteCommunity(name) {
-            if (confirm(`Remove "${name}" from the regional structure?`)) {
+        async function deleteCommunity(name) {
+            if (await uiConfirm(`Remove "${name}" from the regional structure?`, { ok: 'Remove', danger: true })) {
                 regionAction('/api/regions/remove-community', { community: name });
             }
         }
@@ -10803,11 +10805,11 @@
                     await loadRegions();
                     renderRegions();
                 } else {
-                    alert(data.message || 'Action failed. Please try again.');
+                    uiAlert(data.message || 'Action failed. Please try again.');
                 }
             } catch (e) {
                 console.error('Leader action error:', e);
-                alert('Error: ' + e.message);
+                uiAlert('Error: ' + e.message);
             }
         }
         function editLeader(regionId, index) {
@@ -10821,11 +10823,11 @@
             const name = g(`leaderName_${regionId}_${index}`).trim();
             const role = g(`leaderRole_${regionId}_${index}`).trim();
             const email = g(`leaderEmail_${regionId}_${index}`).trim();
-            if (!name) { alert('Leader name is required'); return; }
+            if (!name) { uiAlert('Leader name is required'); return; }
             leaderAction({ action: 'update', region_id: regionId, index: index, name, role, email });
         }
-        function deleteLeader(regionId, index) {
-            if (confirm('Remove this leadership member?')) {
+        async function deleteLeader(regionId, index) {
+            if (await uiConfirm('Remove this leadership member?', { ok: 'Remove', danger: true })) {
                 leaderAction({ action: 'delete', region_id: regionId, index: index });
             }
         }
@@ -10898,7 +10900,7 @@
             const isCorpTarget = region.kind === 'corporate';
             const person = (alPeopleCache || []).find(p => p.username === username) || {};
             const from = person.scope || person.role || 'their current place';
-            if (!confirm(`Move ${name} to ${region.name}?\n\nThey're currently: ${from}.\nTheir login and password stay the same.`)) return;
+            if (!await uiConfirm(`Move ${name} to ${region.name}?\n\nThey're currently: ${from}.\nTheir login and password stay the same.`, { ok: 'Move' })) return;
             try {
                 const r = await fetch(`/api/people/${encodeURIComponent(username)}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -10915,8 +10917,8 @@
                     alPeopleCache = null;      // roster changed
                     await loadRegions();
                     renderRegions();
-                } else { alert(d.message || 'Could not move this person.'); }
-            } catch (e) { alert('Network error.'); }
+                } else { uiAlert(d.message || 'Could not move this person.'); }
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         // ---- Drag & drop leaders between regions / reorder ----
@@ -10998,11 +11000,11 @@
                     await loadRegions();
                     renderRegions();
                 } else {
-                    alert(data.message || 'Failed to upload photo');
+                    uiAlert(data.message || 'Failed to upload photo');
                 }
             } catch (e) {
                 console.error('Leader photo upload error:', e);
-                alert('Error uploading photo');
+                uiAlert('Error uploading photo');
             }
         }
 
@@ -11111,11 +11113,11 @@
                 if (resp.ok && data.status === 'success') {
                     renderSettings();
                 } else {
-                    alert(data.message || 'Failed to upload photo');
+                    uiAlert(data.message || 'Failed to upload photo');
                 }
             } catch (e) {
                 console.error('Photo upload error:', e);
-                alert('Error uploading photo. Please try again.');
+                uiAlert('Error uploading photo. Please try again.');
             }
         }
 
@@ -11142,11 +11144,11 @@
                     loadUserInfo();   // refresh sidebar name
                     renderSettings(); // refresh profile
                 } else {
-                    alert('Failed to update name');
+                    uiAlert('Failed to update name');
                 }
             } catch (e) {
                 console.error('Name update error:', e);
-                alert('Error updating name');
+                uiAlert('Error updating name');
             }
         }
 
@@ -11587,7 +11589,7 @@
             const emailEl = row.querySelector('.sub-email');
             const email = (emailEl.dataset.original || emailEl.value || '').trim();
             if (!email) { row.remove(); updateSubCount(); return; }
-            if (!confirm(`Remove ${email} from the notification lists?`)) return;
+            if (!await uiConfirm(`Remove ${email} from the notification lists?`, { ok: 'Remove', danger: true })) return;
             try {
                 const r = await fetch('/api/settings/email/recipient', {
                     method: 'DELETE', headers: { 'Content-Type': 'application/json' },
@@ -11598,9 +11600,9 @@
                     await loadEmailSettings();
                     await loadNotificationSummary();
                 } else {
-                    alert(d.message || 'Could not remove that subscriber.');
+                    uiAlert(d.message || 'Could not remove that subscriber.');
                 }
-            } catch (e) { alert('Network error.'); }
+            } catch (e) { uiAlert('Network error.'); }
         }
 
         // Save ONE subscriber immediately, without touching the others.
@@ -11810,9 +11812,9 @@
                 return;
             }
             const n = (allSubmissions || []).length;
-            if (!confirm(`This permanently deletes ${n} visit${n === 1 ? '' : 's'} and cannot be undone from the app.\n\n` +
+            if (!await uiConfirm(`This permanently deletes ${n} visit${n === 1 ? '' : 's'} and cannot be undone from the app.\n\n` +
                          `Scores, action items and recent activity will be cleared.\nUsers, regions, standards and move-ins are kept.\n\n` +
-                         `A backup is saved on the server. Continue?`)) {
+                         `A backup is saved on the server. Continue?`, { ok: 'Delete', danger: true })) {
                 return;
             }
             try {
@@ -12213,7 +12215,7 @@
                     return `
                         <div class="card" data-type="maintenance" data-condition="${item.condition.toLowerCase().replace(' ', '-')}">
                             <div class="card-image">
-                                <img src="${item.image}" alt="${item.community}">
+                                <img loading="lazy" src="${item.image}" alt="${item.community}">
                             </div>
                             <div class="card-content">
                                 <div class="card-title">${item.community}</div>
@@ -12229,7 +12231,7 @@
                 } else {
                     // Render inspection response card
                     const photoHtml = item.photoPath 
-                        ? `<img src="${photoUrl(item.photoPath)}" alt="Visit photo" onerror="this.style.display='none'">`
+                        ? `<img loading="lazy" src="${photoUrl(item.photoPath)}" alt="Visit photo" onerror="this.style.display='none'">`
                         : '<i class="fas fa-clipboard-check"></i>';
                     
                     return `
@@ -12288,8 +12290,8 @@
             }
         }
 
-        function logout() {
-            if (confirm('Logout?')) window.location.href = '/logout';
+        async function logout() {
+            if (await uiConfirm('Logout?', { ok: 'Log out' })) window.location.href = '/logout';
         }
 
         // Mobile menu toggle functionality
@@ -12366,6 +12368,9 @@
                 // first — otherwise Escape would shut the panel underneath it
                 // and leave the photo floating over nothing.
                 if (photoIsOpen()) { closePhoto(); return; }
+                // Any other dialog on top (a person, a comment box, a
+                // question) is closed by the browser; the panel stays.
+                if (document.querySelector('dialog[open]')) return;
                 const panel = document.getElementById('slidePanel');
                 if (panel && panel.classList.contains('show')) {
                     closeSlidePanel();

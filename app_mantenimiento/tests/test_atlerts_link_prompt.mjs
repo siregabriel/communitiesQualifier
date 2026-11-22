@@ -10,6 +10,7 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const login = fs.readFileSync(new URL('../templates/login.html', import.meta.url), 'utf8');
 const dash = fs.readFileSync(new URL('../templates/dashboard.html', import.meta.url), 'utf8');
@@ -35,6 +36,7 @@ const veilMarkup = login.slice(login.indexOf('<div id="atlertsLink"'),
 function loginWorld({ ok: serverOk = true } = {}) {
   const dom = new JSDOM(`<!doctype html><body>${veilMarkup}</body>`, { runScripts: 'outside-only' });
   const w = dom.window;
+  installDialogs(w);
   w.eval(`
     var calls = [], went = null, alerted = null;
     function fetch(url, opts) {
@@ -42,7 +44,8 @@ function loginWorld({ ok: serverOk = true } = {}) {
       return Promise.resolve({ ok: ${serverOk}, json: () => Promise.resolve(
         ${serverOk} ? { status: 'success' } : { status: 'error', message: 'already linked to someone else' }) });
     }
-    function alert(m) { alerted = m; }
+    var dismiss = null;
+    function uiAlert(m) { alerted = m; return new Promise(r => { dismiss = r; }); }
     ${grab(login, 'offerAtlertsLink')}
   `);
   // window.location cannot be assigned in jsdom; watch the href setter instead.
@@ -104,6 +107,10 @@ console.log('\nA refusal is said, and they are still let in');
   w.document.getElementById('alYes').onclick();
   await tick(); await tick();
   ok(/already linked/.test(w.alerted || ''), 'the reason is shown — otherwise Atlerts keeps failing and nobody knows why');
+  // The message is a dialog now, not a blocking alert(): leaving the page
+  // before it is closed would take it away unread.
+  ok(w.went === null, 'the page waits until the message is closed');
+  w.dismiss(); await tick();
   ok(w.went === '/', 'and they are signed in anyway');
 }
 
@@ -123,10 +130,11 @@ console.log('\nUnlink in People');
     <div id="peAtlertsRow"><b class="pe-atlerts-email"></b>
       <button class="pe-atlerts-unlink"></button></div></body>`, { runScripts: 'outside-only' });
   const w = dom.window;
+  installDialogs(w);
   w.eval(`
     var calls = [], refreshed = 0;
-    function confirm() { return true; }
-    function alert() {}
+    async function uiConfirm() { return true; }
+    async function uiAlert() {}
     function fetch(url, opts) { calls.push({ url, method: opts.method });
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'success' }) }); }
     async function refreshPeopleViews() { refreshed++; }

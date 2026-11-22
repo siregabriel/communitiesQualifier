@@ -133,7 +133,7 @@ console.log('\nA draft can be thrown away by the person who owns it');
 {
   ok(/function discardDraft\(/.test(html), 'there is a way to discard one');
   ok(/onclick="discardDraft\(\)"/.test(html), 'reachable from the page');
-  ok(/confirm\(/.test(html.slice(html.indexOf('async function discardDraft'))),
+  ok(/uiConfirm\(/.test(html.slice(html.indexOf('async function discardDraft'))),
      'it asks first, because it cannot be undone');
   ok(/draftDelete\(dk\)/.test(html.slice(html.indexOf('async function discardDraft'))),
      'and actually clears the stored draft');

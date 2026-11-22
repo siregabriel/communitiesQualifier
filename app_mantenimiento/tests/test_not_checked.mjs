@@ -10,6 +10,7 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/reporte.html', import.meta.url), 'utf8');
 
@@ -46,9 +47,10 @@ function boot() {
   const w = dom.window;
   const sent = [];
   const alerts = [];
-  w.alert = (m) => alerts.push(String(m));
+
+  installDialogs(w);  w.uiAlert = async (m) => alerts.push(String(m));
   const confirms = [];
-  w.confirm = (m) => { confirms.push(String(m)); return true; };
+  w.uiConfirm = async (m) => { confirms.push(String(m)); return true; };
   w.Element.prototype.scrollIntoView = function () {};
   w.scrollTo = function () {};
   // jsdom has neither; the page asks both while sending.

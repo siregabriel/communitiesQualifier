@@ -17,6 +17,7 @@
 
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const html = fs.readFileSync(new URL('../templates/reporte.html', import.meta.url), 'utf8');
 
@@ -49,8 +50,9 @@ function boot({ confirmAnswer = true } = {}) {
     </body></html>`, { runScripts: 'dangerously', url: 'http://localhost/reporte?community=' + encodeURIComponent(COMMUNITY) });
   const w = dom.window;
   const alerts = [], confirms = [], posts = [];
-  w.alert = (m) => alerts.push(String(m));
-  w.confirm = (m) => { confirms.push(String(m)); return confirmAnswer; };
+
+  installDialogs(w);  w.uiAlert = async (m) => alerts.push(String(m));
+  w.uiConfirm = async (m) => { confirms.push(String(m)); return confirmAnswer; };
   w.console.error = () => {};
   w.console.warn = () => {};
   w.Element.prototype.scrollIntoView = function () {};

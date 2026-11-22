@@ -18,6 +18,7 @@ import { JSDOM } from 'jsdom';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { installDialogs } from './helpers/dialogs.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE = path.join(HERE, '..', 'templates', 'dashboard.html');
@@ -36,10 +37,11 @@ if (js.length < 10000) {
 // that if it is ever restructured this fails loudly instead of quietly testing
 // a placeholder.
 function elementFromTemplate(id) {
-  const start = html_src.indexOf(`<div id="${id}"`);
-  if (start === -1) throw new Error(`#${id} is no longer in the template`);
+  const open = new RegExp(`<(div|dialog) id="${id}"`).exec(html_src);
+  if (!open) throw new Error(`#${id} is no longer in the template`);
+  const start = open.index;
   let depth = 0, i = start;
-  const tag = /<(\/?)div\b[^>]*?(\/?)>/g;
+  const tag = new RegExp(`<(\\/?)${open[1]}\\b[^>]*?(\\/?)>`, 'g');
   tag.lastIndex = start;
   let m;
   while ((m = tag.exec(html_src))) {
@@ -85,6 +87,7 @@ w.HTMLElement.prototype.scrollTo = function () {};
 let failures = 0;
 const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) failures++; };
 
+installDialogs(w);
 const el = w.document.createElement('script');
 el.textContent = js;
 try { w.document.body.appendChild(el); } catch (e) {
@@ -331,19 +334,19 @@ console.log('\nPhoto viewer');
 const lb = realGet('photoLightbox');
 const lbImg = realGet('plbImg');
 ok(!!lb && !!lbImg, 'the viewer markup is in the page');
-ok(!lb.classList.contains('show'), 'it starts closed');
+ok(lb.tagName === 'DIALOG' && !lb.hasAttribute('open'), 'it is a <dialog>, and starts closed');
 
 run(`openPhoto('/static/uploads/x/hallway.jpg', 'Tour Path is show time ready');`);
-ok(lb.classList.contains('show'), 'opening a photo shows it');
+ok(lb.hasAttribute('open'), 'opening a photo shows it');
 ok(lbImg.getAttribute('src').endsWith('hallway.jpg'), 'and loads that photo');
 ok(realGet('plbCap').textContent.includes('Tour Path'), 'the caption says which standard');
 ok(w.document.body.style.overflow === 'hidden', 'the page behind stops scrolling');
 
 console.log('Photo viewer — dismissing');
 run(`closePhoto({ target: { id: 'plbImg' } });`);
-ok(lb.classList.contains('show'), 'clicking the photo itself does not close it');
+ok(lb.hasAttribute('open'), 'clicking the photo itself does not close it');
 run(`closePhoto({ target: { id: 'photoLightbox' } });`);
-ok(!lb.classList.contains('show'), 'clicking the backdrop closes it');
+ok(!lb.hasAttribute('open'), 'clicking the backdrop closes it');
 ok(w.document.body.style.overflow === '', 'and scrolling is given back');
 ok(lbImg.getAttribute('src') === '', 'the image is released');
 
@@ -353,12 +356,45 @@ run(`window.__panelClosed = false; closeSlidePanel = () => { window.__panelClose
 run(`openPhoto('/static/uploads/x/a.jpg', 'a');`);
 const esc = new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
 w.document.dispatchEvent(esc);
-ok(!lb.classList.contains('show'), 'Escape closes the photo');
+ok(!lb.hasAttribute('open'), 'Escape closes the photo');
 ok(w.__panelClosed === false,
    'and leaves the panel underneath open — otherwise you lose your place');
 
 run(`openPhoto('', 'nothing');`);
-ok(!lb.classList.contains('show'), 'an empty path opens nothing at all');
+ok(!lb.hasAttribute('open'), 'an empty path opens nothing at all');
+
+console.log('Photo viewer — closed by the phone, not by us');
+// Android's back gesture closes a <dialog> without calling closePhoto().
+// The page must still get its scroll back, or it stays frozen.
+run(`openPhoto('/static/uploads/x/b.jpg', 'b');`);
+run(`uiClose(document.getElementById('photoLightbox'));`);
+ok(w.document.body.style.overflow === '', 'the page scrolls again');
+ok(lbImg.getAttribute('src') === '', 'and the photo is released');
+
+console.log('Escape with a dialog over the panel');
+// The person / comment box opens over the visit panel. Escape used to shut
+// both at once; now the browser closes the dialog and the panel stays.
+{
+  // The real querySelector: the stand-in above never answers null, and
+  // "is any dialog open?" depends on it doing so.
+  const standIn = w.document.querySelector;
+  w.document.querySelector = realQS;
+  const d = w.document.createElement('dialog');
+  w.document.body.appendChild(d);
+  run(`window.__panelClosed = false;`);
+  const panel = w.document.createElement('aside');
+  panel.id = 'slidePanel';
+  w.document.body.appendChild(panel);
+  panel.classList.add('show');
+  run(`uiOpen(document.querySelector('dialog:not(#photoLightbox)'));`);
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  ok(w.__panelClosed === false, 'the panel underneath stays open');
+  run(`uiClose(document.querySelector('dialog:not(#photoLightbox)'));`);
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  ok(w.__panelClosed === true, 'with no dialog open, Escape closes the panel as before');
+  d.remove(); panel.remove();
+  w.document.querySelector = standIn;
+}
 
 console.log('\nPhoto viewer — the markup actually survives being parsed');
 // A caption was being written straight into the onclick with JSON.stringify.
@@ -421,8 +457,11 @@ const holder = w.document.createElement('div');
 holder.innerHTML = panel;
 const shot = holder.querySelector('.talk-photo');
 ok(!!shot, 'a comment photo is shown');
+const threadShots = [...holder.querySelectorAll('.talk-photo')];
+ok(threadShots.length === 2 && threadShots.every(i => i.getAttribute('loading') === 'lazy'),
+   'the note photo and every comment photo wait until scrolled near: a thread can carry many');
 const strayAttrs = [...shot.attributes].map(a => a.name)
-  .filter(n => !['class','src','alt','style','onclick','onerror','data-path'].includes(n));
+  .filter(n => !['class','src','alt','style','onclick','onerror','data-path','loading'].includes(n));
 ok(strayAttrs.length === 0, `no attribute broke out of its quotes (${strayAttrs.join(', ')})`);
 ok(holder.querySelector('.talk-text').textContent.includes('"wonderful event"'),
    'quotes inside a note survive intact');
@@ -510,8 +549,9 @@ console.log('\nAction Items — findings and requests are told apart');
   ok(askRow.querySelector('.ail-title').textContent.includes('"worn"'),
      'quotes in the text survive');
   const strayAttrs = [...askRow.querySelector('.ail-thumb img').attributes].map(a => a.name)
-    .filter(n => !['src','data-path','alt','onclick','onerror'].includes(n));
+    .filter(n => !['src','data-path','alt','onclick','onerror','loading'].includes(n));
   ok(strayAttrs.length === 0, `nothing broke out of an attribute (${strayAttrs.join(', ')})`);
+  ok(askRow.querySelector('.ail-thumb img').getAttribute('loading') === 'lazy', 'Action Items thumbnails load as they come into view');
 }
 
 console.log('\nAction Items — one filter bar, not two');
