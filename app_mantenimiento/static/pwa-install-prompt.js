@@ -26,7 +26,7 @@ function showInstallPromotion() {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: #003366;
             color: white;
             border: none;
             padding: 12px 24px;
@@ -34,7 +34,7 @@ function showInstallPromotion() {
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+            box-shadow: 0 4px 12px rgba(0, 51, 102, 0.35);
             z-index: 9999;
             display: flex;
             align-items: center;
@@ -45,12 +45,12 @@ function showInstallPromotion() {
         
         installButton.addEventListener('mouseenter', () => {
             installButton.style.transform = 'translateY(-2px)';
-            installButton.style.boxShadow = '0 6px 16px rgba(76, 175, 80, 0.5)';
+            installButton.style.boxShadow = '0 6px 16px rgba(0, 51, 102, 0.45)';
         });
         
         installButton.addEventListener('mouseleave', () => {
             installButton.style.transform = 'translateY(0)';
-            installButton.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.4)';
+            installButton.style.boxShadow = '0 4px 12px rgba(0, 51, 102, 0.35)';
         });
         
         installButton.addEventListener('click', async () => {

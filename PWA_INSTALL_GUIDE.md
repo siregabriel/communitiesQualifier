@@ -68,9 +68,9 @@ Your Communities Qualifier app is now a **Progressive Web App**! This means user
 ### Files Added:
 - `/static/manifest.json` - App configuration (name, icons, colors)
 - `/static/service-worker.js` - Offline caching logic
-- `/static/icon-192.png` - Small app icon
-- `/static/icon-512.png` - Large app icon
-- `/static/icon.svg` - Vector icon (scalable)
+- `/static/icon-192.png`, `/static/icon-512.png` - App icons (manifest, "any")
+- `/static/icon-maskable-512.png` - Android's cropped icon (manifest, "maskable")
+- `/static/apple-touch-icon.png` - iPhone home screen icon (180x180, opaque)
 
 ### Updated Templates:
 - All HTML templates now include PWA meta tags
@@ -81,13 +81,13 @@ Your Communities Qualifier app is now a **Progressive Web App**! This means user
 
 ## 🎨 Customizing the App Icon
 
-The current icon is a simple "CQ" placeholder. To customize:
+The icons are built from `atlas-excellence-icon-logo.png` by
+`static/create_icons.py`. To change them:
 
-1. Create your own 512x512px PNG icon
-2. Replace `/app_mantenimiento/static/icon-512.png`
-3. Create a 192x192px version and replace `icon-192.png`
-4. Commit and push the changes
-5. Users will need to reinstall the app to see the new icon
+1. Replace the logo (or edit the sizes in the script)
+2. From `app_mantenimiento/static`, run `python3 create_icons.py` (needs Pillow)
+3. Commit and push the changes
+4. Users will need to remove and re-add the app to see the new icon
 
 ---
 
